@@ -81,3 +81,12 @@ Thumbs.db
 logs/
 *.tmp
 *.temp
+
+# ============================================================
+# Cloudflare / cloudflared
+# ============================================================
+cloudflared-windows-amd64.exe
+cloudflared-linux-amd64
+cloudflared-darwin-amd64
+cloudflared*.exe
+cloudflared*
