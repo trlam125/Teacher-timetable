@@ -1,6 +1,112 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quản lý tài khoản</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><header class="appbar"><b>Smart TKB</b><a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{user.name}}</span><a href="/logout">Đăng xuất</a></header>
-<main class="container"><div class="page-title"><div><h1>Quản lý tài khoản</h1><p>Tài khoản đăng ký mới có quyền user. Quản trị viên có thể nâng lên admin khi cần.</p></div></div>
-<div class="project-grid">{% for account in users %}<article class="project-card"><div><span class="pill">{{account.role}}</span><h3>{{account.name}}</h3><p>{{account.email}}</p></div>
-{% if account.role != 'teacher' %}<form method="post" action="/admin/users/{{account.id}}/role" class="row"><select name="role" {% if account.email == 'admin@gmail.com' %}disabled{% endif %}><option value="user" {% if account.role == 'user' %}selected{% endif %}>User</option><option value="admin" {% if account.role == 'admin' %}selected{% endif %}>Admin</option></select>{% if account.email != 'admin@gmail.com' %}<button class="btn">Cập nhật quyền</button>{% else %}<span class="muted">Quản trị chính</span>{% endif %}</form>{% else %}<p class="muted">Tài khoản giáo viên được quản lý trong từng bộ thời khóa biểu.</p>{% endif %}</article>{% endfor %}</div></main></body></html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quản lý tài khoản</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/auth-extra.css">
+</head>
+<body>
+  <header class="appbar">
+    <b>Smart TKB</b>
+    <a href="/projects">Bộ thời khóa biểu</a>
+    <span>Xin chào, {{user.name}}</span>
+    <a href="/logout">Đăng xuất</a>
+  </header>
+  <main class="container">
+    <div class="page-title">
+      <div>
+        <h1>Quản lý tài khoản</h1>
+        <p>Tài khoản tự đăng ký có thể được gắn với giáo viên, sửa thông tin hoặc xóa khi không còn dùng nữa.</p>
+      </div>
+    </div>
+    <div class="project-grid">
+      {% for account in users %}
+        <article class="project-card account-card">
+          <div>
+            {% if account.role == 'pending' %}
+              <span class="pill pending-pill">Chờ xác nhận</span>
+            {% elif account.role == 'teacher' %}
+              <span class="pill">Giáo viên</span>
+            {% else %}
+              <span class="pill approved-pill">Quản trị viên</span>
+            {% endif %}
+            <h3>{{account.name}}</h3>
+            <p>{{account.email}}</p>
+            {% if account.requested_teacher_name %}
+              <p class="muted">Tên giáo viên mong muốn: <b>{{account.requested_teacher_name}}</b></p>
+            {% endif %}
+          </div>
+
+          <details class="account-edit">
+            <summary>Chỉnh sửa thông tin</summary>
+            <form method="post" action="/admin/users/{{account.id}}/update" class="account-edit-form">
+              <label>Họ tên
+                <input name="name" value="{{account.name}}" required>
+              </label>
+              <label>Email
+                <input type="email" name="email" value="{{account.email}}" required>
+              </label>
+              <label>Tên giáo viên mong muốn
+                <input name="requested_teacher_name" value="{{account.requested_teacher_name or ''}}" placeholder="Ví dụ: Lê Minh Châu">
+              </label>
+              <label>Mật khẩu mới
+                <input type="password" name="password" minlength="6" placeholder="Để trống nếu không đổi">
+              </label>
+              <div class="row end">
+                <button class="btn">Lưu thay đổi</button>
+              </div>
+            </form>
+          </details>
+
+          {% if account.role == 'pending' %}
+            {% if available_teachers or (account.requested_teacher_name and managed_projects) %}
+              <form method="post" action="/admin/users/{{account.id}}/approve">
+                <label class="account-select-label">Gắn với giáo viên có sẵn (không bắt buộc)
+                  <select name="teacher_id">
+                    <option value="">Tạo mới từ tên giáo viên mong muốn</option>
+                    {% for teacher in available_teachers %}
+                      <option value="{{teacher.id}}">{{teacher.name}} — {{teacher.project_name}}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                {% if account.requested_teacher_name and managed_projects %}
+                  <label class="account-select-label">Bộ thời khóa biểu khi tạo giáo viên mới
+                    <select name="project_id">
+                      {% for project in managed_projects %}
+                        <option value="{{project.id}}">{{project.name}}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                {% endif %}
+                <button class="btn wide">Xác nhận tài khoản giáo viên</button>
+              </form>
+            {% else %}
+              <p class="muted">Cần có tên giáo viên mong muốn và ít nhất một bộ thời khóa biểu, hoặc một hồ sơ giáo viên có sẵn để xác nhận tài khoản.</p>
+            {% endif %}
+          {% elif account.role == 'teacher' and account.teacher_id in managed_teacher_ids %}
+            <form method="post" action="/admin/users/{{account.id}}/promote-admin">
+              <button class="btn ghost wide">Nâng lên quản trị viên</button>
+            </form>
+          {% elif account.role == 'teacher' %}
+            <p class="muted">Tài khoản giáo viên thuộc bộ thời khóa biểu khác.</p>
+          {% elif account.email == 'admin@gmail.com' %}
+            <p class="muted">Quản trị viên chính</p>
+          {% else %}
+            <p class="muted">Đã được xác nhận</p>
+          {% endif %}
+
+          {% if account.id != user.id and account.email != 'admin@gmail.com' %}
+            <form method="post" action="/admin/users/{{account.id}}/delete" onsubmit="return confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.');">
+              <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
+            </form>
+          {% else %}
+            <p class="muted">Tài khoản này không thể xóa từ giao diện.</p>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </main>
+</body>
+</html>

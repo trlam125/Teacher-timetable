@@ -1,0 +1,21 @@
+.success { background: #f0fdf4; color: #166534; }
+.auth-link { margin-top: -7px; text-align: right; }
+.pending-pill { margin-top: 22px; background: #fff7ed; color: #c2410c; }
+.approved-pill { background: #f0fdf4; color: #15803d; }
+.pending-logout { margin-top: 10px; }
+.captcha-box { margin: 18px 0; padding: 15px; border: 1px solid var(--line); border-radius: 10px; background: #f8fafc; }
+.captcha-box .check-label { display: flex; grid-template-columns: none; align-items: center; gap: 10px; margin: 0 0 12px; }
+.captcha-box .check-label input { width: 20px; height: 20px; margin: 0; }
+.captcha-box label:last-of-type { margin: 0; }
+.dev-reset-box { margin: 16px 0; padding: 14px; border: 1px solid #93c5fd; border-radius: 10px; background: #eff6ff; }
+.dev-reset-box p { font-size: 14px; color: var(--muted); }
+.account-select-label { display: grid; gap: 7px; margin: 12px 0; color: #344054; font-weight: 600; }
+.account-card { display: grid; gap: 14px; }
+.account-card > div:first-child p { margin-bottom: 4px; }
+.account-edit { border-top: 1px solid var(--line); padding-top: 12px; }
+.account-edit summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.account-edit-form { display: grid; gap: 12px; margin-top: 12px; }
+.account-edit-form label { display: grid; gap: 7px; font-weight: 600; color: #344054; }
+.account-edit-form input, .account-edit-form select { width: 100%; }
+.danger-btn { color: #b91c1c; border-color: #fecaca; }
+.danger-btn:hover { background: #fef2f2; }

@@ -5,15 +5,17 @@ import io
 import json
 import random
 import secrets
+import smtplib
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from itsdangerous import BadSignature, URLSafeSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeSerializer, URLSafeTimedSerializer
 import hashlib
 import hmac
 import os
@@ -60,8 +62,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(120), default="Giáo viên")
-    role: Mapped[str] = mapped_column(String(20), default="admin")
+    role: Mapped[str] = mapped_column(String(20), default="pending")
+    requested_teacher_name: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     teacher_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    reset_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    reset_token_expires_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
 class Project(Base):
     __tablename__ = "projects"
@@ -171,8 +176,26 @@ def migrate_schema():
             connection.exec_driver_sql(
                 "ALTER TABLE users ADD COLUMN teacher_id INTEGER"
             )
+        if "requested_teacher_name" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN requested_teacher_name VARCHAR(120)"
+            )
+        if "reset_token_hash" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN reset_token_hash VARCHAR(64)"
+            )
+        if "reset_token_expires_at" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN reset_token_expires_at VARCHAR(40)"
+            )
         connection.exec_driver_sql(
             "UPDATE users SET role='admin' WHERE role IS NULL OR role=''"
+        )
+        connection.exec_driver_sql(
+            "UPDATE users SET role='pending' WHERE role='user'"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'pending'"
         )
 
         # Bản demo cũ từng được tạo chỉ với một buổi. Khôi phục cả sáng và chiều.
@@ -205,12 +228,57 @@ class Passwords:
             return False
 pwd = Passwords()
 signer = URLSafeSerializer(SECRET_KEY, salt="session")
+reset_signer = URLSafeTimedSerializer(SECRET_KEY, salt="password-reset")
+captcha_signer = URLSafeTimedSerializer(SECRET_KEY, salt="forgot-password-captcha")
 
 app = FastAPI(title="Teacher Timetable")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
+RESET_TOKEN_TTL_SECONDS = 30 * 60
+
+def new_captcha() -> tuple[str, str]:
+    left = secrets.randbelow(8) + 2
+    right = secrets.randbelow(8) + 2
+    token = captcha_signer.dumps({"answer": left + right})
+    return f"{left} + {right} = ?", token
+
+def captcha_is_valid(token: str, answer: str) -> bool:
+    try:
+        data = captcha_signer.loads(token, max_age=10 * 60)
+        return hmac.compare_digest(str(data["answer"]), answer.strip())
+    except (BadSignature, SignatureExpired, KeyError, ValueError):
+        return False
+
+def send_password_reset_email(recipient: str, reset_url: str) -> bool:
+    smtp_host = os.getenv("SMTP_HOST")
+    if not smtp_host:
+        return False
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    smtp_from = os.getenv("SMTP_FROM", smtp_user or "no-reply@smart-tkb.local")
+    use_ssl = os.getenv("SMTP_SSL", "false").lower() in {"1", "true", "yes"}
+
+    message = EmailMessage()
+    message["Subject"] = "Đặt lại mật khẩu Smart TKB"
+    message["From"] = smtp_from
+    message["To"] = recipient
+    message.set_content(
+        "Bạn vừa yêu cầu đặt lại mật khẩu Smart TKB.\n\n"
+        f"Mở liên kết sau trong vòng 30 phút:\n{reset_url}\n\n"
+        "Nếu bạn không yêu cầu, hãy bỏ qua email này."
+    )
+
+    smtp_class = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    with smtp_class(smtp_host, smtp_port, timeout=15) as client:
+        if not use_ssl and os.getenv("SMTP_STARTTLS", "true").lower() in {"1", "true", "yes"}:
+            client.starttls()
+        if smtp_user:
+            client.login(smtp_user, smtp_password)
+        client.send_message(message)
+    return True
 
 def db_session():
     db = SessionLocal()
@@ -359,15 +427,162 @@ def register_page(request: Request):
     return templates.TemplateResponse("auth.html", {"request": request, "mode": "register", "error": None})
 
 @app.post("/register")
-def register(request: Request, name: str = Form(...), email: str = Form(...), password: str = Form(...), db: Session = Depends(db_session)):
+def register(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    teacher_name: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(db_session),
+):
+    name = name.strip()
     email = email.lower().strip()
+    teacher_name = teacher_name.strip()
+    if not name:
+        return templates.TemplateResponse("auth.html", {"request": request, "mode": "register", "error": "Họ tên tài khoản không được để trống"}, status_code=400)
+    if not teacher_name:
+        return templates.TemplateResponse("auth.html", {"request": request, "mode": "register", "error": "Tên giáo viên mong muốn không được để trống"}, status_code=400)
+    if len(password) < 6:
+        return templates.TemplateResponse("auth.html", {"request": request, "mode": "register", "error": "Mật khẩu phải có ít nhất 6 ký tự"}, status_code=400)
+    if not email or "@" not in email:
+        return templates.TemplateResponse("auth.html", {"request": request, "mode": "register", "error": "Email không hợp lệ"}, status_code=400)
     if db.scalar(select(User).where(User.email == email)):
         return templates.TemplateResponse("auth.html", {"request": request, "mode": "register", "error": "Email đã tồn tại"}, status_code=400)
-    user = User(name=name.strip(), email=email, password_hash=pwd.hash(password), role="user")
+    user = User(
+        name=name,
+        email=email,
+        requested_teacher_name=teacher_name,
+        password_hash=pwd.hash(password),
+        role="pending",
+    )
     db.add(user); db.commit()
     res = RedirectResponse("/account-pending", 303)
     res.set_cookie("session", signer.dumps({"uid": user.id}), httponly=True, samesite="lax")
     return res
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page(request: Request):
+    question, captcha_token = new_captcha()
+    return templates.TemplateResponse("forgot_password.html", {
+        "request": request,
+        "question": question,
+        "captcha_token": captcha_token,
+        "error": None,
+        "submitted": False,
+        "dev_reset_link": None,
+    })
+
+@app.post("/forgot-password", response_class=HTMLResponse)
+def forgot_password(
+    request: Request,
+    email: str = Form(...),
+    not_robot: Optional[str] = Form(None),
+    captcha_answer: str = Form(...),
+    captcha_token: str = Form(...),
+    db: Session = Depends(db_session),
+):
+    if not_robot != "yes" or not captcha_is_valid(captcha_token, captcha_answer):
+        question, fresh_token = new_captcha()
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request,
+            "question": question,
+            "captcha_token": fresh_token,
+            "error": "Xác minh Tôi không phải robot chưa đúng. Vui lòng thử lại.",
+            "submitted": False,
+            "dev_reset_link": None,
+        }, status_code=400)
+
+    account = db.scalar(select(User).where(User.email == email.lower().strip()))
+    dev_reset_link = None
+    if account:
+        nonce = secrets.token_urlsafe(32)
+        account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
+        account.reset_token_expires_at = (
+            datetime.now(timezone.utc) + timedelta(seconds=RESET_TOKEN_TTL_SECONDS)
+        ).isoformat()
+        db.commit()
+        token = reset_signer.dumps({"uid": account.id, "nonce": nonce})
+        reset_url = f"{str(request.base_url).rstrip('/')}/reset-password/{token}"
+        try:
+            email_sent = send_password_reset_email(account.email, reset_url)
+        except (OSError, smtplib.SMTPException):
+            email_sent = False
+        if not email_sent and not os.getenv("SMTP_HOST"):
+            dev_reset_link = reset_url
+
+    question, fresh_token = new_captcha()
+    return templates.TemplateResponse("forgot_password.html", {
+        "request": request,
+        "question": question,
+        "captcha_token": fresh_token,
+        "error": None,
+        "submitted": True,
+        "dev_reset_link": dev_reset_link,
+    })
+
+def reset_account_for_token(token: str, db: Session) -> Optional[User]:
+    try:
+        data = reset_signer.loads(token, max_age=RESET_TOKEN_TTL_SECONDS)
+        account = db.get(User, int(data["uid"]))
+        nonce_hash = hashlib.sha256(str(data["nonce"]).encode()).hexdigest()
+        if not account or not account.reset_token_hash:
+            return None
+        if not hmac.compare_digest(account.reset_token_hash, nonce_hash):
+            return None
+        expires_at = datetime.fromisoformat(account.reset_token_expires_at or "")
+        if expires_at < datetime.now(timezone.utc):
+            return None
+        return account
+    except (BadSignature, SignatureExpired, KeyError, ValueError, TypeError):
+        return None
+
+@app.get("/reset-password/{token}", response_class=HTMLResponse)
+def reset_password_page(token: str, request: Request, db: Session = Depends(db_session)):
+    account = reset_account_for_token(token, db)
+    return templates.TemplateResponse("reset_password.html", {
+        "request": request,
+        "token": token,
+        "valid": account is not None,
+        "error": None,
+        "success": False,
+    }, status_code=200 if account else 400)
+
+@app.post("/reset-password/{token}", response_class=HTMLResponse)
+def reset_password(
+    token: str,
+    request: Request,
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+    db: Session = Depends(db_session),
+):
+    account = reset_account_for_token(token, db)
+    error = None
+    if not account:
+        error = "Liên kết đặt lại mật khẩu không hợp lệ, đã hết hạn hoặc đã được sử dụng."
+    elif len(password) < 6:
+        error = "Mật khẩu mới phải có ít nhất 6 ký tự."
+    elif password != password_confirm:
+        error = "Hai lần nhập mật khẩu không khớp."
+    if error:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request,
+            "token": token,
+            "valid": account is not None,
+            "error": error,
+            "success": False,
+        }, status_code=400)
+
+    account.password_hash = pwd.hash(password)
+    account.reset_token_hash = None
+    account.reset_token_expires_at = None
+    db.commit()
+    return templates.TemplateResponse("reset_password.html", {
+        "request": request,
+        "token": token,
+        "valid": False,
+        "error": None,
+        "success": True,
+    })
 
 @app.get("/logout")
 def logout():
@@ -386,12 +601,44 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
     if user.role != "admin":
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
     users = db.scalars(select(User).order_by(User.id.asc())).all()
-    return templates.TemplateResponse("users.html", {"request": request, "user": user, "users": users})
+    projects = db.scalars(select(Project).where(Project.owner_id == user.id)).all()
+    project_names = {project.id: project.name for project in projects}
+    project_ids = list(project_names)
+    assigned_teacher_ids = set(db.scalars(
+        select(User.teacher_id).where(User.role == "teacher", User.teacher_id.is_not(None))
+    ).all())
+    available_teachers = []
+    managed_teacher_ids = set()
+    if project_ids:
+        teachers = db.scalars(
+            select(Teacher).where(Teacher.project_id.in_(project_ids)).order_by(Teacher.name.asc())
+        ).all()
+        managed_teacher_ids = {teacher.id for teacher in teachers}
+        available_teachers = [
+            {
+                "id": teacher.id,
+                "name": teacher.name,
+                "project_name": project_names[teacher.project_id],
+            }
+            for teacher in teachers
+            if teacher.id not in assigned_teacher_ids
+        ]
+    return templates.TemplateResponse("users.html", {
+        "request": request,
+        "user": user,
+        "users": users,
+        "available_teachers": available_teachers,
+        "managed_projects": projects,
+        "managed_teacher_ids": managed_teacher_ids,
+    })
 
-@app.post("/admin/users/{account_id}/role")
-def update_user_role(
+@app.post("/admin/users/{account_id}/update")
+def update_account(
     account_id: int,
-    role: str = Form(...),
+    name: str = Form(...),
+    email: str = Form(...),
+    requested_teacher_name: str = Form(""),
+    password: str = Form(""),
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
@@ -400,13 +647,123 @@ def update_user_role(
     account = db.get(User, account_id)
     if not account:
         raise HTTPException(404, "Không tìm thấy tài khoản")
-    if account.email == "admin@gmail.com" and role != "admin":
-        raise HTTPException(400, "Không thể hạ quyền tài khoản quản trị chính")
-    if account.role == "teacher":
-        raise HTTPException(400, "Hãy quản lý quyền giáo viên tại mục Tài khoản giáo viên")
-    if role not in {"user", "admin"}:
-        raise HTTPException(400, "Quyền không hợp lệ")
-    account.role = role
+    name = name.strip()
+    email = email.lower().strip()
+    if not name:
+        raise HTTPException(400, "Họ tên không được để trống")
+    if not email or "@" not in email:
+        raise HTTPException(400, "Email không hợp lệ")
+    conflict = db.scalar(select(User).where(User.email == email, User.id != account.id))
+    if conflict:
+        raise HTTPException(409, "Email đã được dùng cho tài khoản khác")
+    account.name = name
+    account.email = email
+    account.requested_teacher_name = requested_teacher_name.strip() or None
+    if password.strip():
+        if len(password.strip()) < 6:
+            raise HTTPException(400, "Mật khẩu mới phải có ít nhất 6 ký tự")
+        account.password_hash = pwd.hash(password.strip())
+    db.commit()
+    return RedirectResponse("/admin/users", 303)
+
+@app.post("/admin/users/{account_id}/delete")
+def delete_account(
+    account_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "admin":
+        raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
+    account = db.get(User, account_id)
+    if not account:
+        raise HTTPException(404, "Không tìm thấy tài khoản")
+    if account.id == user.id:
+        raise HTTPException(400, "Không thể xóa chính tài khoản đang đăng nhập")
+    if db.scalar(select(Project.id).where(Project.owner_id == account.id)) is not None:
+        raise HTTPException(400, "Không thể xóa tài khoản đang sở hữu bộ thời khóa biểu")
+    db.delete(account)
+    db.commit()
+    return RedirectResponse("/admin/users", 303)
+
+@app.post("/admin/users/{account_id}/approve")
+def approve_teacher_account(
+    account_id: int,
+    teacher_id: str = Form(""),
+    project_id: str = Form(""),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "admin":
+        raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
+    account = db.get(User, account_id)
+    if not account:
+        raise HTTPException(404, "Không tìm thấy tài khoản")
+    if account.role != "pending":
+        raise HTTPException(400, "Chỉ có thể duyệt tài khoản đang chờ")
+    teacher_id = teacher_id.strip()
+    project_id = project_id.strip()
+    if teacher_id and not teacher_id.isdigit():
+        raise HTTPException(400, "Giáo viên được chọn không hợp lệ")
+    if project_id and not project_id.isdigit():
+        raise HTTPException(400, "Bộ thời khóa biểu được chọn không hợp lệ")
+    selected_teacher_id = int(teacher_id) if teacher_id else None
+    selected_project_id = int(project_id) if project_id else None
+    if selected_teacher_id is not None:
+        teacher = db.get(Teacher, selected_teacher_id)
+        project = db.get(Project, teacher.project_id) if teacher else None
+        if not teacher or not project or project.owner_id != user.id:
+            raise HTTPException(400, "Giáo viên không hợp lệ hoặc không thuộc bộ thời khóa biểu của bạn")
+        existing_account = db.scalar(
+            select(User).where(User.role == "teacher", User.teacher_id == teacher.id)
+        )
+        if existing_account:
+            raise HTTPException(400, "Giáo viên này đã có tài khoản")
+    else:
+        teacher_name = (account.requested_teacher_name or "").strip()
+        if not teacher_name:
+            raise HTTPException(400, "Hãy nhập tên giáo viên mong muốn hoặc chọn một giáo viên có sẵn")
+        managed_projects = db.scalars(
+            select(Project).where(Project.owner_id == user.id).order_by(Project.id.asc())
+        ).all()
+        if selected_project_id is None and len(managed_projects) == 1:
+            project = managed_projects[0]
+        else:
+            project = db.get(Project, selected_project_id) if selected_project_id is not None else None
+        if not project or project.owner_id != user.id:
+            raise HTTPException(400, "Hãy chọn bộ thời khóa biểu để tạo hồ sơ giáo viên mới")
+        short_name = teacher_name.split()[-1][:30]
+        teacher = Teacher(
+            project_id=project.id,
+            name=teacher_name,
+            short_name=short_name,
+            max_periods_day=5,
+        )
+        db.add(teacher)
+        db.flush()
+    account.role = "teacher"
+    account.teacher_id = teacher.id
+    db.commit()
+    return RedirectResponse("/admin/users", 303)
+
+@app.post("/admin/users/{account_id}/promote-admin")
+def promote_teacher_to_admin(
+    account_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "admin":
+        raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
+    account = db.get(User, account_id)
+    if not account:
+        raise HTTPException(404, "Không tìm thấy tài khoản")
+    if account.role != "teacher":
+        raise HTTPException(400, "Chỉ có thể nâng tài khoản giáo viên lên quản trị viên")
+    teacher = db.get(Teacher, account.teacher_id) if account.teacher_id else None
+    project = db.get(Project, teacher.project_id) if teacher else None
+    if not teacher or not project or project.owner_id != user.id:
+        raise HTTPException(403, "Bạn không quản lý tài khoản giáo viên này")
+    account.role = "admin"
+    account.teacher_id = None
     db.commit()
     return RedirectResponse("/admin/users", 303)
 
@@ -497,6 +854,100 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
         obj=Assignment(project_id=pid,class_id=school_class.id,subject_id=subject.id,teacher_id=teacher.id,periods_per_week=periods,consecutive_pattern=pattern)
     else: raise HTTPException(400,"Loại dữ liệu không hợp lệ")
     db.add(obj); db.commit(); return {"ok":True,"id":obj.id}
+
+@app.put("/api/projects/{pid}/entity/{typ}/{eid}")
+def update_entity(
+    pid: int,
+    typ: str,
+    eid: int,
+    payload: EntityIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    project = get_project(pid, user, db)
+    if payload.type != typ or typ not in {"subject", "teacher", "class"}:
+        raise HTTPException(400, "Loại dữ liệu không hợp lệ")
+    model = {"subject": Subject, "teacher": Teacher, "class": SchoolClass}[typ]
+    obj = db.get(model, eid)
+    if not obj or obj.project_id != pid:
+        raise HTTPException(404, "Không tìm thấy dữ liệu cần sửa")
+    d = payload.data
+    name = str(d.get("name", "")).strip()
+    if not name:
+        raise HTTPException(400, "Tên không được để trống")
+    if typ == "subject":
+        short_name = str(d.get("short_name", "")).strip()
+        if not short_name:
+            raise HTTPException(400, "Tên rút gọn không được để trống")
+        try:
+            new_max_consecutive = max(1, min(int(d.get("max_consecutive", 1)), 4))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, "Số tiết liên tiếp tối đa phải là số từ 1 đến 4") from exc
+        assignments = db.scalars(select(Assignment).where(Assignment.subject_id == obj.id)).all()
+        incompatible = []
+        for assignment in assignments:
+            if (assignment.consecutive_pattern or "").strip():
+                try:
+                    groups = consecutive_groups(assignment.consecutive_pattern, assignment.periods_per_week)
+                except ValueError:
+                    incompatible.append(assignment.id)
+                    continue
+                if any(group > new_max_consecutive for group in groups):
+                    incompatible.append(assignment.id)
+                    continue
+            lesson_slots = db.scalars(select(Lesson.slot).where(Lesson.assignment_id == assignment.id)).all()
+            periods_by_session = defaultdict(list)
+            periods_per_day = project.sessions * project.periods_per_session
+            for slot in lesson_slots:
+                day = slot // periods_per_day
+                inside_day = slot % periods_per_day
+                session = inside_day // project.periods_per_session
+                period = inside_day % project.periods_per_session
+                periods_by_session[(day, session)].append(period)
+            schedule_exceeds_limit = False
+            for periods in periods_by_session.values():
+                longest = run = 0
+                previous = None
+                for period in sorted(set(periods)):
+                    run = run + 1 if previous is not None and period == previous + 1 else 1
+                    longest = max(longest, run)
+                    previous = period
+                if longest > new_max_consecutive:
+                    schedule_exceeds_limit = True
+                    break
+            if schedule_exceeds_limit:
+                incompatible.append(assignment.id)
+        if incompatible:
+            raise HTTPException(
+                409,
+                f"Không thể giảm còn {new_max_consecutive} tiết liên tiếp vì có {len(incompatible)} phân công đang dùng cụm dài hơn. Hãy sửa cách chia tiết của các phân công đó trước.",
+            )
+        obj.name = name
+        obj.short_name = short_name[:20]
+        obj.max_consecutive = new_max_consecutive
+    elif typ == "teacher":
+        short_name = str(d.get("short_name", "")).strip()
+        if not short_name:
+            raise HTTPException(400, "Tên ngắn không được để trống")
+        department_id = d.get("department_id") or None
+        if department_id:
+            department = db.get(Department, int(department_id))
+            if not department or department.project_id != pid:
+                raise HTTPException(400, "Tổ chuyên môn không hợp lệ")
+        obj.name = name
+        obj.short_name = short_name[:30]
+        obj.department_id = department_id
+        obj.max_periods_day = max(1, min(int(d.get("max_periods_day", 5)), 10))
+    else:
+        grade_id = d.get("grade_id") or None
+        if grade_id:
+            grade = db.get(Grade, int(grade_id))
+            if not grade or grade.project_id != pid:
+                raise HTTPException(400, "Khối lớp không hợp lệ")
+        obj.name = name
+        obj.grade_id = grade_id
+    db.commit()
+    return {"ok": True}
 
 class AssignmentUpdateIn(BaseModel):
     periods_per_week: int
@@ -1360,21 +1811,26 @@ def ensure_demo():
     try:
         # Giữ nguyên tài khoản demo và dữ liệu cũ, chỉ đổi email đăng nhập.
         user=db.scalar(select(User).where(User.email=="admin@gmail.com"))
+        existing_admin=db.scalar(select(User).where(User.role=="admin").order_by(User.id.asc()))
         old_user=db.scalar(select(User).where(User.email=="demo@school.vn"))
-        if user is None and old_user is not None:
+        if existing_admin is not None:
+            # Quản trị viên có thể đổi email. Không tạo hoặc nâng quyền một
+            # tài khoản admin@gmail.com khác khi hệ thống đã có quản trị viên.
+            user=existing_admin
+        elif user is not None:
+            user.role="admin"
+            db.commit()
+        elif old_user is not None:
             old_user.email="admin@gmail.com"
             old_user.name="Quản trị viên"
             old_user.role="admin"
             user=old_user
             db.commit()
-        elif user is None:
+        else:
             user=User(email="admin@gmail.com",name="Quản trị viên",password_hash=pwd.hash("123456"),role="admin")
             db.add(user);db.commit()
             p=Project(owner_id=user.id,name="TKB học kỳ I",school_name="THPT Demo",days=6,sessions=2,periods_per_session=5)
             db.add(p);db.commit();seed_project(db,p)
-        else:
-            user.role="admin"
-            db.commit()
     finally:
         db.close()
 ensure_demo()

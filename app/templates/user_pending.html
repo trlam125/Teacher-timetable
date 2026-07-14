@@ -1,3 +1,25 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tài khoản đang chờ cấp quyền</title><link rel="stylesheet" href="/static/style.css"></head>
-<body class="auth-page"><main class="auth-card"><a class="brand" href="/">Smart TKB</a><h1>Tài khoản user</h1><p>Xin chào <b>{{user.name}}</b>.</p><p class="muted">Tài khoản đã được tạo thành công nhưng chưa có quyền quản trị. Quản trị viên có thể nâng quyền tài khoản này trong mục <b>Quản lý tài khoản</b>.</p><a class="btn wide" href="/logout">Đăng xuất</a></main></body></html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tài khoản đang chờ xác nhận</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/auth-extra.css">
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <a class="brand" href="/">Smart TKB</a>
+    <span class="pill pending-pill">Đang chờ xác nhận</span>
+    <h1>Yêu cầu đã được gửi</h1>
+    <p>Xin chào <b>{{user.name}}</b>.</p>
+    {% if user.requested_teacher_name %}
+      <p class="muted">Tên giáo viên mong muốn: <b>{{user.requested_teacher_name}}</b>.</p>
+    {% endif %}
+    <p class="muted">Quản trị viên cần xác nhận và gắn tài khoản với hồ sơ giáo viên trước khi bạn có thể xem lịch dạy.</p>
+    <p class="muted">Sau khi được duyệt, hãy tải lại trang này để tiếp tục.</p>
+    <a class="btn wide" href="/account-pending">Kiểm tra lại</a>
+    <a class="btn ghost wide pending-logout" href="/logout">Đăng xuất</a>
+  </main>
+</body>
+</html>
