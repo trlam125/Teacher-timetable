@@ -53,3 +53,13 @@
 *.gz        binary
 *.whl       binary
 *.pyc       binary
+*.exe       binary
+
+# ============================================================
+# Cloudflare tunnel binaries — never commit, never export
+# ============================================================
+cloudflared*                export-ignore
+cloudflared*.exe            export-ignore
+cloudflared-windows-amd64.exe export-ignore
+cloudflared-linux-amd64     export-ignore
+cloudflared-darwin-amd64    export-ignore
