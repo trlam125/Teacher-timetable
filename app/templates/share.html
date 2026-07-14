@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{p.name}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="appbar">
+    <b>Smart TKB · Chế độ chia sẻ</b>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="/login">Đăng nhập giáo viên</a>
+    <button class="btn" onclick="window.print()">In / PDF</button>
+  </header>
+  <main class="container">
+    <div class="section-head">
+      <div><h1>{{p.name}}</h1><p>{{p.school_name}}</p></div>
+      <div class="row">
+        <select id="viewType"><option value="class">Xem theo lớp</option><option value="teacher">Xem theo giáo viên</option><option value="overview">Xem tổng quát</option></select>
+        <select id="viewEntity"></select>
+      </div>
+    </div>
+    <div id="scheduleGrid"></div>
+  </main>
+  <script>window.PROJECT_ID={{p.id}};window.INIT_DATA={{data|tojson}};window.READ_ONLY=true;</script>
+  <script src="/static/app.js?v=5"></script>
+</body>
+</html>

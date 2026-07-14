@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lịch dạy · {{teacher.name}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/preferences.css?v=1">
+</head>
+<body>
+  <header class="appbar">
+    <b>Smart TKB · Cổng giáo viên</b>
+    <div><strong>{{teacher.name}}</strong><small>{{p.school_name}}</small></div>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="/teacher/account">Tài khoản của tôi</a>
+    <a class="btn ghost" href="/logout">Đăng xuất</a>
+  </header>
+  <main class="container preference-page">
+    <div class="section-head">
+      <div><h1>Lịch dạy của tôi</h1><p>{{p.name}}</p></div>
+      <div class="row">
+        <a class="btn" href="/preferences/{{p.share_token}}">Gửi / sửa nguyện vọng</a>
+        <button class="btn ghost" onclick="window.print()">In / PDF</button>
+      </div>
+    </div>
+    <div class="panel">
+      <select id="viewType" hidden><option value="teacher">Xem theo giáo viên</option></select>
+      <select id="viewEntity" hidden></select>
+      <div id="scheduleGrid"></div>
+    </div>
+
+    <div class="section-head teacher-preference-heading"><div><h2>Nguyện vọng đã gửi</h2><p>Theo dõi trạng thái duyệt từ quản trị viên.</p></div></div>
+    {% if preferences %}
+      <div class="preference-list">
+      {% for item in preferences %}
+        <article class="preference-card">
+          <div class="preference-card-head">
+            <div><h3>Gửi lúc {{item.created_at|replace('T',' ')}}</h3></div>
+            <span class="status status-{{item.status}}">{{{'pending':'Chờ duyệt','accepted':'Đang áp dụng','rejected':'Đã từ chối','superseded':'Đã thay thế'}.get(item.status,item.status)}}</span>
+          </div>
+          {% if item.note %}<p class="preference-note">{{item.note}}</p>{% endif %}
+        </article>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">Bạn chưa gửi nguyện vọng nào.</div>
+    {% endif %}
+  </main>
+  <script>window.PROJECT_ID={{p.id}};window.INIT_DATA={{data|tojson}};window.READ_ONLY=true;</script>
+  <script src="/static/app.js?v=4"></script>
+</body>
+</html>

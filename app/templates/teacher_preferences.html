@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hòm thư nguyện vọng · {{p.name}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/preferences.css?v=1">
+</head>
+<body>
+  <header class="appbar">
+    <b>Smart TKB · Hòm thư giáo viên</b>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="/teacher">Lịch dạy của tôi</a>
+  </header>
+  <main class="container preference-page">
+    <div class="section-head">
+      <div>
+        <h1>Đề xuất lịch dạy mong muốn</h1>
+        <p>{{p.school_name}} · {{p.name}}</p>
+      </div>
+    </div>
+    <form id="preferenceForm" class="panel preference-form">
+      <label>Giáo viên bộ môn
+        <select id="teacherId" required>
+          <option value="{{teacher.id}}" selected>{{teacher.name}}</option>
+        </select>
+      </label>
+
+      <div class="preference-legend">
+        <span><i class="preferred-dot"></i> Tiết mong muốn</span>
+        <span><i class="blocked-dot"></i> Tiết cần tránh</span>
+      </div>
+
+      <h2>Tiết mong muốn</h2>
+      <p class="muted">Đánh dấu các tiết thuận tiện. Đây là ưu tiên mềm, hệ thống sẽ cố gắng đáp ứng khi không xung đột.</p>
+      <div class="preference-grid" style="grid-template-columns:90px repeat({{p.days}},minmax(86px,1fr))">
+        <div class="cell head">Tiết</div>
+        {% for day in range(p.days) %}<div class="cell head">{{days[day]}}</div>{% endfor %}
+        {% for session in range(p.sessions) %}
+          {% for period in range(p.periods_per_session) %}
+            <div class="cell period">{% if p.sessions > 1 %}{{'S' if session == 0 else 'C'}} {% endif %}{{period + 1}}</div>
+            {% for day in range(p.days) %}
+              <button type="button" class="cell preference-cell" data-kind="preferred" data-slot="{{day * (p.sessions * p.periods_per_session) + session * p.periods_per_session + period}}"></button>
+            {% endfor %}
+          {% endfor %}
+        {% endfor %}
+      </div>
+
+      <h2>Tiết cần tránh</h2>
+      <p class="muted">Các tiết được duyệt ở đây sẽ trở thành ràng buộc cứng và không được dùng để xếp lịch.</p>
+      <div class="preference-grid" style="grid-template-columns:90px repeat({{p.days}},minmax(86px,1fr))">
+        <div class="cell head">Tiết</div>
+        {% for day in range(p.days) %}<div class="cell head">{{days[day]}}</div>{% endfor %}
+        {% for session in range(p.sessions) %}
+          {% for period in range(p.periods_per_session) %}
+            <div class="cell period">{% if p.sessions > 1 %}{{'S' if session == 0 else 'C'}} {% endif %}{{period + 1}}</div>
+            {% for day in range(p.days) %}
+              <button type="button" class="cell preference-cell" data-kind="unavailable" data-slot="{{day * (p.sessions * p.periods_per_session) + session * p.periods_per_session + period}}"></button>
+            {% endfor %}
+          {% endfor %}
+        {% endfor %}
+      </div>
+
+      <label>Ghi chú
+        <textarea id="preferenceNote" rows="4" maxlength="1000" placeholder="Ví dụ: ưu tiên dạy buổi sáng vì buổi chiều phụ trách câu lạc bộ."></textarea>
+      </label>
+      <div class="row end">
+        <button class="btn ghost" id="cancelPreference" type="button">Hủy</button>
+        <button class="btn" type="submit">Gửi nguyện vọng</button>
+      </div>
+      <div id="preferenceMessage" class="alert" hidden></div>
+    </form>
+  </main>
+  <script>
+    document.querySelector('#cancelPreference').addEventListener('click', () => {
+      location.href = '/teacher';
+    });
+    document.querySelectorAll('.preference-cell').forEach(cell => {
+      cell.addEventListener('click', () => cell.classList.toggle(cell.dataset.kind === 'preferred' ? 'preferred' : 'blocked'));
+    });
+    document.querySelector('#preferenceForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const teacherId = Number(document.querySelector('#teacherId').value);
+      if (!teacherId) return;
+      const slots = kind => [...document.querySelectorAll(`[data-kind="${kind}"].${kind === 'preferred' ? 'preferred' : 'blocked'}`)].map(cell => Number(cell.dataset.slot));
+      const response = await fetch('/api/preferences/{{p.share_token}}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({teacher_id: teacherId, preferred_slots: slots('preferred'), unavailable_slots: slots('unavailable'), note: document.querySelector('#preferenceNote').value})
+      });
+      const result = await response.json();
+      const message = document.querySelector('#preferenceMessage');
+      message.hidden = false;
+      message.className = `alert ${response.ok ? 'success' : 'error'}`;
+      message.textContent = result.message || result.detail || 'Không thể gửi nguyện vọng.';
+    });
+  </script>
+</body>
+</html>

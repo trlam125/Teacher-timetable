@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tài khoản của tôi</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/preferences.css?v=1">
+</head>
+<body>
+  <header class="appbar">
+    <b>Smart TKB · Cổng giáo viên</b>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="/teacher">Quay lại lịch dạy</a>
+    <a class="btn ghost" href="/logout">Đăng xuất</a>
+  </header>
+  <main class="container account-page">
+    <div class="section-head">
+      <div>
+        <h1>Tài khoản của tôi</h1>
+        <p>{{teacher.name}} · {{p.school_name}}</p>
+      </div>
+    </div>
+    <form class="panel account-form" method="post">
+      {% if error %}<div class="alert error">{{error}}</div>{% endif %}
+      {% if success %}<div class="alert success">{{success}}</div>{% endif %}
+
+      <h2>Thông tin đăng nhập</h2>
+      <label>Email
+        <input type="email" name="email" value="{{user.email}}" required>
+      </label>
+
+      <h2>Đổi mật khẩu</h2>
+      <p class="muted">Để trống hai ô mật khẩu mới nếu bạn chỉ muốn đổi email.</p>
+      <label>Mật khẩu mới
+        <input type="password" name="new_password" minlength="6" autocomplete="new-password">
+      </label>
+      <label>Xác nhận mật khẩu mới
+        <input type="password" name="confirm_password" minlength="6" autocomplete="new-password">
+      </label>
+
+      <h2>Xác nhận thay đổi</h2>
+      <label>Mật khẩu hiện tại
+        <input type="password" name="current_password" autocomplete="current-password" required>
+      </label>
+      <div class="row end">
+        <a class="btn ghost" href="/teacher">Hủy</a>
+        <button class="btn" type="submit">Lưu thay đổi</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

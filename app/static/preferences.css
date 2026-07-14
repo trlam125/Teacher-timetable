@@ -1,0 +1,64 @@
+.muted{color:var(--muted)}
+.success{background:#ecfdf3;color:#067647}
+.preference-page{max-width:1250px}
+.preference-form{display:grid;gap:18px}
+.preference-form>label{display:grid;gap:8px;font-weight:700}
+.preference-form textarea{font:inherit;padding:12px;border:1px solid #d0d5dd;border-radius:9px;resize:vertical}
+.preference-form h2{margin:12px 0 -10px}
+.preference-form p{margin:0}
+.preference-legend{display:flex;gap:22px;flex-wrap:wrap;color:var(--muted)}
+.preference-legend span{display:flex;align-items:center;gap:8px}
+.preference-legend i{width:18px;height:18px;border-radius:5px;display:inline-block}
+.preferred-dot,.preference-cell.preferred{background:#dcfce7!important;border-color:#4ade80!important}
+.blocked-dot{background:#fee2e2}
+.preference-grid{display:grid;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto}
+.preference-cell{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;cursor:pointer}
+.preference-cell:hover{background:#eff6ff}
+.preference-list{display:grid;gap:16px}
+.account-heading,.teacher-preference-heading{margin-top:34px}
+.account-page{max-width:760px}
+.account-form{display:grid;gap:14px}
+.account-form h2{margin:12px 0 0}
+.account-form>label{display:grid;gap:7px;font-weight:700}
+.account-form input{font:inherit;padding:11px 12px;border:1px solid #d0d5dd;border-radius:9px}
+.overview-timetable .cell.available{display:flex;flex-direction:column;gap:5px;min-height:110px}
+.lesson.lesson-overview{height:auto;min-height:48px;flex:0 0 auto}
+.coverage-warning{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:15px 17px;margin-bottom:16px;border:1px solid #fdb022;background:#fffaeb;border-radius:12px;color:#7a2e0e}
+.coverage-warning p{margin:5px 0 8px}
+.manual-tray-panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:16px;margin-bottom:18px}
+.manual-tray-head{display:flex;justify-content:space-between;align-items:center;gap:18px}
+.manual-tray-panel h2{margin:0 0 4px;font-size:18px}
+.manual-tray-panel p{margin:0;color:var(--muted)}
+.unscheduled-tray{display:flex;gap:10px;overflow:auto;min-height:82px;margin-top:13px;padding:10px;border:1px dashed #98a2b3;border-radius:10px;background:#f8fafc}
+.tray-lesson{min-width:190px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 11px;border:1px solid #93c5fd;border-radius:9px;background:#dbeafe;cursor:grab}
+.tray-lesson b,.tray-lesson small{display:block}
+.tray-lesson small{margin-top:3px;color:#475467}
+.tray-lesson>span{white-space:nowrap;padding:4px 7px;border-radius:999px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800}
+.tray-complete{margin:auto;color:#067647;font-weight:700}
+.scheduled-assignment-tray{margin-top:14px}
+.scheduled-label{margin-bottom:8px;color:var(--muted);font-size:13px;font-weight:700}
+.scheduled-cards{display:flex;gap:9px;overflow:auto;padding-bottom:4px}
+.scheduled-assignment{min-width:190px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;border:1px solid #a6f4c5;border-radius:9px;background:#ecfdf3;cursor:grab}
+.scheduled-assignment b,.scheduled-assignment small{display:block}
+.scheduled-assignment small{margin-top:3px;color:#475467}
+.scheduled-assignment>span{white-space:nowrap;font-size:12px;font-weight:800;color:#067647}
+.tray-drop-hint{min-width:270px;display:grid;place-items:center;padding:10px;border:1px dashed #667085;border-radius:8px;color:#475467;text-align:center;font-size:13px}
+.lesson{position:relative}
+.lesson-remove{position:absolute;right:4px;top:3px;width:21px;height:21px;border:0;border-radius:50%;background:rgba(255,255,255,.85);color:#b42318;cursor:pointer;font-weight:900;line-height:19px}
+.assignment-summary{display:grid;gap:4px;padding:12px;background:#eff6ff;border-radius:9px}
+@media(max-width:700px){.coverage-warning,.manual-tray-head{align-items:flex-start;flex-direction:column}.tray-lesson,.scheduled-assignment{min-width:170px}}
+.preference-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 8px 25px rgba(16,24,40,.05)}
+.preference-card-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.preference-card-head h3{margin:0 0 5px}
+.preference-card-head small{color:var(--muted)}
+.status{padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;background:#f2f4f7;color:#475467}
+.status-pending{background:#fffaeb;color:#b54708}
+.status-accepted{background:#ecfdf3;color:#067647}
+.status-rejected{background:#fef3f2;color:#b42318}
+.preference-detail{display:grid;gap:8px;margin-top:16px}
+.slot-chips{display:flex;gap:7px;flex-wrap:wrap}
+.slot-chip{padding:6px 9px;border-radius:8px;font-size:13px;font-weight:700}
+.slot-chip.preferred{background:#dcfce7;color:#166534}
+.slot-chip.blocked{background:#fee2e2;color:#991b1b}
+.preference-note{padding:12px;background:#f8fafc;border-radius:9px;white-space:pre-wrap}
+@media(max-width:700px){.preference-grid{font-size:12px}.preference-grid .cell{min-height:58px;padding:4px}.preference-card-head{align-items:flex-start;flex-direction:column}}

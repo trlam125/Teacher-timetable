@@ -1,0 +1,55 @@
+# ============================================================
+# Default behavior: auto-detect text files and normalize
+# line endings to LF in the repository (CRLF on checkout
+# for Windows is handled per-rule below).
+# ============================================================
+* text=auto eol=lf
+
+# ============================================================
+# Source code — always LF
+# ============================================================
+*.py        text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.ts        text eol=lf
+*.json      text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.toml      text eol=lf
+*.md        text eol=lf
+*.txt       text eol=lf
+*.cfg       text eol=lf
+*.ini       text eol=lf
+*.env       text eol=lf
+
+# ============================================================
+# Shell scripts
+# ============================================================
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# Windows scripts — keep CRLF so they run correctly on Windows
+*.ps1       text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# ============================================================
+# Binary files — no diff, no line-ending conversion
+# ============================================================
+*.db        binary
+*.sqlite    binary
+*.sqlite3   binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.svg       binary
+*.pdf       binary
+*.zip       binary
+*.tar       binary
+*.gz        binary
+*.whl       binary
+*.pyc       binary
