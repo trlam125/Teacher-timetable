@@ -7,14 +7,14 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body class="auth-page">
-  <form class="auth-card" method="post">
+  <form class="auth-card" method="post" autocomplete="off">
     <a class="brand" href="/">Smart TKB</a>
     <h1>{{'Đăng nhập' if mode=='login' else 'Tạo tài khoản user'}}</h1>
     {% if mode=='login' %}<p class="muted">Hệ thống tự chuyển đến đúng cổng quản trị hoặc cổng giáo viên theo quyền tài khoản.</p>{% endif %}
     {% if error %}<div class="alert error">{{error}}</div>{% endif %}
     {% if mode=='register' %}<label>Họ tên<input name="name" required></label>{% endif %}
-    <label>Email<input type="email" name="email" value="{{'admin@gmail.com' if mode=='login' else ''}}" required></label>
-    <label>Mật khẩu<input type="password" name="password" value="{{'123456' if mode=='login' else ''}}" minlength="6" required></label>
+    <label>Email<input type="email" name="email" autocomplete="off" required></label>
+    <label>Mật khẩu<input type="password" name="password" autocomplete="off" minlength="6" required></label>
     <button class="btn wide">{{'Đăng nhập' if mode=='login' else 'Đăng ký tài khoản'}}</button>
     {% if mode=='login' %}
       <p>Chưa có tài khoản? <a href="/register">Đăng ký user</a></p>

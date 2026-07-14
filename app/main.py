@@ -72,6 +72,7 @@ class Project(Base):
     days: Mapped[int] = mapped_column(Integer, default=6)
     sessions: Mapped[int] = mapped_column(Integer, default=2)
     periods_per_session: Mapped[int] = mapped_column(Integer, default=5)
+    blocked_slots_json: Mapped[str] = mapped_column(Text, default="[]")
     share_token: Mapped[str] = mapped_column(String(64), unique=True, default=lambda: secrets.token_urlsafe(16))
     created_at: Mapped[str] = mapped_column(String(40), default=lambda: datetime.now().isoformat(timespec="seconds"))
 
@@ -176,6 +177,11 @@ def migrate_schema():
 
         # Bản demo cũ từng được tạo chỉ với một buổi. Khôi phục cả sáng và chiều.
         if "projects" in inspector.get_table_names():
+            project_columns = {column["name"] for column in inspector.get_columns("projects")}
+            if "blocked_slots_json" not in project_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE projects ADD COLUMN blocked_slots_json TEXT NOT NULL DEFAULT '[]'"
+                )
             connection.exec_driver_sql(
                 "UPDATE projects SET sessions=2 "
                 "WHERE name='TKB học kỳ I' AND school_name='THPT Demo' AND sessions=1"
@@ -273,6 +279,35 @@ def normalized_assignment_pattern(pattern:str,total_periods:int,subject:Subject)
 def valid_slots(project: Project, slots: list[int] | set[int]):
     maximum = project.days * project.sessions * project.periods_per_session
     return sorted({int(slot) for slot in slots if 0 <= int(slot) < maximum})
+
+def assignment_pattern_matches(project:Project,assignment:Assignment,slots:list[int] | set[int]):
+    """Kiểm tra các cụm tiết thực tế có đúng mẫu đã khai báo hay không."""
+    if not (assignment.consecutive_pattern or "").strip():
+        return True
+    try:
+        expected=sorted(consecutive_groups(assignment.consecutive_pattern,assignment.periods_per_week))
+    except ValueError:
+        return False
+    if len(slots)!=assignment.periods_per_week:
+        return False
+    ppd=project.sessions*project.periods_per_session
+    groups=defaultdict(list)
+    for slot in sorted(set(slots)):
+        day=slot//ppd
+        inside=slot%ppd
+        session=inside//project.periods_per_session
+        period=inside%project.periods_per_session
+        groups[(day,session)].append(period)
+    actual=[]
+    for periods in groups.values():
+        run=1
+        for left,right in zip(periods,periods[1:]):
+            if right==left+1:
+                run+=1
+            else:
+                actual.append(run);run=1
+        actual.append(run)
+    return sorted(actual)==expected
 
 def accepted_teacher_preferences(db: Session, project_id: int):
     rows = db.scalars(
@@ -394,7 +429,7 @@ def create_project(name: str = Form(...), school_name: str = Form(...), days: in
 @app.post("/projects/{pid}/clone")
 def clone_project(pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)):
     src = get_project(pid,user,db)
-    p = Project(owner_id=user.id,name=src.name+" (bản sao)",school_name=src.school_name,days=src.days,sessions=src.sessions,periods_per_session=src.periods_per_session)
+    p = Project(owner_id=user.id,name=src.name+" (bản sao)",school_name=src.school_name,days=src.days,sessions=src.sessions,periods_per_session=src.periods_per_session,blocked_slots_json=src.blocked_slots_json)
     db.add(p); db.flush()
     maps = {"dep":{},"sub":{},"tea":{},"grade":{},"cls":{},"ass":{}}
     for x in db.scalars(select(Department).where(Department.project_id==pid)):
@@ -448,6 +483,14 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
         school_class=db.get(SchoolClass,int(d["class_id"])); subject=db.get(Subject,int(d["subject_id"])); teacher=db.get(Teacher,int(d["teacher_id"]))
         if not school_class or not subject or not teacher or any(x.project_id!=pid for x in (school_class,subject,teacher)):
             raise HTTPException(400,"Lớp, môn hoặc giáo viên không thuộc bộ thời khóa biểu")
+        duplicate=db.scalar(select(Assignment.id).where(
+            Assignment.project_id==pid,
+            Assignment.class_id==school_class.id,
+            Assignment.subject_id==subject.id,
+            Assignment.teacher_id==teacher.id,
+        ))
+        if duplicate is not None:
+            raise HTTPException(409,"Phân công lớp – môn – giáo viên này đã tồn tại")
         periods=max(1,min(int(d.get("periods_per_week",1)),40))
         try: pattern=normalized_assignment_pattern(d.get("consecutive_pattern",""),periods,subject)
         except ValueError as exc: raise HTTPException(400,str(exc)) from exc
@@ -516,6 +559,39 @@ def constraints(pid:int,payload:ConstraintIn,user:User=Depends(current_user),db:
     if not obj or obj.project_id!=pid: raise HTTPException(404)
     obj.unavailable_json=json.dumps(valid_slots(p,payload.slots));db.commit();return {"ok":True}
 
+class SessionLocksIn(BaseModel):
+    sessions: list[int] = Field(default_factory=list)
+    slots: list[int] = Field(default_factory=list)
+
+@app.post("/api/projects/{pid}/session-locks")
+def save_session_locks(pid:int,payload:SessionLocksIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
+    project=get_project(pid,user,db)
+    maximum=project.days*project.sessions
+    session_keys=sorted({int(value) for value in payload.sessions if 0<=int(value)<maximum})
+    blocked=[]
+    ppd=project.sessions*project.periods_per_session
+    for key in session_keys:
+        day=key//project.sessions
+        session=key%project.sessions
+        start=day*ppd+session*project.periods_per_session
+        blocked.extend(range(start,start+project.periods_per_session))
+    blocked=valid_slots(project,[*blocked,*payload.slots])
+    project.blocked_slots_json=json.dumps(blocked)
+    affected=db.scalars(select(Lesson).where(
+        Lesson.project_id==pid,
+        Lesson.slot.in_(blocked),
+    )).all() if blocked else []
+    fixed_affected=db.scalars(select(FixedLesson).where(
+        FixedLesson.project_id==pid,
+        FixedLesson.slot.in_(blocked),
+    )).all() if blocked else []
+    for lesson in affected:
+        db.delete(lesson)
+    for fixed_lesson in fixed_affected:
+        db.delete(fixed_lesson)
+    db.commit()
+    return {"ok":True,"sessions":session_keys,"removed":len(affected)}
+
 class FixedIn(BaseModel):
     assignment_id:int
     slot:int
@@ -526,6 +602,7 @@ def fixed(pid:int,payload:FixedIn,user:User=Depends(current_user),db:Session=Dep
     a=db.get(Assignment,payload.assignment_id)
     if not a or a.project_id!=pid: raise HTTPException(404)
     if payload.slot not in all_slots(p): raise HTTPException(400,"Ô thời khóa biểu không hợp lệ")
+    if payload.slot in parse_slots(p.blocked_slots_json): raise HTTPException(409,"Buổi này đang bị khóa")
     for existing in db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid,FixedLesson.assignment_id==a.id)).all():
         db.delete(existing)
     db.add(FixedLesson(project_id=pid,assignment_id=a.id,slot=payload.slot));db.commit();return {"ok":True}
@@ -535,6 +612,52 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
     p=get_project(pid,user,db)
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==pid)).all()
     existing=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
+    assignment_by_id={assignment.id:assignment for assignment in assignments}
+
+    # Rà lại lịch cũ trước mỗi lần xếp. Ràng buộc hoặc nguyện vọng có thể đã
+    # thay đổi sau khi lịch được tạo, vì vậy không được coi "đủ tiết" là hợp lệ.
+    invalid_lessons=[]
+    rebuild_assignment_ids=set()
+    for lesson in existing:
+        assignment=assignment_by_id.get(lesson.assignment_id)
+        if not assignment:
+            invalid_lessons.append(lesson)
+            continue
+        if lesson_slot_error(db,p,assignment,lesson.slot,lesson.id):
+            if (assignment.consecutive_pattern or "").strip():
+                rebuild_assignment_ids.add(assignment.id)
+            else:
+                invalid_lessons.append(lesson)
+
+    existing_by_assignment=defaultdict(list)
+    for lesson in existing:
+        existing_by_assignment[lesson.assignment_id].append(lesson)
+    for assignment in assignments:
+        lessons_for_assignment=existing_by_assignment[assignment.id]
+        if not (assignment.consecutive_pattern or "").strip() or not lessons_for_assignment:
+            continue
+        slots_for_assignment=[lesson.slot for lesson in lessons_for_assignment]
+        if len(slots_for_assignment)!=assignment.periods_per_week or not assignment_pattern_matches(p,assignment,slots_for_assignment):
+            rebuild_assignment_ids.add(assignment.id)
+
+    if rebuild_assignment_ids:
+        invalid_lessons.extend(
+            lesson for lesson in existing
+            if lesson.assignment_id in rebuild_assignment_ids
+        )
+    invalid_lessons=list({lesson.id:lesson for lesson in invalid_lessons}.values())
+    locked_invalid=[lesson for lesson in invalid_lessons if lesson.locked]
+    if locked_invalid:
+        return JSONResponse({
+            "ok":False,
+            "message":f"Có {len(locked_invalid)} tiết cố định xung đột với ràng buộc hoặc mẫu tiết liền mới. Hãy bỏ cố định hoặc điều chỉnh ràng buộc trước khi xếp lại.",
+        },409)
+    for lesson in invalid_lessons:
+        db.delete(lesson)
+    if invalid_lessons:
+        db.flush()
+        existing=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
+
     expected=sum(a.periods_per_week for a in assignments)
     missing=max(0,expected-len(existing))
 
@@ -542,6 +665,8 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
     # Chỉ bổ sung những tiết còn thiếu trong khay; nếu lịch đã đủ thì không làm gì.
     if existing:
         if missing == 0:
+            if invalid_lessons:
+                db.commit()
             return {
                 "ok":True,"score":0,"unscheduled":0,
                 "message":"Thời khóa biểu đã đủ tiết. Các vị trí hiện tại được giữ nguyên.",
@@ -557,7 +682,7 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
         db.commit()
         return {
             "ok":True,"score":result["score"],"unscheduled":0,
-            "message":f"Đã xếp bổ sung {len(result['lessons'])} tiết từ khay và giữ nguyên lịch hiện tại.",
+            "message":f"Đã xếp bổ sung {len(result['lessons'])} tiết từ khay và giữ nguyên các vị trí còn hợp lệ.",
         }
 
     # Chỉ khi lịch hoàn toàn trống mới chạy bộ xếp toàn bộ.
@@ -575,6 +700,7 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
 
 def lesson_slot_error(db:Session,project:Project,assignment:Assignment,slot:int,exclude_lesson_id:Optional[int]=None):
     if slot not in all_slots(project): return "Ô thời khóa biểu không hợp lệ."
+    if slot in parse_slots(project.blocked_slots_json): return "Buổi này đã bị khóa và không được xếp tiết."
     teacher=db.get(Teacher,assignment.teacher_id);school_class=db.get(SchoolClass,assignment.class_id);subject=db.get(Subject,assignment.subject_id)
     if not teacher or not school_class or not subject: return "Phân công không còn đầy đủ lớp, môn hoặc giáo viên."
     _,requested_unavailable=accepted_teacher_preferences(db,project.id)
@@ -618,6 +744,10 @@ def move(pid:int,payload:MoveIn,user:User=Depends(current_user),db:Session=Depen
         return JSONResponse({"ok":False,"message":"Phân công của tiết học không còn tồn tại."},409)
     error=lesson_slot_error(db,project,assignment,payload.slot,lesson.id)
     if error: return JSONResponse({"ok":False,"message":error},409)
+    assignment_lessons=db.scalars(select(Lesson).where(Lesson.assignment_id==assignment.id)).all()
+    proposed_slots=[payload.slot if item.id==lesson.id else item.slot for item in assignment_lessons]
+    if len(proposed_slots)==assignment.periods_per_week and not assignment_pattern_matches(project,assignment,proposed_slots):
+        return JSONResponse({"ok":False,"message":f"Vị trí này không giữ đúng mẫu tiết liền {assignment.consecutive_pattern}."},409)
     lesson.slot=payload.slot;db.commit();return {"ok":True}
 
 class ManualLessonIn(BaseModel):
@@ -633,6 +763,10 @@ def add_manual_lesson(pid:int,payload:ManualLessonIn,user:User=Depends(current_u
         return JSONResponse({"ok":False,"message":"Phân công này đã đủ số tiết/tuần."},409)
     error=lesson_slot_error(db,project,assignment,payload.slot)
     if error: return JSONResponse({"ok":False,"message":error},409)
+    if scheduled+1==assignment.periods_per_week:
+        current_slots=db.scalars(select(Lesson.slot).where(Lesson.assignment_id==assignment.id)).all()
+        if not assignment_pattern_matches(project,assignment,[*current_slots,payload.slot]):
+            return JSONResponse({"ok":False,"message":f"Tiết cuối này chưa tạo đúng mẫu tiết liền {assignment.consecutive_pattern}."},409)
     lesson=Lesson(project_id=pid,assignment_id=assignment.id,slot=payload.slot,locked=False)
     db.add(lesson);db.commit();return {"ok":True,"id":lesson.id}
 
@@ -924,7 +1058,7 @@ def project_data(db:Session,p:Project):
     sm={x.id:x for x in subs};tm={x.id:x for x in teas};cm={x.id:x for x in classes}
     assigned_teacher_ids={x.teacher_id for x in assignments};assigned_subject_ids={x.subject_id for x in assignments};assigned_class_ids={x.class_id for x in assignments}
     return {
-      "project":{"id":p.id,"name":p.name,"school_name":p.school_name,"days":p.days,"sessions":p.sessions,"periods":p.periods_per_session,"share_token":p.share_token},
+      "project":{"id":p.id,"name":p.name,"school_name":p.school_name,"days":p.days,"sessions":p.sessions,"periods":p.periods_per_session,"share_token":p.share_token,"blocked_slots":valid_slots(p,parse_slots(p.blocked_slots_json))},
       "departments":[{"id":x.id,"name":x.name} for x in deps],
       "subjects":[{"id":x.id,"name":x.name,"short_name":x.short_name,"max_consecutive":x.max_consecutive} for x in subs],
       "teachers":[{"id":x.id,"name":x.name,"short_name":x.short_name,"department_id":x.department_id,"max_periods_day":x.max_periods_day,"unavailable":list(parse_slots(x.unavailable_json))} for x in teas],
@@ -939,170 +1073,274 @@ def project_data(db:Session,p:Project):
       }
     }
 
-def solve_missing(db:Session,p:Project,tries=120):
-    """Giữ nguyên các Lesson hiện có và chỉ xếp số tiết còn thiếu."""
+def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==p.id)).all()
     teachers={x.id:x for x in db.scalars(select(Teacher).where(Teacher.project_id==p.id))}
     classes={x.id:x for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==p.id))}
     subjects={x.id:x for x in db.scalars(select(Subject).where(Subject.project_id==p.id))}
     existing=db.scalars(select(Lesson).where(Lesson.project_id==p.id)).all()
     existing_counts=Counter(x.assignment_id for x in existing)
-    requested_preferred,requested_unavailable=accepted_teacher_preferences(db,p.id)
-    slots=all_slots(p);ppd=p.sessions*p.periods_per_session
-    best=None
-
-    for _ in range(tries):
-        teacher_busy=defaultdict(set);class_busy=defaultdict(set);assignment_busy=defaultdict(set)
-        teacher_day=Counter();class_sub_day=Counter();class_sub_slots=defaultdict(set)
-
-        for lesson in existing:
-            a=next((x for x in assignments if x.id==lesson.assignment_id),None)
-            if not a: continue
-            day=lesson.slot//ppd
-            teacher_busy[a.teacher_id].add(lesson.slot)
-            class_busy[a.class_id].add(lesson.slot)
-            assignment_busy[a.id].add(lesson.slot)
-            teacher_day[(a.teacher_id,day)]+=1
-            class_sub_day[(a.class_id,a.subject_id,day)]+=1
-            class_sub_slots[(a.class_id,a.subject_id,day)].add(lesson.slot%ppd)
-
-        tasks=[]
-        for a in assignments:
-            remaining=max(0,a.periods_per_week-existing_counts[a.id])
-            tasks.extend([a]*remaining)
-        random.shuffle(tasks)
-        tasks.sort(key=lambda a:(
-            len(parse_slots(teachers[a.teacher_id].unavailable_json))+
-            len(parse_slots(classes[a.class_id].unavailable_json)),
-            -existing_counts[a.id],
-        ),reverse=True)
-
-        placed=[];uns=0
-        for a in tasks:
-            candidates=slots[:];random.shuffle(candidates);scored=[]
-            tu=parse_slots(teachers[a.teacher_id].unavailable_json)|requested_unavailable.get(a.teacher_id,set())
-            cu=parse_slots(classes[a.class_id].unavailable_json)
-            for slot in candidates:
-                day=slot//ppd;position=slot%ppd
-                session=position//p.periods_per_session;period=position%p.periods_per_session
-                if slot in tu or slot in cu or slot in teacher_busy[a.teacher_id] or slot in class_busy[a.class_id]: continue
-                if teacher_day[(a.teacher_id,day)]>=teachers[a.teacher_id].max_periods_day: continue
-                existing_periods=[
-                    x%p.periods_per_session for x in class_sub_slots[(a.class_id,a.subject_id,day)]
-                    if x//p.periods_per_session==session
-                ]
-                run=sorted(set(existing_periods+[period]));longest=current=1
-                for left,right in zip(run,run[1:]):
-                    current=current+1 if right==left+1 else 1;longest=max(longest,current)
-                if longest>subjects[a.subject_id].max_consecutive: continue
-                score=class_sub_day[(a.class_id,a.subject_id,day)]*8+period*.15
-                preferred=requested_preferred.get(a.teacher_id,set())
-                if preferred: score+=-4 if slot in preferred else 1.5
-                for neighbor in (slot-1,slot+1):
-                    if neighbor in teacher_busy[a.teacher_id]: score-=1.2
-                score+=random.random()*2
-                scored.append((score,slot))
-            if not scored:
-                uns+=1;continue
-            _,slot=min(scored);day=slot//ppd
-            teacher_busy[a.teacher_id].add(slot);class_busy[a.class_id].add(slot);assignment_busy[a.id].add(slot)
-            teacher_day[(a.teacher_id,day)]+=1;class_sub_day[(a.class_id,a.subject_id,day)]+=1
-            class_sub_slots[(a.class_id,a.subject_id,day)].add(slot%ppd)
-            placed.append((a.id,slot,False))
-
-        score=uns*1000
-        for (cid,sid,day),n in class_sub_day.items(): score+=max(0,n-1)*10
-        for tid,busy in teacher_busy.items():
-            for day in range(p.days):
-                xs=sorted(x%ppd for x in busy if x//ppd==day)
-                if xs: score+=(xs[-1]-xs[0]+1-len(xs))*2
-        candidate={"lessons":placed,"unscheduled":uns,"score":round(score,2)}
-        if best is None or candidate["score"]<best["score"]: best=candidate
-        if uns==0: break
-    return best or {"lessons":[],"unscheduled":len(tasks),"score":999999}
-
-def solve(db:Session,p:Project,tries=80):
-    assignments=db.scalars(select(Assignment).where(Assignment.project_id==p.id)).all()
-    teachers={x.id:x for x in db.scalars(select(Teacher).where(Teacher.project_id==p.id))}
-    classes={x.id:x for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==p.id))}
-    subjects={x.id:x for x in db.scalars(select(Subject).where(Subject.project_id==p.id))}
     fixed={x.assignment_id:x.slot for x in db.scalars(select(FixedLesson).where(FixedLesson.project_id==p.id))}
     requested_preferred,requested_unavailable=accepted_teacher_preferences(db,p.id)
-    slots=all_slots(p); ppd=p.sessions*p.periods_per_session
-    best=None
-    for _ in range(tries):
-        teacher_busy=defaultdict(set);class_busy=defaultdict(set);assignment_busy=defaultdict(set)
-        teacher_day=Counter();class_sub_day=Counter();class_sub_slots=defaultdict(set);placed=[];uns=0
-        tasks=[]
-        for a in assignments:
+    global_blocked=parse_slots(p.blocked_slots_json)
+    slots=all_slots(p)
+    ppd=p.sessions*p.periods_per_session
+    if not assignments:
+        return {"lessons":[],"unscheduled":0,"score":0}
+
+    task_rows=[]
+    for assignment in assignments:
+        remaining=max(0,assignment.periods_per_week-existing_counts[assignment.id])
+        if remaining<=0:
+            continue
+        use_full_pattern=(
+            mode=="full"
+            or (
+                bool((assignment.consecutive_pattern or "").strip())
+                and existing_counts[assignment.id]==0
+            )
+        )
+        if use_full_pattern:
             try:
-                groups=consecutive_groups(a.consecutive_pattern,a.periods_per_week)
-                if any(size>subjects[a.subject_id].max_consecutive for size in groups): groups=[1]*a.periods_per_week
+                groups=consecutive_groups(assignment.consecutive_pattern,assignment.periods_per_week)
+                if any(size>subjects[assignment.subject_id].max_consecutive for size in groups):
+                    groups=[1]*assignment.periods_per_week
             except (ValueError,KeyError):
-                groups=[1]*a.periods_per_week
-            explicit=bool((a.consecutive_pattern or "").strip())
-            for group_index,size in enumerate(groups): tasks.append((a,group_index,size,explicit))
-        random.shuffle(tasks)
-        tasks.sort(key=lambda task:(
-            1 if task[0].id in fixed and task[1]==0 else 0,
-            task[2],
-            len(parse_slots(teachers[task[0].teacher_id].unavailable_json))+len(parse_slots(classes[task[0].class_id].unavailable_json)),
-        ),reverse=True)
-        for a,group_index,size,explicit in tasks:
-            forced=fixed.get(a.id) if group_index==0 else None
-            candidates=[forced] if forced is not None else slots[:]
-            random.shuffle(candidates)
-            scored=[]
-            tu=parse_slots(teachers[a.teacher_id].unavailable_json)|requested_unavailable.get(a.teacher_id,set());cu=parse_slots(classes[a.class_id].unavailable_json)
-            for s in candidates:
-                if s is None: continue
-                day=s//ppd
-                position=s%ppd; session=position//p.periods_per_session; period=position%p.periods_per_session
-                if period+size>p.periods_per_session: continue
-                group_slots=list(range(s,s+size))
-                if any(slot//ppd!=day or (slot%ppd)//p.periods_per_session!=session for slot in group_slots): continue
-                if any(slot in tu or slot in cu or slot in teacher_busy[a.teacher_id] or slot in class_busy[a.class_id] for slot in group_slots): continue
-                if teacher_day[(a.teacher_id,day)]+size>teachers[a.teacher_id].max_periods_day: continue
+                groups=[1]*assignment.periods_per_week
+            explicit=bool((assignment.consecutive_pattern or "").strip())
+            for group_index,size in enumerate(groups):
+                if group_index>=remaining:
+                    break
+                task_rows.append((assignment,group_index,size,explicit,fixed.get(assignment.id) if group_index==0 else None))
+        else:
+            for group_index in range(remaining):
+                task_rows.append((assignment,group_index,1,False,fixed.get(assignment.id) if group_index==0 else None))
+
+    if not task_rows:
+        return {"lessons":[],"unscheduled":0,"score":0}
+
+    random.shuffle(task_rows)
+    task_rows.sort(key=lambda task:(
+        1 if task[4] is not None and task[1]==0 else 0,
+        task[2],
+        len(parse_slots(teachers[task[0].teacher_id].unavailable_json))+len(parse_slots(classes[task[0].class_id].unavailable_json)),
+        -existing_counts[task[0].id],
+    ),reverse=True)
+
+    def valid_start_slots(size:int):
+        return [slot for slot in slots if (slot % ppd) % p.periods_per_session + size <= p.periods_per_session]
+
+    starts_by_size={}
+    def start_pool(size:int):
+        pool=starts_by_size.get(size)
+        if pool is None:
+            pool=valid_start_slots(size)
+            starts_by_size[size]=pool
+        return pool
+
+    def evaluate(genes:list[int|None]):
+        teacher_busy=defaultdict(set)
+        class_busy=defaultdict(set)
+        assignment_busy=defaultdict(set)
+        teacher_day=Counter()
+        class_sub_day=Counter()
+        class_sub_slots=defaultdict(set)
+        placed=[]
+        unscheduled=0
+        gene_miss=0.0
+
+        for lesson in existing:
+            assignment=next((x for x in assignments if x.id==lesson.assignment_id),None)
+            if not assignment:
+                continue
+            day=lesson.slot//ppd
+            teacher_busy[assignment.teacher_id].add(lesson.slot)
+            class_busy[assignment.class_id].add(lesson.slot)
+            assignment_busy[assignment.id].add(lesson.slot)
+            teacher_day[(assignment.teacher_id,day)]+=1
+            class_sub_day[(assignment.class_id,assignment.subject_id,day)]+=1
+            class_sub_slots[(assignment.class_id,assignment.subject_id,day)].add(lesson.slot%ppd)
+
+        for index,task in enumerate(task_rows):
+            assignment,group_index,size,explicit,forced=task
+            gene=forced if forced is not None else genes[index]
+            candidate_starts=[forced] if forced is not None else start_pool(size)
+            tu=parse_slots(teachers[assignment.teacher_id].unavailable_json)|requested_unavailable.get(assignment.teacher_id,set())
+            cu=parse_slots(classes[assignment.class_id].unavailable_json)
+            best_slot=None
+            best_score=None
+            for slot in candidate_starts:
+                if slot is None:
+                    continue
+                day=slot//ppd
+                position=slot%ppd
+                session=position//p.periods_per_session
+                period=position%p.periods_per_session
+                if period+size>p.periods_per_session:
+                    continue
+                group_slots=list(range(slot,slot+size))
+                if any(candidate//ppd!=day or (candidate%ppd)//p.periods_per_session!=session for candidate in group_slots):
+                    continue
+                if any(candidate in global_blocked or candidate in tu or candidate in cu or candidate in teacher_busy[assignment.teacher_id] or candidate in class_busy[assignment.class_id] for candidate in group_slots):
+                    continue
+                if teacher_day[(assignment.teacher_id,day)]+size>teachers[assignment.teacher_id].max_periods_day:
+                    continue
                 if explicit:
                     neighbors=[]
-                    if period>0: neighbors.append(s-1)
-                    if period+size<p.periods_per_session: neighbors.append(s+size)
-                    if any(neighbor in assignment_busy[a.id] for neighbor in neighbors): continue
+                    if period>0:
+                        neighbors.append(slot-1)
+                    if period+size<p.periods_per_session:
+                        neighbors.append(slot+size)
+                    if any(neighbor in assignment_busy[assignment.id] for neighbor in neighbors):
+                        continue
                 existing_periods=[
-                    x%p.periods_per_session for x in class_sub_slots[(a.class_id,a.subject_id,day)]
-                    if x//p.periods_per_session==session
+                    candidate%p.periods_per_session
+                    for candidate in class_sub_slots[(assignment.class_id,assignment.subject_id,day)]
+                    if candidate//p.periods_per_session==session
                 ]
-                run=sorted(set(existing_periods+list(range(period,period+size)))); longest=current=1
+                run=sorted(set(existing_periods+list(range(period,period+size))))
+                longest=current=1
                 for left,right in zip(run,run[1:]):
-                    current=current+1 if right==left+1 else 1; longest=max(longest,current)
-                if longest>subjects[a.subject_id].max_consecutive: continue
-                score=class_sub_day[(a.class_id,a.subject_id,day)]*8+sum((slot%p.periods_per_session)*0.15 for slot in group_slots)
-                preferred=requested_preferred.get(a.teacher_id,set())
+                    current=current+1 if right==left+1 else 1
+                    longest=max(longest,current)
+                if longest>subjects[assignment.subject_id].max_consecutive:
+                    continue
+                score=class_sub_day[(assignment.class_id,assignment.subject_id,day)]*8+sum((candidate%p.periods_per_session)*0.15 for candidate in group_slots)
+                preferred=requested_preferred.get(assignment.teacher_id,set())
                 if preferred:
-                    score+=sum(-4 if slot in preferred else 1.5 for slot in group_slots)
-                for n in (s-1,s+size):
-                    if n in teacher_busy[a.teacher_id]: score-=1.2
-                score += random.random()*2
-                scored.append((score,s))
-            if not scored: uns+=size; continue
-            _,s=min(scored)
-            day=s//ppd
-            for offset,slot in enumerate(range(s,s+size)):
-                teacher_busy[a.teacher_id].add(slot);class_busy[a.class_id].add(slot);assignment_busy[a.id].add(slot)
-                class_sub_slots[(a.class_id,a.subject_id,day)].add(slot%ppd)
-                placed.append((a.id,slot,forced is not None and offset==0))
-            teacher_day[(a.teacher_id,day)]+=size;class_sub_day[(a.class_id,a.subject_id,day)]+=size
-        score=uns*1000
-        # soft penalty for distribution and teacher gaps
-        for (cid,sid,day),n in class_sub_day.items(): score += max(0,n-1)*10
+                    score+=sum(-4 if candidate in preferred else 1.5 for candidate in group_slots)
+                for neighbor in (slot-1,slot+size):
+                    if neighbor in teacher_busy[assignment.teacher_id]:
+                        score-=1.2
+                if gene is not None:
+                    if slot==gene:
+                        score-=8
+                    else:
+                        score+=abs(slot-gene)*0.05
+                if best_score is None or score<best_score:
+                    best_score=score
+                    best_slot=slot
+            if best_slot is None:
+                unscheduled+=size
+                continue
+            day=best_slot//ppd
+            gene_value=forced if forced is not None else genes[index]
+            if gene_value is not None and best_slot!=gene_value:
+                gene_miss+=abs(best_slot-gene_value)
+            for offset,slot in enumerate(range(best_slot,best_slot+size)):
+                teacher_busy[assignment.teacher_id].add(slot)
+                class_busy[assignment.class_id].add(slot)
+                assignment_busy[assignment.id].add(slot)
+                class_sub_slots[(assignment.class_id,assignment.subject_id,day)].add(slot%ppd)
+                placed.append((assignment.id,slot,forced is not None and group_index==0 and offset==0))
+            teacher_day[(assignment.teacher_id,day)]+=size
+            class_sub_day[(assignment.class_id,assignment.subject_id,day)]+=size
+
+        score=unscheduled*10000+gene_miss*0.05
+        for (cid,sid,day),n in class_sub_day.items():
+            score+=max(0,n-1)*10
         for tid,busy in teacher_busy.items():
             for day in range(p.days):
-                xs=sorted(s%ppd for s in busy if s//ppd==day)
-                if xs: score += (xs[-1]-xs[0]+1-len(xs))*2
-        candidate={"lessons":placed,"unscheduled":uns,"score":round(score,2)}
-        if best is None or candidate["score"]<best["score"]: best=candidate
-        if uns==0 and score<20: break
-    return best or {"lessons":[],"unscheduled":sum(a.periods_per_week for a in assignments),"score":999999}
+                xs=sorted(slot%ppd for slot in busy if slot//ppd==day)
+                if xs:
+                    score+=(xs[-1]-xs[0]+1-len(xs))*2
+        return {"lessons":placed,"unscheduled":unscheduled,"score":round(score,2)}
+
+    def genes_from_candidate(candidate):
+        genes=[None]*len(task_rows)
+        by_assignment=defaultdict(list)
+        for assignment_id,slot,_locked in candidate["lessons"]:
+            by_assignment[assignment_id].append(slot)
+        cursor=defaultdict(int)
+        for index,task in enumerate(task_rows):
+            assignment,group_index,size,explicit,forced=task
+            if forced is not None:
+                genes[index]=forced
+                continue
+            slots_for_assignment=by_assignment.get(assignment.id,[])
+            if cursor[assignment.id] < len(slots_for_assignment):
+                genes[index]=slots_for_assignment[cursor[assignment.id]]
+                cursor[assignment.id]+=1
+        return genes
+
+    def random_gene(task):
+        assignment,group_index,size,explicit,forced=task
+        if forced is not None:
+            return forced
+        pool=start_pool(size)
+        return random.choice(pool) if pool else None
+
+    def mutate(genes):
+        child=genes[:]
+        for index,task in enumerate(task_rows):
+            assignment,group_index,size,explicit,forced=task
+            if forced is not None:
+                child[index]=forced
+                continue
+            if random.random()<0.15:
+                child[index]=random_gene(task) if random.random()<0.9 else None
+        return child
+
+    def crossover(left,right):
+        child=[]
+        for index,task in enumerate(task_rows):
+            assignment,group_index,size,explicit,forced=task
+            if forced is not None:
+                child.append(forced)
+            elif random.random()<0.5:
+                child.append(left[index])
+            else:
+                child.append(right[index])
+        return child
+
+    population_size=max(18,min(40,max(12,len(task_rows))))
+    generations=max(12,min(60,max(tries//3,18)))
+    elite_count=max(2,population_size//5)
+
+    seed_candidate=evaluate([None]*len(task_rows))
+    best_candidate=seed_candidate
+    population=[genes_from_candidate(seed_candidate)]
+    for _ in range(population_size-1):
+        population.append([random_gene(task) for task in task_rows])
+
+    evaluated=[]
+    for genes in population:
+        candidate=evaluate(genes)
+        evaluated.append((candidate,genes))
+        if candidate["score"]<best_candidate["score"]:
+            best_candidate=candidate
+
+    for _ in range(generations):
+        evaluated.sort(key=lambda item:(item[0]["score"],item[0]["unscheduled"]))
+        elites=[genes for _candidate,genes in evaluated[:elite_count]]
+        if evaluated[0][0]["score"]<best_candidate["score"]:
+            best_candidate=evaluated[0][0]
+        next_population=elites[:]
+        while len(next_population)<population_size:
+            pool=evaluated[:max(6,population_size//2)]
+            parent1=random.choice(pool)[1]
+            parent2=random.choice(pool)[1]
+            child=mutate(crossover(parent1,parent2))
+            next_population.append(child)
+        evaluated=[]
+        for genes in next_population:
+            candidate=evaluate(genes)
+            evaluated.append((candidate,genes))
+            if candidate["score"]<best_candidate["score"]:
+                best_candidate=candidate
+
+    if evaluated:
+        evaluated.sort(key=lambda item:(item[0]["score"],item[0]["unscheduled"]))
+        if evaluated[0][0]["score"]<best_candidate["score"]:
+            best_candidate=evaluated[0][0]
+    return best_candidate
+
+def solve_missing(db:Session,p:Project,tries=120):
+    """Giữ nguyên các Lesson hiện có và chỉ xếp số tiết còn thiếu."""
+    return ga_schedule(db,p,mode="missing",tries=tries)
+
+def solve(db:Session,p:Project,tries=80):
+    return ga_schedule(db,p,mode="full",tries=tries)
 
 def seed_project(db:Session,p:Project):
     d1=Department(project_id=p.id,name="Tổ Toán - Tin");d2=Department(project_id=p.id,name="Tổ Ngữ văn")
