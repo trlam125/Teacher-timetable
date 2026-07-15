@@ -352,15 +352,27 @@ def valid_slots(project: Project, slots: list[int] | set[int]):
     maximum = project.days * project.sessions * project.periods_per_session
     return sorted({int(slot) for slot in slots if 0 <= int(slot) < maximum})
 
-def assignment_pattern_matches(project:Project,assignment:Assignment,slots:list[int] | set[int]):
+def bounded_int(value,default:int,minimum:int,maximum:int,label:str):
+    raw=default if value in (None,"") else value
+    if isinstance(raw,bool) or isinstance(raw,float) and not raw.is_integer():
+        raise HTTPException(400,f"{label} phải là số nguyên từ {minimum} đến {maximum}")
+    try:
+        parsed=int(raw)
+    except (TypeError,ValueError) as exc:
+        raise HTTPException(400,f"{label} phải là số nguyên từ {minimum} đến {maximum}") from exc
+    if not minimum<=parsed<=maximum:
+        raise HTTPException(400,f"{label} phải nằm trong khoảng từ {minimum} đến {maximum}")
+    return parsed
+
+def pattern_slots_match(project:Project,pattern:str,total_periods:int,slots:list[int] | set[int]):
     """Kiểm tra các cụm tiết thực tế có đúng mẫu đã khai báo hay không."""
-    if not (assignment.consecutive_pattern or "").strip():
+    if not (pattern or "").strip():
         return True
     try:
-        expected=sorted(consecutive_groups(assignment.consecutive_pattern,assignment.periods_per_week))
+        expected=sorted(consecutive_groups(pattern,total_periods))
     except ValueError:
         return False
-    if len(slots)!=assignment.periods_per_week:
+    if len(slots)!=total_periods:
         return False
     ppd=project.sessions*project.periods_per_session
     groups=defaultdict(list)
@@ -380,6 +392,14 @@ def assignment_pattern_matches(project:Project,assignment:Assignment,slots:list[
                 actual.append(run);run=1
         actual.append(run)
     return sorted(actual)==expected
+
+def assignment_pattern_matches(project:Project,assignment:Assignment,slots:list[int] | set[int]):
+    return pattern_slots_match(
+        project,
+        assignment.consecutive_pattern,
+        assignment.periods_per_week,
+        slots,
+    )
 
 def accepted_teacher_preferences(db: Session, project_id: int):
     rows = db.scalars(
@@ -826,13 +846,16 @@ class EntityIn(BaseModel):
 def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Session=Depends(db_session)):
     p=get_project(pid,user,db); d=payload.data
     if payload.type=="department": obj=Department(project_id=pid,name=d["name"])
-    elif payload.type=="subject": obj=Subject(project_id=pid,name=d["name"],short_name=d.get("short_name") or d["name"][:5],max_consecutive=int(d.get("max_consecutive",1)))
+    elif payload.type=="subject":
+        max_consecutive=bounded_int(d.get("max_consecutive"),1,1,4,"Số tiết liên tiếp tối đa")
+        obj=Subject(project_id=pid,name=d["name"],short_name=d.get("short_name") or d["name"][:5],max_consecutive=max_consecutive)
     elif payload.type=="teacher":
         department_id=d.get("department_id") or None
         if department_id:
             department=db.get(Department,int(department_id))
             if not department or department.project_id!=pid: raise HTTPException(400,"Tổ chuyên môn không hợp lệ")
-        obj=Teacher(project_id=pid,name=d["name"],short_name=d.get("short_name") or d["name"],department_id=department_id,max_periods_day=int(d.get("max_periods_day",5)),unavailable_json=json.dumps(d.get("unavailable",[])))
+        max_periods_day=bounded_int(d.get("max_periods_day"),5,1,10,"Số tiết tối đa mỗi ngày")
+        obj=Teacher(project_id=pid,name=d["name"],short_name=d.get("short_name") or d["name"],department_id=department_id,max_periods_day=max_periods_day,unavailable_json=json.dumps(d.get("unavailable",[])))
     elif payload.type=="grade": obj=Grade(project_id=pid,name=d["name"])
     elif payload.type=="class":
         grade_id=d.get("grade_id") or None
@@ -852,7 +875,7 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
         ))
         if duplicate is not None:
             raise HTTPException(409,"Phân công lớp – môn – giáo viên này đã tồn tại")
-        periods=max(1,min(int(d.get("periods_per_week",1)),40))
+        periods=bounded_int(d.get("periods_per_week"),1,1,40,"Số tiết mỗi tuần")
         try: pattern=normalized_assignment_pattern(d.get("consecutive_pattern",""),periods,subject)
         except ValueError as exc: raise HTTPException(400,str(exc)) from exc
         obj=Assignment(project_id=pid,class_id=school_class.id,subject_id=subject.id,teacher_id=teacher.id,periods_per_week=periods,consecutive_pattern=pattern)
@@ -959,7 +982,7 @@ class AssignmentUpdateIn(BaseModel):
 
 @app.put("/api/projects/{pid}/assignments/{assignment_id}")
 def update_assignment(pid:int,assignment_id:int,payload:AssignmentUpdateIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db)
+    project=get_project(pid,user,db)
     assignment=db.get(Assignment,assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
     periods=max(1,min(int(payload.periods_per_week),40))
@@ -970,6 +993,13 @@ def update_assignment(pid:int,assignment_id:int,payload:AssignmentUpdateIn,user:
     if not subject or subject.project_id!=pid: raise HTTPException(409,"Môn học của phân công không còn tồn tại")
     try: pattern=normalized_assignment_pattern(payload.consecutive_pattern,periods,subject)
     except ValueError as exc: raise HTTPException(400,str(exc)) from exc
+    if scheduled==periods:
+        current_slots=db.scalars(select(Lesson.slot).where(Lesson.assignment_id==assignment.id)).all()
+        if not pattern_slots_match(project,pattern,periods,current_slots):
+            return JSONResponse({
+                "ok":False,
+                "message":"Lịch hiện tại chưa đúng cách chia tiết mới. Hãy đưa phân công này về khay hoặc sắp xếp lại các tiết trước khi lưu mẫu.",
+            },409)
     assignment.periods_per_week=periods
     assignment.consecutive_pattern=pattern
     db.commit();return {"ok":True}
