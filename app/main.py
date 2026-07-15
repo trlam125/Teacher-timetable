@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import io
 import json
 import random
@@ -10,6 +9,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -166,11 +166,12 @@ def migrate_schema():
         return
 
     columns = {column["name"] for column in inspector.get_columns("users")}
+    role_was_added = "role" not in columns
     with engine.begin() as connection:
-        if "role" not in columns:
+        if role_was_added:
             connection.exec_driver_sql(
                 "ALTER TABLE users "
-                "ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'admin'"
+                "ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'pending'"
             )
         if "teacher_id" not in columns:
             connection.exec_driver_sql(
@@ -189,11 +190,14 @@ def migrate_schema():
                 "ALTER TABLE users ADD COLUMN reset_token_expires_at VARCHAR(40)"
             )
         connection.exec_driver_sql(
-            "UPDATE users SET role='admin' WHERE role IS NULL OR role=''"
+            "UPDATE users SET role='pending' WHERE role IS NULL OR role='' OR role='user'"
         )
-        connection.exec_driver_sql(
-            "UPDATE users SET role='pending' WHERE role='user'"
-        )
+        if role_was_added and "projects" in inspector.get_table_names():
+            # Legacy project owners were administrators before roles existed.
+            connection.exec_driver_sql(
+                "UPDATE users SET role='admin' "
+                "WHERE id IN (SELECT DISTINCT owner_id FROM projects)"
+            )
         connection.exec_driver_sql(
             "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'pending'"
         )
@@ -1470,6 +1474,8 @@ def review_teacher_preference(pid:int,preference_id:int,payload:PreferenceReview
     preference=db.get(TeacherPreference,preference_id)
     if not preference or preference.project_id!=pid: raise HTTPException(404)
     if payload.action not in {"accept","reject"}: raise HTTPException(400,"Thao tác không hợp lệ")
+    if preference.status!="pending":
+        raise HTTPException(409,"Nguyện vọng này đã được xử lý")
     if payload.action=="accept":
         previous=db.scalars(
             select(TeacherPreference).where(
@@ -1487,16 +1493,85 @@ def review_teacher_preference(pid:int,preference_id:int,payload:PreferenceReview
     db.commit()
     return {"ok":True}
 
-@app.get("/projects/{pid}/export.csv")
-def export_csv(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
+@app.get("/projects/{pid}/export.csv", include_in_schema=False)
+def export_csv_legacy(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
+    get_project(pid,user,db)
+    return RedirectResponse(f"/projects/{pid}/export.xlsx",303)
+
+@app.get("/projects/{pid}/export.xlsx")
+def export_excel(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.worksheet.table import Table, TableStyleInfo
+
     p=get_project(pid,user,db); data=project_data(db,p)
-    out=io.StringIO(); w=csv.writer(out);w.writerow(["Lớp","Thứ","Buổi","Tiết","Môn","Giáo viên"])
-    amap={x["id"]:x for x in data["assignments"]}
-    for l in data["lessons"]:
-        a=amap[l["assignment_id"]]; day,sess,period=slot_meta(p,l["slot"])
-        w.writerow([a["class_name"],DAYS[day],"Sáng" if sess==0 else "Chiều",period+1,a["subject_name"],a["teacher_name"]])
-    raw=out.getvalue().encode("utf-8-sig")
-    return StreamingResponse(io.BytesIO(raw),media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="{p.name}.csv"'})
+    workbook=Workbook(); sheet=workbook.active; sheet.title="Thời khóa biểu"
+    sheet.sheet_view.showGridLines=False
+    sheet.merge_cells("A1:F1"); sheet["A1"]=p.name
+    sheet.merge_cells("A2:F2"); sheet["A2"]=p.school_name
+    sheet["A1"].font=Font(name="Aptos Display",size=18,bold=True,color="FFFFFF")
+    sheet["A1"].fill=PatternFill("solid",fgColor="1D4ED8")
+    sheet["A1"].alignment=Alignment(horizontal="left",vertical="center")
+    sheet["A2"].font=Font(name="Aptos",size=11,color="475467")
+    sheet["A2"].alignment=Alignment(horizontal="left",vertical="center")
+    sheet.row_dimensions[1].height=30; sheet.row_dimensions[2].height=22
+
+    headers=["Lớp","Thứ","Buổi","Tiết","Môn","Giáo viên"]
+    sheet.append([]); sheet.append(headers)
+    header_fill=PatternFill("solid",fgColor="DBEAFE")
+    header_border=Border(bottom=Side(style="thin",color="93C5FD"))
+    for cell in sheet[4]:
+        cell.font=Font(name="Aptos",bold=True,color="1E3A8A")
+        cell.fill=header_fill; cell.border=header_border
+        cell.alignment=Alignment(vertical="center")
+    sheet.row_dimensions[4].height=24
+
+    assignments={item["id"]:item for item in data["assignments"]}
+    rows=[]
+    for lesson in data["lessons"]:
+        assignment=assignments.get(lesson["assignment_id"])
+        if not assignment:
+            continue
+        day,session,period=slot_meta(p,lesson["slot"])
+        rows.append((
+            lesson["slot"],assignment["class_name"],DAYS[day],
+            "Sáng" if session==0 else "Chiều",period+1,
+            assignment["subject_name"],assignment["teacher_name"],
+        ))
+    rows.sort(key=lambda row:(row[0],row[1]))
+    for _,class_name,day_name,session_name,period,subject_name,teacher_name in rows:
+        sheet.append([class_name,day_name,session_name,period,subject_name,teacher_name])
+
+    last_row=4+len(rows)
+    if rows:
+        table=Table(displayName="ThoiKhoaBieu",ref=f"A4:F{last_row}")
+        table.tableStyleInfo=TableStyleInfo(
+            name="TableStyleMedium2",showFirstColumn=False,showLastColumn=False,
+            showRowStripes=True,showColumnStripes=False,
+        )
+        sheet.add_table(table)
+    else:
+        sheet.merge_cells("A5:F5"); sheet["A5"]="Chưa có tiết học nào được xếp."
+        sheet["A5"].font=Font(name="Aptos",italic=True,color="667085")
+        sheet["A5"].alignment=Alignment(horizontal="center")
+        sheet.auto_filter.ref="A4:F4"
+
+    widths={"A":16,"B":14,"C":12,"D":10,"E":24,"F":24}
+    for column,width in widths.items(): sheet.column_dimensions[column].width=width
+    sheet.freeze_panes="A5"; sheet.auto_filter.ref=f"A4:F{last_row}"
+    sheet.print_title_rows="1:4"; sheet.page_setup.orientation="landscape"
+    sheet.page_setup.fitToWidth=1; sheet.sheet_properties.pageSetUpPr.fitToPage=True
+    sheet.print_area=f"A1:F{max(last_row,5)}"
+    sheet["D5" if rows else "D4"].number_format="0"
+
+    output=io.BytesIO(); workbook.save(output); output.seek(0)
+    encoded_filename=quote(f"{p.name}.xlsx",safe="")
+    disposition=f"attachment; filename=thoi-khoa-bieu.xlsx; filename*=UTF-8''{encoded_filename}"
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition":disposition},
+    )
 
 def project_data(db:Session,p:Project):
     deps=db.scalars(select(Department).where(Department.project_id==p.id)).all()
