@@ -6,8 +6,9 @@
   <title>Lịch dạy · {{teacher.name}}</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/preferences.css?v=1">
+  <link rel="stylesheet" href="/static/front.css?v=1">
 </head>
-<body>
+<body class="teacher-surface">
   <header class="appbar">
     <b>Smart TKB · Cổng giáo viên</b>
     <div><strong>{{teacher.name}}</strong><small>{{p.school_name}}</small></div>
@@ -37,6 +38,26 @@
           <div class="preference-card-head">
             <div><h3>Gửi lúc {{item.created_at|replace('T',' ')}}</h3></div>
             <span class="status status-{{item.status}}">{{{'pending':'Chờ duyệt','accepted':'Đang áp dụng','rejected':'Đã từ chối','superseded':'Đã thay thế'}.get(item.status,item.status)}}</span>
+          </div>
+          <div class="preference-detail">
+            <b>Tiết mong muốn</b>
+            <div class="slot-chips">
+              {% for label in item.preferred_labels %}
+                <span class="slot-chip preferred">{{label}}</span>
+              {% else %}
+                <span class="muted">Không đăng ký</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="preference-detail">
+            <b>Tiết cần tránh</b>
+            <div class="slot-chips">
+              {% for label in item.unavailable_labels %}
+                <span class="slot-chip blocked">{{label}}</span>
+              {% else %}
+                <span class="muted">Không đăng ký</span>
+              {% endfor %}
+            </div>
           </div>
           {% if item.note %}<p class="preference-note">{{item.note}}</p>{% endif %}
         </article>

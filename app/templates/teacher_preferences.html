@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Hòm thư nguyện vọng · {{p.name}}</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/effects.css?v=2">
   <link rel="stylesheet" href="/static/preferences.css?v=1">
+  <link rel="stylesheet" href="/static/front.css?v=1">
 </head>
-<body>
+<body class="teacher-surface">
   <header class="appbar">
     <b>Smart TKB · Hòm thư giáo viên</b>
     <div class="spacer"></div>
@@ -20,6 +22,12 @@
         <p>{{p.school_name}} · {{p.name}}</p>
       </div>
     </div>
+    {% if latest_preference %}
+      <div class="preference-edit-note">
+        <b>{% if latest_preference.status == 'pending' %}Đang sửa nguyện vọng chờ duyệt{% else %}Đang tạo nguyện vọng mới từ bản đã gửi gần nhất{% endif %}</b>
+        <span>Gửi lúc {{latest_preference.created_at|replace('T',' ')}}. Bạn có thể điều chỉnh các ô bên dưới rồi gửi lại.</span>
+      </div>
+    {% endif %}
     <form id="preferenceForm" class="panel preference-form">
       <label>Giáo viên bộ môn
         <select id="teacherId" required>
@@ -41,7 +49,8 @@
           {% for period in range(p.periods_per_session) %}
             <div class="cell period">{% if p.sessions > 1 %}{{'S' if session == 0 else 'C'}} {% endif %}{{period + 1}}</div>
             {% for day in range(p.days) %}
-              <button type="button" class="cell preference-cell" data-kind="preferred" data-slot="{{day * (p.sessions * p.periods_per_session) + session * p.periods_per_session + period}}"></button>
+              {% set slot = day * (p.sessions * p.periods_per_session) + session * p.periods_per_session + period %}
+              <button type="button" class="cell preference-cell {% if latest_preference and slot in latest_preference.preferred_slots %}preferred{% endif %}" data-kind="preferred" data-slot="{{slot}}"></button>
             {% endfor %}
           {% endfor %}
         {% endfor %}
@@ -56,18 +65,19 @@
           {% for period in range(p.periods_per_session) %}
             <div class="cell period">{% if p.sessions > 1 %}{{'S' if session == 0 else 'C'}} {% endif %}{{period + 1}}</div>
             {% for day in range(p.days) %}
-              <button type="button" class="cell preference-cell" data-kind="unavailable" data-slot="{{day * (p.sessions * p.periods_per_session) + session * p.periods_per_session + period}}"></button>
+              {% set slot = day * (p.sessions * p.periods_per_session) + session * p.periods_per_session + period %}
+              <button type="button" class="cell preference-cell {% if latest_preference and slot in latest_preference.unavailable_slots %}blocked{% endif %}" data-kind="unavailable" data-slot="{{slot}}"></button>
             {% endfor %}
           {% endfor %}
         {% endfor %}
       </div>
 
       <label>Ghi chú
-        <textarea id="preferenceNote" rows="4" maxlength="1000" placeholder="Ví dụ: ưu tiên dạy buổi sáng vì buổi chiều phụ trách câu lạc bộ."></textarea>
+        <textarea id="preferenceNote" rows="4" maxlength="1000" placeholder="Ví dụ: ưu tiên dạy buổi sáng vì buổi chiều phụ trách câu lạc bộ.">{{latest_preference.note if latest_preference else ''}}</textarea>
       </label>
       <div class="row end">
         <button class="btn ghost" id="cancelPreference" type="button">Hủy</button>
-        <button class="btn" type="submit">Gửi nguyện vọng</button>
+        <button class="btn" type="submit">{% if latest_preference and latest_preference.status == 'pending' %}Cập nhật nguyện vọng{% else %}Gửi nguyện vọng{% endif %}</button>
       </div>
       <div id="preferenceMessage" class="alert" hidden></div>
     </form>

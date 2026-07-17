@@ -15,6 +15,8 @@
 .preference-cell{border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;cursor:pointer}
 .preference-cell:hover{background:#eff6ff}
 .preference-list{display:grid;gap:16px}
+.preference-edit-note{display:grid;gap:5px;margin:-10px 0 18px;padding:15px 17px;border:1px solid #bfdbfe;border-radius:14px;background:linear-gradient(120deg,#eff6ff,#ecfeff);color:#1e3a8a}
+.preference-edit-note span{color:#475467}
 .account-heading,.teacher-preference-heading{margin-top:34px}
 .account-page{max-width:760px}
 .account-form{display:grid;gap:14px}
@@ -62,3 +64,5 @@
 .slot-chip.blocked{background:#fee2e2;color:#991b1b}
 .preference-note{padding:12px;background:#f8fafc;border-radius:9px;white-space:pre-wrap}
 @media(max-width:700px){.preference-grid{font-size:12px}.preference-grid .cell{min-height:58px;padding:4px}.preference-card-head{align-items:flex-start;flex-direction:column}}
+.lesson-pin{position:absolute;right:29px;top:3px;width:23px;height:21px;border:0;border-radius:50%;background:rgba(255,255,255,.88);color:#1d4ed8;cursor:pointer;font-size:12px;line-height:19px;padding:0}
+.lesson-pin:hover,.lesson-remove:hover{transform:scale(1.08)}

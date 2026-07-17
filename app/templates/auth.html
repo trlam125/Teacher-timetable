@@ -37,9 +37,11 @@
       <p class="muted">Hệ thống tự chuyển đến cổng quản trị hoặc cổng giáo viên theo quyền tài khoản.</p>
     {% else %}
       <p class="muted">Tài khoản mới cần được quản trị viên xác nhận và gắn với hồ sơ giáo viên trước khi sử dụng.</p>
+      {% if target_project %}<div class="alert"><b>Đăng ký vào:</b> {{target_project.name}} · {{target_project.school_name}}</div>{% endif %}
     {% endif %}
     {% if error %}<div class="alert error">{{error}}</div>{% endif %}
     {% if mode=='register' %}
+      <input type="hidden" name="project_token" value="{{project_token or ''}}">
       <label>Họ tên tài khoản<input name="name" required></label>
       <label>Tên giáo viên mong muốn<input name="teacher_name" placeholder="Ví dụ: Lê Minh Châu" required></label>
     {% endif %}
