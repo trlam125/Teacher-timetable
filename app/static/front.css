@@ -7,6 +7,7 @@
   --front-card: rgba(255,255,255,.86);
   --front-line: rgba(130,151,178,.24);
   --front-shadow: 0 24px 70px rgba(30,63,112,.13);
+  --front-title-font: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif;
 }
 
 body.landing,
@@ -217,9 +218,15 @@ body.front-surface::before {
 
 .teacher-surface .section-head h1,
 .front-surface .section-head h1 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--front-title-font);
   font-size: clamp(38px,4vw,58px);
+  font-weight: 800;
+  line-height: 1.12;
   letter-spacing: 0;
+  word-spacing: 0;
+  font-kerning: normal;
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
 }
 
 .teacher-surface .panel,
