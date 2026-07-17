@@ -1,4 +1,5 @@
 document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="/static/preferences.css?v=4">');
+document.head.insertAdjacentHTML('beforeend','<link rel="stylesheet" href="/static/effects.css?v=1">');
 document.head.insertAdjacentHTML('beforeend',`<style>
 .schedule-progress{position:fixed;inset:0;background:rgba(15,23,42,.45);display:grid;place-items:center;z-index:60}
 .schedule-progress[hidden]{display:none!important}
@@ -117,3 +118,11 @@ renderSchedule=function(){renderScheduleWithoutGlobalLocks();markGlobalBlockedSl
 renderAll();
 renderScheduleSelectors();
 renderConstraintSelectors();
+
+document.addEventListener('pointerdown',event=>{const target=event.target.closest('.btn,.nav');if(!target)return;const rect=target.getBoundingClientRect(),ripple=document.createElement('span');ripple.className='button-ripple';ripple.style.left=`${event.clientX-rect.left}px`;ripple.style.top=`${event.clientY-rect.top}px`;target.appendChild(ripple);setTimeout(()=>ripple.remove(),700)});
+document.addEventListener('dragstart',event=>{const source=event.target.closest('[draggable="true"]');if(!source)return;source.classList.add('dragging');document.body.classList.add('is-dragging');if(event.dataTransfer)event.dataTransfer.effectAllowed='move'});
+document.addEventListener('dragover',event=>{const target=event.target.closest('.cell.available,.unscheduled-tray');if(!target)return;target.classList.add('drag-over');if(event.dataTransfer)event.dataTransfer.dropEffect='move'});
+document.addEventListener('dragleave',event=>{const target=event.target.closest('.cell.available,.unscheduled-tray');if(target&&!target.contains(event.relatedTarget))target.classList.remove('drag-over')});
+function clearDragEffects(){document.body.classList.remove('is-dragging');document.querySelectorAll('.dragging,.drag-over').forEach(item=>item.classList.remove('dragging','drag-over'))}
+document.addEventListener('drop',clearDragEffects);
+document.addEventListener('dragend',clearDragEffects);

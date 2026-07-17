@@ -6,9 +6,31 @@
   <title>{{'Đăng nhập' if mode=='login' else 'Đăng ký tài khoản'}}</title>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/auth-extra.css">
+  <link rel="stylesheet" href="/static/auth-panda.css?v=6">
+  <script src="/static/auth-panda.js?v=4" defer></script>
 </head>
-<body class="auth-page">
-  <form class="auth-card" method="post" autocomplete="off">
+<body class="auth-page auth-scene auth-{{mode}}">
+  <div class="auth-grid" aria-hidden="true"></div>
+  <div class="auth-glow auth-glow-one" aria-hidden="true"></div>
+  <div class="auth-glow auth-glow-two" aria-hidden="true"></div>
+  <main class="auth-shell">
+    <section class="auth-story">
+      <a class="auth-brand" href="/" aria-label="Về trang chủ Smart TKB"><span class="auth-brand-mark"><i></i><i></i><i></i></span><span>Smart TKB</span></a>
+      <div class="auth-story-copy">
+        <span class="auth-kicker">LỊCH HỌC THÔNG MINH</span>
+        <h2><span>Mỗi tiết học,</span><br><em>đúng nơi đúng lúc.</em></h2>
+        <p>Quản lý và tinh chỉnh thời khóa biểu trực quan trên một không gian duy nhất.</p>
+        <div class="auth-feature-row"><span><b>01</b> Tự động xếp lịch</span><span><b>02</b> Kéo thả linh hoạt</span><span><b>03</b> Kiểm tra xung đột</span></div>
+      </div>
+      <div class="floating-lessons" aria-hidden="true"><span class="floating-lesson lesson-math"><b>TOÁN</b><small>10A1 · T2</small></span><span class="floating-lesson lesson-literature"><b>VĂN</b><small>10A2 · T4</small></span><span class="floating-lesson lesson-tech"><b>TIN</b><small>10A3 · T6</small></span></div>
+    </section>
+  <form class="auth-card panda-card" method="post" autocomplete="off">
+    <div class="panda" aria-hidden="true">
+      <span class="panda-ear panda-ear-left"></span><span class="panda-ear panda-ear-right"></span>
+      <div class="panda-face"><span class="panda-eye-patch panda-eye-left"><i class="panda-eye"><b></b></i></span><span class="panda-eye-patch panda-eye-right"><i class="panda-eye"><b></b></i></span><span class="panda-muzzle"></span><span class="panda-nose"></span><span class="panda-mouth"></span></div>
+      <span class="panda-arm panda-arm-left"><i></i></span><span class="panda-arm panda-arm-right"><i></i></span>
+    </div>
+    <div class="auth-card-body">
     <a class="brand" href="/">Smart TKB</a>
     <h1>{{'Đăng nhập' if mode=='login' else 'Tạo tài khoản giáo viên'}}</h1>
     {% if mode=='login' %}
@@ -21,15 +43,17 @@
       <label>Họ tên tài khoản<input name="name" required></label>
       <label>Tên giáo viên mong muốn<input name="teacher_name" placeholder="Ví dụ: Lê Minh Châu" required></label>
     {% endif %}
-    <label>Email<input type="email" name="email" autocomplete="email" required></label>
-    <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" minlength="6" required></label>
+    <label class="auth-field">Email<span class="auth-input-wrap"><i class="field-icon mail-icon" aria-hidden="true"></i><input id="authEmail" type="email" name="email" autocomplete="email" placeholder="ten@truonghoc.edu.vn" required autofocus></span></label>
+    <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input id="authPassword" type="password" name="password" autocomplete="{{'current-password' if mode=='login' else 'new-password'}}" placeholder="Tối thiểu 6 ký tự" minlength="6" required><button class="password-toggle" type="button" aria-label="Giữ để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
     {% if mode=='login' %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif %}
-    <button class="btn wide">{{'Đăng nhập' if mode=='login' else 'Gửi yêu cầu đăng ký'}}</button>
+    <button class="auth-submit" type="submit"><span>{{'Đăng nhập' if mode=='login' else 'Gửi yêu cầu đăng ký'}}</span><i aria-hidden="true">→</i></button>
     {% if mode=='login' %}
       <p>Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
     {% else %}
       <p>Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
     {% endif %}
+    </div>
   </form>
+  </main>
 </body>
 </html>
