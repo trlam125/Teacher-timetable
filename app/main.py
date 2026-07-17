@@ -241,6 +241,9 @@ templates = Jinja2Templates(directory="app/templates")
 
 DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
 RESET_TOKEN_TTL_SECONDS = 30 * 60
+DEFAULT_ADMIN_EMAIL = "lam@gmail.com"
+DEFAULT_ADMIN_PASSWORD = "admin123"
+LEGACY_ADMIN_EMAILS = ("admin@gmail.com", "demo@school.vn")
 
 def new_captcha() -> tuple[str, str]:
     left = secrets.randbelow(8) + 2
@@ -1914,25 +1917,30 @@ def seed_project(db:Session,p:Project):
 def ensure_demo():
     db=SessionLocal()
     try:
-        # Giữ nguyên tài khoản demo và dữ liệu cũ, chỉ đổi email đăng nhập.
-        user=db.scalar(select(User).where(User.email=="admin@gmail.com"))
+        user=db.scalar(select(User).where(User.email==DEFAULT_ADMIN_EMAIL))
         existing_admin=db.scalar(select(User).where(User.role=="admin").order_by(User.id.asc()))
-        old_user=db.scalar(select(User).where(User.email=="demo@school.vn"))
-        if existing_admin is not None:
-            # Quản trị viên có thể đổi email. Không tạo hoặc nâng quyền một
-            # tài khoản admin@gmail.com khác khi hệ thống đã có quản trị viên.
+        legacy_user=db.scalar(
+            select(User).where(User.email.in_(LEGACY_ADMIN_EMAILS)).order_by(User.id.asc())
+        )
+        if user is not None:
+            if existing_admin is None:
+                user.name="Quản trị viên"
+                user.role="admin"
+                user.password_hash=pwd.hash(DEFAULT_ADMIN_PASSWORD)
+                db.commit()
+        elif legacy_user is not None and (legacy_user.role=="admin" or existing_admin is None):
+            # Chuyển một lần tài khoản mặc định cũ, không đặt lại mật khẩu ở
+            # các lần khởi động sau để quản trị viên vẫn có thể tự đổi mật khẩu.
+            legacy_user.email=DEFAULT_ADMIN_EMAIL
+            legacy_user.name="Quản trị viên"
+            legacy_user.role="admin"
+            legacy_user.password_hash=pwd.hash(DEFAULT_ADMIN_PASSWORD)
+            user=legacy_user
+            db.commit()
+        elif existing_admin is not None:
             user=existing_admin
-        elif user is not None:
-            user.role="admin"
-            db.commit()
-        elif old_user is not None:
-            old_user.email="admin@gmail.com"
-            old_user.name="Quản trị viên"
-            old_user.role="admin"
-            user=old_user
-            db.commit()
         else:
-            user=User(email="admin@gmail.com",name="Quản trị viên",password_hash=pwd.hash("123456"),role="admin")
+            user=User(email=DEFAULT_ADMIN_EMAIL,name="Quản trị viên",password_hash=pwd.hash(DEFAULT_ADMIN_PASSWORD),role="admin")
             db.add(user);db.commit()
             p=Project(owner_id=user.id,name="TKB học kỳ I",school_name="THPT Demo",days=6,sessions=2,periods_per_session=5)
             db.add(p);db.commit();seed_project(db,p)

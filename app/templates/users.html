@@ -91,13 +91,13 @@
             </form>
           {% elif account.role == 'teacher' %}
             <p class="muted">Tài khoản giáo viên thuộc bộ thời khóa biểu khác.</p>
-          {% elif account.email == 'admin@gmail.com' %}
+          {% elif account.email == 'lam@gmail.com' %}
             <p class="muted">Quản trị viên chính</p>
           {% else %}
             <p class="muted">Đã được xác nhận</p>
           {% endif %}
 
-          {% if account.id != user.id and account.email != 'admin@gmail.com' %}
+          {% if account.id != user.id and account.email != 'lam@gmail.com' %}
             <form method="post" action="/admin/users/{{account.id}}/delete" onsubmit="return confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.');">
               <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
             </form>

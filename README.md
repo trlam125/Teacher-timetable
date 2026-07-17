@@ -134,7 +134,7 @@ Khi database chưa có tài khoản quản trị mẫu, ứng dụng tự tạo:
 
 | Email | Mật khẩu | Vai trò |
 |---|---|---|
-| `admin@gmail.com` | `123456` | Quản trị viên |
+| `lam@gmail.com` | `admin123` | Quản trị viên |
 
 Hãy đổi thông tin đăng nhập mặc định trước khi sử dụng trong môi trường thật.
 
