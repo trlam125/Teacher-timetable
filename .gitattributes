@@ -1,65 +1,88 @@
-# ============================================================
-# Default behavior: auto-detect text files and normalize
-# line endings to LF in the repository (CRLF on checkout
-# for Windows is handled per-rule below).
-# ============================================================
-* text=auto eol=lf
+# Automatically detect text files. Explicit rules below keep line endings
+# consistent across Windows, Linux and macOS.
+* text=auto
 
-# ============================================================
-# Source code — always LF
-# ============================================================
-*.py        text eol=lf
-*.html      text eol=lf
-*.css       text eol=lf
-*.js        text eol=lf
-*.ts        text eol=lf
-*.json      text eol=lf
-*.yaml      text eol=lf
-*.yml       text eol=lf
-*.toml      text eol=lf
-*.md        text eol=lf
-*.txt       text eol=lf
-*.cfg       text eol=lf
-*.ini       text eol=lf
-*.env       text eol=lf
+# Repository metadata
+.gitattributes text eol=lf
+.gitignore     text eol=lf
 
-# ============================================================
-# Shell scripts
-# ============================================================
-*.sh        text eol=lf
-*.bash      text eol=lf
+# Python and project configuration
+*.py          text eol=lf
+*.pyi         text eol=lf
+*.toml        text eol=lf
+*.ini         text eol=lf
+*.cfg         text eol=lf
+*.conf        text eol=lf
+*.env         text eol=lf
+*.properties  text eol=lf
+*.lock        text eol=lf
 
-# Windows scripts — keep CRLF so they run correctly on Windows
-*.ps1       text eol=crlf
-*.bat       text eol=crlf
-*.cmd       text eol=crlf
+# Web source files
+*.html        text eol=lf
+*.htm         text eol=lf
+*.css         text eol=lf
+*.scss        text eol=lf
+*.js          text eol=lf
+*.mjs         text eol=lf
+*.cjs         text eol=lf
+*.ts          text eol=lf
+*.tsx         text eol=lf
+*.json        text eol=lf
+*.xml         text eol=lf
+*.svg         text eol=lf
 
-# ============================================================
-# Binary files — no diff, no line-ending conversion
-# ============================================================
-*.db        binary
-*.sqlite    binary
-*.sqlite3   binary
-*.png       binary
-*.jpg       binary
-*.jpeg      binary
-*.gif       binary
-*.ico       binary
-*.webp      binary
-*.svg       binary
-*.pdf       binary
-*.zip       binary
-*.tar       binary
-*.gz        binary
-*.whl       binary
-*.pyc       binary
-*.exe       binary
+# Documentation and data files
+*.md          text eol=lf
+*.rst         text eol=lf
+*.txt         text eol=lf
+*.csv         text eol=lf
+*.tsv         text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+*.sql         text eol=lf
 
-# ============================================================
-# Cloudflare tunnel binaries — never commit, never export
-# ============================================================
-cloudflared*                export-ignore
-cloudflared*.exe            export-ignore
-cloudflared-windows-amd64.exe export-ignore
-cloudflared-linux-amd64     export-ignore
-cloudflared-darwin-amd64    export-ignore
+# Unix shell scripts use LF
+*.sh          text eol=lf
+*.bash        text eol=lf
+*.zsh         text eol=lf
+
+# Windows scripts require CRLF
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binary files: no line-ending conversion and no textual diff
+*.pyc         binary
+*.pyo         binary
+*.pyd         binary
+*.so          binary
+*.dll         binary
+*.exe         binary
+*.db          binary
+*.sqlite      binary
+*.sqlite3     binary
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.webp        binary
+*.ico         binary
+*.bmp         binary
+*.pdf         binary
+*.zip         binary
+*.7z          binary
+*.rar         binary
+*.tar         binary
+*.gz          binary
+*.bz2         binary
+*.xz          binary
+*.woff        binary
+*.woff2       binary
+*.ttf         binary
+*.otf         binary
+
+# Do not include local tooling binaries in source archives produced by Git.
+cloudflared.exe             export-ignore
+cloudflared-windows-*.exe   export-ignore
+cloudflared-linux-*         export-ignore
+cloudflared-darwin-*        export-ignore

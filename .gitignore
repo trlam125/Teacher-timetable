@@ -1,12 +1,11 @@
-# ============================================================
-# Python
-# ============================================================
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyo
+
+# Native Python extensions
+*.so
 *.pyd
-*.pyc
 
 # Virtual environments
 .venv/
@@ -14,56 +13,64 @@ venv/
 env/
 ENV/
 
-# Distribution / packaging
-dist/
+# Packaging and build output
 build/
-*.egg-info/
-*.egg
+dist/
 .eggs/
+*.egg
+*.egg-info/
+*.whl
+pip-wheel-metadata/
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage
+# Test, coverage and analysis caches
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
-.tox/
-nosetests.xml
 coverage.xml
 *.cover
-
-# MyPy
+*.py,cover
+.tox/
+.nox/
 .mypy_cache/
-.dmypy.json
-dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
 
-# Pyright / Pylance
-pyrightconfig.json
+# Runtime files
+*.log
+logs/
+*.pid
+*.seed
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
 
-# ============================================================
-# Database
-# ============================================================
+# Local databases
 *.db
+*.db-journal
 *.sqlite
 *.sqlite3
 
-# ============================================================
-# Environment & Secrets
-# ============================================================
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
+!.env.template
 *.pem
 *.key
+*.p12
+*.pfx
 secrets.json
 
-# ============================================================
-# IDE & Editor
-# ============================================================
-.vscode/
+# IDEs and editors
 .idea/
+*.iml
+.vscode/
+*.code-workspace
 *.suo
 *.user
 *.userosscache
@@ -71,22 +78,24 @@ secrets.json
 *.swp
 *.swo
 *~
+
+# Operating-system files
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
-# ============================================================
-# Logs & OS
-# ============================================================
-*.log
-logs/
-*.tmp
-*.temp
+# Cloudflare Tunnel local files and downloaded binaries
+.cloudflare/
+cloudflared.exe
+cloudflared-windows-*.exe
+cloudflared-linux-*
+cloudflared-darwin-*
+cert.pem
 
-# ============================================================
-# Cloudflare / cloudflared
-# ============================================================
-cloudflared-windows-amd64.exe
-cloudflared-linux-amd64
-cloudflared-darwin-amd64
-cloudflared*.exe
-cloudflared*
+# Local exports and uploads, if created at runtime
+uploads/
+exports/
