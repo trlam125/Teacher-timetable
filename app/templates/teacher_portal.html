@@ -13,13 +13,22 @@
     <b>Smart TKB · Cổng giáo viên</b>
     <div><strong>{{teacher.name}}</strong><small>{{p.school_name}}</small></div>
     <div class="spacer"></div>
-    <a class="btn ghost" href="/teacher/account">Tài khoản của tôi</a>
+    <a class="btn ghost" href="/teacher/account?project_id={{p.id}}">Tài khoản của tôi</a>
     <a class="btn ghost" href="/logout">Đăng xuất</a>
   </header>
   <main class="container preference-page">
     <div class="section-head">
       <div><h1>Lịch dạy của tôi</h1><p>{{p.name}}</p></div>
       <div class="row">
+        {% if teacher_projects|length > 1 %}
+          <label class="project-switcher">Học kỳ
+            <select onchange="location.href='/teacher?project_id='+this.value">
+              {% for item in teacher_projects %}
+                <option value="{{item.project.id}}" {% if item.project.id == p.id %}selected{% endif %}>{{item.project.name}}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endif %}
         <a class="btn" href="/preferences/{{p.share_token}}">Gửi / sửa nguyện vọng</a>
         <button class="btn ghost" onclick="window.print()">In / PDF</button>
       </div>
@@ -68,6 +77,6 @@
     {% endif %}
   </main>
   <script>window.PROJECT_ID={{p.id}};window.INIT_DATA={{data|tojson}};window.READ_ONLY=true;</script>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=25"></script>
 </body>
 </html>

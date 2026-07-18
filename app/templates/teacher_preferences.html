@@ -13,7 +13,7 @@
   <header class="appbar">
     <b>Smart TKB · Hòm thư giáo viên</b>
     <div class="spacer"></div>
-    <a class="btn ghost" href="/teacher">Lịch dạy của tôi</a>
+    <a class="btn ghost" href="/teacher?project_id={{p.id}}">Lịch dạy của tôi</a>
   </header>
   <main class="container preference-page">
     <div class="section-head">
@@ -84,7 +84,7 @@
   </main>
   <script>
     document.querySelector('#cancelPreference').addEventListener('click', () => {
-      location.href = '/teacher';
+      location.href = '/teacher?project_id={{p.id}}';
     });
     document.querySelectorAll('.preference-cell').forEach(cell => {
       cell.addEventListener('click', () => cell.classList.toggle(cell.dataset.kind === 'preferred' ? 'preferred' : 'blocked'));

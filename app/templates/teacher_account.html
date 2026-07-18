@@ -11,7 +11,7 @@
   <header class="appbar">
     <b>Smart TKB · Cổng giáo viên</b>
     <div class="spacer"></div>
-    <a class="btn ghost" href="/teacher">Quay lại lịch dạy</a>
+    <a class="btn ghost" href="/teacher?project_id={{p.id}}">Quay lại lịch dạy</a>
     <a class="btn ghost" href="/logout">Đăng xuất</a>
   </header>
   <main class="container account-page">
@@ -21,7 +21,7 @@
         <p>{{teacher.name}} · {{p.school_name}}</p>
       </div>
     </div>
-    <form class="panel account-form" method="post">
+    <form class="panel account-form" method="post" action="/teacher/account?project_id={{p.id}}">
       {% if error %}<div class="alert error">{{error}}</div>{% endif %}
       {% if success %}<div class="alert success">{{success}}</div>{% endif %}
 
@@ -44,7 +44,7 @@
         <input type="password" name="current_password" autocomplete="current-password" required>
       </label>
       <div class="row end">
-        <a class="btn ghost" href="/teacher">Hủy</a>
+        <a class="btn ghost" href="/teacher?project_id={{p.id}}">Hủy</a>
         <button class="btn" type="submit">Lưu thay đổi</button>
       </div>
     </form>

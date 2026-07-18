@@ -96,7 +96,7 @@ class Subject(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     name: Mapped[str] = mapped_column(String(120))
     short_name: Mapped[str] = mapped_column(String(20))
-    max_consecutive: Mapped[int] = mapped_column(Integer, default=1)
+    max_consecutive: Mapped[int] = mapped_column(Integer, default=2)
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -107,6 +107,13 @@ class Teacher(Base):
     short_name: Mapped[str] = mapped_column(String(30))
     max_periods_day: Mapped[int] = mapped_column(Integer, default=5)
     unavailable_json: Mapped[str] = mapped_column(Text, default="[]")
+
+class TeacherAccountLink(Base):
+    __tablename__ = "teacher_account_links"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), unique=True, index=True)
+    __table_args__ = (UniqueConstraint("user_id", "teacher_id", name="uq_teacher_account_link"),)
 
 class Grade(Base):
     __tablename__ = "grades"
@@ -130,6 +137,8 @@ class Assignment(Base):
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"))
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"))
     periods_per_week: Mapped[int] = mapped_column(Integer, default=1)
+    block_mode: Mapped[str] = mapped_column(String(24), default="free")
+    # Giữ cột cũ để migration các project đã tồn tại; giao diện mới không dùng mẫu chuỗi.
     consecutive_pattern: Mapped[str] = mapped_column(String(80), default="")
 
 class FixedLesson(Base):
@@ -211,11 +220,26 @@ def migrate_schema():
         connection.exec_driver_sql(
             "UPDATE users SET role='pending' WHERE role IS NULL OR role='' OR role='user'"
         )
-        if role_was_added and "projects" in inspector.get_table_names():
-            # Legacy project owners were administrators before roles existed.
+        # Luôn khôi phục vai trò từ các quan hệ dữ liệu cũ. Một số database cũ
+        # đã có cột role nhưng vẫn lưu giá trị legacy "user"; chỉ chạy phần
+        # này khi vừa thêm cột role sẽ khiến toàn bộ tài khoản bị kẹt ở pending.
+        connection.exec_driver_sql(
+            "UPDATE users SET role='teacher' "
+            "WHERE teacher_id IS NOT NULL AND role='pending'"
+        )
+        if "projects" in inspector.get_table_names():
+            # Chủ project luôn là quản trị viên. Chạy sau bước teacher để tài
+            # khoản vừa là giáo viên cũ vừa sở hữu project vẫn nhận quyền admin.
             connection.exec_driver_sql(
                 "UPDATE users SET role='admin' "
                 "WHERE id IN (SELECT DISTINCT owner_id FROM projects)"
+            )
+        if "teacher_account_links" in inspector.get_table_names():
+            connection.exec_driver_sql(
+                "INSERT INTO teacher_account_links (user_id, teacher_id) "
+                "SELECT id, teacher_id FROM users "
+                "WHERE role='teacher' AND teacher_id IS NOT NULL "
+                "ON CONFLICT (teacher_id) DO NOTHING"
             )
         connection.exec_driver_sql(
             "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'pending'"
@@ -233,11 +257,46 @@ def migrate_schema():
             ") AND NOT EXISTS (SELECT 1 FROM users WHERE is_superadmin=TRUE)"
         )
 
+        assignment_columns = {column["name"] for column in inspector.get_columns("assignments")} if "assignments" in inspector.get_table_names() else set()
+        if assignment_columns and "block_mode" not in assignment_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE assignments ADD COLUMN block_mode VARCHAR(24) NOT NULL DEFAULT 'free'"
+            )
+            # Mẫu cũ chỉ gồm 1 và 2, đồng thời có ít nhất một số 2, được
+            # chuyển sang bắt buộc tiết đôi. Mẫu có cụm 3+ chuyển thành tự do
+            # vì chế độ mới không còn hỗ trợ cụm tùy ý.
+            connection.exec_driver_sql(
+                "UPDATE assignments SET block_mode='required_double' "
+                "WHERE consecutive_pattern ~ '(^|,)[[:space:]]*2[[:space:]]*(,|$)' "
+                "AND COALESCE(regexp_replace(consecutive_pattern, '[[:space:]12,]', '', 'g'), '') = ''"
+            )
+            connection.exec_driver_sql(
+                "UPDATE assignments SET consecutive_pattern=''"
+            )
+
         fixed_columns = {column["name"] for column in inspector.get_columns("fixed_lessons")} if "fixed_lessons" in inspector.get_table_names() else set()
         if fixed_columns and "group_size" not in fixed_columns:
             connection.exec_driver_sql(
                 "ALTER TABLE fixed_lessons ADD COLUMN group_size INTEGER NOT NULL DEFAULT 1"
             )
+        if fixed_columns and "assignments" in inspector.get_table_names():
+            # Ở chế độ tự do/ưu tiên, mỗi ghim là một tiết độc lập. Chuyển các
+            # ghim cụm cũ thành từng ghim đơn để không tạo tiết khóa mồ côi.
+            connection.exec_driver_sql(
+                "UPDATE fixed_lessons SET group_size=1 FROM assignments "
+                "WHERE fixed_lessons.assignment_id=assignments.id "
+                "AND assignments.block_mode<>'required_double'"
+            )
+            if "lessons" in inspector.get_table_names():
+                connection.exec_driver_sql(
+                    "INSERT INTO fixed_lessons (project_id, assignment_id, slot, group_size) "
+                    "SELECT lessons.project_id, lessons.assignment_id, lessons.slot, 1 "
+                    "FROM lessons JOIN assignments ON assignments.id=lessons.assignment_id "
+                    "WHERE lessons.locked=TRUE AND assignments.block_mode<>'required_double' "
+                    "AND NOT EXISTS (SELECT 1 FROM fixed_lessons "
+                    "WHERE fixed_lessons.assignment_id=lessons.assignment_id "
+                    "AND fixed_lessons.slot=lessons.slot)"
+                )
 
         # Bản demo cũ từng được tạo chỉ với một buổi. Khôi phục cả sáng và chiều.
         if "projects" in inspector.get_table_names():
@@ -363,6 +422,19 @@ def get_project(pid: int, user: User, db: Session) -> Project:
         raise HTTPException(404)
     return p
 
+def get_project_for_update(pid: int, user: User, db: Session) -> Project:
+    """Khóa project đến hết transaction để tuần tự hóa mọi thay đổi lịch."""
+    if user.role != "admin":
+        raise HTTPException(403,"Chỉ quản trị viên được thực hiện thao tác này")
+    project = db.scalar(
+        select(Project)
+        .where(Project.id == pid, Project.owner_id == user.id)
+        .with_for_update()
+    )
+    if not project:
+        raise HTTPException(404)
+    return project
+
 def admin_project_ids(user: User, db: Session) -> set[int]:
     if user.role != "admin":
         return set()
@@ -373,6 +445,29 @@ def admin_teacher_ids(user: User, db: Session) -> set[int]:
     if not project_ids:
         return set()
     return set(db.scalars(select(Teacher.id).where(Teacher.project_id.in_(project_ids))).all())
+
+def account_teacher_ids(account: User, db: Session) -> set[int]:
+    ids = set(db.scalars(
+        select(TeacherAccountLink.teacher_id).where(TeacherAccountLink.user_id == account.id)
+    ).all())
+    if account.teacher_id is not None:
+        ids.add(account.teacher_id)
+    return ids
+
+def account_for_teacher(teacher_id: int, db: Session) -> User | None:
+    link = db.scalar(select(TeacherAccountLink).where(TeacherAccountLink.teacher_id == teacher_id))
+    if link:
+        return db.get(User, link.user_id)
+    return db.scalar(select(User).where(User.role == "teacher", User.teacher_id == teacher_id))
+
+def ensure_teacher_link(account: User, teacher: Teacher, db: Session) -> None:
+    existing = db.scalar(select(TeacherAccountLink).where(TeacherAccountLink.teacher_id == teacher.id))
+    if existing and existing.user_id != account.id:
+        raise HTTPException(409, "Giáo viên này đã có tài khoản")
+    if not existing:
+        db.add(TeacherAccountLink(user_id=account.id, teacher_id=teacher.id))
+    if account.teacher_id is None:
+        account.teacher_id = teacher.id
 
 def is_bootstrap_admin(user: User, db: Session) -> bool:
     return user.role == "admin" and bool(user.is_superadmin)
@@ -385,9 +480,13 @@ def admin_can_manage_account(admin: User, account: User, db: Session) -> bool:
     if account.role == "admin":
         return False
     project_ids = admin_project_ids(admin, db)
-    if account.role == "teacher" and account.teacher_id is not None:
-        teacher = db.get(Teacher, account.teacher_id)
-        return bool(teacher and teacher.project_id in project_ids)
+    if account.role == "teacher":
+        teacher_ids = account_teacher_ids(account, db)
+        if not teacher_ids:
+            return False
+        return db.scalar(select(Teacher.id).where(
+            Teacher.id.in_(teacher_ids), Teacher.project_id.in_(project_ids)
+        )) is not None
     if account.role == "pending":
         if account.requested_project_id in project_ids:
             return True
@@ -415,24 +514,72 @@ def parse_slots(text: str):
     except Exception:
         return set()
 
+BLOCK_MODES = {"free", "preferred_double", "required_double"}
+
 def consecutive_groups(pattern:str,total_periods:int):
+    """Đọc mẫu cụm cũ, chỉ dùng cho migration/tương thích dữ liệu cũ."""
     text=(pattern or "").strip()
     if not text: return [1]*total_periods
     try:
         groups=[int(value.strip()) for value in text.split(",") if value.strip()]
     except ValueError as exc:
-        raise ValueError("Mẫu tiết liên tiếp chỉ được chứa số nguyên, ví dụ 2,1,1.") from exc
-    if not groups or any(value<1 for value in groups):
-        raise ValueError("Mỗi cụm tiết liên tiếp phải lớn hơn 0.")
-    if sum(groups)!=total_periods:
-        raise ValueError(f"Tổng mẫu tiết phải bằng {total_periods} tiết/tuần.")
+        raise ValueError("Mẫu tiết liên tiếp cũ không hợp lệ.") from exc
+    if not groups or any(value<1 for value in groups) or sum(groups)!=total_periods:
+        raise ValueError("Mẫu tiết liên tiếp cũ không hợp lệ.")
     return groups
 
-def normalized_assignment_pattern(pattern:str,total_periods:int,subject:Subject):
-    groups=consecutive_groups(pattern,total_periods)
-    if any(value>subject.max_consecutive for value in groups):
-        raise ValueError(f"Mỗi cụm không được vượt quá {subject.max_consecutive} tiết liên tiếp của môn {subject.name}.")
-    return ",".join(str(value) for value in groups) if (pattern or "").strip() else ""
+def normalized_block_mode(value:str,total_periods:int,subject:Subject,project:Project):
+    mode=(value or "free").strip().lower()
+    aliases={
+        "prefer_double":"preferred_double",
+        "preferred":"preferred_double",
+        "required":"required_double",
+        "double":"required_double",
+    }
+    mode=aliases.get(mode,mode)
+    if mode not in BLOCK_MODES:
+        raise ValueError("Chế độ xếp tiết không hợp lệ.")
+    total_slots=project.days*project.sessions*project.periods_per_session
+    if total_periods>total_slots:
+        raise ValueError(f"Số tiết/tuần không được vượt quá {total_slots} ô của thời khóa biểu.")
+    if mode in {"preferred_double","required_double"} and total_periods>=2:
+        if subject.max_consecutive<2:
+            raise ValueError(
+                f"Môn {subject.name} đang giới hạn tối đa {subject.max_consecutive} tiết liên tiếp; "
+                "hãy tăng giới hạn lên ít nhất 2 trước khi chọn chế độ tiết đôi."
+            )
+        if project.periods_per_session<2:
+            raise ValueError("Mỗi buổi phải có ít nhất 2 tiết để dùng chế độ tiết đôi.")
+    if mode=="required_double":
+        groups=[2]*(total_periods//2)+([1] if total_periods%2 else [])
+        if not timetable_pattern_feasible(project,groups):
+            raise ValueError(
+                "Số cặp tiết bắt buộc không thể phân bố trong số ngày, buổi và tiết hiện có."
+            )
+    return mode
+
+def assignment_requires_double(assignment:Assignment):
+    return getattr(assignment,"block_mode","free")=="required_double"
+
+def assignment_prefers_double(assignment:Assignment):
+    return getattr(assignment,"block_mode","free")=="preferred_double"
+
+def assignment_groups(assignment:Assignment):
+    total=max(0,int(assignment.periods_per_week or 0))
+    if assignment_requires_double(assignment):
+        return [2]*(total//2)+([1] if total%2 else [])
+    return [1]*total
+
+def assignment_generated_pattern(assignment:Assignment):
+    return ",".join(str(value) for value in assignment_groups(assignment)) if assignment_requires_double(assignment) else ""
+
+def assignment_mode_label(assignment:Assignment):
+    labels={
+        "free":"Tự do",
+        "preferred_double":"Ưu tiên tiết đôi",
+        "required_double":"Bắt buộc tiết đôi",
+    }
+    return labels.get(getattr(assignment,"block_mode","free"),"Tự do")
 
 def valid_slots(project: Project, slots: list[int] | set[int]):
     maximum = project.days * project.sessions * project.periods_per_session
@@ -496,32 +643,504 @@ def assignment_run_groups(project: Project, slots: list[int] | set[int]):
             runs.append({"start": current[0][1], "size": len(current), "slots": [x[1] for x in current]})
     return sorted(runs, key=lambda item: item["start"])
 
-def remaining_pattern_groups(project: Project, assignment: Assignment, slots: list[int] | set[int]):
-    """Trả về kích thước các cụm còn thiếu; None nếu phần lịch hiện có đã sai mẫu."""
-    try:
-        remaining = Counter(consecutive_groups(assignment.consecutive_pattern, assignment.periods_per_week))
-    except ValueError:
+def _pack_pattern_groups_into_segments(group_sizes:list[int],segments:list[tuple[int,int]]):
+    """Xếp các cụm chưa neo vào những đoạn trống, cách nhau ít nhất một tiết."""
+    items=sorted((int(size) for size in group_sizes),reverse=True)
+    if not items:
+        return []
+    usable=[(start,length) for start,length in segments if length>0]
+    capacities=[length+1 for _start,length in usable]
+    if sum(size+1 for size in items)>sum(capacities):
         return None
-    if len(set(slots)) != len(slots) or len(slots) > assignment.periods_per_week:
+    allocations=[[] for _segment in usable]
+    failed=set()
+
+    def search(index:int):
+        if index==len(items):
+            return True
+        state=(index,tuple(sorted(capacities,reverse=True)))
+        if state in failed:
+            return False
+        size=items[index]
+        weight=size+1
+        seen_capacities=set()
+        for segment_index,capacity in enumerate(capacities):
+            if capacity<weight or capacity in seen_capacities:
+                continue
+            seen_capacities.add(capacity)
+            capacities[segment_index]-=weight
+            allocations[segment_index].append(size)
+            if search(index+1):
+                return True
+            allocations[segment_index].pop()
+            capacities[segment_index]+=weight
+        failed.add(state)
+        return False
+
+    if not search(0):
         return None
-    for run in assignment_run_groups(project, slots):
-        if remaining[run["size"]] <= 0:
+    placements=[]
+    for (segment_start,_length),sizes in zip(usable,allocations):
+        cursor=segment_start
+        for size in sizes:
+            placements.append((size,cursor))
+            cursor+=size+1
+    return placements
+
+def _complete_pattern_placement(
+    project:Project,
+    expected:list[int],
+    slots:list[int] | set[int],
+    forced_placements:list[tuple[int,int]] | None=None,
+):
+    """Tìm một cách đặt đầy đủ các cụm, đồng thời chứa chính xác các tiết đã có."""
+    values=list(slots)
+    current=set(values)
+    maximum=project.days*project.sessions*project.periods_per_session
+    if len(values)!=len(current) or any(slot<0 or slot>=maximum for slot in current):
+        return None
+    if len(current)>sum(expected) or any(size<1 or size>project.periods_per_session for size in expected):
+        return None
+
+    ppd=project.sessions*project.periods_per_session
+    periods_per_session=project.periods_per_session
+    starts_by_size={}
+    for size in set(expected):
+        starts=[]
+        for day in range(project.days):
+            for session in range(project.sessions):
+                base=day*ppd+session*periods_per_session
+                starts.extend(base+period for period in range(periods_per_session-size+1))
+        starts_by_size[size]=starts
+
+    def interval(start:int,size:int):
+        return set(range(start,start+size))
+
+    def compatible(left_start:int,left_size:int,right_start:int,right_size:int):
+        left_slots=interval(left_start,left_size)
+        right_slots=interval(right_start,right_size)
+        if left_slots.intersection(right_slots):
+            return False
+        left_day,left_session,_=slot_meta(project,left_start)
+        right_day,right_session,_=slot_meta(project,right_start)
+        if (left_day,left_session)!=(right_day,right_session):
+            return True
+        return left_start+left_size!=right_start and right_start+right_size!=left_start
+
+    def free_segments(selected:list[tuple[int,int,set[int]]]):
+        forbidden=defaultdict(set)
+        for size,start,_covered in selected:
+            day,session,period=slot_meta(project,start)
+            key=(day,session)
+            forbidden[key].update(range(period,period+size))
+            if period>0:
+                forbidden[key].add(period-1)
+            if period+size<periods_per_session:
+                forbidden[key].add(period+size)
+        result=[]
+        for day in range(project.days):
+            for session in range(project.sessions):
+                blocked=forbidden[(day,session)]
+                base=day*ppd+session*periods_per_session
+                start=None
+                for period in range(periods_per_session+1):
+                    is_free=period<periods_per_session and period not in blocked
+                    if is_free and start is None:
+                        start=period
+                    elif not is_free and start is not None:
+                        result.append((base+start,period-start))
+                        start=None
+        return result
+
+    remaining=Counter(expected)
+    selected=[]
+    forced_covered=set()
+    for size,start in forced_placements or []:
+        if remaining[size]<=0 or start not in starts_by_size.get(size,[]):
             return None
-        remaining[run["size"]] -= 1
-    result = []
-    for size in consecutive_groups(assignment.consecutive_pattern, assignment.periods_per_week):
-        if remaining[size] > 0:
-            result.append(size)
-            remaining[size] -= 1
-    return result
+        covered=current.intersection(interval(start,size))
+        if not covered or forced_covered.intersection(covered):
+            return None
+        if any(not compatible(start,size,other_start,other_size) for other_size,other_start,_ in selected):
+            return None
+        remaining[size]-=1
+        selected.append((size,start,set(covered)))
+        forced_covered.update(covered)
+    failed=set()
+
+    def search(uncovered:frozenset[int]):
+        state=(
+            tuple(sorted(uncovered)),
+            tuple(sorted(remaining.items())),
+            tuple(sorted((size,start) for size,start,_covered in selected)),
+        )
+        if state in failed:
+            return None
+        if not uncovered:
+            rest=[]
+            for size,count in remaining.items():
+                rest.extend([size]*count)
+            packed=_pack_pattern_groups_into_segments(rest,free_segments(selected))
+            if packed is None:
+                failed.add(state)
+                return None
+            return [*selected,*[(size,start,set()) for size,start in packed]]
+
+        target=min(uncovered)
+        for size in sorted((value for value,count in remaining.items() if count>0),reverse=True):
+            for start in starts_by_size[size]:
+                target_slots=interval(start,size)
+                covered=current.intersection(target_slots)
+                if target not in covered or not covered.issubset(uncovered):
+                    continue
+                if any(not compatible(start,size,other_start,other_size) for other_size,other_start,_ in selected):
+                    continue
+                remaining[size]-=1
+                selected.append((size,start,set(covered)))
+                result=search(frozenset(set(uncovered)-covered))
+                if result is not None:
+                    return result
+                selected.pop()
+                remaining[size]+=1
+        failed.add(state)
+        return None
+
+    return search(frozenset(current-forced_covered))
+
+def timetable_pattern_feasible(project:Project,groups:list[int]):
+    return _complete_pattern_placement(project,groups,set()) is not None
+
+def pattern_completion_plan(project: Project, assignment: Assignment, slots: list[int] | set[int]):
+    """Lập kế hoạch hoàn thành mẫu tiết từ phần lịch hiện có.
+
+    Các tiết đã đặt có thể là một đoạn liền hoặc nhiều mảnh của cùng một cụm
+    (ví dụ đã có tiết 1 và 3 của cụm 3 tiết). Hàm tìm cách bao phủ toàn bộ các
+    tiết hiện có bằng những cụm hợp lệ, rồi trả về phần còn thiếu của mỗi cụm.
+    """
+    current=set(slots)
+    maximum=project.days*project.sessions*project.periods_per_session
+    if len(current)!=len(list(slots)) or len(current)>assignment.periods_per_week:
+        return None
+    if any(slot<0 or slot>=maximum for slot in current):
+        return None
+    if not assignment_requires_double(assignment):
+        return [{
+            "size":1,
+            "anchor_slots":tuple(),
+            "candidate_starts":None,
+        } for _ in range(assignment.periods_per_week-len(current))]
+    expected=assignment_groups(assignment)
+    placements=_complete_pattern_placement(project,expected,current)
+    if placements is None:
+        return None
+    ppd=project.sessions*project.periods_per_session
+    anchored=[(size,start,set(covered)) for size,start,covered in placements if covered]
+    plan = []
+    for placement_index,(target_size,start,covered) in enumerate(placements):
+        if not covered:
+            plan.append({
+                "size": target_size,
+                "anchor_slots": tuple(),
+                "candidate_starts": None,
+            })
+            continue
+        if len(covered)==target_size:
+            continue
+        target_anchored_index=sum(1 for _size,_start,item_covered in placements[:placement_index] if item_covered)
+        alternative_starts=[]
+        for day in range(project.days):
+            for session in range(project.sessions):
+                base=day*ppd+session*project.periods_per_session
+                for period in range(project.periods_per_session-target_size+1):
+                    candidate=base+period
+                    candidate_slots=set(range(candidate,candidate+target_size))
+                    if current.intersection(candidate_slots)!=covered:
+                        continue
+                    forced=[]
+                    anchored_index=0
+                    for size,chosen_start,_chosen_covered in anchored:
+                        forced.append((size,candidate if anchored_index==target_anchored_index else chosen_start))
+                        anchored_index+=1
+                    if _complete_pattern_placement(project,expected,slots,forced) is not None:
+                        alternative_starts.append(candidate)
+        plan.append({
+            "size": target_size,
+            "anchor_slots": tuple(sorted(covered)),
+            "candidate_starts": tuple(sorted(set(alternative_starts or [start]))),
+        })
+    return plan
+
+
+def remaining_pattern_groups(project: Project, assignment: Assignment, slots: list[int] | set[int]):
+    """Trả về kích thước đầy đủ của các cụm còn phải hoàn thành."""
+    plan = pattern_completion_plan(project, assignment, slots)
+    if plan is None:
+        return None
+    return [item["size"] for item in plan]
 
 def assignment_pattern_matches(project:Project,assignment:Assignment,slots:list[int] | set[int]):
+    values=list(slots)
+    if len(values)!=len(set(values)) or len(values)!=assignment.periods_per_week:
+        return False
+    if not assignment_requires_double(assignment):
+        return True
     return pattern_slots_match(
         project,
-        assignment.consecutive_pattern,
+        assignment_generated_pattern(assignment),
         assignment.periods_per_week,
-        slots,
+        values,
     )
+
+def partial_assignment_pattern_matches(project:Project,assignment:Assignment,slots:list[int] | set[int]):
+    return pattern_completion_plan(project,assignment,slots) is not None
+
+
+def assignment_completion_feasible(
+    db: Session,
+    project: Project,
+    assignment: Assignment,
+    proposed_slots: list[int] | set[int],
+) -> bool:
+    """Kiểm tra phần lịch thủ công có ít nhất một cách hoàn thành hợp lệ.
+
+    Khác với ``partial_assignment_pattern_matches``, hàm này xét cả các ràng
+    buộc thực tế: ô khóa, thời gian tránh, trùng lớp/giáo viên, số tiết tối đa
+    trong ngày, giới hạn tiết liên tiếp và các cụm cố định.
+    """
+    values=list(proposed_slots)
+    current=set(values)
+    maximum=project.days*project.sessions*project.periods_per_session
+    if len(values)!=len(current) or len(current)>assignment.periods_per_week:
+        return False
+    if any(slot<0 or slot>=maximum for slot in current):
+        return False
+    expected=assignment_groups(assignment)
+    keep_groups_separate=assignment_requires_double(assignment)
+
+    teacher=db.get(Teacher,assignment.teacher_id)
+    school_class=db.get(SchoolClass,assignment.class_id)
+    subject=db.get(Subject,assignment.subject_id)
+    if not teacher or not school_class or not subject:
+        return False
+
+    ppd=project.sessions*project.periods_per_session
+    global_blocked=parse_slots(project.blocked_slots_json)
+    teacher_unavailable=parse_slots(teacher.unavailable_json)
+    class_unavailable=parse_slots(school_class.unavailable_json)
+    accepted_preferred,accepted_unavailable=accepted_teacher_preferences(db,project.id)
+    preferred=accepted_preferred.get(teacher.id,set())
+    teacher_unavailable.update(accepted_unavailable.get(teacher.id,set()))
+
+    other_lessons=[]
+    for lesson in db.scalars(select(Lesson).where(Lesson.project_id==project.id)).all():
+        if lesson.assignment_id!=assignment.id:
+            other_lessons.append(lesson)
+
+    teacher_busy=set()
+    class_busy=set()
+    teacher_day=Counter()
+    base_subject_periods=defaultdict(set)
+    for lesson in other_lessons:
+        other=db.get(Assignment,lesson.assignment_id)
+        if not other:
+            continue
+        day=lesson.slot//ppd
+        if other.teacher_id==assignment.teacher_id:
+            teacher_busy.add(lesson.slot)
+            teacher_day[day]+=1
+        if other.class_id==assignment.class_id:
+            class_busy.add(lesson.slot)
+            if other.subject_id==assignment.subject_id:
+                inside=lesson.slot%ppd
+                session=inside//project.periods_per_session
+                period=inside%project.periods_per_session
+                base_subject_periods[(day,session)].add(period)
+
+    forbidden=global_blocked|teacher_unavailable|class_unavailable|teacher_busy|class_busy
+    if current.intersection(forbidden):
+        return False
+
+    starts_by_size={}
+    for size in set(expected):
+        candidates=[]
+        for day in range(project.days):
+            for session in range(project.sessions):
+                base=day*ppd+session*project.periods_per_session
+                for period in range(project.periods_per_session-size+1):
+                    start=base+period
+                    group=tuple(range(start,start+size))
+                    if not set(group).intersection(forbidden):
+                        candidates.append((start,group))
+        starts_by_size[size]=candidates
+
+    def compatible(left_start:int,left_size:int,right_start:int,right_size:int):
+        left_end=left_start+left_size
+        right_end=right_start+right_size
+        if left_start<right_end and right_start<left_end:
+            return False
+        left_day,left_session,_=slot_meta(project,left_start)
+        right_day,right_session,_=slot_meta(project,right_start)
+        if (left_day,left_session)!=(right_day,right_session):
+            return True
+        if not keep_groups_separate:
+            return True
+        return left_end!=right_start and right_end!=left_start
+
+    remaining=Counter(expected)
+    selected=[]
+    selected_slots=set()
+    added_teacher_day=Counter()
+    added_subject_periods=defaultdict(set)
+
+    def subject_limit_ok(group:tuple[int,...]):
+        touched=set()
+        for slot in group:
+            day=slot//ppd
+            inside=slot%ppd
+            session=inside//project.periods_per_session
+            period=inside%project.periods_per_session
+            touched.add((day,session))
+            added_subject_periods[(day,session)].add(period)
+        valid=True
+        for key in touched:
+            periods=sorted(base_subject_periods[key]|added_subject_periods[key])
+            longest=run=0
+            previous=None
+            for period in periods:
+                run=run+1 if previous is not None and period==previous+1 else 1
+                longest=max(longest,run)
+                previous=period
+            if longest>subject.max_consecutive:
+                valid=False
+                break
+        for slot in group:
+            day=slot//ppd
+            inside=slot%ppd
+            session=inside//project.periods_per_session
+            period=inside%project.periods_per_session
+            added_subject_periods[(day,session)].discard(period)
+        return valid
+
+    same_assignment_lessons=db.scalars(select(Lesson).where(
+        Lesson.project_id==project.id,
+        Lesson.assignment_id==assignment.id,
+    )).all()
+    fixed_rows=db.scalars(select(FixedLesson).where(
+        FixedLesson.project_id==project.id,
+        FixedLesson.assignment_id==assignment.id,
+    )).all()
+
+    fixed_placements=[]
+    for row in fixed_rows:
+        size=fixed_row_size(project,assignment,row,same_assignment_lessons)
+        if remaining[size]<=0:
+            return False
+        group=tuple(range(row.slot,row.slot+size))
+        if (row.slot,group) not in starts_by_size.get(size,[]):
+            return False
+        if any(not compatible(row.slot,size,start,other_size) for other_size,start,_group in fixed_placements):
+            return False
+        fixed_placements.append((size,row.slot,group))
+        remaining[size]-=1
+
+    def add_group(size:int,start:int,group:tuple[int,...]):
+        day_counts=Counter(slot//ppd for slot in group)
+        for day,count in day_counts.items():
+            if teacher_day[day]+added_teacher_day[day]+count>teacher.max_periods_day:
+                return False
+        if not subject_limit_ok(group):
+            return False
+        for day,count in day_counts.items():
+            added_teacher_day[day]+=count
+        for slot in group:
+            day=slot//ppd
+            inside=slot%ppd
+            session=inside//project.periods_per_session
+            period=inside%project.periods_per_session
+            added_subject_periods[(day,session)].add(period)
+        selected.append((size,start,group))
+        selected_slots.update(group)
+        return True
+
+    def remove_group(size:int,start:int,group:tuple[int,...]):
+        selected.pop()
+        for slot in group:
+            selected_slots.remove(slot)
+            day=slot//ppd
+            added_teacher_day[day]-=1
+            inside=slot%ppd
+            session=inside//project.periods_per_session
+            period=inside%project.periods_per_session
+            added_subject_periods[(day,session)].discard(period)
+
+    for size,start,group in fixed_placements:
+        if set(group).intersection(selected_slots) or not add_group(size,start,group):
+            return False
+
+    failed=set()
+    def search():
+        uncovered=current-selected_slots
+        if sum(remaining.values())==0:
+            return not uncovered and len(selected_slots)==assignment.periods_per_week
+        state=(
+            tuple(sorted(remaining.items())),
+            tuple(sorted(uncovered)),
+            tuple(sorted(selected_slots)),
+        )
+        if state in failed:
+            return False
+
+        candidate_sets=[]
+        if uncovered:
+            target=min(uncovered)
+            for size,count in remaining.items():
+                if count<=0:
+                    continue
+                options=[item for item in starts_by_size[size] if target in item[1]]
+                if options:
+                    candidate_sets.append((len(options),-size,size,options))
+        else:
+            for size,count in remaining.items():
+                if count<=0:
+                    continue
+                options=starts_by_size[size]
+                candidate_sets.append((len(options),-size,size,options))
+        if not candidate_sets:
+            failed.add(state)
+            return False
+
+        for _count,_neg,size,raw_options in sorted(candidate_sets):
+            options=sorted(raw_options,key=lambda item:(
+                -sum(slot in preferred for slot in item[1]),
+                item[0],
+            ))
+            for start,group in options:
+                group_set=set(group)
+                if group_set.intersection(selected_slots):
+                    continue
+                if any(not compatible(start,size,other_start,other_size) for other_size,other_start,_other_group in selected):
+                    continue
+                if uncovered and not group_set.intersection(uncovered):
+                    continue
+                if not add_group(size,start,group):
+                    continue
+                remaining[size]-=1
+                if search():
+                    return True
+                remaining[size]+=1
+                remove_group(size,start,group)
+        failed.add(state)
+        return False
+
+    return search()
+
+
+def assignment_pattern_label(assignment:Assignment):
+    if assignment_requires_double(assignment):
+        return "bắt buộc tiết đôi ("+" + ".join(str(value) for value in assignment_groups(assignment))+")"
+    if assignment_prefers_double(assignment):
+        return "ưu tiên tiết đôi"
+    return "xếp tiết tự do"
 
 def accepted_teacher_preferences(db: Session, project_id: int):
     rows = db.scalars(
@@ -536,6 +1155,15 @@ def accepted_teacher_preferences(db: Session, project_id: int):
         preferred[row.teacher_id].update(parse_slots(row.preferred_json))
         unavailable[row.teacher_id].update(parse_slots(row.unavailable_json))
     return preferred, unavailable
+
+
+def bounded_text(value, label: str, max_length: int, *, required: bool = True) -> str:
+    cleaned = str(value or "").strip()
+    if required and not cleaned:
+        raise HTTPException(400, f"{label} không được để trống")
+    if len(cleaned) > max_length:
+        raise HTTPException(400, f"{label} không được vượt quá {max_length} ký tự")
+    return cleaned
 
 @app.exception_handler(401)
 async def auth_error(request: Request, exc):
@@ -604,6 +1232,15 @@ def register(
         return templates.TemplateResponse("auth.html", context, status_code=400)
     if not teacher_name:
         context["error"] = "Tên giáo viên mong muốn không được để trống"
+        return templates.TemplateResponse("auth.html", context, status_code=400)
+    if len(name) > 120:
+        context["error"] = "Họ tên tài khoản không được vượt quá 120 ký tự"
+        return templates.TemplateResponse("auth.html", context, status_code=400)
+    if len(teacher_name) > 120:
+        context["error"] = "Tên giáo viên mong muốn không được vượt quá 120 ký tự"
+        return templates.TemplateResponse("auth.html", context, status_code=400)
+    if len(email) > 255:
+        context["error"] = "Email không được vượt quá 255 ký tự"
         return templates.TemplateResponse("auth.html", context, status_code=400)
     if len(password) < 6:
         context["error"] = "Mật khẩu phải có ít nhất 6 ký tự"
@@ -778,9 +1415,11 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
     managed_teacher_ids = admin_teacher_ids(user, db)
     all_users = db.scalars(select(User).order_by(User.id.asc())).all()
     users = [account for account in all_users if admin_can_manage_account(user, account, db)]
-    assigned_teacher_ids = set(db.scalars(
+    assigned_teacher_ids = set(db.scalars(select(TeacherAccountLink.teacher_id)).all())
+    assigned_teacher_ids.update(db.scalars(
         select(User.teacher_id).where(User.role == "teacher", User.teacher_id.is_not(None))
     ).all())
+    managed_account_ids = {account.id for account in users if account.role == "teacher" and admin_can_manage_account(user, account, db)}
     available_teachers = []
     if project_ids:
         teachers = db.scalars(
@@ -803,6 +1442,7 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
         "available_teachers": available_teachers,
         "managed_projects": projects,
         "managed_teacher_ids": managed_teacher_ids,
+        "managed_account_ids": managed_account_ids,
         "project_names": project_names,
     })
 
@@ -821,18 +1461,19 @@ def update_account(
     account = db.get(User, account_id)
     if not account or not admin_can_manage_account(user, account, db):
         raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
-    name = name.strip()
-    email = email.lower().strip()
-    if not name:
-        raise HTTPException(400, "Họ tên không được để trống")
-    if not email or "@" not in email:
+    name = bounded_text(name, "Họ tên", 120)
+    email = bounded_text(email.lower(), "Email", 255)
+    requested_teacher_name = bounded_text(
+        requested_teacher_name, "Tên giáo viên mong muốn", 120, required=False
+    )
+    if "@" not in email:
         raise HTTPException(400, "Email không hợp lệ")
     conflict = db.scalar(select(User).where(User.email == email, User.id != account.id))
     if conflict:
         raise HTTPException(409, "Email đã được dùng cho tài khoản khác")
     account.name = name
     account.email = email
-    account.requested_teacher_name = requested_teacher_name.strip() or None
+    account.requested_teacher_name = requested_teacher_name or None
     password_changed = bool(password.strip())
     if password_changed:
         if len(password.strip()) < 6:
@@ -860,6 +1501,9 @@ def delete_account(
         raise HTTPException(400, "Không thể xóa chính tài khoản đang đăng nhập")
     if db.scalar(select(Project.id).where(Project.owner_id == account.id)) is not None:
         raise HTTPException(400, "Không thể xóa tài khoản đang sở hữu bộ thời khóa biểu")
+    for link in db.scalars(select(TeacherAccountLink).where(TeacherAccountLink.user_id == account.id)).all():
+        db.delete(link)
+    db.flush()
     db.delete(account)
     db.commit()
     return RedirectResponse("/admin/users", 303)
@@ -894,10 +1538,7 @@ def approve_teacher_account(
             raise HTTPException(400, "Giáo viên không hợp lệ hoặc không thuộc bộ thời khóa biểu của bạn")
         if account.requested_project_id is not None and project.id != account.requested_project_id:
             raise HTTPException(403, "Tài khoản này được mời vào một bộ thời khóa biểu khác")
-        existing_account = db.scalar(
-            select(User).where(User.role == "teacher", User.teacher_id == teacher.id)
-        )
-        if existing_account:
+        if account_for_teacher(teacher.id, db):
             raise HTTPException(400, "Giáo viên này đã có tài khoản")
     else:
         teacher_name = (account.requested_teacher_name or "").strip()
@@ -925,6 +1566,7 @@ def approve_teacher_account(
         db.flush()
     account.role = "teacher"
     account.teacher_id = teacher.id
+    ensure_teacher_link(account, teacher, db)
     account.requested_project_id = None
     db.commit()
     return RedirectResponse("/admin/users", 303)
@@ -942,10 +1584,10 @@ def promote_teacher_to_admin(
         raise HTTPException(404, "Không tìm thấy tài khoản")
     if account.role != "teacher":
         raise HTTPException(400, "Chỉ có thể nâng tài khoản giáo viên lên quản trị viên")
-    teacher = db.get(Teacher, account.teacher_id) if account.teacher_id else None
-    project = db.get(Project, teacher.project_id) if teacher else None
-    if not teacher or not project or project.owner_id != user.id:
+    if not admin_can_manage_account(user, account, db):
         raise HTTPException(403, "Bạn không quản lý tài khoản giáo viên này")
+    for link in db.scalars(select(TeacherAccountLink).where(TeacherAccountLink.user_id == account.id)).all():
+        db.delete(link)
     account.role = "admin"
     account.teacher_id = None
     db.commit()
@@ -963,14 +1605,23 @@ def projects(request: Request, user: User = Depends(current_user), db: Session =
 @app.post("/projects")
 def create_project(name: str = Form(...), school_name: str = Form(...), days: int = Form(6), sessions: int = Form(2), periods: int = Form(5), user: User = Depends(current_user), db: Session = Depends(db_session)):
     if user.role!="admin": raise HTTPException(403)
-    p = Project(owner_id=user.id, name=name, school_name=school_name, days=max(1,min(days,7)), sessions=max(1,min(sessions,2)), periods_per_session=max(1,min(periods,8)))
+    clean_name=name.strip(); clean_school_name=school_name.strip()
+    if not clean_name: raise HTTPException(400,"Tên bộ thời khóa biểu không được để trống")
+    if not clean_school_name: raise HTTPException(400,"Tên trường không được để trống")
+    if len(clean_name)>200: raise HTTPException(400,"Tên bộ thời khóa biểu không được vượt quá 200 ký tự")
+    if len(clean_school_name)>200: raise HTTPException(400,"Tên trường không được vượt quá 200 ký tự")
+    p = Project(owner_id=user.id, name=clean_name, school_name=clean_school_name, days=max(1,min(days,7)), sessions=max(1,min(sessions,2)), periods_per_session=max(1,min(periods,8)))
     db.add(p); db.commit()
     return RedirectResponse(f"/projects/{p.id}", 303)
 
 @app.post("/projects/{pid}/clone")
 def clone_project(pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)):
-    src = get_project(pid,user,db)
-    p = Project(owner_id=user.id,name=src.name+" (bản sao)",school_name=src.school_name,days=src.days,sessions=src.sessions,periods_per_session=src.periods_per_session,blocked_slots_json=src.blocked_slots_json)
+    # Dùng cùng khóa với mọi API chỉnh sửa để bản sao luôn được đọc từ một
+    # trạng thái nhất quán, không trộn dữ liệu trước và sau một thay đổi đồng thời.
+    src = get_project_for_update(pid,user,db)
+    suffix = " (bản sao)"
+    clone_name = src.name[: 200 - len(suffix)] + suffix
+    p = Project(owner_id=user.id,name=clone_name,school_name=src.school_name,days=src.days,sessions=src.sessions,periods_per_session=src.periods_per_session,blocked_slots_json=src.blocked_slots_json)
     db.add(p); db.flush()
     maps = {"dep":{},"sub":{},"tea":{},"grade":{},"cls":{},"ass":{}}
     for x in db.scalars(select(Department).where(Department.project_id==pid)):
@@ -979,15 +1630,24 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
         n=Subject(project_id=p.id,name=x.name,short_name=x.short_name,max_consecutive=x.max_consecutive);db.add(n);db.flush();maps["sub"][x.id]=n.id
     for x in db.scalars(select(Teacher).where(Teacher.project_id==pid)):
         n=Teacher(project_id=p.id,department_id=maps["dep"].get(x.department_id),name=x.name,short_name=x.short_name,max_periods_day=x.max_periods_day,unavailable_json=x.unavailable_json);db.add(n);db.flush();maps["tea"][x.id]=n.id
+    source_links=db.scalars(select(TeacherAccountLink).where(TeacherAccountLink.teacher_id.in_(list(maps["tea"])))).all() if maps["tea"] else []
+    linked_source_ids={link.teacher_id for link in source_links}
+    for link in source_links:
+        db.add(TeacherAccountLink(user_id=link.user_id,teacher_id=maps["tea"][link.teacher_id]))
+    if maps["tea"]:
+        legacy_accounts=db.scalars(select(User).where(User.role=="teacher",User.teacher_id.in_(list(maps["tea"])))).all()
+        for account in legacy_accounts:
+            if account.teacher_id not in linked_source_ids:
+                db.add(TeacherAccountLink(user_id=account.id,teacher_id=maps["tea"][account.teacher_id]))
     for x in db.scalars(select(Grade).where(Grade.project_id==pid)):
         n=Grade(project_id=p.id,name=x.name);db.add(n);db.flush();maps["grade"][x.id]=n.id
     for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)):
         n=SchoolClass(project_id=p.id,grade_id=maps["grade"].get(x.grade_id),name=x.name,unavailable_json=x.unavailable_json);db.add(n);db.flush();maps["cls"][x.id]=n.id
     for x in db.scalars(select(Assignment).where(Assignment.project_id==pid)):
-        n=Assignment(project_id=p.id,class_id=maps["cls"][x.class_id],subject_id=maps["sub"][x.subject_id],teacher_id=maps["tea"][x.teacher_id],periods_per_week=x.periods_per_week,consecutive_pattern=x.consecutive_pattern);db.add(n);db.flush();maps["ass"][x.id]=n.id
+        n=Assignment(project_id=p.id,class_id=maps["cls"][x.class_id],subject_id=maps["sub"][x.subject_id],teacher_id=maps["tea"][x.teacher_id],periods_per_week=x.periods_per_week,block_mode=x.block_mode,consecutive_pattern="");db.add(n);db.flush();maps["ass"][x.id]=n.id
     for x in db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid)):
         if x.assignment_id in maps["ass"]:
-            db.add(FixedLesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot))
+            db.add(FixedLesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot,group_size=x.group_size))
     for x in db.scalars(select(Lesson).where(Lesson.project_id==pid)):
         db.add(Lesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot,locked=x.locked))
     db.commit(); return RedirectResponse(f"/projects/{p.id}",303)
@@ -1002,11 +1662,8 @@ class EntityIn(BaseModel):
     type: str
     data: dict
 
-def required_text(data: dict, key: str, label: str) -> str:
-    value = str(data.get(key, "")).strip()
-    if not value:
-        raise HTTPException(400, f"{label} không được để trống")
-    return value
+def required_text(data: dict, key: str, label: str, max_length: int) -> str:
+    return bounded_text(data.get(key, ""), label, max_length)
 
 def required_id(data: dict, key: str, label: str) -> int:
     value = data.get(key)
@@ -1020,15 +1677,16 @@ def required_id(data: dict, key: str, label: str) -> int:
 
 @app.post("/api/projects/{pid}/entity")
 def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Session=Depends(db_session)):
-    get_project(pid,user,db); d=payload.data
+    project=get_project_for_update(pid,user,db); d=payload.data
     if payload.type=="department":
-        obj=Department(project_id=pid,name=required_text(d,"name","Tên tổ chuyên môn"))
+        obj=Department(project_id=pid,name=required_text(d,"name","Tên tổ chuyên môn",120))
     elif payload.type=="subject":
-        name=required_text(d,"name","Tên môn học")
-        max_consecutive=bounded_int(d.get("max_consecutive"),1,1,4,"Số tiết liên tiếp tối đa")
-        obj=Subject(project_id=pid,name=name,short_name=str(d.get("short_name") or name[:5]).strip()[:20],max_consecutive=max_consecutive)
+        name=required_text(d,"name","Tên môn học",120)
+        max_consecutive=bounded_int(d.get("max_consecutive"),2,1,4,"Số tiết liên tiếp tối đa")
+        short_name=(str(d.get("short_name") or "").strip() or name[:5])[:20]
+        obj=Subject(project_id=pid,name=name,short_name=short_name,max_consecutive=max_consecutive)
     elif payload.type=="teacher":
-        name=required_text(d,"name","Tên giáo viên")
+        name=required_text(d,"name","Tên giáo viên",120)
         department_id=d.get("department_id") or None
         if department_id:
             try: department_id=int(department_id)
@@ -1036,18 +1694,18 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
             department=db.get(Department,department_id)
             if not department or department.project_id!=pid: raise HTTPException(400,"Tổ chuyên môn không hợp lệ")
         max_periods_day=bounded_int(d.get("max_periods_day"),5,1,10,"Số tiết tối đa mỗi ngày")
-        obj=Teacher(project_id=pid,name=name,short_name=str(d.get("short_name") or name).strip()[:30],department_id=department_id,max_periods_day=max_periods_day,unavailable_json=json.dumps(valid_slots(get_project(pid,user,db),d.get("unavailable",[]))))
+        short_name=(str(d.get("short_name") or "").strip() or name)[:30]
+        obj=Teacher(project_id=pid,name=name,short_name=short_name,department_id=department_id,max_periods_day=max_periods_day,unavailable_json=json.dumps(valid_slots(project,d.get("unavailable",[]))))
     elif payload.type=="grade":
-        obj=Grade(project_id=pid,name=required_text(d,"name","Tên khối lớp"))
+        obj=Grade(project_id=pid,name=required_text(d,"name","Tên khối lớp",80))
     elif payload.type=="class":
-        name=required_text(d,"name","Tên lớp học")
+        name=required_text(d,"name","Tên lớp học",80)
         grade_id=d.get("grade_id") or None
         if grade_id:
             try: grade_id=int(grade_id)
             except (TypeError,ValueError) as exc: raise HTTPException(400,"Khối lớp không hợp lệ") from exc
             grade=db.get(Grade,grade_id)
             if not grade or grade.project_id!=pid: raise HTTPException(400,"Khối lớp không hợp lệ")
-        project=get_project(pid,user,db)
         obj=SchoolClass(project_id=pid,name=name,grade_id=grade_id,unavailable_json=json.dumps(valid_slots(project,d.get("unavailable",[]))))
     elif payload.type=="assignment":
         class_id=required_id(d,"class_id","Lớp học")
@@ -1065,9 +1723,9 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
         if duplicate is not None:
             raise HTTPException(409,"Phân công lớp – môn – giáo viên này đã tồn tại")
         periods=bounded_int(d.get("periods_per_week"),1,1,40,"Số tiết mỗi tuần")
-        try: pattern=normalized_assignment_pattern(d.get("consecutive_pattern",""),periods,subject)
+        try: mode=normalized_block_mode(d.get("block_mode","free"),periods,subject,project)
         except ValueError as exc: raise HTTPException(400,str(exc)) from exc
-        obj=Assignment(project_id=pid,class_id=school_class.id,subject_id=subject.id,teacher_id=teacher.id,periods_per_week=periods,consecutive_pattern=pattern)
+        obj=Assignment(project_id=pid,class_id=school_class.id,subject_id=subject.id,teacher_id=teacher.id,periods_per_week=periods,block_mode=mode,consecutive_pattern="")
     else: raise HTTPException(400,"Loại dữ liệu không hợp lệ")
     db.add(obj); db.commit(); return {"ok":True,"id":obj.id}
 
@@ -1080,7 +1738,7 @@ def update_entity(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
-    project = get_project(pid, user, db)
+    project = get_project_for_update(pid, user, db)
     if payload.type != typ or typ not in {"subject", "teacher", "class"}:
         raise HTTPException(400, "Loại dữ liệu không hợp lệ")
     model = {"subject": Subject, "teacher": Teacher, "class": SchoolClass}[typ]
@@ -1088,76 +1746,117 @@ def update_entity(
     if not obj or obj.project_id != pid:
         raise HTTPException(404, "Không tìm thấy dữ liệu cần sửa")
     d = payload.data
-    name = str(d.get("name", "")).strip()
-    if not name:
-        raise HTTPException(400, "Tên không được để trống")
+    name_limit = {"subject": 120, "teacher": 120, "class": 80}[typ]
+    name = bounded_text(d.get("name", ""), "Tên", name_limit)
     if typ == "subject":
-        short_name = str(d.get("short_name", "")).strip()
-        if not short_name:
-            raise HTTPException(400, "Tên rút gọn không được để trống")
-        try:
-            new_max_consecutive = max(1, min(int(d.get("max_consecutive", 1)), 4))
-        except (TypeError, ValueError) as exc:
-            raise HTTPException(400, "Số tiết liên tiếp tối đa phải là số từ 1 đến 4") from exc
-        assignments = db.scalars(select(Assignment).where(Assignment.subject_id == obj.id)).all()
-        incompatible = []
-        for assignment in assignments:
-            if (assignment.consecutive_pattern or "").strip():
-                try:
-                    groups = consecutive_groups(assignment.consecutive_pattern, assignment.periods_per_week)
-                except ValueError:
-                    incompatible.append(assignment.id)
+        short_name = bounded_text(d.get("short_name", ""), "Tên rút gọn", 20)
+        new_max_consecutive = bounded_int(
+            d.get("max_consecutive"), 1, 1, 4, "Số tiết liên tiếp tối đa"
+        )
+        assignments = db.scalars(select(Assignment).where(
+            Assignment.project_id == pid,
+            Assignment.subject_id == obj.id,
+        )).all()
+        incompatible_assignments = [
+            assignment.id for assignment in assignments
+            if getattr(assignment,"block_mode","free") in {"preferred_double","required_double"}
+            and assignment.periods_per_week >= 2
+            and new_max_consecutive < 2
+        ]
+
+        assignment_by_id = {assignment.id: assignment for assignment in assignments}
+        periods_by_class_session = defaultdict(list)
+        periods_per_day = project.sessions * project.periods_per_session
+        if assignment_by_id:
+            lessons = db.scalars(select(Lesson).where(
+                Lesson.project_id == pid,
+                Lesson.assignment_id.in_(list(assignment_by_id)),
+            )).all()
+            for lesson in lessons:
+                assignment = assignment_by_id.get(lesson.assignment_id)
+                if not assignment:
                     continue
-                if any(group > new_max_consecutive for group in groups):
-                    incompatible.append(assignment.id)
-                    continue
-            lesson_slots = db.scalars(select(Lesson.slot).where(Lesson.assignment_id == assignment.id)).all()
-            periods_by_session = defaultdict(list)
-            periods_per_day = project.sessions * project.periods_per_session
-            for slot in lesson_slots:
-                day = slot // periods_per_day
-                inside_day = slot % periods_per_day
+                day = lesson.slot // periods_per_day
+                inside_day = lesson.slot % periods_per_day
                 session = inside_day // project.periods_per_session
                 period = inside_day % project.periods_per_session
-                periods_by_session[(day, session)].append(period)
-            schedule_exceeds_limit = False
-            for periods in periods_by_session.values():
-                longest = run = 0
-                previous = None
-                for period in sorted(set(periods)):
-                    run = run + 1 if previous is not None and period == previous + 1 else 1
-                    longest = max(longest, run)
-                    previous = period
-                if longest > new_max_consecutive:
-                    schedule_exceeds_limit = True
-                    break
-            if schedule_exceeds_limit:
-                incompatible.append(assignment.id)
-        if incompatible:
+                periods_by_class_session[(assignment.class_id, day, session)].append(period)
+
+        violating_class_sessions = 0
+        for periods in periods_by_class_session.values():
+            longest = run = 0
+            previous = None
+            for period in sorted(set(periods)):
+                run = run + 1 if previous is not None and period == previous + 1 else 1
+                longest = max(longest, run)
+                previous = period
+            if longest > new_max_consecutive:
+                violating_class_sessions += 1
+
+        if incompatible_assignments or violating_class_sessions:
+            details = []
+            if incompatible_assignments:
+                details.append(
+                    f"{len(incompatible_assignments)} phân công đang dùng chế độ tiết đôi"
+                )
+            if violating_class_sessions:
+                details.append(
+                    f"{violating_class_sessions} buổi của lớp đang có cụm môn học dài hơn"
+                )
             raise HTTPException(
                 409,
-                f"Không thể giảm còn {new_max_consecutive} tiết liên tiếp vì có {len(incompatible)} phân công đang dùng cụm dài hơn. Hãy sửa cách chia tiết của các phân công đó trước.",
+                f"Không thể giảm còn {new_max_consecutive} tiết liên tiếp vì "
+                + " và ".join(details)
+                + ". Hãy điều chỉnh phân công hoặc lịch hiện tại trước.",
             )
         obj.name = name
-        obj.short_name = short_name[:20]
+        obj.short_name = short_name
         obj.max_consecutive = new_max_consecutive
     elif typ == "teacher":
-        short_name = str(d.get("short_name", "")).strip()
-        if not short_name:
-            raise HTTPException(400, "Tên ngắn không được để trống")
+        short_name = bounded_text(d.get("short_name", ""), "Tên ngắn", 30)
         department_id = d.get("department_id") or None
-        if department_id:
-            department = db.get(Department, int(department_id))
+        if department_id is not None:
+            try:
+                department_id = int(department_id)
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(400, "Tổ chuyên môn không hợp lệ") from exc
+            department = db.get(Department, department_id)
             if not department or department.project_id != pid:
                 raise HTTPException(400, "Tổ chuyên môn không hợp lệ")
+        new_max_periods_day = bounded_int(
+            d.get("max_periods_day"), 5, 1, 10, "Số tiết tối đa mỗi ngày"
+        )
+        assignment_ids = set(db.scalars(select(Assignment.id).where(
+            Assignment.project_id == pid,
+            Assignment.teacher_id == obj.id,
+        )).all())
+        if assignment_ids:
+            ppd = project.sessions * project.periods_per_session
+            daily_counts = Counter(
+                slot // ppd
+                for slot in db.scalars(select(Lesson.slot).where(
+                    Lesson.project_id == pid,
+                    Lesson.assignment_id.in_(assignment_ids),
+                )).all()
+            )
+            highest_current = max(daily_counts.values(), default=0)
+            if highest_current > new_max_periods_day:
+                raise HTTPException(
+                    409,
+                    f"Không thể giảm còn {new_max_periods_day} tiết/ngày vì lịch hiện tại có ngày giáo viên đang dạy {highest_current} tiết. Hãy điều chỉnh lịch trước.",
+                )
         obj.name = name
-        obj.short_name = short_name[:30]
+        obj.short_name = short_name
         obj.department_id = department_id
-        obj.max_periods_day = max(1, min(int(d.get("max_periods_day", 5)), 10))
+        obj.max_periods_day = new_max_periods_day
     else:
         grade_id = d.get("grade_id") or None
-        if grade_id:
-            grade = db.get(Grade, int(grade_id))
+        if grade_id is not None:
+            try:
+                grade_id = int(grade_id)
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(400, "Khối lớp không hợp lệ") from exc
+            grade = db.get(Grade, grade_id)
             if not grade or grade.project_id != pid:
                 raise HTTPException(400, "Khối lớp không hợp lệ")
         obj.name = name
@@ -1167,38 +1866,105 @@ def update_entity(
 
 class AssignmentUpdateIn(BaseModel):
     periods_per_week: int
-    consecutive_pattern: str = ""
+    block_mode: str = "free"
+
+
+def normalize_assignment_fixed_rows(
+    db: Session,
+    project: Project,
+    assignment: Assignment,
+    lessons: list[Lesson],
+) -> str | None:
+    """Chuẩn hóa các ghim khi số tiết hoặc chế độ cụm thay đổi.
+
+    Lesson.locked là nguồn dữ liệu thật. Ở chế độ tự do/ưu tiên, mỗi tiết khóa
+    có một FixedLesson riêng. Ở chế độ bắt buộc tiết đôi, các tiết khóa phải tự
+    tạo thành những cụm hoàn chỉnh được chế độ mới cho phép; không tự ý khóa
+    thêm một tiết lân cận vì điều đó sẽ thay đổi lựa chọn của người dùng.
+    """
+    locked_slots=sorted(lesson.slot for lesson in lessons if lesson.locked)
+    replacement_rows=[]
+    if assignment_requires_double(assignment):
+        expected=Counter(assignment_groups(assignment))
+        used=Counter()
+        for run in assignment_run_groups(project,locked_slots):
+            size=run["size"]
+            if expected[size]<=used[size]:
+                return (
+                    "Các tiết cố định hiện tại không tạo thành các cặp/tiết lẻ "
+                    "hợp lệ theo chế độ bắt buộc tiết đôi mới. Hãy bỏ cố định "
+                    "hoặc sắp xếp lại các tiết cố định trước."
+                )
+            used[size]+=1
+            replacement_rows.append((run["start"],size))
+    else:
+        replacement_rows=[(slot,1) for slot in locked_slots]
+
+    fixed_rows=db.scalars(select(FixedLesson).where(
+        FixedLesson.project_id==project.id,
+        FixedLesson.assignment_id==assignment.id,
+    )).all()
+    for row in fixed_rows:
+        db.delete(row)
+    for slot,size in replacement_rows:
+        db.add(FixedLesson(
+            project_id=project.id,
+            assignment_id=assignment.id,
+            slot=slot,
+            group_size=size,
+        ))
+    return None
+
 
 @app.put("/api/projects/{pid}/assignments/{assignment_id}")
 def update_assignment(pid:int,assignment_id:int,payload:AssignmentUpdateIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    project=get_project(pid,user,db)
+    project=get_project_for_update(pid,user,db)
     assignment=db.get(Assignment,assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
-    periods=max(1,min(int(payload.periods_per_week),40))
-    scheduled=db.scalar(select(func.count(Lesson.id)).where(Lesson.assignment_id==assignment.id)) or 0
+    periods=bounded_int(payload.periods_per_week,1,1,40,"Số tiết mỗi tuần")
+    lessons=db.scalars(select(Lesson).where(Lesson.assignment_id==assignment.id)).all()
+    scheduled=len(lessons)
     if periods<scheduled:
         return JSONResponse({"ok":False,"message":f"Đang có {scheduled} tiết trên lịch. Hãy gỡ bớt tiết trước khi giảm số tiết/tuần."},409)
     subject=db.get(Subject,assignment.subject_id)
     if not subject or subject.project_id!=pid: raise HTTPException(409,"Môn học của phân công không còn tồn tại")
-    try: pattern=normalized_assignment_pattern(payload.consecutive_pattern,periods,subject)
+    try: mode=normalized_block_mode(payload.block_mode,periods,subject,project)
     except ValueError as exc: raise HTTPException(400,str(exc)) from exc
-    schedule_changed = periods != assignment.periods_per_week or pattern != assignment.consecutive_pattern
-    if scheduled and schedule_changed:
-        lessons=db.scalars(select(Lesson).where(Lesson.assignment_id==assignment.id)).all()
-        if any(lesson.locked for lesson in lessons):
-            return JSONResponse({
-                "ok":False,
-                "message":"Phân công có tiết cố định. Hãy bỏ cố định trước khi đổi số tiết hoặc cách chia tiết.",
-            },409)
-        for lesson in lessons:
-            db.delete(lesson)
+
+    old_periods=assignment.periods_per_week
+    old_mode=assignment.block_mode
+    periods_changed=periods!=old_periods
+    mode_changed=mode!=old_mode
+
+    # Không xóa các Lesson đang có. Thay đổi được áp dụng trong transaction và
+    # sẽ rollback nguyên vẹn nếu phần lịch hiện tại không tương thích.
     assignment.periods_per_week=periods
-    assignment.consecutive_pattern=pattern
-    db.commit();return {"ok":True}
+    assignment.block_mode=mode
+    assignment.consecutive_pattern=""
+
+    if mode_changed or (periods_changed and assignment_requires_double(assignment)):
+        fixed_error=normalize_assignment_fixed_rows(db,project,assignment,lessons)
+        if fixed_error:
+            db.rollback()
+            return JSONResponse({"ok":False,"message":fixed_error},409)
+
+    # Chỉ các thay đổi ảnh hưởng cấu trúc cụm mới cần chứng minh rằng những tiết
+    # đã xếp vẫn có ít nhất một cách hoàn thành. Tăng số tiết ở chế độ tự do/
+    # ưu tiên chỉ tạo phần còn thiếu trong khay và giữ nguyên toàn bộ lịch cũ.
+    if (mode_changed or (periods_changed and assignment_requires_double(assignment))) and not assignment_completion_feasible(
+        db,project,assignment,[lesson.slot for lesson in lessons]
+    ):
+        db.rollback()
+        return JSONResponse({
+            "ok":False,
+            "message":"Không thể áp dụng thay đổi vì các tiết hiện có không thể hoàn thành hợp lệ theo chế độ mới và các ràng buộc hiện tại. Lịch cũ được giữ nguyên.",
+        },409)
+
+    db.commit();return {"ok":True,"scheduled_preserved":scheduled}
 
 @app.delete("/api/projects/{pid}/entity/{typ}/{eid}")
 def delete_entity(pid:int,typ:str,eid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db)
+    get_project_for_update(pid,user,db)
     model={"department":Department,"subject":Subject,"teacher":Teacher,"grade":Grade,"class":SchoolClass,"assignment":Assignment}.get(typ)
     if not model: raise HTTPException(400)
     obj=db.get(model,eid)
@@ -1212,7 +1978,7 @@ def delete_entity(pid:int,typ:str,eid:int,user:User=Depends(current_user),db:Ses
     }.get(typ)
     if dependency is not None:
         return JSONResponse({"ok":False,"message":"Không thể xóa vì dữ liệu đang được sử dụng."},409)
-    if typ=="teacher" and db.scalar(select(User.id).where(User.role=="teacher",User.teacher_id==eid)) is not None:
+    if typ=="teacher" and account_for_teacher(eid, db) is not None:
         return JSONResponse({"ok":False,"message":"Hãy thu hồi tài khoản giáo viên trước khi xóa."},409)
     if typ=="assignment":
         for l in db.scalars(select(Lesson).where(Lesson.assignment_id==eid)).all(): db.delete(l)
@@ -1229,7 +1995,7 @@ class ConstraintIn(BaseModel):
 
 @app.post("/api/projects/{pid}/constraints")
 def constraints(pid:int,payload:ConstraintIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    p=get_project(pid,user,db)
+    p=get_project_for_update(pid,user,db)
     if payload.entity_type not in {"teacher","class"}: raise HTTPException(400,"Loại ràng buộc không hợp lệ")
     model=Teacher if payload.entity_type=="teacher" else SchoolClass
     obj=db.get(model,payload.entity_id)
@@ -1240,12 +2006,51 @@ def constraints(pid:int,payload:ConstraintIn,user:User=Depends(current_user),db:
         Assignment.teacher_id==obj.id if payload.entity_type=="teacher" else Assignment.class_id==obj.id,
     )).all()
     assignment_ids={assignment.id for assignment in assignments}
-    locked_conflict=db.scalar(select(Lesson.id).where(
-        Lesson.project_id==pid,Lesson.assignment_id.in_(assignment_ids),Lesson.locked.is_(True),Lesson.slot.in_(slots)
-    )) if assignment_ids and slots else None
-    if locked_conflict is not None:
-        return JSONResponse({"ok":False,"message":"Ràng buộc mới xung đột với tiết cố định. Hãy bỏ cố định trước."},409)
-    obj.unavailable_json=json.dumps(sorted(slots));db.commit();return {"ok":True}
+    lessons=db.scalars(select(Lesson).where(
+        Lesson.project_id==pid,
+        Lesson.assignment_id.in_(assignment_ids),
+    )).all() if assignment_ids else []
+    lessons_by_assignment=defaultdict(list)
+    for lesson in lessons:
+        lessons_by_assignment[lesson.assignment_id].append(lesson)
+
+    fixed_rows=db.scalars(select(FixedLesson).where(
+        FixedLesson.project_id==pid,
+        FixedLesson.assignment_id.in_(assignment_ids),
+    )).all() if assignment_ids else []
+    assignment_by_id={assignment.id:assignment for assignment in assignments}
+    for row in fixed_rows:
+        assignment=assignment_by_id.get(row.assignment_id)
+        if not assignment:
+            continue
+        size=fixed_row_size(p,assignment,row,lessons_by_assignment[row.assignment_id])
+        if slots.intersection(range(row.slot,row.slot+size)):
+            return JSONResponse({"ok":False,"message":"Ràng buộc mới xung đột với tiết cố định. Hãy bỏ cố định trước."},409)
+
+    removed_ids=set()
+    for assignment in assignments:
+        assignment_lessons=lessons_by_assignment[assignment.id]
+        if not assignment_requires_double(assignment):
+            affected=[lesson for lesson in assignment_lessons if lesson.slot in slots]
+            if any(lesson.locked for lesson in affected):
+                return JSONResponse({"ok":False,"message":"Ràng buộc mới xung đột với tiết cố định. Hãy bỏ cố định trước."},409)
+            removed_ids.update(lesson.id for lesson in affected)
+            continue
+        for run in assignment_run_groups(p,[lesson.slot for lesson in assignment_lessons]):
+            if not slots.intersection(run["slots"]):
+                continue
+            run_slots=set(run["slots"])
+            affected=[lesson for lesson in assignment_lessons if lesson.slot in run_slots]
+            if any(lesson.locked for lesson in affected):
+                return JSONResponse({"ok":False,"message":"Ràng buộc mới xung đột với tiết cố định. Hãy bỏ cố định trước."},409)
+            removed_ids.update(lesson.id for lesson in affected)
+
+    obj.unavailable_json=json.dumps(sorted(slots))
+    for lesson in lessons:
+        if lesson.id in removed_ids:
+            db.delete(lesson)
+    db.commit()
+    return {"ok":True,"removed":len(removed_ids)}
 
 class SessionLocksIn(BaseModel):
     sessions: list[int] = Field(default_factory=list)
@@ -1253,7 +2058,7 @@ class SessionLocksIn(BaseModel):
 
 @app.post("/api/projects/{pid}/session-locks")
 def save_session_locks(pid:int,payload:SessionLocksIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    project=get_project(pid,user,db)
+    project=get_project_for_update(pid,user,db)
     maximum=project.days*project.sessions
     session_keys=sorted({int(value) for value in payload.sessions if 0<=int(value)<maximum})
     blocked=[]
@@ -1264,26 +2069,54 @@ def save_session_locks(pid:int,payload:SessionLocksIn,user:User=Depends(current_
         start=day*ppd+session*project.periods_per_session
         blocked.extend(range(start,start+project.periods_per_session))
     blocked=valid_slots(project,[*blocked,*payload.slots])
-    project.blocked_slots_json=json.dumps(blocked)
-    affected=db.scalars(select(Lesson).where(
-        Lesson.project_id==pid,Lesson.slot.in_(blocked),
-    )).all() if blocked else []
-    fixed_assignment_ids={lesson.assignment_id for lesson in affected if lesson.locked}
+    all_lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
+    lessons_by_assignment=defaultdict(list)
+    for lesson in all_lessons:
+        lessons_by_assignment[lesson.assignment_id].append(lesson)
     fixed_rows=db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid)).all()
-    fixed_assignment_ids.update(row.assignment_id for row in fixed_rows if row.slot in blocked)
+    blocked_set=set(blocked)
     removed_ids=set()
-    if fixed_assignment_ids:
-        fixed_lessons=db.scalars(select(Lesson).where(
-            Lesson.project_id==pid,Lesson.assignment_id.in_(fixed_assignment_ids),
-        )).all()
-        for lesson in fixed_lessons:
-            removed_ids.add(lesson.id);db.delete(lesson)
-        for row in fixed_rows:
-            if row.assignment_id in fixed_assignment_ids:
-                db.delete(row)
-    for lesson in affected:
-        if lesson.id not in removed_ids:
-            removed_ids.add(lesson.id);db.delete(lesson)
+
+    # Khóa buổi phải tuân cùng quy tắc với ràng buộc giáo viên/lớp:
+    # không âm thầm xóa các cụm đã được cố định.
+    for row in fixed_rows:
+        assignment=db.get(Assignment,row.assignment_id)
+        if not assignment:
+            continue
+        lessons=lessons_by_assignment.get(row.assignment_id,[])
+        size=fixed_row_size(project,assignment,row,lessons)
+        row_slots=set(range(row.slot,row.slot+size))
+        if blocked_set.intersection(row_slots):
+            return JSONResponse({
+                "ok":False,
+                "message":"Buổi hoặc tiết mới khóa đang chứa tiết cố định. Hãy bỏ cố định trước.",
+            },409)
+    if any(lesson.locked and lesson.slot in blocked_set for lesson in all_lessons):
+        return JSONResponse({
+            "ok":False,
+            "message":"Buổi hoặc tiết mới khóa đang chứa tiết cố định. Hãy bỏ cố định trước.",
+        },409)
+
+    project.blocked_slots_json=json.dumps(blocked)
+    for assignment_id,lessons in lessons_by_assignment.items():
+        if not any(lesson.slot in blocked_set for lesson in lessons):
+            continue
+        assignment=db.get(Assignment,assignment_id)
+        if not assignment:
+            for lesson in lessons:
+                if lesson.slot in blocked_set:
+                    removed_ids.add(lesson.id)
+            continue
+        if not assignment_requires_double(assignment):
+            removed_ids.update(lesson.id for lesson in lessons if lesson.slot in blocked_set)
+            continue
+        for run in assignment_run_groups(project,[lesson.slot for lesson in lessons]):
+            if blocked_set.intersection(run["slots"]):
+                run_slots=set(run["slots"])
+                removed_ids.update(lesson.id for lesson in lessons if lesson.slot in run_slots)
+    for lesson in all_lessons:
+        if lesson.id in removed_ids:
+            db.delete(lesson)
     db.commit()
     return {"ok":True,"sessions":session_keys,"removed":len(removed_ids)}
 
@@ -1292,7 +2125,9 @@ class FixedIn(BaseModel):
     slot:int
 
 def fixed_row_size(project: Project, assignment: Assignment, row: FixedLesson, lessons: list[Lesson] | None = None) -> int:
-    expected = consecutive_groups(assignment.consecutive_pattern, assignment.periods_per_week)
+    if not assignment_requires_double(assignment):
+        return 1
+    expected = assignment_groups(assignment)
     size = int(getattr(row, "group_size", 1) or 1)
     if lessons:
         for run in assignment_run_groups(project, [lesson.slot for lesson in lessons]):
@@ -1304,29 +2139,35 @@ def fixed_row_size(project: Project, assignment: Assignment, row: FixedLesson, l
 
 @app.post("/api/projects/{pid}/fixed")
 def fixed(pid:int,payload:FixedIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    p=get_project(pid,user,db)
+    p=get_project_for_update(pid,user,db)
     assignment=db.get(Assignment,payload.assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
+    if payload.slot not in set(all_slots(p)):
+        raise HTTPException(400,"Ô thời khóa biểu không hợp lệ")
     lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid,Lesson.assignment_id==assignment.id)).all()
-    run=next((item for item in assignment_run_groups(p,[lesson.slot for lesson in lessons]) if payload.slot in item["slots"]),None)
+    if assignment_requires_double(assignment):
+        run=next((item for item in assignment_run_groups(p,[lesson.slot for lesson in lessons]) if payload.slot in item["slots"]),None)
+    else:
+        selected=next((lesson for lesson in lessons if lesson.slot==payload.slot),None)
+        run={"start":payload.slot,"size":1,"slots":[payload.slot]} if selected else None
     if not run:
         # Tương thích với client cũ: payload.slot từng được hiểu là ô đích.
         # Chỉ cho phép khi phân công chưa có cụm cố định để tránh làm mất các ghim khác.
         existing_fixed=db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid,FixedLesson.assignment_id==assignment.id)).all()
         if existing_fixed:
-            raise HTTPException(409,"Hãy chọn trực tiếp một tiết đang có trên lịch để cố định cụm đó")
-        groups=consecutive_groups(assignment.consecutive_pattern,assignment.periods_per_week)
+            raise HTTPException(409,"Hãy chọn trực tiếp một tiết đang có trên lịch để cố định tiết hoặc cặp đó")
+        groups=assignment_groups(assignment)
         size=groups[0] if groups else 1
         day,session,period=slot_meta(p,payload.slot)
         if period+size>p.periods_per_session:
-            raise HTTPException(409,"Cụm tiết cố định vượt quá cuối buổi học")
+            raise HTTPException(409,"Cặp tiết cố định vượt quá cuối buổi học")
         for lesson in lessons:
             if lesson.locked:
                 raise HTTPException(409,"Phân công đang có tiết cố định; không thể dùng chế độ di chuyển cũ")
             db.delete(lesson)
         db.add(FixedLesson(project_id=pid,assignment_id=assignment.id,slot=payload.slot,group_size=size))
         db.flush()
-        result=solve_missing(db,p,tries=180)
+        result=solve_missing(db,p,tries=180,target_assignment_ids={assignment.id})
         target=[row for row in result["lessons"] if row[0]==assignment.id]
         if len(target)<assignment.periods_per_week:
             db.rollback()
@@ -1334,12 +2175,12 @@ def fixed(pid:int,payload:FixedIn,user:User=Depends(current_user),db:Session=Dep
         for aid,slot,locked in result["lessons"]:
             db.add(Lesson(project_id=pid,assignment_id=aid,slot=slot,locked=locked))
         db.commit()
-        return {"ok":True,"message":f"Đã chuyển và cố định cụm {size} tiết tại ô đã chọn."}
+        return {"ok":True,"message":f"Đã chuyển và cố định {size} tiết tại ô đã chọn."}
     if remaining_pattern_groups(p,assignment,[lesson.slot for lesson in lessons]) is None:
-        raise HTTPException(409,"Lịch hiện tại của phân công chưa đúng mẫu tiết; hãy xếp lại trước khi cố định")
-    expected=Counter(consecutive_groups(assignment.consecutive_pattern,assignment.periods_per_week))
+        raise HTTPException(409,"Lịch hiện tại chưa phù hợp với chế độ xếp tiết; hãy xếp lại trước khi cố định")
+    expected=Counter(assignment_groups(assignment))
     if expected[run["size"]] <= 0:
-        raise HTTPException(409,"Cụm tiết đang chọn không thuộc mẫu tiết của phân công")
+        raise HTTPException(409,"Tiết hoặc cặp đang chọn không phù hợp với chế độ của phân công")
     fixed_rows=db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid,FixedLesson.assignment_id==assignment.id)).all()
     used=Counter()
     for row in fixed_rows:
@@ -1349,10 +2190,10 @@ def fixed(pid:int,payload:FixedIn,user:User=Depends(current_user),db:Session=Dep
             for lesson in lessons:
                 if lesson.slot in run["slots"]: lesson.locked=True
             db.commit()
-            return {"ok":True,"message":f"Cụm {run['size']} tiết này đã được cố định."}
+            return {"ok":True,"message":f"Đã cố định {run['size']} tiết đang chọn."}
         used[size]+=1
     if used[run["size"]] >= expected[run["size"]]:
-        raise HTTPException(409,"Số cụm cố định loại này đã vượt mẫu tiết của phân công")
+        raise HTTPException(409,"Số tiết/cặp cố định đã vượt số lượng cho phép của phân công")
     for lesson in lessons:
         if lesson.slot in run["slots"]:
             error=lesson_slot_error(db,p,assignment,lesson.slot,lesson.id)
@@ -1360,11 +2201,11 @@ def fixed(pid:int,payload:FixedIn,user:User=Depends(current_user),db:Session=Dep
             lesson.locked=True
     db.add(FixedLesson(project_id=pid,assignment_id=assignment.id,slot=run["start"],group_size=run["size"]))
     db.commit()
-    return {"ok":True,"message":f"Đã cố định cụm {run['size']} tiết đang chọn."}
+    return {"ok":True,"message":f"Đã cố định {run['size']} tiết đang chọn."}
 
 @app.delete("/api/projects/{pid}/fixed/{assignment_id}/{slot}")
 def remove_fixed_group(pid:int,assignment_id:int,slot:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    p=get_project(pid,user,db)
+    p=get_project_for_update(pid,user,db)
     assignment=db.get(Assignment,assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
     lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid,Lesson.assignment_id==assignment_id)).all()
@@ -1375,7 +2216,7 @@ def remove_fixed_group(pid:int,assignment_id:int,slot:int,user:User=Depends(curr
         if row.slot<=slot<row.slot+size:
             targets.append((row,size))
     if not targets:
-        raise HTTPException(404,"Không tìm thấy cụm cố định")
+        raise HTTPException(404,"Không tìm thấy tiết hoặc cặp cố định")
     unlocked=set()
     for row,size in targets:
         unlocked.update(range(row.slot,row.slot+size));db.delete(row)
@@ -1388,11 +2229,11 @@ def remove_fixed_group(pid:int,assignment_id:int,slot:int,user:User=Depends(curr
         if lesson.slot in unlocked and lesson.slot not in remaining:
             lesson.locked=False
     db.commit()
-    return {"ok":True,"message":"Đã bỏ cố định cụm tiết đang chọn."}
+    return {"ok":True,"message":"Đã bỏ cố định tiết hoặc cặp đang chọn."}
 
 @app.delete("/api/projects/{pid}/fixed/{assignment_id}")
 def remove_fixed(pid:int,assignment_id:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db)
+    get_project_for_update(pid,user,db)
     assignment=db.get(Assignment,assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
     fixed_rows=db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid,FixedLesson.assignment_id==assignment_id)).all()
@@ -1404,7 +2245,7 @@ def remove_fixed(pid:int,assignment_id:int,user:User=Depends(current_user),db:Se
 
 @app.post("/api/projects/{pid}/generate")
 def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    p=get_project(pid,user,db)
+    p=get_project_for_update(pid,user,db)
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==pid)).all()
     existing=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
     assignment_by_id={assignment.id:assignment for assignment in assignments}
@@ -1449,7 +2290,7 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
             invalid_lessons.append(lesson)
             continue
         if lesson_slot_error(db,p,assignment,lesson.slot,lesson.id):
-            if (assignment.consecutive_pattern or "").strip():
+            if assignment_requires_double(assignment):
                 rebuild_assignment_ids.add(assignment.id)
             else:
                 invalid_lessons.append(lesson)
@@ -1459,7 +2300,7 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
         existing_by_assignment[lesson.assignment_id].append(lesson)
     for assignment in assignments:
         lessons_for_assignment=existing_by_assignment[assignment.id]
-        if not (assignment.consecutive_pattern or "").strip() or not lessons_for_assignment:
+        if not lessons_for_assignment:
             continue
         slots_for_assignment=[lesson.slot for lesson in lessons_for_assignment]
         remaining_groups=remaining_pattern_groups(p,assignment,slots_for_assignment)
@@ -1476,7 +2317,7 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
     if locked_invalid:
         return JSONResponse({
             "ok":False,
-            "message":f"Có {len(locked_invalid)} tiết cố định xung đột với ràng buộc hoặc mẫu tiết liền mới. Hãy bỏ cố định hoặc điều chỉnh ràng buộc trước khi xếp lại.",
+            "message":f"Có {len(locked_invalid)} tiết cố định xung đột với ràng buộc hoặc chế độ xếp tiết mới. Hãy bỏ cố định hoặc điều chỉnh ràng buộc trước khi xếp lại.",
         },409)
     for lesson in invalid_lessons:
         db.delete(lesson)
@@ -1499,10 +2340,34 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
             }
         result=solve_missing(db,p,tries=160)
         if result["unscheduled"]>0:
-            return JSONResponse({
-                "ok":False,"score":result["score"],"unscheduled":result["unscheduled"],
-                "message":f"Không tìm được vị trí phù hợp cho {result['unscheduled']} tiết trong khay. Các tiết đang có trên lịch được giữ nguyên.",
-            },409)
+            # Các tiết đang có có thể tự chặn phần còn thiếu. Thử giữ nguyên
+            # tiết cố định và tái tối ưu toàn bộ phần không cố định.
+            rebuild=solve_rebuild(db,p,tries=260)
+            if rebuild["unscheduled"]>0:
+                if rebuild.get("proven_infeasible"):
+                    message="Các ràng buộc và tiết cố định hiện tại không cho phép tạo một thời khóa biểu đầy đủ."
+                else:
+                    message=(
+                        f"Chưa tìm được lịch đầy đủ sau các bước bổ sung và tái tối ưu; "
+                        f"còn {rebuild['unscheduled']} tiết chưa xếp. Dữ liệu lịch hiện tại chưa bị thay đổi."
+                    )
+                return JSONResponse({
+                    "ok":False,"score":rebuild["score"],"unscheduled":rebuild["unscheduled"],
+                    "message":message,
+                },409)
+            current_lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
+            moved_count=sum(1 for lesson in current_lessons if not lesson.locked)
+            for lesson in current_lessons:
+                if not lesson.locked:
+                    db.delete(lesson)
+            db.flush()
+            for aid,slot,locked in rebuild["lessons"]:
+                db.add(Lesson(project_id=pid,assignment_id=aid,slot=slot,locked=locked))
+            db.commit()
+            return {
+                "ok":True,"score":rebuild["score"],"unscheduled":0,
+                "message":f"Đã giữ nguyên các tiết cố định và xếp lại {moved_count} tiết không cố định để hoàn thành thời khóa biểu.",
+            }
         for aid,slot,locked in result["lessons"]:
             db.add(Lesson(project_id=pid,assignment_id=aid,slot=slot,locked=locked))
         db.commit()
@@ -1514,9 +2379,13 @@ def generate(pid:int,user:User=Depends(current_user),db:Session=Depends(db_sessi
     # Chỉ khi lịch hoàn toàn trống mới chạy bộ xếp toàn bộ.
     result=solve(db,p,tries=120)
     if result["unscheduled"]>0:
+        if result.get("proven_infeasible"):
+            message="Các ràng buộc hiện tại không cho phép tạo một thời khóa biểu đầy đủ."
+        else:
+            message=f"Chưa tìm được lịch đầy đủ sau số lần thử hiện tại; còn {result['unscheduled']} tiết chưa xếp. Lịch hiện tại được giữ nguyên."
         return JSONResponse({
             "ok":False,"score":result["score"],"unscheduled":result["unscheduled"],
-            "message":f"Không tìm được lịch đầy đủ; còn {result['unscheduled']} tiết chưa xếp. Lịch hiện tại được giữ nguyên.",
+            "message":message,
         },409)
     for l in existing: db.delete(l)
     for aid,slot,locked in result["lessons"]:
@@ -1529,8 +2398,10 @@ def lesson_slot_error(db:Session,project:Project,assignment:Assignment,slot:int,
     if slot in parse_slots(project.blocked_slots_json): return "Buổi này đã bị khóa và không được xếp tiết."
     teacher=db.get(Teacher,assignment.teacher_id);school_class=db.get(SchoolClass,assignment.class_id);subject=db.get(Subject,assignment.subject_id)
     if not teacher or not school_class or not subject: return "Phân công không còn đầy đủ lớp, môn hoặc giáo viên."
-    _,requested_unavailable=accepted_teacher_preferences(db,project.id)
-    if slot in (parse_slots(teacher.unavailable_json)|requested_unavailable.get(teacher.id,set())): return "Giáo viên đã đăng ký tránh tiết này."
+    if slot in parse_slots(teacher.unavailable_json): return "Giáo viên không thể dạy ở tiết này theo ràng buộc chính thức."
+    _, accepted_unavailable = accepted_teacher_preferences(db, project.id)
+    if slot in accepted_unavailable.get(teacher.id, set()):
+        return "Tiết này nằm trong nguyện vọng cần tránh đã được duyệt của giáo viên."
     if slot in parse_slots(school_class.unavailable_json): return "Lớp không học ở tiết này."
     existing_lessons=db.scalars(select(Lesson).where(Lesson.project_id==project.id)).all()
     existing_lessons=[lesson for lesson in existing_lessons if lesson.id!=exclude_lesson_id]
@@ -1562,7 +2433,7 @@ class MoveIn(BaseModel):
 
 @app.post("/api/projects/{pid}/move")
 def move(pid:int,payload:MoveIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    project=get_project(pid,user,db);lesson=db.get(Lesson,payload.lesson_id)
+    project=get_project_for_update(pid,user,db);lesson=db.get(Lesson,payload.lesson_id)
     if not lesson or lesson.project_id!=pid: raise HTTPException(404)
     if lesson.locked: return JSONResponse({"ok":False,"message":"Tiết cố định không thể di chuyển."},409)
     assignment=db.get(Assignment,lesson.assignment_id)
@@ -1572,8 +2443,8 @@ def move(pid:int,payload:MoveIn,user:User=Depends(current_user),db:Session=Depen
     if error: return JSONResponse({"ok":False,"message":error},409)
     assignment_lessons=db.scalars(select(Lesson).where(Lesson.assignment_id==assignment.id)).all()
     proposed_slots=[payload.slot if item.id==lesson.id else item.slot for item in assignment_lessons]
-    if len(proposed_slots)==assignment.periods_per_week and not assignment_pattern_matches(project,assignment,proposed_slots):
-        return JSONResponse({"ok":False,"message":f"Vị trí này không giữ đúng mẫu tiết liền {assignment.consecutive_pattern}."},409)
+    if not assignment_completion_feasible(db,project,assignment,proposed_slots):
+        return JSONResponse({"ok":False,"message":f"Vị trí này không thể hoàn thành hợp lệ theo chế độ {assignment_pattern_label(assignment)} và các ràng buộc hiện tại."},409)
     lesson.slot=payload.slot;db.commit();return {"ok":True}
 
 class ManualLessonIn(BaseModel):
@@ -1582,7 +2453,7 @@ class ManualLessonIn(BaseModel):
 
 @app.post("/api/projects/{pid}/lessons")
 def add_manual_lesson(pid:int,payload:ManualLessonIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    project=get_project(pid,user,db);assignment=db.get(Assignment,payload.assignment_id)
+    project=get_project_for_update(pid,user,db);assignment=db.get(Assignment,payload.assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
     scheduled=db.scalar(select(func.count(Lesson.id)).where(Lesson.assignment_id==assignment.id)) or 0
     if scheduled>=assignment.periods_per_week:
@@ -1590,28 +2461,22 @@ def add_manual_lesson(pid:int,payload:ManualLessonIn,user:User=Depends(current_u
     error=lesson_slot_error(db,project,assignment,payload.slot)
     if error: return JSONResponse({"ok":False,"message":error},409)
     current_slots=db.scalars(select(Lesson.slot).where(Lesson.assignment_id==assignment.id)).all()
-    if not (assignment.consecutive_pattern or "").strip():
-        day,session,period=slot_meta(project,payload.slot)
-        for current_slot in current_slots:
-            current_day,current_session,current_period=slot_meta(project,current_slot)
-            if current_day==day and current_session==session and abs(current_period-period)==1:
-                return JSONResponse({"ok":False,"message":"Các tiết đơn của cùng phân công phải được xếp riêng, không liền nhau."},409)
-    if scheduled+1==assignment.periods_per_week:
-        if not assignment_pattern_matches(project,assignment,[*current_slots,payload.slot]):
-            return JSONResponse({"ok":False,"message":f"Tiết cuối này chưa tạo đúng mẫu tiết liền {assignment.consecutive_pattern}."},409)
+    proposed_slots=[*current_slots,payload.slot]
+    if not assignment_completion_feasible(db,project,assignment,proposed_slots):
+        return JSONResponse({"ok":False,"message":f"Vị trí này không thể hoàn thành hợp lệ theo chế độ {assignment_pattern_label(assignment)} và các ràng buộc hiện tại."},409)
     lesson=Lesson(project_id=pid,assignment_id=assignment.id,slot=payload.slot,locked=False)
     db.add(lesson);db.commit();return {"ok":True,"id":lesson.id}
 
 @app.delete("/api/projects/{pid}/lessons/{lesson_id}")
 def remove_manual_lesson(pid:int,lesson_id:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db);lesson=db.get(Lesson,lesson_id)
+    get_project_for_update(pid,user,db);lesson=db.get(Lesson,lesson_id)
     if not lesson or lesson.project_id!=pid: raise HTTPException(404)
     if lesson.locked: return JSONResponse({"ok":False,"message":"Tiết cố định không thể gỡ."},409)
     db.delete(lesson);db.commit();return {"ok":True}
 
 @app.delete("/api/projects/{pid}/assignments/{assignment_id}/lessons")
 def return_assignment_to_tray(pid:int,assignment_id:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db);assignment=db.get(Assignment,assignment_id)
+    get_project_for_update(pid,user,db);assignment=db.get(Assignment,assignment_id)
     if not assignment or assignment.project_id!=pid: raise HTTPException(404)
     lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid,Lesson.assignment_id==assignment_id)).all()
     removable=[lesson for lesson in lessons if not lesson.locked];locked=len(lessons)-len(removable)
@@ -1623,7 +2488,7 @@ def return_assignment_to_tray(pid:int,assignment_id:int,user:User=Depends(curren
 
 @app.delete("/api/projects/{pid}/lessons")
 def return_all_to_tray(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db);lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
+    get_project_for_update(pid,user,db);lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
     removable=[lesson for lesson in lessons if not lesson.locked];locked=len(lessons)-len(removable)
     for lesson in removable: db.delete(lesson)
     db.commit()
@@ -1644,27 +2509,43 @@ class TeacherAccountIn(BaseModel):
 def list_teacher_accounts(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
     get_project(pid,user,db)
     teachers=db.scalars(select(Teacher).where(Teacher.project_id==pid).order_by(Teacher.name)).all()
-    accounts=db.scalars(select(User).where(User.role=="teacher",User.teacher_id.in_([x.id for x in teachers]))).all() if teachers else []
-    account_by_teacher={x.teacher_id:x for x in accounts}
-    return {"items":[{
-        "teacher_id":teacher.id,
-        "teacher_name":teacher.name,
-        "account_id":account_by_teacher[teacher.id].id if teacher.id in account_by_teacher else None,
-        "email":account_by_teacher[teacher.id].email if teacher.id in account_by_teacher else None,
-    } for teacher in teachers]}
+    items=[]
+    for teacher in teachers:
+        account=account_for_teacher(teacher.id,db)
+        items.append({
+            "teacher_id":teacher.id,
+            "teacher_name":teacher.name,
+            "account_id":account.id if account else None,
+            "email":account.email if account else None,
+        })
+    return {"items":items}
 
 @app.post("/api/projects/{pid}/teacher-accounts")
 def save_teacher_account(pid:int,payload:TeacherAccountIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project(pid,user,db)
+    # Khóa project để hai yêu cầu cấp cùng một tài khoản trong cùng project
+    # không thể đồng thời vượt qua bước kiểm tra liên kết.
+    get_project_for_update(pid,user,db)
     teacher=db.get(Teacher,payload.teacher_id)
     if not teacher or teacher.project_id!=pid: raise HTTPException(404,"Giáo viên không thuộc bộ thời khóa biểu")
-    email=payload.email.lower().strip()
-    if not email or "@" not in email: raise HTTPException(400,"Email không hợp lệ")
-    account=db.scalar(select(User).where(User.role=="teacher",User.teacher_id==teacher.id))
-    email_owner=db.scalar(select(User).where(User.email==email))
+    email=bounded_text(payload.email.lower(),"Email",255)
+    if "@" not in email: raise HTTPException(400,"Email không hợp lệ")
+    account=account_for_teacher(teacher.id,db)
+    email_owner=db.scalar(select(User).where(User.email==email).with_for_update())
     if email_owner and (not account or email_owner.id!=account.id):
-        raise HTTPException(409,"Email đã được sử dụng")
+        if email_owner.role!="teacher" or not admin_can_manage_account(user,email_owner,db):
+            raise HTTPException(409,"Email đã được sử dụng")
+        account=email_owner
     if account:
+        linked_teacher_ids=account_teacher_ids(account,db)-{teacher.id}
+        linked_in_project=db.scalar(select(Teacher.id).where(
+            Teacher.id.in_(linked_teacher_ids),
+            Teacher.project_id==pid,
+        )) if linked_teacher_ids else None
+        if linked_in_project is not None:
+            raise HTTPException(
+                409,
+                "Tài khoản này đã được liên kết với một giáo viên khác trong cùng bộ thời khóa biểu",
+            )
         account.email=email; account.name=teacher.name
         if payload.password:
             if len(payload.password)<6: raise HTTPException(400,"Mật khẩu phải có ít nhất 6 ký tự")
@@ -1673,55 +2554,148 @@ def save_teacher_account(pid:int,payload:TeacherAccountIn,user:User=Depends(curr
     else:
         if len(payload.password)<6: raise HTTPException(400,"Mật khẩu phải có ít nhất 6 ký tự")
         account=User(email=email,name=teacher.name,password_hash=pwd.hash(payload.password),role="teacher",teacher_id=teacher.id)
-        db.add(account)
+        db.add(account);db.flush()
+    ensure_teacher_link(account,teacher,db)
     db.commit()
     return {"ok":True,"account_id":account.id}
 
-@app.delete("/api/projects/{pid}/teacher-accounts/{account_id}")
-def revoke_teacher_account(pid:int,account_id:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
+@app.delete("/api/projects/{pid}/teacher-accounts/{teacher_id}")
+def revoke_teacher_account(pid:int,teacher_id:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
     get_project(pid,user,db)
-    account=db.get(User,account_id)
-    teacher=db.get(Teacher,account.teacher_id) if account and account.teacher_id else None
-    if not account or account.role!="teacher" or not teacher or teacher.project_id!=pid: raise HTTPException(404)
-    db.delete(account);db.commit();return {"ok":True}
+    teacher=db.get(Teacher,teacher_id)
+    if not teacher or teacher.project_id!=pid: raise HTTPException(404)
+    account=account_for_teacher(teacher.id,db)
+    if not account or account.role!="teacher": raise HTTPException(404)
+    link=db.scalar(select(TeacherAccountLink).where(
+        TeacherAccountLink.user_id==account.id,TeacherAccountLink.teacher_id==teacher.id
+    ))
+    if link:
+        db.delete(link)
+    remaining_ids=account_teacher_ids(account,db)-{teacher.id}
+    if account.teacher_id==teacher.id:
+        account.teacher_id=next(iter(remaining_ids),None)
+    if not remaining_ids:
+        db.flush()
+        db.delete(account)
+    db.commit();return {"ok":True}
 
-def teacher_for_user(user:User,db:Session):
-    if user.role!="teacher" or not user.teacher_id: raise HTTPException(403,"Tài khoản giáo viên không hợp lệ")
-    teacher=db.get(Teacher,user.teacher_id)
-    if not teacher: raise HTTPException(403,"Hồ sơ giáo viên không còn tồn tại")
-    project=db.get(Project,teacher.project_id)
-    if not project: raise HTTPException(404)
-    return teacher,project
+def teacher_profiles_for_user(user:User,db:Session):
+    if user.role!="teacher": raise HTTPException(403,"Tài khoản giáo viên không hợp lệ")
+    teacher_ids=account_teacher_ids(user,db)
+    if not teacher_ids: raise HTTPException(403,"Tài khoản giáo viên chưa được liên kết với hồ sơ nào")
+    teachers=db.scalars(select(Teacher).where(Teacher.id.in_(teacher_ids))).all()
+    profiles=[]
+    for teacher in teachers:
+        project=db.get(Project,teacher.project_id)
+        if project:
+            profiles.append((teacher,project))
+    if not profiles: raise HTTPException(403,"Hồ sơ giáo viên không còn tồn tại")
+    return sorted(profiles,key=lambda pair:pair[1].id,reverse=True)
+
+def teacher_for_user(user:User,db:Session,project_id:Optional[int]=None):
+    profiles=teacher_profiles_for_user(user,db)
+    if project_id is not None:
+        matches=[pair for pair in profiles if pair[1].id==project_id]
+        if not matches: raise HTTPException(403,"Tài khoản không được cấp quyền cho bộ thời khóa biểu này")
+        if len(matches)>1:
+            raise HTTPException(
+                409,
+                "Tài khoản đang liên kết với nhiều giáo viên trong cùng bộ thời khóa biểu; quản trị viên cần thu hồi liên kết bị trùng",
+            )
+        return matches[0]
+    latest_project_id=profiles[0][1].id
+    latest_matches=[pair for pair in profiles if pair[1].id==latest_project_id]
+    if len(latest_matches)>1:
+        raise HTTPException(
+            409,
+            "Tài khoản đang liên kết với nhiều giáo viên trong cùng bộ thời khóa biểu; quản trị viên cần thu hồi liên kết bị trùng",
+        )
+    return profiles[0]
 
 def teacher_project_data(db:Session,project:Project,teacher:Teacher):
-    data=project_data(db,project)
-    assignments=[x for x in data["assignments"] if x["teacher_id"]==teacher.id]
-    assignment_ids={x["id"] for x in assignments}
-    class_ids={x["class_id"] for x in assignments};subject_ids={x["subject_id"] for x in assignments}
-    data["assignments"]=assignments
-    data["lessons"]=[x for x in data["lessons"] if x["assignment_id"] in assignment_ids]
-    data["teachers"]=[x for x in data["teachers"] if x["id"]==teacher.id]
-    data["classes"]=[x for x in data["classes"] if x["id"] in class_ids]
-    data["subjects"]=[x for x in data["subjects"] if x["id"] in subject_ids]
-    return data
+    assignments=db.scalars(select(Assignment).where(
+        Assignment.project_id==project.id,Assignment.teacher_id==teacher.id
+    )).all()
+    assignment_ids={item.id for item in assignments}
+    class_ids={item.class_id for item in assignments}
+    subject_ids={item.subject_id for item in assignments}
+    classes={item.id:item for item in db.scalars(select(SchoolClass).where(
+        SchoolClass.project_id==project.id,SchoolClass.id.in_(class_ids)
+    )).all()} if class_ids else {}
+    subjects={item.id:item for item in db.scalars(select(Subject).where(
+        Subject.project_id==project.id,Subject.id.in_(subject_ids)
+    )).all()} if subject_ids else {}
+    grade_ids={item.grade_id for item in classes.values() if item.grade_id is not None}
+    grades=db.scalars(select(Grade).where(
+        Grade.project_id==project.id,Grade.id.in_(grade_ids)
+    )).all() if grade_ids else []
+    departments=[]
+    if teacher.department_id is not None:
+        department=db.scalar(select(Department).where(
+            Department.project_id==project.id,Department.id==teacher.department_id
+        ))
+        if department:
+            departments=[department]
+    lessons=db.scalars(select(Lesson).where(
+        Lesson.project_id==project.id,Lesson.assignment_id.in_(assignment_ids)
+    )).all() if assignment_ids else []
+    return {
+        "project":{
+            "id":project.id,"name":project.name,"school_name":project.school_name,
+            "days":project.days,"sessions":project.sessions,"periods":project.periods_per_session,
+            "blocked_slots":valid_slots(project,parse_slots(project.blocked_slots_json)),
+        },
+        "departments":[{"id":item.id,"name":item.name} for item in departments],
+        "subjects":[{
+            "id":item.id,"name":item.name,"short_name":item.short_name,
+            "max_consecutive":item.max_consecutive,
+        } for item in subjects.values()],
+        "teachers":[{
+            "id":teacher.id,"name":teacher.name,"short_name":teacher.short_name,
+            "department_id":teacher.department_id,"max_periods_day":teacher.max_periods_day,
+            "unavailable":list(parse_slots(teacher.unavailable_json)),
+        }],
+        "grades":[{"id":item.id,"name":item.name} for item in grades],
+        "classes":[{
+            "id":item.id,"name":item.name,"grade_id":item.grade_id,
+            "unavailable":list(parse_slots(item.unavailable_json)),
+        } for item in classes.values()],
+        "assignments":[{
+            "id":item.id,"class_id":item.class_id,"subject_id":item.subject_id,
+            "teacher_id":item.teacher_id,"periods_per_week":item.periods_per_week,
+            "block_mode":item.block_mode,
+            "class_name":classes[item.class_id].name if item.class_id in classes else "?",
+            "subject_name":subjects[item.subject_id].name if item.subject_id in subjects else "?",
+            "subject_short":subjects[item.subject_id].short_name if item.subject_id in subjects else "?",
+            "teacher_name":teacher.name,"teacher_short":teacher.short_name,
+        } for item in assignments],
+        "lessons":[{
+            "id":item.id,"assignment_id":item.assignment_id,"slot":item.slot,"locked":item.locked,
+        } for item in lessons],
+        "coverage":{
+            "unassigned_teachers":[],"unassigned_subjects":[],"unassigned_classes":[],
+        },
+    }
 
 @app.get("/teacher",response_class=HTMLResponse)
-def teacher_portal(request:Request,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    teacher,project=teacher_for_user(user,db)
+def teacher_portal(request:Request,project_id:Optional[int]=None,user:User=Depends(current_user),db:Session=Depends(db_session)):
+    teacher,project=teacher_for_user(user,db,project_id)
+    profiles=teacher_profiles_for_user(user,db)
     preferences=[x for x in preference_payload(db,project) if x["teacher_id"]==teacher.id]
     return templates.TemplateResponse("teacher_portal.html",{
         "request":request,"user":user,"teacher":teacher,"p":project,
         "data":teacher_project_data(db,project,teacher),"preferences":preferences,"days":DAYS,
+        "teacher_projects":[{"teacher":item_teacher,"project":item_project} for item_teacher,item_project in profiles],
     })
 
 @app.get("/api/teacher/data")
-def api_teacher_data(user:User=Depends(current_user),db:Session=Depends(db_session)):
-    teacher,project=teacher_for_user(user,db)
+def api_teacher_data(project_id:Optional[int]=None,user:User=Depends(current_user),db:Session=Depends(db_session)):
+    teacher,project=teacher_for_user(user,db,project_id)
     return teacher_project_data(db,project,teacher)
 
 @app.get("/teacher/account",response_class=HTMLResponse)
-def teacher_account_page(request:Request,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    teacher,project=teacher_for_user(user,db)
+def teacher_account_page(request:Request,project_id:Optional[int]=None,user:User=Depends(current_user),db:Session=Depends(db_session)):
+    teacher,project=teacher_for_user(user,db,project_id)
     return templates.TemplateResponse("teacher_account.html",{
         "request":request,"user":user,"teacher":teacher,"p":project,"error":None,"success":None,
     })
@@ -1733,10 +2707,11 @@ def update_teacher_account(
     current_password:str=Form(...),
     new_password:str=Form(""),
     confirm_password:str=Form(""),
+    project_id:Optional[int]=None,
     user:User=Depends(current_user),
     db:Session=Depends(db_session),
 ):
-    teacher,project=teacher_for_user(user,db)
+    teacher,project=teacher_for_user(user,db,project_id)
     context={"request":request,"user":user,"teacher":teacher,"p":project,"error":None,"success":None}
     if not pwd.verify(current_password,user.password_hash):
         context["error"]="Mật khẩu hiện tại không đúng."
@@ -1744,6 +2719,9 @@ def update_teacher_account(
     normalized_email=email.lower().strip()
     if not normalized_email or "@" not in normalized_email:
         context["error"]="Email không hợp lệ."
+        return templates.TemplateResponse("teacher_account.html",context,status_code=400)
+    if len(normalized_email)>255:
+        context["error"]="Email không được vượt quá 255 ký tự."
         return templates.TemplateResponse("teacher_account.html",context,status_code=400)
     email_owner=db.scalar(select(User).where(User.email==normalized_email,User.id!=user.id))
     if email_owner:
@@ -1778,8 +2756,7 @@ def shared(token:str,request:Request,db:Session=Depends(db_session)):
 def teacher_preferences_page(token:str,request:Request,user:User=Depends(current_user),db:Session=Depends(db_session)):
     p=db.scalar(select(Project).where(Project.share_token==token))
     if not p: raise HTTPException(404)
-    teacher,teacher_project=teacher_for_user(user,db)
-    if teacher_project.id!=p.id: raise HTTPException(403)
+    teacher,teacher_project=teacher_for_user(user,db,p.id)
     latest_preference=db.scalar(
         select(TeacherPreference).where(
             TeacherPreference.project_id==p.id,
@@ -1809,10 +2786,12 @@ class TeacherPreferenceIn(BaseModel):
 
 @app.post("/api/preferences/{token}")
 def submit_teacher_preference(token:str,payload:TeacherPreferenceIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    p=db.scalar(select(Project).where(Project.share_token==token))
+    # Dùng cùng khóa project với luồng duyệt để nội dung nguyện vọng không thể
+    # bị thay đổi giữa lúc quản trị viên đang áp dụng nó vào lịch.
+    p=db.scalar(select(Project).where(Project.share_token==token).with_for_update())
     if not p: raise HTTPException(404)
-    teacher,teacher_project=teacher_for_user(user,db)
-    if teacher_project.id!=p.id or payload.teacher_id!=teacher.id: raise HTTPException(403,"Không thể gửi nguyện vọng thay giáo viên khác")
+    teacher,teacher_project=teacher_for_user(user,db,p.id)
+    if payload.teacher_id!=teacher.id: raise HTTPException(403,"Không thể gửi nguyện vọng thay giáo viên khác")
     preferred=set(valid_slots(p,payload.preferred_slots))
     unavailable=set(valid_slots(p,payload.unavailable_slots))
     preferred-=unavailable
@@ -1822,9 +2801,12 @@ def submit_teacher_preference(token:str,payload:TeacherPreferenceIn,user:User=De
             TeacherPreference.project_id==p.id,
             TeacherPreference.teacher_id==teacher.id,
             TeacherPreference.status=="pending",
-        ).order_by(TeacherPreference.id.desc())
+        ).order_by(TeacherPreference.id.desc()).with_for_update()
     )
     if pending:
+        # Trạng thái được đọc lại sau khi đã lấy khóa giao dịch.
+        if pending.status!="pending":
+            raise HTTPException(409,"Nguyện vọng này đang được xử lý, vui lòng tải lại trang")
         pending.preferred_json=json.dumps(sorted(preferred))
         pending.unavailable_json=json.dumps(sorted(unavailable))
         pending.note=note
@@ -1880,7 +2862,7 @@ class PreferenceReviewIn(BaseModel):
 
 @app.post("/api/projects/{pid}/preferences/{preference_id}/review")
 def review_teacher_preference(pid:int,preference_id:int,payload:PreferenceReviewIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    p=get_project(pid,user,db)
+    p=get_project_for_update(pid,user,db)
     preference=db.get(TeacherPreference,preference_id)
     if not preference or preference.project_id!=pid: raise HTTPException(404)
     if payload.action not in {"accept","reject"}: raise HTTPException(400,"Thao tác không hợp lệ")
@@ -1892,16 +2874,44 @@ def review_teacher_preference(pid:int,preference_id:int,payload:PreferenceReview
         db.commit()
         return {"ok":True,"message":"Đã từ chối nguyện vọng."}
 
+    preferred=set(valid_slots(p,parse_slots(preference.preferred_json)))
     unavailable=set(valid_slots(p,parse_slots(preference.unavailable_json)))
-    teacher_assignments=db.scalars(select(Assignment).where(Assignment.project_id==pid,Assignment.teacher_id==preference.teacher_id)).all()
+    teacher_assignments=db.scalars(select(Assignment).where(
+        Assignment.project_id==pid,
+        Assignment.teacher_id==preference.teacher_id,
+    )).all()
     assignment_ids={assignment.id for assignment in teacher_assignments}
-    teacher_lessons=db.scalars(select(Lesson).where(Lesson.project_id==pid,Lesson.assignment_id.in_(assignment_ids))).all() if assignment_ids else []
-    locked_conflicts=[lesson for lesson in teacher_lessons if lesson.locked and lesson.slot in unavailable]
+    teacher_lessons=db.scalars(select(Lesson).where(
+        Lesson.project_id==pid,
+        Lesson.assignment_id.in_(assignment_ids),
+    )).all() if assignment_ids else []
+
+    original_slots=defaultdict(list)
+    for lesson in teacher_lessons:
+        original_slots[lesson.assignment_id].append(lesson.slot)
+
+    locked_conflicts=[
+        lesson for lesson in teacher_lessons
+        if lesson.locked and lesson.slot in unavailable
+    ]
     if locked_conflicts:
         return JSONResponse({
             "ok":False,
-            "message":f"Có {len(locked_conflicts)} tiết cố định nằm trong thời gian giáo viên cần tránh. Hãy bỏ cố định trước khi áp dụng.",
+            "message":f"Không thể duyệt vì có {len(locked_conflicts)} tiết cố định nằm trong các tiết cần tránh. Hãy bỏ cố định hoặc sửa nguyện vọng trước.",
         },409)
+
+    def preference_cost(slots):
+        values=list(slots)
+        preferred_count=sum(1 for slot in values if slot in preferred)
+        return -preferred_count
+
+    old_cost=preference_cost(lesson.slot for lesson in teacher_lessons)
+    old_assignment_valid=all(
+        len(original_slots[assignment.id])==assignment.periods_per_week
+        and assignment_pattern_matches(p,assignment,original_slots[assignment.id])
+        for assignment in teacher_assignments
+    )
+    old_hard_valid=all(lesson.slot not in unavailable for lesson in teacher_lessons)
 
     previous=db.scalars(select(TeacherPreference).where(
         TeacherPreference.project_id==pid,
@@ -1909,48 +2919,101 @@ def review_teacher_preference(pid:int,preference_id:int,payload:PreferenceReview
         TeacherPreference.status=="accepted",
         TeacherPreference.id!=preference.id,
     )).all()
-    for row in previous: row.status="superseded"
-    preference.status="accepted"
-    preference.reviewed_at=datetime.now().isoformat(timespec="seconds")
-    removable=[lesson for lesson in teacher_lessons if not lesson.locked]
-    for lesson in removable:
-        db.delete(lesson)
-    db.flush()
 
-    result=solve_missing(db,p,tries=180)
-    locked_count=sum(1 for lesson in teacher_lessons if lesson.locked)
-    teacher_needed=sum(assignment.periods_per_week for assignment in teacher_assignments)-locked_count
-    teacher_placed=sum(1 for assignment_id,_slot,_locked in result["lessons"] if assignment_id in assignment_ids)
-    if teacher_placed<teacher_needed:
-        db.rollback()
+    # Thử đồng thời cập nhật trạng thái và xếp lại lịch trong savepoint. Nếu
+    # không thể thỏa ràng buộc cứng, toàn bộ trạng thái được khôi phục.
+    schedule_attempt=db.begin_nested()
+    try:
+        for row in previous:
+            row.status="superseded"
+        preference.status="accepted"
+        preference.reviewed_at=datetime.now().isoformat(timespec="seconds")
+        db.flush()
+
+        removable=[lesson for lesson in teacher_lessons if not lesson.locked]
+        for lesson in removable:
+            db.delete(lesson)
+        db.flush()
+
+        result=solve_missing(db,p,tries=240,target_assignment_ids=assignment_ids)
+        locked_slots_by_assignment=defaultdict(list)
+        for lesson in teacher_lessons:
+            if lesson.locked:
+                locked_slots_by_assignment[lesson.assignment_id].append(lesson.slot)
+        result_slots=defaultdict(list)
+        for assignment_id,slot,_locked in result["lessons"]:
+            result_slots[assignment_id].append(slot)
+
+        final_slots={
+            assignment.id:[*locked_slots_by_assignment[assignment.id],*result_slots[assignment.id]]
+            for assignment in teacher_assignments
+        }
+        new_assignment_valid=(
+            result.get("unscheduled",0)==0
+            and not result.get("invalid_assignments")
+            and all(
+                len(final_slots[assignment.id])==assignment.periods_per_week
+                and assignment_pattern_matches(p,assignment,final_slots[assignment.id])
+                and all(slot not in unavailable for slot in final_slots[assignment.id])
+                for assignment in teacher_assignments
+            )
+        )
+        new_cost=preference_cost(
+            slot for assignment in teacher_assignments for slot in final_slots[assignment.id]
+        )
+        should_apply=new_assignment_valid and (
+            not old_assignment_valid or not old_hard_valid or new_cost<old_cost
+        )
+
+        if should_apply:
+            for aid,slot,locked in result["lessons"]:
+                db.add(Lesson(project_id=pid,assignment_id=aid,slot=slot,locked=locked))
+            db.flush()
+            schedule_attempt.commit()
+            db.commit()
+            moved=added=removed_count=0
+            for assignment in teacher_assignments:
+                old_set=set(original_slots[assignment.id])
+                new_set=set(final_slots[assignment.id])
+                removed_here=len(old_set-new_set)
+                added_here=len(new_set-old_set)
+                moved_here=min(removed_here,added_here)
+                moved+=moved_here
+                added+=added_here-moved_here
+                removed_count+=removed_here-moved_here
+            changed=moved+added+removed_count
+            details=[]
+            if moved: details.append(f"di chuyển {moved}")
+            if added: details.append(f"bổ sung {added}")
+            if removed_count: details.append(f"loại bỏ {removed_count}")
+            detail_text=f" ({', '.join(details)})" if details else ""
+            return {
+                "ok":True,
+                "message":f"Đã duyệt nguyện vọng và điều chỉnh {changed} tiết{detail_text}. Các tiết cần tránh hiện là ràng buộc cứng.",
+            }
+
+        schedule_attempt.rollback()
+        if old_assignment_valid and old_hard_valid:
+            for row in previous:
+                row.status="superseded"
+            preference.status="accepted"
+            preference.reviewed_at=datetime.now().isoformat(timespec="seconds")
+            db.commit()
+            return {
+                "ok":True,
+                "message":"Đã duyệt nguyện vọng. Lịch hiện tại đã thỏa toàn bộ tiết cần tránh nên không cần di chuyển tiết học.",
+            }
+
+        db.commit()
         return JSONResponse({
             "ok":False,
-            "message":"Không thể áp dụng đầy đủ nguyện vọng mà vẫn thỏa các ràng buộc hiện tại. Lịch cũ được giữ nguyên.",
+            "message":"Không thể duyệt nguyện vọng vì chưa tìm được lịch đầy đủ thỏa toàn bộ tiết cần tránh. Nguyện vọng vẫn ở trạng thái chờ duyệt.",
         },409)
-    result_slots=defaultdict(list)
-    for aid,slot,locked in result["lessons"]:
-        result_slots[aid].append(slot)
-    current_slots=defaultdict(list)
-    for lesson in db.scalars(select(Lesson).where(Lesson.project_id==pid,Lesson.assignment_id.in_(assignment_ids))).all() if assignment_ids else []:
-        current_slots[lesson.assignment_id].append(lesson.slot)
-    invalid_assignments=[]
-    for assignment in teacher_assignments:
-        final_slots=[*current_slots[assignment.id],*result_slots[assignment.id]]
-        if len(final_slots)!=assignment.periods_per_week or not assignment_pattern_matches(p,assignment,final_slots):
-            invalid_assignments.append(assignment.id)
-    if invalid_assignments:
+    except Exception:
+        if schedule_attempt.is_active:
+            schedule_attempt.rollback()
         db.rollback()
-        return JSONResponse({
-            "ok":False,
-            "message":"Không thể áp dụng nguyện vọng mà vẫn giữ đúng mẫu tiết liền. Lịch cũ được giữ nguyên.",
-        },409)
-    for aid,slot,locked in result["lessons"]:
-        db.add(Lesson(project_id=pid,assignment_id=aid,slot=slot,locked=locked))
-    db.commit()
-    message=f"Đã áp dụng nguyện vọng và xếp lại {teacher_placed} tiết của giáo viên."
-    if result["unscheduled"]:
-        message+=f" Toàn bộ dự án vẫn còn {result['unscheduled']} tiết khác trong khay."
-    return {"ok":True,"message":message}
+        raise
 
 @app.get("/projects/{pid}/export.csv", include_in_schema=False)
 def export_csv_legacy(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
@@ -1994,7 +3057,7 @@ def export_excel(pid:int,user:User=Depends(current_user),db:Session=Depends(db_s
         day,session,period=slot_meta(p,lesson["slot"])
         rows.append((
             lesson["slot"],assignment["class_name"],DAYS[day],
-            "Sáng" if session==0 else "Chiều",period+1,
+            "Cả buổi" if p.sessions==1 else ("Sáng" if session==0 else "Chiều"),period+1,
             assignment["subject_name"],assignment["teacher_name"],
         ))
     rows.sort(key=lambda row:(row[0],row[1]))
@@ -2049,7 +3112,7 @@ def project_data(db:Session,p:Project):
       "teachers":[{"id":x.id,"name":x.name,"short_name":x.short_name,"department_id":x.department_id,"max_periods_day":x.max_periods_day,"unavailable":list(parse_slots(x.unavailable_json))} for x in teas],
       "grades":[{"id":x.id,"name":x.name} for x in grades],
       "classes":[{"id":x.id,"name":x.name,"grade_id":x.grade_id,"unavailable":list(parse_slots(x.unavailable_json))} for x in classes],
-      "assignments":[{"id":x.id,"class_id":x.class_id,"subject_id":x.subject_id,"teacher_id":x.teacher_id,"periods_per_week":x.periods_per_week,"consecutive_pattern":x.consecutive_pattern,"class_name":cm.get(x.class_id).name if cm.get(x.class_id) else "?","subject_name":sm.get(x.subject_id).name if sm.get(x.subject_id) else "?","subject_short":sm.get(x.subject_id).short_name if sm.get(x.subject_id) else "?","teacher_name":tm.get(x.teacher_id).name if tm.get(x.teacher_id) else "?","teacher_short":tm.get(x.teacher_id).short_name if tm.get(x.teacher_id) else "?"} for x in assignments],
+      "assignments":[{"id":x.id,"class_id":x.class_id,"subject_id":x.subject_id,"teacher_id":x.teacher_id,"periods_per_week":x.periods_per_week,"block_mode":x.block_mode,"class_name":cm.get(x.class_id).name if cm.get(x.class_id) else "?","subject_name":sm.get(x.subject_id).name if sm.get(x.subject_id) else "?","subject_short":sm.get(x.subject_id).short_name if sm.get(x.subject_id) else "?","teacher_name":tm.get(x.teacher_id).name if tm.get(x.teacher_id) else "?","teacher_short":tm.get(x.teacher_id).short_name if tm.get(x.teacher_id) else "?"} for x in assignments],
       "lessons":[{"id":x.id,"assignment_id":x.assignment_id,"slot":x.slot,"locked":x.locked} for x in lessons],
       "coverage":{
         "unassigned_teachers":[{"id":x.id,"name":x.name} for x in teas if x.id not in assigned_teacher_ids],
@@ -2074,6 +3137,7 @@ def public_project_data(db:Session,p:Project):
         "subjects":[{"id":item.id,"name":item.name,"short_name":item.short_name} for item in subjects.values()],
         "assignments":[{
             "id":item.id,"class_id":item.class_id,"subject_id":item.subject_id,"teacher_id":item.teacher_id,
+            "periods_per_week":item.periods_per_week,"block_mode":item.block_mode,
             "class_name":classes[item.class_id].name if item.class_id in classes else "?",
             "subject_name":subjects[item.subject_id].name if item.subject_id in subjects else "?",
             "subject_short":subjects[item.subject_id].short_name if item.subject_id in subjects else "?",
@@ -2083,12 +3147,20 @@ def public_project_data(db:Session,p:Project):
         "lessons":[{"id":item.id,"assignment_id":item.assignment_id,"slot":item.slot} for item in lessons],
     }
 
-def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
+def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_ids:Optional[set[int]]=None):
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==p.id)).all()
     teachers={x.id:x for x in db.scalars(select(Teacher).where(Teacher.project_id==p.id))}
     classes={x.id:x for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==p.id))}
     subjects={x.id:x for x in db.scalars(select(Subject).where(Subject.project_id==p.id))}
-    existing=db.scalars(select(Lesson).where(Lesson.project_id==p.id)).all()
+    all_existing=db.scalars(select(Lesson).where(Lesson.project_id==p.id)).all()
+    if mode=="missing":
+        existing=list(all_existing)
+    elif mode=="rebuild":
+        existing=[lesson for lesson in all_existing if lesson.locked]
+    elif mode=="full":
+        existing=[]
+    else:
+        raise ValueError(f"Chế độ xếp lịch không hợp lệ: {mode}")
     existing_counts=Counter(x.assignment_id for x in existing)
     existing_slots=defaultdict(set)
     locked_slots=defaultdict(set)
@@ -2100,7 +3172,7 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
     for row in db.scalars(select(FixedLesson).where(FixedLesson.project_id==p.id)).all():
         assignment=next((item for item in assignments if item.id==row.assignment_id),None)
         if assignment:
-            size=fixed_row_size(p,assignment,row,[lesson for lesson in existing if lesson.assignment_id==assignment.id])
+            size=fixed_row_size(p,assignment,row,[lesson for lesson in all_existing if lesson.assignment_id==assignment.id])
             fixed_rows_by_assignment[row.assignment_id].append((row.slot,size))
     requested_preferred,requested_unavailable=accepted_teacher_preferences(db,p.id)
     global_blocked=parse_slots(p.blocked_slots_json)
@@ -2110,28 +3182,51 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
         return {"lessons":[],"unscheduled":0,"score":0}
 
     task_rows=[]
+    invalid_assignment_ids=[]
     for assignment in assignments:
-        current_slots=existing_slots[assignment.id] if mode=="missing" else set()
-        groups=remaining_pattern_groups(p,assignment,current_slots)
-        if groups is None:
-            groups=[1]*max(0,assignment.periods_per_week-len(current_slots))
-        available_groups=Counter(groups)
+        if target_assignment_ids is not None and assignment.id not in target_assignment_ids:
+            continue
+        current_slots=existing_slots[assignment.id] if mode in {"missing","rebuild"} else set()
+        plan=pattern_completion_plan(p,assignment,current_slots)
+        if plan is None:
+            invalid_assignment_ids.append(assignment.id)
+            continue
+        pending=[dict(item) for item in plan]
         task_index=0
         for fixed_slot,fixed_size in fixed_rows_by_assignment[assignment.id]:
             expected=set(range(fixed_slot,fixed_slot+fixed_size))
             if expected.issubset(locked_slots[assignment.id]):
                 continue
-            if available_groups[fixed_size]<=0:
+            match_index=next((
+                index for index,item in enumerate(pending)
+                if item["size"]==fixed_size and not item["anchor_slots"]
+            ),None)
+            if match_index is None:
                 continue
-            task_rows.append((assignment,task_index,fixed_size,True,fixed_slot))
+            pending.pop(match_index)
+            task_rows.append((assignment,task_index,fixed_size,assignment_requires_double(assignment),fixed_slot,tuple(),(fixed_slot,)))
             task_index+=1
-            available_groups[fixed_size]-=1
-        for size in groups:
-            if available_groups[size]<=0:
-                continue
-            task_rows.append((assignment,task_index,size,True,None))
+        for item in pending:
+            task_rows.append((
+                assignment,
+                task_index,
+                item["size"],
+                assignment_requires_double(assignment),
+                None,
+                tuple(item["anchor_slots"]),
+                item["candidate_starts"],
+            ))
             task_index+=1
-            available_groups[size]-=1
+
+    if invalid_assignment_ids:
+        missing=sum(
+            max(0,assignment.periods_per_week-len(existing_slots[assignment.id]))
+            for assignment in assignments if assignment.id in invalid_assignment_ids
+        )
+        return {
+            "lessons":[],"unscheduled":missing,"score":missing*10000,
+            "invalid_assignments":invalid_assignment_ids,
+        }
 
     if not task_rows:
         return {"lessons":[],"unscheduled":0,"score":0}
@@ -2139,7 +3234,7 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
     random.shuffle(task_rows)
     task_rows.sort(key=lambda task:(
         1 if task[4] is not None else 0,
-        task[2],
+        task[2]-len(task[5]),
         len(parse_slots(teachers[task[0].teacher_id].unavailable_json))+len(parse_slots(classes[task[0].class_id].unavailable_json)),
         -existing_counts[task[0].id],
     ),reverse=True)
@@ -2163,8 +3258,10 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
         class_sub_day=Counter()
         class_sub_slots=defaultdict(set)
         placed=[]
+        chosen_starts=[None]*len(task_rows)
         unscheduled=0
         gene_miss=0.0
+        preference_score=0.0
 
         for lesson in existing:
             assignment=next((x for x in assignments if x.id==lesson.assignment_id),None)
@@ -2179,15 +3276,30 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
             class_sub_slots[(assignment.class_id,assignment.subject_id,day)].add(lesson.slot%ppd)
 
         for index,task in enumerate(task_rows):
-            assignment,group_index,size,explicit,forced=task
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task
+            anchor=set(anchor_slots)
+            missing_size=size-len(anchor)
             gene=forced if forced is not None else genes[index]
-            candidate_starts=[forced] if forced is not None else start_pool(size)
-            tu=parse_slots(teachers[assignment.teacher_id].unavailable_json)|requested_unavailable.get(assignment.teacher_id,set())
+            if forced is not None:
+                candidate_pool=[forced]
+            elif planned_starts is not None:
+                candidate_pool=list(planned_starts)
+            else:
+                candidate_pool=start_pool(size)
+            tu=parse_slots(teachers[assignment.teacher_id].unavailable_json)
+            requested_avoid=requested_unavailable.get(assignment.teacher_id,set())
+            preferred=requested_preferred.get(assignment.teacher_id,set())
             cu=parse_slots(classes[assignment.class_id].unavailable_json)
+
+            def soft_preference_score(candidate_slots):
+                value=0.0
+                if preferred:
+                    value+=sum(-4 if candidate in preferred else 1.5 for candidate in candidate_slots)
+                return value
             best_slot=None
             best_score=None
-            for slot in candidate_starts:
-                if slot is None:
+            for slot in candidate_pool:
+                if slot is None or slot not in slots:
                     continue
                 day=slot//ppd
                 position=slot%ppd
@@ -2196,11 +3308,17 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
                 if period+size>p.periods_per_session:
                     continue
                 group_slots=list(range(slot,slot+size))
+                group_set=set(group_slots)
+                if anchor and not anchor.issubset(group_set):
+                    continue
+                new_slots=[candidate for candidate in group_slots if candidate not in anchor]
+                if len(new_slots)!=missing_size:
+                    continue
                 if any(candidate//ppd!=day or (candidate%ppd)//p.periods_per_session!=session for candidate in group_slots):
                     continue
-                if any(candidate in global_blocked or candidate in tu or candidate in cu or candidate in teacher_busy[assignment.teacher_id] or candidate in class_busy[assignment.class_id] for candidate in group_slots):
+                if any(candidate in global_blocked or candidate in tu or candidate in requested_avoid or candidate in cu or candidate in teacher_busy[assignment.teacher_id] or candidate in class_busy[assignment.class_id] for candidate in new_slots):
                     continue
-                if teacher_day[(assignment.teacher_id,day)]+size>teachers[assignment.teacher_id].max_periods_day:
+                if teacher_day[(assignment.teacher_id,day)]+missing_size>teachers[assignment.teacher_id].max_periods_day:
                     continue
                 if explicit:
                     neighbors=[]
@@ -2222,10 +3340,8 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
                     longest=max(longest,current)
                 if longest>subjects[assignment.subject_id].max_consecutive:
                     continue
-                score=class_sub_day[(assignment.class_id,assignment.subject_id,day)]*8+sum((candidate%p.periods_per_session)*0.15 for candidate in group_slots)
-                preferred=requested_preferred.get(assignment.teacher_id,set())
-                if preferred:
-                    score+=sum(-4 if candidate in preferred else 1.5 for candidate in group_slots)
+                score=class_sub_day[(assignment.class_id,assignment.subject_id,day)]*8+sum((candidate%p.periods_per_session)*0.15 for candidate in new_slots)
+                score+=soft_preference_score(new_slots)
                 neighbors=[]
                 if period>0:
                     neighbors.append(slot-1)
@@ -2234,6 +3350,8 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
                 for neighbor in neighbors:
                     if neighbor in teacher_busy[assignment.teacher_id]:
                         score-=1.2
+                    if assignment_prefers_double(assignment) and neighbor in assignment_busy[assignment.id]:
+                        score-=7.0
                 if gene is not None:
                     if slot==gene:
                         score-=8
@@ -2243,22 +3361,28 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
                     best_score=score
                     best_slot=slot
             if best_slot is None:
-                unscheduled+=size
+                unscheduled+=missing_size
                 continue
+            chosen_starts[index]=best_slot
             day=best_slot//ppd
             gene_value=forced if forced is not None else genes[index]
             if gene_value is not None and best_slot!=gene_value:
                 gene_miss+=abs(best_slot-gene_value)
-            for offset,slot in enumerate(range(best_slot,best_slot+size)):
+            for slot in range(best_slot,best_slot+size):
+                if slot in anchor:
+                    continue
                 teacher_busy[assignment.teacher_id].add(slot)
                 class_busy[assignment.class_id].add(slot)
                 assignment_busy[assignment.id].add(slot)
                 class_sub_slots[(assignment.class_id,assignment.subject_id,day)].add(slot%ppd)
                 placed.append((assignment.id,slot,forced is not None))
-            teacher_day[(assignment.teacher_id,day)]+=size
-            class_sub_day[(assignment.class_id,assignment.subject_id,day)]+=size
+            teacher_day[(assignment.teacher_id,day)]+=missing_size
+            class_sub_day[(assignment.class_id,assignment.subject_id,day)]+=missing_size
+            preference_score+=soft_preference_score(
+                [slot for slot in range(best_slot,best_slot+size) if slot not in anchor]
+            )
 
-        score=unscheduled*10000+gene_miss*0.05
+        score=unscheduled*10000+gene_miss*0.05+preference_score
         for (cid,sid,day),n in class_sub_day.items():
             score+=max(0,n-1)*10
         for tid,busy in teacher_busy.items():
@@ -2266,36 +3390,32 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
                 xs=sorted(slot%ppd for slot in busy if slot//ppd==day)
                 if xs:
                     score+=(xs[-1]-xs[0]+1-len(xs))*2
-        return {"lessons":placed,"unscheduled":unscheduled,"score":round(score,2)}
+        for assignment in assignments:
+            if not assignment_prefers_double(assignment):
+                continue
+            runs=assignment_run_groups(p,assignment_busy[assignment.id])
+            formed_pairs=sum(run["size"]//2 for run in runs)
+            target_pairs=assignment.periods_per_week//2
+            score+=max(0,target_pairs-formed_pairs)*14
+        return {"lessons":placed,"unscheduled":unscheduled,"score":round(score,2),"genes":chosen_starts}
 
     def genes_from_candidate(candidate):
-        genes=[None]*len(task_rows)
-        by_assignment=defaultdict(list)
-        for assignment_id,slot,_locked in candidate["lessons"]:
-            by_assignment[assignment_id].append(slot)
-        cursor=defaultdict(int)
-        for index,task in enumerate(task_rows):
-            assignment,group_index,size,explicit,forced=task
-            if forced is not None:
-                genes[index]=forced
-                continue
-            slots_for_assignment=by_assignment.get(assignment.id,[])
-            if cursor[assignment.id] < len(slots_for_assignment):
-                genes[index]=slots_for_assignment[cursor[assignment.id]]
-                cursor[assignment.id]+=size
+        genes=list(candidate.get("genes",[]))
+        if len(genes)!=len(task_rows):
+            genes=[None]*len(task_rows)
         return genes
 
     def random_gene(task):
-        assignment,group_index,size,explicit,forced=task
+        assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task
         if forced is not None:
             return forced
-        pool=start_pool(size)
+        pool=list(planned_starts) if planned_starts is not None else start_pool(size)
         return random.choice(pool) if pool else None
 
     def mutate(genes):
         child=genes[:]
         for index,task in enumerate(task_rows):
-            assignment,group_index,size,explicit,forced=task
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task
             if forced is not None:
                 child[index]=forced
                 continue
@@ -2306,7 +3426,7 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
     def crossover(left,right):
         child=[]
         for index,task in enumerate(task_rows):
-            assignment,group_index,size,explicit,forced=task
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task
             if forced is not None:
                 child.append(forced)
             elif random.random()<0.5:
@@ -2314,6 +3434,197 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
             else:
                 child.append(right[index])
         return child
+
+    def exact_fallback(node_limit:int):
+        """Thử tìm lời giải đầy đủ bằng backtracking cho bài toán vừa/nhỏ.
+
+        GA vẫn được dùng trước để có tốc độ tốt. Khi GA bỏ sót lời giải, bước
+        này duyệt có hệ thống và có thể chứng minh vô nghiệm nếu hoàn tất toàn
+        bộ cây tìm kiếm trước giới hạn nút.
+        """
+        teacher_busy=defaultdict(set)
+        class_busy=defaultdict(set)
+        assignment_busy=defaultdict(set)
+        teacher_day=Counter()
+        class_sub_day=Counter()
+        class_sub_slots=defaultdict(set)
+        for lesson in existing:
+            assignment=next((x for x in assignments if x.id==lesson.assignment_id),None)
+            if not assignment:
+                continue
+            day=lesson.slot//ppd
+            teacher_busy[assignment.teacher_id].add(lesson.slot)
+            class_busy[assignment.class_id].add(lesson.slot)
+            assignment_busy[assignment.id].add(lesson.slot)
+            teacher_day[(assignment.teacher_id,day)]+=1
+            class_sub_day[(assignment.class_id,assignment.subject_id,day)]+=1
+            class_sub_slots[(assignment.class_id,assignment.subject_id,day)].add(lesson.slot%ppd)
+
+        raw_candidates=[]
+        for task in task_rows:
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task
+            if forced is not None:
+                pool=[forced]
+            elif planned_starts is not None:
+                pool=list(planned_starts)
+            else:
+                pool=start_pool(size)
+            raw_candidates.append([slot for slot in pool if slot is not None])
+
+        placed_by_task={}
+        remaining=set(range(len(task_rows)))
+        nodes=0
+        limit_hit=False
+
+        def options_for(index:int):
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task_rows[index]
+            anchor=set(anchor_slots)
+            missing_size=size-len(anchor)
+            tu=parse_slots(teachers[assignment.teacher_id].unavailable_json)
+            requested_avoid=requested_unavailable.get(assignment.teacher_id,set())
+            preferred=requested_preferred.get(assignment.teacher_id,set())
+            cu=parse_slots(classes[assignment.class_id].unavailable_json)
+            options=[]
+            for slot in raw_candidates[index]:
+                if slot not in slots:
+                    continue
+                day=slot//ppd
+                position=slot%ppd
+                session=position//p.periods_per_session
+                period=position%p.periods_per_session
+                if period+size>p.periods_per_session:
+                    continue
+                group_slots=tuple(range(slot,slot+size))
+                group_set=set(group_slots)
+                if anchor and not anchor.issubset(group_set):
+                    continue
+                new_slots=tuple(candidate for candidate in group_slots if candidate not in anchor)
+                if len(new_slots)!=missing_size:
+                    continue
+                if any(candidate//ppd!=day or (candidate%ppd)//p.periods_per_session!=session for candidate in group_slots):
+                    continue
+                if any(candidate in global_blocked or candidate in tu or candidate in requested_avoid or candidate in cu or candidate in teacher_busy[assignment.teacher_id] or candidate in class_busy[assignment.class_id] for candidate in new_slots):
+                    continue
+                if teacher_day[(assignment.teacher_id,day)]+missing_size>teachers[assignment.teacher_id].max_periods_day:
+                    continue
+                if explicit:
+                    neighbors=[]
+                    if period>0:
+                        neighbors.append(slot-1)
+                    if period+size<p.periods_per_session:
+                        neighbors.append(slot+size)
+                    if any(neighbor in assignment_busy[assignment.id] for neighbor in neighbors):
+                        continue
+                existing_periods=[
+                    candidate%p.periods_per_session
+                    for candidate in class_sub_slots[(assignment.class_id,assignment.subject_id,day)]
+                    if candidate//p.periods_per_session==session
+                ]
+                run=sorted(set(existing_periods+list(range(period,period+size))))
+                longest=current=1
+                for left,right in zip(run,run[1:]):
+                    current=current+1 if right==left+1 else 1
+                    longest=max(longest,current)
+                if longest>subjects[assignment.subject_id].max_consecutive:
+                    continue
+                preference_cost=sum(-4 if candidate in preferred else 1.5 for candidate in new_slots) if preferred else 0
+                adjacent_same=0
+                if assignment_prefers_double(assignment):
+                    if period>0 and slot-1 in assignment_busy[assignment.id]:
+                        adjacent_same+=1
+                    if period+size<p.periods_per_session and slot+size in assignment_busy[assignment.id]:
+                        adjacent_same+=1
+                score=(
+                    class_sub_day[(assignment.class_id,assignment.subject_id,day)]*8
+                    +sum((candidate%p.periods_per_session)*0.15 for candidate in new_slots)
+                    +preference_cost
+                    -adjacent_same*7
+                )
+                options.append((score,slot,group_slots,new_slots,day))
+            options.sort(key=lambda item:(item[0],item[1]))
+            return options
+
+        def apply(index:int,option):
+            _score,slot,group_slots,new_slots,day=option
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task_rows[index]
+            for candidate in new_slots:
+                teacher_busy[assignment.teacher_id].add(candidate)
+                class_busy[assignment.class_id].add(candidate)
+                assignment_busy[assignment.id].add(candidate)
+                class_sub_slots[(assignment.class_id,assignment.subject_id,day)].add(candidate%ppd)
+            teacher_day[(assignment.teacher_id,day)]+=len(new_slots)
+            class_sub_day[(assignment.class_id,assignment.subject_id,day)]+=len(new_slots)
+            placed_by_task[index]=(assignment.id,tuple(new_slots),forced is not None)
+
+        def undo(index:int,option):
+            _score,slot,group_slots,new_slots,day=option
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task_rows[index]
+            placed_by_task.pop(index,None)
+            teacher_day[(assignment.teacher_id,day)]-=len(new_slots)
+            class_sub_day[(assignment.class_id,assignment.subject_id,day)]-=len(new_slots)
+            for candidate in new_slots:
+                teacher_busy[assignment.teacher_id].remove(candidate)
+                class_busy[assignment.class_id].remove(candidate)
+                assignment_busy[assignment.id].remove(candidate)
+                class_sub_slots[(assignment.class_id,assignment.subject_id,day)].remove(candidate%ppd)
+
+        def search():
+            nonlocal nodes,limit_hit
+            if not remaining:
+                return True
+            nodes+=1
+            if nodes>node_limit:
+                limit_hit=True
+                return False
+            selected_index=None
+            selected_options=None
+            for index in tuple(remaining):
+                options=options_for(index)
+                if not options:
+                    return False
+                if selected_options is None or len(options)<len(selected_options):
+                    selected_index=index
+                    selected_options=options
+                    if len(options)==1:
+                        break
+            remaining.remove(selected_index)
+            for option in selected_options:
+                apply(selected_index,option)
+                if search():
+                    return True
+                undo(selected_index,option)
+                if limit_hit:
+                    break
+            remaining.add(selected_index)
+            return False
+
+        solved=search()
+        if not solved:
+            return None,not limit_hit,nodes
+        lessons=[]
+        for index in range(len(task_rows)):
+            assignment_id,new_slots,locked=placed_by_task[index]
+            lessons.extend((assignment_id,slot,locked) for slot in new_slots)
+        preference_score=0.0
+        final_slots=defaultdict(set)
+        for lesson in existing:
+            final_slots[lesson.assignment_id].add(lesson.slot)
+        for assignment_id,slot,_locked in lessons:
+            final_slots[assignment_id].add(slot)
+            assignment=next(item for item in assignments if item.id==assignment_id)
+            preferred=requested_preferred.get(assignment.teacher_id,set())
+            if preferred:
+                preference_score+=-4 if slot in preferred else 1.5
+        for assignment in assignments:
+            if assignment_prefers_double(assignment):
+                formed_pairs=sum(run["size"]//2 for run in assignment_run_groups(p,final_slots[assignment.id]))
+                preference_score+=max(0,assignment.periods_per_week//2-formed_pairs)*14
+        return {
+            "lessons":lessons,
+            "unscheduled":0,
+            "score":round(preference_score,2),
+            "exact":True,
+        },True,nodes
 
     population_size=max(18,min(40,max(12,len(task_rows))))
     generations=max(12,min(60,max(tries//3,18)))
@@ -2355,11 +3666,33 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120):
         evaluated.sort(key=lambda item:(item[0]["score"],item[0]["unscheduled"]))
         if evaluated[0][0]["score"]<best_candidate["score"]:
             best_candidate=evaluated[0][0]
+
+    if best_candidate["unscheduled"]>0:
+        missing_periods=sum(task[2]-len(task[5]) for task in task_rows)
+        exact_allowed=len(task_rows)<=30 and missing_periods<=36
+        if exact_allowed:
+            exact_result,exhausted,nodes=exact_fallback(max(50000,tries*1500))
+            if exact_result is not None:
+                return exact_result
+            best_candidate["proven_infeasible"]=exhausted
+            best_candidate["search_limited"]=not exhausted
+            best_candidate["exact_nodes"]=nodes
+        else:
+            best_candidate["proven_infeasible"]=False
+            best_candidate["search_limited"]=True
     return best_candidate
 
-def solve_missing(db:Session,p:Project,tries=120):
-    """Giữ nguyên các Lesson hiện có và chỉ xếp số tiết còn thiếu."""
-    return ga_schedule(db,p,mode="missing",tries=tries)
+def solve_missing(db:Session,p:Project,tries=120,target_assignment_ids:Optional[set[int]]=None):
+    """Giữ nguyên lịch hiện có và chỉ xếp phần còn thiếu của các phân công đích."""
+    return ga_schedule(
+        db,p,mode="missing",tries=tries,
+        target_assignment_ids=target_assignment_ids,
+    )
+
+def solve_rebuild(db:Session,p:Project,tries=220):
+    """Giữ tiết cố định, xếp lại toàn bộ phần còn lại."""
+    return ga_schedule(db,p,mode="rebuild",tries=tries)
+
 
 def solve(db:Session,p:Project,tries=80):
     return ga_schedule(db,p,mode="full",tries=tries)
@@ -2380,22 +3713,45 @@ def seed_project(db:Session,p:Project):
 def ensure_demo():
     db=SessionLocal()
     try:
-        if db.scalar(select(User.id).limit(1)) is not None:
+        # Chỉ bỏ qua bootstrap khi hệ thống thực sự đã có quản trị viên.
+        # Trước đây chỉ cần tồn tại một user (kể cả pending/teacher) là hàm
+        # dừng, khiến database không có admin không thể tự phục hồi.
+        if db.scalar(select(User.id).where(User.role == "admin").limit(1)) is not None:
             return
-        if not BOOTSTRAP_ADMIN_EMAIL or len(BOOTSTRAP_ADMIN_PASSWORD)<8:
+        if not BOOTSTRAP_ADMIN_EMAIL or len(BOOTSTRAP_ADMIN_PASSWORD) < 8:
             raise RuntimeError(
-                "Database đang trống. Hãy cấu hình BOOTSTRAP_ADMIN_EMAIL và "
-                "BOOTSTRAP_ADMIN_PASSWORD (ít nhất 8 ký tự) trong .env để tạo quản trị viên đầu tiên."
+                "Database chưa có quản trị viên. Hãy cấu hình BOOTSTRAP_ADMIN_EMAIL và "
+                "BOOTSTRAP_ADMIN_PASSWORD (ít nhất 8 ký tự) trong .env để khôi phục quyền quản trị."
             )
-        user=User(
-            email=BOOTSTRAP_ADMIN_EMAIL,
-            name="Quản trị viên",
-            password_hash=pwd.hash(BOOTSTRAP_ADMIN_PASSWORD),
-            role="admin",
-            is_superadmin=True,
+
+        # Nếu email bootstrap đã tồn tại, nâng chính tài khoản đó lên admin
+        # thay vì tạo user trùng email. Áp dụng mật khẩu bootstrap để chủ hệ
+        # thống chắc chắn có thể đăng nhập lại và tăng session_version để vô
+        # hiệu hóa các phiên cũ của tài khoản vừa được khôi phục.
+        user = db.scalar(
+            select(User)
+            .where(func.lower(User.email) == BOOTSTRAP_ADMIN_EMAIL)
+            .limit(1)
         )
-        db.add(user);db.commit()
-        if SEED_DEMO_DATA:
+        if user is None:
+            user=User(
+                email=BOOTSTRAP_ADMIN_EMAIL,
+                name="Quản trị viên",
+                password_hash=pwd.hash(BOOTSTRAP_ADMIN_PASSWORD),
+                role="admin",
+                is_superadmin=True,
+            )
+            db.add(user)
+        else:
+            user.role = "admin"
+            user.is_superadmin = True
+            user.password_hash = pwd.hash(BOOTSTRAP_ADMIN_PASSWORD)
+            user.session_version = max(1, user.session_version or 1) + 1
+            if not (user.name or "").strip():
+                user.name = "Quản trị viên"
+
+        db.commit()
+        if SEED_DEMO_DATA and db.scalar(select(Project.id).limit(1)) is None:
             p=Project(owner_id=user.id,name="TKB học kỳ I",school_name="THPT Demo",days=6,sessions=2,periods_per_session=5)
             db.add(p);db.commit();seed_project(db,p)
     finally:

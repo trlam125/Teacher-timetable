@@ -92,7 +92,7 @@
             {% else %}
               <p class="muted">Cần có tên giáo viên mong muốn và ít nhất một bộ thời khóa biểu, hoặc một hồ sơ giáo viên có sẵn để xác nhận tài khoản.</p>
             {% endif %}
-          {% elif account.role == 'teacher' and account.teacher_id in managed_teacher_ids %}
+          {% elif account.role == 'teacher' and account.id in managed_account_ids %}
             <form method="post" action="/admin/users/{{account.id}}/promote-admin">
               <button class="btn ghost wide">Nâng lên quản trị viên</button>
             </form>
