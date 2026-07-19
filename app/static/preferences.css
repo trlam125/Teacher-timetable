@@ -66,3 +66,147 @@
 @media(max-width:700px){.preference-grid{font-size:12px}.preference-grid .cell{min-height:58px;padding:4px}.preference-card-head{align-items:flex-start;flex-direction:column}}
 .lesson-pin{position:absolute;right:29px;top:3px;width:23px;height:21px;border:0;border-radius:50%;background:rgba(255,255,255,.88);color:#1d4ed8;cursor:pointer;font-size:12px;line-height:19px;padding:0}
 .lesson-pin:hover,.lesson-remove:hover{transform:scale(1.08)}
+
+/* --- DARK MODE OVERRIDES --- */
+:root.dark-mode .preference-grid {
+  background: #0f172a;
+  border-color: rgba(71, 85, 105, 0.4);
+}
+
+:root.dark-mode .preference-cell {
+  background: #1e293b;
+  border-right-color: rgba(71, 85, 105, 0.3);
+  border-bottom-color: rgba(71, 85, 105, 0.3);
+}
+
+:root.dark-mode .preference-cell:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+:root.dark-mode .preferred-dot,
+:root.dark-mode .preference-cell.preferred {
+  background: #064e3b !important;
+  border-color: #10b981 !important;
+  color: #a7f3d0;
+}
+
+:root.dark-mode .blocked-dot {
+  background: #7f1d1d;
+}
+
+:root.dark-mode .preference-edit-note {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: linear-gradient(120deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8));
+  color: #93c5fd;
+}
+
+:root.dark-mode .preference-edit-note span {
+  color: #94a3b8;
+}
+
+:root.dark-mode .coverage-warning {
+  border-color: #d97706;
+  background: #451a03;
+  color: #fde047;
+}
+
+:root.dark-mode .manual-tray-panel {
+  background: #1e293b;
+  border-color: rgba(71, 85, 105, 0.4);
+}
+
+:root.dark-mode .unscheduled-tray {
+  border-color: rgba(148, 163, 184, 0.4);
+  background: #0f172a;
+}
+
+:root.dark-mode .tray-lesson {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: #1e3a8a;
+  color: #eaf8ff;
+}
+
+:root.dark-mode .tray-lesson small {
+  color: #93c5fd;
+}
+
+:root.dark-mode .tray-lesson > span {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+:root.dark-mode .scheduled-assignment {
+  border-color: #065f46;
+  background: #064e3b;
+  color: #a7f3d0;
+}
+
+:root.dark-mode .scheduled-assignment small {
+  color: #a7f3d0;
+  opacity: 0.8;
+}
+
+:root.dark-mode .scheduled-assignment > span {
+  color: #34d399;
+}
+
+:root.dark-mode .tray-drop-hint {
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+:root.dark-mode .lesson-remove {
+  background: rgba(15, 23, 42, 0.8);
+  color: #ef4444;
+}
+
+:root.dark-mode .lesson-pin {
+  background: rgba(15, 23, 42, 0.8);
+  color: #3b82f6;
+}
+
+:root.dark-mode .assignment-summary {
+  background: #172554;
+  color: #93c5fd;
+}
+
+:root.dark-mode .preference-card {
+  background: #1e293b;
+  border-color: rgba(71, 85, 105, 0.4);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+:root.dark-mode .status {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+:root.dark-mode .status-pending {
+  background: #78350f;
+  color: #fef3c7;
+}
+
+:root.dark-mode .status-accepted {
+  background: #064e3b;
+  color: #d1fae5;
+}
+
+:root.dark-mode .status-rejected {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+:root.dark-mode .slot-chip.preferred {
+  background: #064e3b;
+  color: #d1fae5;
+}
+
+:root.dark-mode .slot-chip.blocked {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+:root.dark-mode .preference-note {
+  background: #0f172a;
+  color: #cbd5e1;
+}

@@ -19,3 +19,43 @@
 .account-edit-form input, .account-edit-form select { width: 100%; }
 .danger-btn { color: #b91c1c; border-color: #fecaca; }
 .danger-btn:hover { background: #fef2f2; }
+
+/* --- DARK MODE OVERRIDES --- */
+:root.dark-mode .success {
+  background: #064e3b;
+  color: #a7f3d0;
+}
+
+:root.dark-mode .pending-pill {
+  background: #7c2d12;
+  color: #ffedd5;
+}
+
+:root.dark-mode .approved-pill {
+  background: #064e3b;
+  color: #a7f3d0;
+}
+
+:root.dark-mode .captcha-box {
+  border-color: rgba(71, 85, 105, 0.4);
+  background: #0f172a;
+}
+
+:root.dark-mode .dev-reset-box {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(30, 41, 59, 0.8);
+}
+
+:root.dark-mode .account-select-label,
+:root.dark-mode .account-edit-form label {
+  color: #94a3b8;
+}
+
+:root.dark-mode .danger-btn {
+  color: #f87171;
+  border-color: #7f1d1d;
+}
+
+:root.dark-mode .danger-btn:hover {
+  background: #7f1d1d;
+}

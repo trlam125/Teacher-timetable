@@ -175,3 +175,33 @@
 @media (prefers-reduced-motion: reduce) {
   .auth-scene *, .auth-scene *::before, .auth-scene *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* --- DARK MODE OVERRIDES --- */
+:root.dark-mode .panda-card {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+}
+
+:root.dark-mode .panda-card h1 {
+  color: #f8fafc;
+}
+
+:root.dark-mode .panda-card .muted {
+  color: #94a3b8;
+}
+
+:root.dark-mode .panda-card label {
+  color: #cbd5e1;
+}
+
+:root.dark-mode .panda-card input {
+  color: #f8fafc;
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+:root.dark-mode .panda-card input:focus {
+  border-color: var(--auth-cyan);
+  box-shadow: 0 0 0 4px rgba(25, 200, 210, 0.15);
+}

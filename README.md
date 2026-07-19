@@ -170,3 +170,9 @@ Quản trị viên chỉ được duyệt và nâng quyền các tài khoản gi
 
 
 
+
+## Chạy kiểm thử logic
+
+```bash
+python -m unittest discover -s tests -v
+```
