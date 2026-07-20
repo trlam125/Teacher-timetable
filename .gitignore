@@ -1,19 +1,19 @@
-# Python bytecode and caches
+# =========================
+# Python
+# =========================
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Native Python extensions
 *.so
 *.pyd
 
-# Virtual environments
+# Moi truong ao
 .venv/
 venv/
 env/
 ENV/
 
-# Packaging and build output
+# Build va dong goi
 build/
 dist/
 .eggs/
@@ -22,7 +22,7 @@ dist/
 *.whl
 pip-wheel-metadata/
 
-# Test, coverage and analysis caches
+# Kiem thu, coverage va static analysis
 .pytest_cache/
 .coverage
 .coverage.*
@@ -38,7 +38,9 @@ coverage.xml
 .ruff_cache/
 .hypothesis/
 
-# Runtime files
+# =========================
+# Tep sinh ra khi chay
+# =========================
 *.log
 logs/
 *.pid
@@ -49,13 +51,23 @@ logs/
 tmp/
 temp/
 
-# Local databases
+# Co so du lieu cuc bo
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
 
-# Environment variables and secrets
+# Upload va export sinh ra trong luc chay
+uploads/
+exports/
+
+# =========================
+# Bien moi truong va bi mat
+# =========================
 .env
 .env.*
 !.env.example
@@ -66,7 +78,9 @@ temp/
 *.pfx
 secrets.json
 
-# IDEs and editors
+# =========================
+# IDE va he dieu hanh
+# =========================
 .idea/
 *.iml
 .vscode/
@@ -79,7 +93,6 @@ secrets.json
 *.swo
 *~
 
-# Operating-system files
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -88,7 +101,9 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# Cloudflare Tunnel local files and downloaded binaries
+# =========================
+# Cloudflare Tunnel
+# =========================
 .cloudflare/
 cloudflared.exe
 cloudflared-windows-*.exe
@@ -96,6 +111,18 @@ cloudflared-linux-*
 cloudflared-darwin-*
 cert.pem
 
-# Local exports and uploads, if created at runtime
-uploads/
-exports/
+# =========================
+# ngrok
+# =========================
+ngrok.exe
+ngrok
+.ngrok2/
+ngrok.yml
+ngrok.yaml
+
+# =========================
+# Tailscale local binaries/data
+# =========================
+tailscale.exe
+tailscaled.exe
+.tailscale/

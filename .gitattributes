@@ -1,23 +1,22 @@
-# Automatically detect text files. Explicit rules below keep line endings
-# consistent across Windows, Linux and macOS.
+# Tu dong nhan dien tep van ban; cac quy tac ben duoi giu line ending
+# nhat quan khi lam viec tren Windows, Linux va macOS.
 * text=auto
 
-# Repository metadata
+# Tep cau hinh cua Git dung LF
 .gitattributes text eol=lf
 .gitignore     text eol=lf
 
-# Python and project configuration
+# Python va cau hinh project
 *.py          text eol=lf
 *.pyi         text eol=lf
 *.toml        text eol=lf
 *.ini         text eol=lf
 *.cfg         text eol=lf
 *.conf        text eol=lf
-*.env         text eol=lf
 *.properties  text eol=lf
 *.lock        text eol=lf
 
-# Web source files
+# Frontend / web
 *.html        text eol=lf
 *.htm         text eol=lf
 *.css         text eol=lf
@@ -31,7 +30,7 @@
 *.xml         text eol=lf
 *.svg         text eol=lf
 
-# Documentation and data files
+# Tai lieu va du lieu dang van ban
 *.md          text eol=lf
 *.rst         text eol=lf
 *.txt         text eol=lf
@@ -41,17 +40,17 @@
 *.yml         text eol=lf
 *.sql         text eol=lf
 
-# Unix shell scripts use LF
+# Shell tren Linux/macOS dung LF
 *.sh          text eol=lf
 *.bash        text eol=lf
 *.zsh         text eol=lf
 
-# Windows scripts require CRLF
+# Script Windows dung CRLF
 *.bat         text eol=crlf
 *.cmd         text eol=crlf
 *.ps1         text eol=crlf
 
-# Binary files: no line-ending conversion and no textual diff
+# Tep nhi phan: khong chuyen doi line ending va khong diff nhu van ban
 *.pyc         binary
 *.pyo         binary
 *.pyd         binary
@@ -81,8 +80,12 @@
 *.ttf         binary
 *.otf         binary
 
-# Do not include local tooling binaries in source archives produced by Git.
+# Khong dua cac cong cu tunnel cuc bo vao goi source tao boi Git
 cloudflared.exe             export-ignore
 cloudflared-windows-*.exe   export-ignore
 cloudflared-linux-*         export-ignore
 cloudflared-darwin-*        export-ignore
+ngrok.exe                   export-ignore
+ngrok                       export-ignore
+tailscale.exe               export-ignore
+tailscaled.exe              export-ignore
