@@ -9,6 +9,11 @@
 # Python va cau hinh project
 *.py          text eol=lf
 *.pyi         text eol=lf
+*.java        text eol=lf
+*.kt          text eol=lf
+*.kts         text eol=lf
+*.gradle      text eol=lf
+*.pro         text eol=lf
 *.toml        text eol=lf
 *.ini         text eol=lf
 *.cfg         text eol=lf
@@ -79,6 +84,21 @@
 *.woff2       binary
 *.ttf         binary
 *.otf         binary
+*.class       binary
+*.dex         binary
+*.jar         binary
+*.aar         binary
+*.apk         binary
+*.aab         binary
+*.apks        binary
+*.jks         binary
+*.keystore    binary
+*.p12         binary
+*.pfx         binary
+
+# Gradle Wrapper: script Unix dung LF, script Windows dung CRLF.
+android-webview/gradlew     text eol=lf
+android-webview/gradlew.bat text eol=crlf
 
 # Khong dua cac cong cu tunnel cuc bo vao goi source tao boi Git
 cloudflared.exe             export-ignore

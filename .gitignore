@@ -22,6 +22,15 @@ dist/
 *.whl
 pip-wheel-metadata/
 
+# Goi build Android (khong dua file cai dat len Git)
+*.apk
+*.aab
+*.apks
+*.aar
+*.dex
+mapping.txt
+native-debug-symbols.zip
+
 # Kiem thu, coverage va static analysis
 .pytest_cache/
 .coverage
@@ -76,6 +85,13 @@ exports/
 *.key
 *.p12
 *.pfx
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+google-services.json
+service-account*.json
+firebase-adminsdk*.json
 secrets.json
 
 # =========================
@@ -100,6 +116,16 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+# =========================
+# Android / Gradle
+# =========================
+.gradle/
+.kotlin/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
 
 # =========================
 # Cloudflare Tunnel

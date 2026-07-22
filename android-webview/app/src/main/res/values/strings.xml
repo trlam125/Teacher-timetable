@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Smart TKB</string>
+    <string name="connection_error_title">Không thể kết nối máy chủ</string>
+    <string name="connection_error_message">Hãy kiểm tra Internet, máy chủ FastAPI và đường hầm ngrok.</string>
+    <string name="retry">Thử lại</string>
+</resources>
