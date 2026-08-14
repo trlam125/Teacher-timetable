@@ -11,6 +11,25 @@
   let activeDropTarget = null;
 
   function dragValue(element) {
+    let captured = '';
+    try {
+      if (typeof element.ondragstart === 'function') {
+        element.ondragstart({
+          dataTransfer: {
+            effectAllowed: 'move',
+            setData: function (type, value) {
+              if (type === 'text/plain' || type === 'text') captured = String(value || '');
+            }
+          },
+          preventDefault: function () {},
+          stopPropagation: function () {}
+        });
+      }
+    } catch (_) {
+      captured = '';
+    }
+    if (captured) return captured;
+
     const handler = element.getAttribute('ondragstart') || '';
     const match = handler.match(/setData\([^,]+,\s*['"]([^'"]+)['"]\s*\)/);
     return match ? match[1] : '';
@@ -33,11 +52,20 @@
   scan(document);
   new MutationObserver(function (mutations) {
     mutations.forEach(function (mutation) {
+      if (mutation.type === 'attributes') {
+        markDraggable(mutation.target);
+        return;
+      }
       mutation.addedNodes.forEach(function (node) {
         if (node instanceof Element) scan(node);
       });
     });
-  }).observe(document.documentElement, { childList: true, subtree: true });
+  }).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['draggable', 'ondragstart']
+  });
 
   function clearDropTarget() {
     if (activeDropTarget) activeDropTarget.classList.remove('android-touch-drop-target');
@@ -77,8 +105,8 @@
       value: pending.value,
       ghost: ghost,
       scrollArea: pending.source.closest('.timetable,.unscheduled-tray,.scheduled-cards'),
-      offsetX: Math.max(10, Math.min(touch.clientX - rect.left, rect.width - 10)),
-      offsetY: Math.max(10, Math.min(touch.clientY - rect.top, rect.height - 10))
+      offsetX: Math.max(10, Math.min(touch.clientX - rect.left, Math.max(10, rect.width - 10))),
+      offsetY: Math.max(10, Math.min(touch.clientY - rect.top, Math.max(10, rect.height - 10)))
     };
     pending.source.classList.add('dragging');
     document.body.classList.add('is-dragging', 'android-touch-dragging');
@@ -111,10 +139,18 @@
   }
 
   function fakeDragEvent(value) {
-    return { dataTransfer: { getData: function () { return value; } } };
+    return {
+      dataTransfer: {
+        effectAllowed: 'move',
+        dropEffect: 'move',
+        getData: function () { return value; }
+      },
+      preventDefault: function () {},
+      stopPropagation: function () {}
+    };
   }
 
-  function finishDrop(target, value) {
+  async function finishDrop(target, value) {
     if (!target) {
       if (typeof window.toast === 'function') window.toast('Hãy thả tiết vào một ô lịch hợp lệ.');
       return;
@@ -122,18 +158,18 @@
     if (target.classList.contains('available')) {
       const slot = Number(target.dataset.slot);
       if (Number.isFinite(slot) && typeof window.dropLesson === 'function') {
-        window.dropLesson(fakeDragEvent(value), slot);
+        await window.dropLesson(fakeDragEvent(value), slot);
       }
       return;
     }
     if (target.classList.contains('unscheduled-tray') && typeof window.dropToTray === 'function') {
-      window.dropToTray(fakeDragEvent(value));
+      await window.dropToTray(fakeDragEvent(value));
     }
   }
 
   document.addEventListener('touchstart', function (event) {
     if (event.touches.length !== 1) return;
-    if (event.target.closest('button,a,input,select,textarea')) return;
+    if (event.target.closest('button,a,input,select,textarea,label')) return;
     const source = event.target.closest('[data-android-drag-value]');
     if (!source) return;
     const touch = event.touches[0];
@@ -183,7 +219,9 @@
     const target = element ? element.closest(DROP_SELECTOR) : activeDropTarget;
     const value = dragging.value;
     cleanup();
-    finishDrop(target, value);
+    finishDrop(target, value).catch(function () {
+      if (typeof window.toast === 'function') window.toast('Không thể hoàn tất thao tác kéo thả.');
+    });
   }, { passive: false });
 
   document.addEventListener('touchcancel', cleanup, { passive: true });
