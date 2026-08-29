@@ -1,0 +1,154 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Moi truong ao
+.venv/
+venv/
+env/
+ENV/
+
+# Build va dong goi
+build/
+dist/
+.eggs/
+*.egg
+*.egg-info/
+*.whl
+pip-wheel-metadata/
+
+# Goi build Android (khong dua file cai dat len Git)
+*.apk
+*.aab
+*.apks
+*.aar
+*.dex
+mapping.txt
+native-debug-symbols.zip
+
+# Kiem thu, coverage va static analysis
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+*.py,cover
+.tox/
+.nox/
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+.hypothesis/
+
+# =========================
+# Tep sinh ra khi chay
+# =========================
+*.log
+logs/
+*.pid
+*.seed
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
+
+# Co so du lieu cuc bo
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Upload va export sinh ra trong luc chay
+uploads/
+exports/
+
+# =========================
+# Bien moi truong va bi mat
+# =========================
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+google-services.json
+service-account*.json
+firebase-adminsdk*.json
+secrets.json
+
+# =========================
+# IDE va he dieu hanh
+# =========================
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.swo
+*~
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =========================
+# Android / Gradle
+# =========================
+.gradle/
+.kotlin/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# =========================
+# Cloudflare Tunnel
+# =========================
+.cloudflare/
+cloudflared.exe
+cloudflared-windows-*.exe
+cloudflared-linux-*
+cloudflared-darwin-*
+cert.pem
+
+# =========================
+# ngrok
+# =========================
+ngrok.exe
+ngrok
+.ngrok2/
+ngrok.yml
+ngrok.yaml
+
+# =========================
+# Tailscale local binaries/data
+# =========================
+tailscale.exe
+tailscaled.exe
+.tailscale/

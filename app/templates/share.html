@@ -18,19 +18,16 @@
     <button class="btn" onclick="window.print()">In / PDF</button>
   </header>
   <main class="container">
-    {% if not data.publication.published %}
-      <div class="empty-state publication-empty"><h2>Thời khóa biểu chưa được công bố</h2><p>Nhà trường đang hoàn thiện bản nháp. Liên kết này sẽ tự hiển thị lịch sau khi quản trị viên công bố.</p></div>
-    {% endif %}
-    <div class="section-head" {% if not data.publication.published %}hidden{% endif %}>
-      <div><h1>{{p.name}}</h1><p>{{p.school_name}}{% if data.publication.published_at %} · Công bố {{data.publication.published_at|replace('T',' ')}}{% endif %}</p></div>
+    <div class="section-head">
+      <div><h1>{{p.name}}</h1><p>{{p.school_name}}</p></div>
       <div class="row">
         <select id="viewType"><option value="overview" selected>Xem tổng quát</option><option value="class">Xem theo lớp</option><option value="teacher">Xem theo giáo viên</option></select>
         <select id="viewEntity"></select>
       </div>
     </div>
-    <div id="scheduleGrid" {% if not data.publication.published %}hidden{% endif %}></div>
+    <div id="scheduleGrid"></div>
   </main>
   <script>window.PROJECT_ID={{p.id}};window.INIT_DATA={{data|tojson}};window.READ_ONLY=true;</script>
-  <script src="/static/app.js?v=27"></script>
+  <script src="/static/app.js?v=25"></script>
 </body>
 </html>

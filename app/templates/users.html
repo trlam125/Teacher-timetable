@@ -25,24 +25,6 @@
         <p>Tài khoản tự đăng ký có thể được gắn với giáo viên, sửa thông tin hoặc xóa khi không còn dùng nữa.</p>
       </div>
     </div>
-    {% if user.role == 'admin' %}
-    <section class="project-card" style="margin-bottom:22px">
-      <h2>Tạo tài khoản nhân sự</h2>
-      <form method="post" action="/admin/users/staff" class="account-edit-form">
-        <label>Họ tên<input name="name" maxlength="120" required></label>
-        <label>Email<input type="email" name="email" maxlength="255" required></label>
-        <label>Mật khẩu ban đầu<input type="password" name="password" minlength="6" required></label>
-        <label>Vai trò
-          <select name="role" required>
-            <option value="scheduler">Người xếp lịch</option>
-            <option value="reviewer">Người duyệt</option>
-          </select>
-        </label>
-        <div class="row end"><button class="btn">Tạo tài khoản</button></div>
-      </form>
-    </section>
-    {% endif %}
-
     <div class="project-grid">
       {% for account in users %}
         <article class="project-card account-card">
@@ -51,10 +33,6 @@
               <span class="pill pending-pill">Chờ xác nhận</span>
             {% elif account.role == 'teacher' %}
               <span class="pill">Giáo viên</span>
-            {% elif account.role == 'scheduler' %}
-              <span class="pill">Người xếp lịch</span>
-            {% elif account.role == 'reviewer' %}
-              <span class="pill approved-pill">Người duyệt</span>
             {% else %}
               <span class="pill approved-pill">Quản trị viên</span>
             {% endif %}
@@ -68,7 +46,6 @@
             {% endif %}
           </div>
 
-          {% if account.id in mutable_account_ids %}
           <details class="account-edit">
             <summary>Chỉnh sửa thông tin</summary>
             <form method="post" action="/admin/users/{{account.id}}/update" class="account-edit-form">
@@ -89,9 +66,6 @@
               </div>
             </form>
           </details>
-          {% else %}
-            <p class="muted">Tài khoản này đang được dùng ở bộ thời khóa biểu của quản trị viên khác nên không thể sửa thông tin đăng nhập tại đây.</p>
-          {% endif %}
 
           {% if account.role == 'pending' %}
             {% if available_teachers or (account.requested_teacher_name and managed_projects) %}
@@ -122,35 +96,21 @@
             {% else %}
               <p class="muted">Cần có tên giáo viên mong muốn và ít nhất một bộ thời khóa biểu, hoặc một hồ sơ giáo viên có sẵn để xác nhận tài khoản.</p>
             {% endif %}
-          {% elif account.role == 'teacher' and account.id in mutable_account_ids %}
+          {% elif account.role == 'teacher' and account.id in managed_account_ids %}
             <form method="post" action="/admin/users/{{account.id}}/promote-admin">
               <button class="btn ghost wide">Nâng lên quản trị viên</button>
             </form>
           {% elif account.role == 'teacher' %}
             <p class="muted">Tài khoản giáo viên thuộc bộ thời khóa biểu khác.</p>
-          {% elif account.role in ['scheduler', 'reviewer'] %}
-            <p class="muted">Gán tài khoản này vào từng dự án tại trang Phân quyền.</p>
           {% else %}
             <p class="muted">Tài khoản quản trị hiện tại</p>
           {% endif %}
 
-          {% if account.id != user.id and account.role != 'admin' and account.id in mutable_account_ids %}
-            <form method="post" action="/admin/users/{{account.id}}/staff-role" class="account-edit-form" onsubmit="return confirm('Đổi vai trò tài khoản này? Các liên kết giáo viên và phân quyền dự án cũ sẽ bị gỡ.');">
-              <label>Vai trò nhân sự
-                <select name="role" required>
-                  <option value="scheduler" {% if account.role == 'scheduler' %}selected{% endif %}>Người xếp lịch</option>
-                  <option value="reviewer" {% if account.role == 'reviewer' %}selected{% endif %}>Người duyệt</option>
-                </select>
-              </label>
-              <button class="btn ghost wide">Cấp vai trò nhân sự</button>
-            </form>
-          {% endif %}
-
-          {% if account.id != user.id and account.id in mutable_account_ids %}
+          {% if account.id != user.id %}
             <form method="post" action="/admin/users/{{account.id}}/delete" onsubmit="return confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.');">
               <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
             </form>
-          {% elif account.id == user.id %}
+          {% else %}
             <p class="muted">Tài khoản này không thể xóa từ giao diện.</p>
           {% endif %}
         </article>

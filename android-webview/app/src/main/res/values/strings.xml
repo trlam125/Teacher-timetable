@@ -3,9 +3,5 @@
     <string name="app_name">Smart TKB</string>
     <string name="connection_error_title">Không thể kết nối máy chủ</string>
     <string name="connection_error_message">Hãy kiểm tra Internet, máy chủ FastAPI và đường hầm ngrok.</string>
-    <string name="network_error_message">Thiết bị chưa có kết nối Internet ổn định.</string>
-    <string name="server_error_message">Máy chủ đang tạm thời không phản hồi. Hãy thử lại sau.</string>
-    <string name="ssl_error_message">Kết nối HTTPS không an toàn hoặc chứng chỉ máy chủ không hợp lệ.</string>
-    <string name="invalid_server_url_message">URL máy chủ trong gradle.properties không hợp lệ. URL phải bắt đầu bằng https://.</string>
     <string name="retry">Thử lại</string>
 </resources>

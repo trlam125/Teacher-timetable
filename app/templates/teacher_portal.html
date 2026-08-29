@@ -36,10 +36,7 @@
         <button class="btn ghost" onclick="window.print()">In / PDF</button>
       </div>
     </div>
-    {% if not data.publication.published %}
-      <div class="empty-state publication-empty"><h2>Chưa có thời khóa biểu chính thức</h2><p>Nhà trường chưa công bố lịch cho học kỳ này. Nguyện vọng của bạn vẫn có thể gửi và theo dõi bình thường.</p></div>
-    {% endif %}
-    <div class="panel" {% if not data.publication.published %}hidden{% endif %}>
+    <div class="panel">
       <select id="viewType" hidden><option value="teacher">Xem theo giáo viên</option></select>
       <select id="viewEntity" hidden></select>
       <div id="scheduleGrid"></div>
@@ -83,6 +80,6 @@
     {% endif %}
   </main>
   <script>window.PROJECT_ID={{p.id}};window.INIT_DATA={{data|tojson}};window.READ_ONLY=true;</script>
-  <script src="/static/app.js?v=27"></script>
+  <script src="/static/app.js?v=25"></script>
 </body>
 </html>
