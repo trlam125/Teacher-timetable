@@ -1,125 +1,124 @@
 # Smart TKB
 
-Smart TKB là ứng dụng web hỗ trợ nhà trường xây dựng, quản lý và chia sẻ thời khóa biểu. Hệ thống có thể tự động xếp lịch theo dữ liệu và các ràng buộc đã nhập, sau đó cho phép quản trị viên tinh chỉnh trực tiếp bằng thao tác kéo-thả.
+**Smart TKB** là ứng dụng web hỗ trợ nhà trường xây dựng, quản lý và chia sẻ thời khóa biểu. Hệ thống có thể **xếp lịch tự động theo các ràng buộc** và cho phép quản trị viên **kéo-thả để điều chỉnh lịch** sau khi xếp.
 
 ## Tính năng chính
 
-* Quản lý môn học, tổ chuyên môn, giáo viên, khối, lớp và phân công giảng dạy.
-* Xếp thời khóa biểu tự động, hạn chế trùng giáo viên và trùng lớp.
-* Kéo-thả tiết học để điều chỉnh lịch thủ công.
-* Thiết lập tiết tránh cho giáo viên, lớp học và giới hạn số tiết dạy mỗi ngày.
-* Xem thời khóa biểu theo lớp hoặc theo giáo viên.
-* Cổng riêng cho giáo viên xem lịch, cập nhật tài khoản và gửi nguyện vọng.
-* Chia sẻ thời khóa biểu bằng liên kết và xuất dữ liệu CSV.
-* Nhân bản một bộ thời khóa biểu để sử dụng cho học kỳ tiếp theo.
+* Quản lý môn học, tổ chuyên môn, giáo viên, khối và lớp.
+* Quản lý phân công giảng dạy.
+* Tự động xếp thời khóa biểu, hạn chế trùng giáo viên và lớp.
+* Thiết lập tiết cố định, tiết cần tránh và giới hạn số tiết/ngày.
+* Kéo-thả để điều chỉnh thời khóa biểu thủ công.
+* Xem thời khóa biểu theo lớp hoặc giáo viên.
+* Cổng riêng cho giáo viên xem lịch và gửi nguyện vọng.
+* Đăng ký tài khoản giáo viên qua link mời và xác thực OTP email.
+* Chia sẻ thời khóa biểu bằng liên kết và xuất CSV.
+* Nhân bản bộ thời khóa biểu cho học kỳ mới.
 
-## Quy trình đăng ký tài khoản
+## Công nghệ sử dụng
 
-1. Quản trị viên tạo sẵn hồ sơ giáo viên và gửi link mời đăng ký của project.
-2. Giáo viên mở link mời, điền đầy đủ họ tên, chọn đúng hồ sơ, email, mật khẩu và hoàn thành xác minh chống bot.
-3. Hệ thống gửi mã OTP 6 số qua email. Nhập đúng OTP sẽ kích hoạt ngay tài khoản giáo viên, không cần quản trị viên duyệt lại.
-
-Mã OTP có hiệu lực 10 phút, tối đa 5 lần nhập và giới hạn gửi lại sau 60 giây.
+| Thành phần | Công nghệ                                   |
+| ---------- | ------------------------------------------- |
+| Backend    | FastAPI                                     |
+| ORM        | SQLAlchemy 2.0                              |
+| Database   | PostgreSQL                                  |
+| Template   | Jinja2                                      |
+| Frontend   | HTML, CSS, JavaScript                       |
+| Xác thực   | Cookie Session, PBKDF2-SHA256, itsdangerous |
+| Server     | Uvicorn                                     |
 
 ## Yêu cầu hệ thống
 
-* Python 3.11 trở lên.
-* PostgreSQL đang hoạt động.
-* `pip` để cài các thư viện Python.
-* Trình duyệt web hiện đại.
+* Python 3.11+
+* PostgreSQL
+* pip
 
 ## Cài đặt
 
-### 1\. Mở thư mục dự án
+### 1. Mở thư mục dự án
 
-```powershell
-cd ./Teacher-timetable
+```bash
+cd Teacher-timetable
 ```
 
-### 2\. Tạo môi trường Python
+### 2. Tạo môi trường ảo
 
-Windows PowerShell:
+**Windows PowerShell:**
 
 ```powershell
 python -m venv venv
 ./venv/Scripts/Activate.ps1
 ```
 
-Linux hoặc macOS:
+**Linux/macOS:**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3\. Cài thư viện
+### 3. Cài đặt thư viện
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4\. Tạo database PostgreSQL
+### 4. Tạo PostgreSQL database
 
 ```sql
-CREATE DATABASE teacher\_timetable;
+CREATE DATABASE teacher_timetable;
 ```
 
-### 5\. Tạo file cấu hình `.env`
+### 5. Cấu hình môi trường
 
-Tạo file `.env` tại thư mục gốc của dự án:
+Tạo file `.env` tại thư mục gốc:
 
 ```env
-APP\_ENV=production
-APP\_BASE\_URL=https://tkb.example.com
-DATABASE\_URL=postgresql+psycopg://postgres:MAT\_KHAU\_POSTGRES@localhost:5432/teacher\_timetable
-SECRET\_KEY=THAY\_BANG\_CHUOI\_BI\_MAT\_NGAU\_NHIEN
-BOOTSTRAP\_ADMIN\_EMAIL=admin@example.com
-BOOTSTRAP\_ADMIN\_PASSWORD=mat-khau-manh-it-nhat-8-ky-tu
-SUPER\_ADMIN\_USER\_ID=1
-SESSION\_TTL\_SECONDS=43200
-SEED\_DEMO\_DATA=false
+APP_ENV=production
+APP_BASE_URL=https://tkb.example.com
+
+DATABASE_URL=postgresql+psycopg://postgres:PASSWORD@localhost:5432/teacher_timetable
+SECRET_KEY=YOUR_SECRET_KEY
+
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=YOUR_PASSWORD
+
+SUPER_ADMIN_USER_ID=1
+SESSION_TTL_SECONDS=43200
+SEED_DEMO_DATA=false
 ```
 
-Có thể tạo `SECRET\_KEY` bằng lệnh:
+Tạo `SECRET_KEY` ngẫu nhiên:
 
 ```bash
-python -c "import secrets; print(secrets.token\_urlsafe(64))"
+python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
-## Cấu hình quên mật khẩu và SMTP
+## Cấu hình Email / SMTP
 
-Trong production phải cấu hình `APP_BASE_URL` bằng origin công khai cố định của ứng dụng. Hệ thống không tạo link đặt lại mật khẩu từ Host header do trình duyệt gửi lên.
+SMTP được sử dụng để gửi **OTP đăng ký** và **liên kết đặt lại mật khẩu**.
 
-Trong môi trường công khai, chức năng quên mật khẩu chỉ gửi liên kết đặt lại qua SMTP. Liên kết kiểm thử chỉ được hiển thị khi đồng thời thỏa mãn hai điều kiện:
-
-* `APP\_ENV=development`.
-* Truy cập ứng dụng bằng `localhost` hoặc `127.0.0.1`.
-
-Ví dụ cấu hình SMTP dùng cổng `587` với STARTTLS:
+Ví dụ với STARTTLS cổng `587`:
 
 ```env
-SMTP\_HOST=smtp.example.com
-SMTP\_PORT=587
-SMTP\_USER=your-account@example.com
-SMTP\_PASSWORD=your-app-password
-SMTP\_FROM=your-account@example.com
-SMTP\_SSL=false
-SMTP\_STARTTLS=true
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your-account@example.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM=your-account@example.com
+SMTP_SSL=false
+SMTP_STARTTLS=true
 ```
 
-Nếu nhà cung cấp email yêu cầu SSL trực tiếp, có thể dùng:
+Nếu nhà cung cấp sử dụng SSL cổng `465`:
 
 ```env
-SMTP\_HOST=smtp.example.com
-SMTP\_PORT=465
-SMTP\_USER=your-account@example.com
-SMTP\_PASSWORD=your-app-password
-SMTP\_FROM=your-account@example.com
-SMTP\_SSL=true
-SMTP\_STARTTLS=false
+SMTP_PORT=465
+SMTP_SSL=true
+SMTP_STARTTLS=false
 ```
 
-`SMTP\_USER` là tài khoản dùng để gửi thư. Email nhận là địa chỉ mà người dùng đã đăng ký trong hệ thống.
+Khi triển khai production, `APP_BASE_URL` cần được đặt thành địa chỉ công khai của ứng dụng.
 
 ## Chạy ứng dụng
 
@@ -127,57 +126,53 @@ SMTP\_STARTTLS=false
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Mở trình duyệt tại [http://127.0.0.1:8000](http://127.0.0.1:8000).
+Truy cập:
+
+```text
+http://127.0.0.1:8000
+```
 
 ## Hướng dẫn sử dụng
 
-### Dành cho quản trị viên
+### Quản trị viên
 
-1. Đăng nhập bằng tài khoản admin.
-2. Tạo một bộ thời khóa biểu và nhập tên trường, số ngày, số buổi và số tiết mỗi buổi.
-3. Nhập dữ liệu theo thứ tự:
+1. Đăng nhập tài khoản Admin.
+2. Tạo bộ thời khóa biểu.
+3. Nhập môn học, giáo viên, lớp và phân công giảng dạy.
+4. Thiết lập ràng buộc, tiết cố định và tiết cần tránh.
+5. Xếp thời khóa biểu tự động.
+6. Kéo-thả để điều chỉnh nếu cần.
+7. Xem, chia sẻ hoặc xuất thời khóa biểu.
 
-   1. Môn học.
-   2. Tổ chuyên môn.
-   3. Giáo viên.
-   4. Khối hoặc nhóm lớp.
-   5. Lớp học.
-   6. Phân công giảng dạy.
-   7. Ràng buộc và các tiết cần tránh.
-4. Mở **Quản lý tài khoản** để xác nhận tài khoản đang chờ và gắn tài khoản với đúng giáo viên.
-5. Kiểm tra các tiết cố định, buổi khóa và nguyện vọng giáo viên.
-6. Chọn chức năng xếp lịch tự động.
-7. Kéo-thả để tinh chỉnh nếu cần.
-8. Chia sẻ lịch hoặc xuất file CSV.
+### Giáo viên
 
-Quản trị viên chỉ được duyệt và nâng quyền các tài khoản giáo viên thuộc bộ thời khóa biểu mình quản lý.
+1. Mở link đăng ký do Admin cung cấp.
+2. Chọn đúng hồ sơ giáo viên và tạo tài khoản.
+3. Nhập OTP được gửi qua email để kích hoạt.
+4. Đăng nhập và xem thời khóa biểu cá nhân.
+5. Gửi nguyện vọng hoặc các tiết cần tránh.
+6. Cập nhật thông tin tài khoản khi cần.
 
-### Dành cho giáo viên
+## Cấu trúc hoạt động
 
-1. Mở link mời đăng ký do quản trị viên gửi từ project.
-2. Điền đầy đủ thông tin, chọn đúng hồ sơ giáo viên và hoàn thành xác minh bảo mật.
-3. Nhập mã OTP được gửi qua email để kích hoạt tài khoản.
-4. Xem lịch dạy cá nhân tại cổng giáo viên ngay sau khi xác nhận thành công.
-5. Gửi các tiết mong muốn, các tiết cần tránh và ghi chú cho quản trị viên.
-6. Cập nhật email hoặc mật khẩu trong trang tài khoản cá nhân.
-
-## Công nghệ sử dụng
-
-|Thành phần|Công nghệ|
-|-|-|
-|Backend|FastAPI|
-|ORM|SQLAlchemy 2.0|
-|Database|PostgreSQL|
-|Template|Jinja2|
-|Xác thực|Cookie session, PBKDF2-SHA256, itsdangerous|
-|Frontend|HTML, CSS, JavaScript thuần|
-|Server|Uvicorn|
-
-
-
-
-## Chạy kiểm thử logic
-
-```bash
-python -m unittest discover -s tests -v
+```text
+Browser
+   │
+   ▼
+FastAPI
+   │
+   ├── Jinja2 Templates
+   ├── Authentication
+   ├── Scheduling Logic
+   └── SQLAlchemy
+          │
+          ▼
+      PostgreSQL
 ```
+
+## Vai trò người dùng
+
+Hệ thống gồm hai nhóm người dùng chính:
+
+* **Admin:** quản lý dữ liệu, phân công, ràng buộc, tài khoản giáo viên và thời khóa biểu.
+* **Giáo viên:** xem lịch cá nhân, quản lý tài khoản và gửi nguyện vọng.
