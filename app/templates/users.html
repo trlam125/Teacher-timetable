@@ -33,6 +33,8 @@
               <span class="pill pending-pill">Chờ xác nhận</span>
             {% elif account.role == 'teacher' %}
               <span class="pill">Giáo viên</span>
+            {% elif account.role == 'super_admin' %}
+              <span class="pill approved-pill">Super admin</span>
             {% else %}
               <span class="pill approved-pill">Quản trị viên</span>
             {% endif %}
@@ -103,7 +105,7 @@
           {% elif account.role == 'teacher' %}
             <p class="muted">Tài khoản giáo viên thuộc bộ thời khóa biểu khác.</p>
           {% else %}
-            <p class="muted">Tài khoản quản trị hiện tại</p>
+            <p class="muted">Tài khoản {{'super admin' if account.role == 'super_admin' else 'quản trị hiện tại'}}</p>
           {% endif %}
 
           {% if account.id != user.id %}

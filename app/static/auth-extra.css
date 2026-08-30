@@ -7,6 +7,9 @@
 .captcha-box .check-label { display: flex; grid-template-columns: none; align-items: center; gap: 10px; margin: 0 0 12px; }
 .captcha-box .check-label input { width: 20px; height: 20px; margin: 0; }
 .captcha-box label:last-of-type { margin: 0; }
+.bot-trap { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+.otp-resend-captcha { margin-top: 10px; }
+.otp-resend-captcha p { margin: 0 0 10px; }
 .dev-reset-box { margin: 16px 0; padding: 14px; border: 1px solid #93c5fd; border-radius: 10px; background: #eff6ff; }
 .dev-reset-box p { font-size: 14px; color: var(--muted); }
 .account-select-label { display: grid; gap: 7px; margin: 12px 0; color: #344054; font-weight: 600; }

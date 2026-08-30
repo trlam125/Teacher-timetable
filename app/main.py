@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import random
 import secrets
 import smtplib
@@ -32,9 +33,14 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, func, inspect, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 load_dotenv()
+
+logger = logging.getLogger("smart_tkb")
+
+ADMIN_ROLES = frozenset({"admin", "super_admin"})
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -81,6 +87,21 @@ class User(Base):
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
 
+class RegistrationVerification(Base):
+    __tablename__ = "registration_verifications"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), unique=True, index=True)
+    otp_hash: Mapped[str] = mapped_column(String(64))
+    token_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[str] = mapped_column(String(40))
+    resend_available_at: Mapped[str] = mapped_column(String(40))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[str] = mapped_column(String(40), default=lambda: datetime.now(timezone.utc).isoformat())
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -118,6 +139,16 @@ class Teacher(Base):
     max_periods_day: Mapped[int] = mapped_column(Integer, default=5)
     unavailable_json: Mapped[str] = mapped_column(Text, default="[]")
 
+class TeacherSubject(Base):
+    __tablename__ = "teacher_subjects"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    __table_args__ = (
+        UniqueConstraint("project_id", "teacher_id", "subject_id", name="uq_teacher_subject"),
+    )
+
 class TeacherAccountLink(Base):
     __tablename__ = "teacher_account_links"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -150,6 +181,9 @@ class Assignment(Base):
     block_mode: Mapped[str] = mapped_column(String(24), default="free")
     # Giữ cột cũ để migration các project đã tồn tại; giao diện mới không dùng mẫu chuỗi.
     consecutive_pattern: Mapped[str] = mapped_column(String(80), default="")
+    __table_args__ = (
+        UniqueConstraint("project_id", "class_id", "subject_id", name="uq_assignment_class_subject"),
+    )
 
 class FixedLesson(Base):
     __tablename__ = "fixed_lessons"
@@ -240,13 +274,27 @@ def migrate_schema():
             "UPDATE users SET role='teacher' "
             "WHERE teacher_id IS NOT NULL AND role='pending'"
         )
+        bootstrap_email = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
+        try:
+            configured_super_admin_id = int(os.getenv("SUPER_ADMIN_USER_ID", "0") or 0)
+        except ValueError:
+            configured_super_admin_id = 0
         if "projects" in inspector.get_table_names():
-            # Chủ project luôn là quản trị viên. Chạy sau bước teacher để tài
-            # khoản vừa là giáo viên cũ vừa sở hữu project vẫn nhận quyền admin.
-            connection.exec_driver_sql(
-                "UPDATE users SET role='admin' "
-                "WHERE id IN (SELECT DISTINCT owner_id FROM projects)"
-            )
+            # Chủ project thường giữ role admin. Chỉ tài khoản bootstrap do chủ
+            # hệ thống cấu hình mới được nâng thành super_admin.
+            if configured_super_admin_id > 0:
+                connection.exec_driver_sql(
+                    "UPDATE users SET role='admin', is_superadmin=FALSE "
+                    "WHERE id IN (SELECT DISTINCT owner_id FROM projects) AND id<>%s",
+                    (configured_super_admin_id,),
+                )
+            else:
+                connection.exec_driver_sql(
+                    "UPDATE users SET role='admin', is_superadmin=FALSE "
+                    "WHERE id IN (SELECT DISTINCT owner_id FROM projects) "
+                    "AND (%s='' OR lower(email)<>lower(%s))",
+                    (bootstrap_email, bootstrap_email),
+                )
         if "teacher_account_links" in inspector.get_table_names():
             connection.exec_driver_sql(
                 "INSERT INTO teacher_account_links (user_id, teacher_id) "
@@ -258,27 +306,74 @@ def migrate_schema():
             # dữ liệu lỗi đã được tạo bởi các phiên bản bootstrap cũ.
             connection.exec_driver_sql(
                 "DELETE FROM teacher_account_links USING users "
-                "WHERE teacher_account_links.user_id=users.id AND users.role='admin'"
+                "WHERE teacher_account_links.user_id=users.id "
+                "AND users.role IN ('admin', 'super_admin')"
             )
         connection.exec_driver_sql(
             "UPDATE users SET teacher_id=NULL, requested_teacher_name=NULL, "
-            "requested_project_id=NULL WHERE role='admin'"
+            "requested_project_id=NULL WHERE role IN ('admin', 'super_admin')"
         )
         connection.exec_driver_sql(
             "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'pending'"
         )
-        bootstrap_email = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
-        if bootstrap_email:
+        if configured_super_admin_id > 0:
             connection.exec_driver_sql(
-                "UPDATE users SET is_superadmin=TRUE WHERE lower(email)=lower(%s) AND role='admin' "
-                "AND NOT EXISTS (SELECT 1 FROM users WHERE is_superadmin=TRUE)",
+                "UPDATE users SET role=CASE WHEN role='super_admin' THEN 'admin' ELSE role END, "
+                "is_superadmin=FALSE WHERE id<>%s",
+                (configured_super_admin_id,),
+            )
+            connection.exec_driver_sql(
+                "UPDATE users SET role='super_admin', is_superadmin=TRUE, teacher_id=NULL, "
+                "requested_teacher_name=NULL, requested_project_id=NULL WHERE id=%s",
+                (configured_super_admin_id,),
+            )
+            if "teacher_account_links" in inspector.get_table_names():
+                connection.exec_driver_sql(
+                    "DELETE FROM teacher_account_links WHERE user_id=%s",
+                    (configured_super_admin_id,),
+                )
+        elif bootstrap_email:
+            connection.exec_driver_sql(
+                "UPDATE users SET role=CASE WHEN role='super_admin' THEN 'admin' ELSE role END, "
+                "is_superadmin=FALSE WHERE lower(email)<>lower(%s)",
                 (bootstrap_email,),
             )
-        connection.exec_driver_sql(
-            "UPDATE users SET is_superadmin=TRUE WHERE id=("
-            "SELECT id FROM users WHERE role='admin' ORDER BY id ASC LIMIT 1"
-            ") AND NOT EXISTS (SELECT 1 FROM users WHERE is_superadmin=TRUE)"
-        )
+            connection.exec_driver_sql(
+                "UPDATE users SET role='super_admin', is_superadmin=TRUE, teacher_id=NULL, "
+                "requested_teacher_name=NULL, requested_project_id=NULL "
+                "WHERE lower(email)=lower(%s)",
+                (bootstrap_email,),
+            )
+            if "teacher_account_links" in inspector.get_table_names():
+                connection.exec_driver_sql(
+                    "DELETE FROM teacher_account_links USING users "
+                    "WHERE teacher_account_links.user_id=users.id "
+                    "AND lower(users.email)=lower(%s)",
+                    (bootstrap_email,),
+                )
+
+        # Từ phiên bản này, môn giáo viên có thể dạy được lưu riêng. Với dữ
+        # liệu cũ, suy ra quan hệ này từ các phân công đã tồn tại để nâng cấp
+        # không làm mất khả năng chỉnh sửa/xếp lịch của project hiện hữu.
+        if "teacher_subjects" in inspector.get_table_names() and "assignments" in inspector.get_table_names():
+            connection.exec_driver_sql(
+                "INSERT INTO teacher_subjects (project_id, teacher_id, subject_id) "
+                "SELECT DISTINCT project_id, teacher_id, subject_id FROM assignments "
+                "ON CONFLICT (project_id, teacher_id, subject_id) DO NOTHING"
+            )
+
+        if "assignments" in inspector.get_table_names():
+            duplicate_assignment_pairs = connection.exec_driver_sql(
+                "SELECT COUNT(*) FROM ("
+                "SELECT project_id, class_id, subject_id FROM assignments "
+                "GROUP BY project_id, class_id, subject_id HAVING COUNT(*) > 1"
+                ") duplicate_pairs"
+            ).scalar()
+            if not duplicate_assignment_pairs:
+                connection.exec_driver_sql(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_assignment_class_subject "
+                    "ON assignments (project_id, class_id, subject_id)"
+                )
 
         assignment_columns = {column["name"] for column in inspector.get_columns("assignments")} if "assignments" in inspector.get_table_names() else set()
         if assignment_columns and "block_mode" not in assignment_columns:
@@ -367,6 +462,7 @@ pwd = Passwords()
 signer = URLSafeTimedSerializer(SECRET_KEY, salt="session")
 reset_signer = URLSafeTimedSerializer(SECRET_KEY, salt="password-reset")
 captcha_signer = URLSafeTimedSerializer(SECRET_KEY, salt="forgot-password-captcha")
+registration_signer = URLSafeTimedSerializer(SECRET_KEY, salt="registration-verification")
 
 app = FastAPI(title="Teacher Timetable")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -374,53 +470,131 @@ templates = Jinja2Templates(directory="app/templates")
 
 DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
 RESET_TOKEN_TTL_SECONDS = 30 * 60
+REGISTRATION_OTP_TTL_SECONDS = 10 * 60
+REGISTRATION_OTP_RESEND_SECONDS = 60
+REGISTRATION_OTP_MAX_ATTEMPTS = 5
 SESSION_TTL_SECONDS = max(300, int(os.getenv("SESSION_TTL_SECONDS", str(12 * 60 * 60))))
 APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
+APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
 BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
 BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
+try:
+    SUPER_ADMIN_USER_ID = int(os.getenv("SUPER_ADMIN_USER_ID", "0") or 0)
+except ValueError:
+    SUPER_ADMIN_USER_ID = 0
 SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "false").strip().lower() in {"1", "true", "yes"}
 
-def new_captcha() -> tuple[str, str]:
-    left = secrets.randbelow(8) + 2
-    right = secrets.randbelow(8) + 2
-    token = captcha_signer.dumps({"answer": left + right})
-    return f"{left} + {right} = ?", token
+def new_captcha(purpose: str = "password_reset") -> tuple[str, str]:
+    variant = secrets.randbelow(3)
+    if variant == 0:
+        left, right = secrets.randbelow(31) + 10, secrets.randbelow(19) + 2
+        question, expected = f"{left} + {right} = ?", left + right
+    elif variant == 1:
+        right = secrets.randbelow(18) + 2
+        expected = secrets.randbelow(30) + 10
+        left = expected + right
+        question = f"{left} − {right} = ?"
+    else:
+        left, right, extra = secrets.randbelow(7) + 3, secrets.randbelow(6) + 2, secrets.randbelow(8) + 1
+        question, expected = f"{left} × {right} + {extra} = ?", left * right + extra
+    issued_at = int(datetime.now(timezone.utc).timestamp())
+    nonce = secrets.token_urlsafe(18)
+    answer_hash = hmac.new(
+        SECRET_KEY.encode(),
+        f"captcha:{purpose}:{nonce}:{expected}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    token = captcha_signer.dumps({
+        "answer_hash": answer_hash,
+        "purpose": purpose,
+        "issued_at": issued_at,
+        "nonce": nonce,
+    })
+    return question, token
 
-def captcha_is_valid(token: str, answer: str) -> bool:
+def captcha_is_valid(token: str, answer: str, purpose: str = "password_reset") -> bool:
     try:
-        data = captcha_signer.loads(token, max_age=10 * 60)
-        return hmac.compare_digest(str(data["answer"]), answer.strip())
-    except (BadSignature, SignatureExpired, KeyError, ValueError):
+        data = captcha_signer.loads(token, max_age=5 * 60)
+        age = int(datetime.now(timezone.utc).timestamp()) - int(data["issued_at"])
+        submitted_hash = hmac.new(
+            SECRET_KEY.encode(),
+            f"captcha:{purpose}:{data['nonce']}:{answer.strip()}".encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        return (
+            data["purpose"] == purpose
+            and 2 <= age <= 5 * 60
+            and hmac.compare_digest(str(data["answer_hash"]), submitted_hash)
+        )
+    except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         return False
 
-def send_password_reset_email(recipient: str, reset_url: str) -> bool:
-    smtp_host = os.getenv("SMTP_HOST")
+def send_email_message(recipient: str, subject: str, body: str) -> bool:
+    smtp_host = os.getenv("SMTP_HOST", "").strip()
     if not smtp_host:
         return False
+
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "")
+    smtp_user = os.getenv("SMTP_USER", "").strip()
     smtp_password = os.getenv("SMTP_PASSWORD", "")
-    smtp_from = os.getenv("SMTP_FROM", smtp_user or "no-reply@smart-tkb.local")
-    use_ssl = os.getenv("SMTP_SSL", "false").lower() in {"1", "true", "yes"}
+    smtp_from = os.getenv("SMTP_FROM", smtp_user or "no-reply@smart-tkb.local").strip()
+    use_ssl = os.getenv("SMTP_SSL", "false").strip().lower() in {"1", "true", "yes"}
+    use_starttls = os.getenv("SMTP_STARTTLS", "true").strip().lower() in {"1", "true", "yes"}
+    timeout = max(5, int(os.getenv("SMTP_TIMEOUT_SECONDS", "30")))
+
+    # Gmail SMTP always requires authentication. A missing credential should fail loudly
+    # in the server log instead of silently pretending that the message was sent.
+    if smtp_host.lower() == "smtp.gmail.com" and (not smtp_user or not smtp_password):
+        raise smtplib.SMTPAuthenticationError(535, b"Missing SMTP_USER or SMTP_PASSWORD")
 
     message = EmailMessage()
-    message["Subject"] = "Đặt lại mật khẩu Smart TKB"
+    message["Subject"] = subject
     message["From"] = smtp_from
     message["To"] = recipient
-    message.set_content(
-        "Bạn vừa yêu cầu đặt lại mật khẩu Smart TKB.\n\n"
-        f"Mở liên kết sau trong vòng 30 phút:\n{reset_url}\n\n"
-        "Nếu bạn không yêu cầu, hãy bỏ qua email này."
-    )
+    message.set_content(body)
 
     smtp_class = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
-    with smtp_class(smtp_host, smtp_port, timeout=15) as client:
-        if not use_ssl and os.getenv("SMTP_STARTTLS", "true").lower() in {"1", "true", "yes"}:
+    with smtp_class(smtp_host, smtp_port, timeout=timeout) as client:
+        client.ehlo()
+        if not use_ssl and use_starttls:
             client.starttls()
+            client.ehlo()
         if smtp_user:
             client.login(smtp_user, smtp_password)
-        client.send_message(message)
+        refused = client.send_message(message)
+        if refused:
+            logger.error("SMTP refused password-reset recipient(s): %s", list(refused))
+            return False
     return True
+
+def send_password_reset_email(recipient: str, reset_url: str) -> bool:
+    return send_email_message(
+        recipient,
+        "Đặt lại mật khẩu Smart TKB",
+        "Bạn vừa yêu cầu đặt lại mật khẩu Smart TKB.\n\n"
+        f"Mở liên kết sau trong vòng 30 phút:\n{reset_url}\n\n"
+        "Nếu bạn không yêu cầu, hãy bỏ qua email này.",
+    )
+
+def send_registration_otp_email(recipient: str, otp: str, project_name: str) -> bool:
+    return send_email_message(
+        recipient,
+        "Mã xác nhận đăng ký Smart TKB",
+        f"Mã OTP đăng ký tài khoản của bạn là: {otp}\n\n"
+        f"Bộ thời khóa biểu: {project_name}\n"
+        "Mã có hiệu lực trong 10 phút và chỉ dùng được một lần.\n\n"
+        "Nếu bạn không thực hiện đăng ký này, hãy bỏ qua email.",
+    )
+
+def registration_otp_hash(email: str, otp: str) -> str:
+    return hmac.new(SECRET_KEY.encode(), f"{email}:{otp}".encode(), hashlib.sha256).hexdigest()
+
+def public_base_url(request: Request) -> str | None:
+    if APP_BASE_URL:
+        return APP_BASE_URL
+    if development_reset_links_enabled(request):
+        return str(request.base_url).rstrip("/")
+    return None
 
 def db_session():
     db = SessionLocal()
@@ -451,30 +625,37 @@ def current_user(request: Request, db: Session = Depends(db_session)) -> User:
     except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         raise HTTPException(401)
 
+def is_admin(user: User) -> bool:
+    return user.role in ADMIN_ROLES
+
+def is_super_admin(user: User) -> bool:
+    return user.role == "super_admin"
+
 def get_project(pid: int, user: User, db: Session) -> Project:
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403,"Chỉ quản trị viên được thực hiện thao tác này")
     p = db.get(Project, pid)
-    if not p or p.owner_id != user.id:
+    if not p or (not is_super_admin(user) and p.owner_id != user.id):
         raise HTTPException(404)
     return p
 
 def get_project_for_update(pid: int, user: User, db: Session) -> Project:
     """Khóa project đến hết transaction để tuần tự hóa mọi thay đổi lịch."""
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403,"Chỉ quản trị viên được thực hiện thao tác này")
-    project = db.scalar(
-        select(Project)
-        .where(Project.id == pid, Project.owner_id == user.id)
-        .with_for_update()
-    )
+    query = select(Project).where(Project.id == pid)
+    if not is_super_admin(user):
+        query = query.where(Project.owner_id == user.id)
+    project = db.scalar(query.with_for_update())
     if not project:
         raise HTTPException(404)
     return project
 
 def admin_project_ids(user: User, db: Session) -> set[int]:
-    if user.role != "admin":
+    if not is_admin(user):
         return set()
+    if is_super_admin(user):
+        return set(db.scalars(select(Project.id)).all())
     return set(db.scalars(select(Project.id).where(Project.owner_id == user.id)).all())
 
 def admin_teacher_ids(user: User, db: Session) -> set[int]:
@@ -507,14 +688,16 @@ def ensure_teacher_link(account: User, teacher: Teacher, db: Session) -> None:
         account.teacher_id = teacher.id
 
 def is_bootstrap_admin(user: User, db: Session) -> bool:
-    return user.role == "admin" and bool(user.is_superadmin)
+    return is_super_admin(user)
 
 def admin_can_manage_account(admin: User, account: User, db: Session) -> bool:
-    if admin.role != "admin":
+    if not is_admin(admin):
         return False
     if account.id == admin.id:
         return True
-    if account.role == "admin":
+    if is_super_admin(admin):
+        return account.role != "super_admin"
+    if account.role in ADMIN_ROLES:
         return False
     project_ids = admin_project_ids(admin, db)
     if account.role == "teacher":
@@ -1221,7 +1404,7 @@ def home(request: Request, db: Session = Depends(db_session)):
         try:
             data=signer.loads(raw,max_age=SESSION_TTL_SECONDS); user=db.get(User,int(data["uid"]))
             if user and int(data.get("sv",-1))==user.session_version:
-                destination = "/teacher" if user.role == "teacher" else ("/projects" if user.role == "admin" else "/account-pending")
+                destination = "/teacher" if user.role == "teacher" else ("/projects" if is_admin(user) else "/account-pending")
                 return RedirectResponse(destination, 303)
         except (BadSignature,SignatureExpired,KeyError,TypeError,ValueError):
             pass
@@ -1236,7 +1419,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), d
     user = db.scalar(select(User).where(User.email == email.lower().strip()))
     if not user or not pwd.verify(password, user.password_hash):
         return templates.TemplateResponse("auth.html", {"request": request, "mode": "login", "error": "Email hoặc mật khẩu không đúng"}, status_code=400)
-    destination = "/teacher" if user.role == "teacher" else ("/projects" if user.role == "admin" else "/account-pending")
+    destination = "/teacher" if user.role == "teacher" else ("/projects" if is_admin(user) else "/account-pending")
     res = RedirectResponse(destination, 303)
     set_session_cookie(res, user)
     return res
@@ -1244,49 +1427,129 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), d
 @app.get("/register", response_class=HTMLResponse)
 def register_page(request: Request, project: str = "", db: Session = Depends(db_session)):
     target_project = db.scalar(select(Project).where(Project.share_token == project)) if project else None
+    available_teachers = []
+    if target_project:
+        assigned_teacher_ids = set(db.scalars(select(TeacherAccountLink.teacher_id)).all())
+        assigned_teacher_ids.update(db.scalars(
+            select(User.teacher_id).where(User.role == "teacher", User.teacher_id.is_not(None))
+        ).all())
+        available_teachers = db.scalars(select(Teacher).where(
+            Teacher.project_id == target_project.id,
+            Teacher.id.not_in(assigned_teacher_ids),
+        ).order_by(Teacher.name.asc())).all()
+    captcha_question, captcha_token = new_captcha("registration")
     return templates.TemplateResponse("auth.html", {
         "request": request, "mode": "register", "error": None,
         "target_project": target_project, "project_token": project if target_project else "",
+        "available_teachers": available_teachers,
+        "captcha_question": captcha_question,
+        "captcha_token": captcha_token,
+        "form_values": {},
     })
+
+def mask_email(email: str) -> str:
+    local, separator, domain = email.partition("@")
+    if not separator:
+        return "***"
+    visible = local[:2] if len(local) > 2 else local[:1]
+    return f"{visible}{'*' * max(2, len(local) - len(visible))}@{domain}"
+
+def registration_verification_for_token(
+    token: str,
+    db: Session,
+    *,
+    lock: bool = False,
+) -> RegistrationVerification | None:
+    try:
+        data = registration_signer.loads(token, max_age=REGISTRATION_OTP_TTL_SECONDS)
+        query = select(RegistrationVerification).where(RegistrationVerification.id == int(data["id"]))
+        if lock:
+            query = query.with_for_update()
+        verification = db.scalar(query)
+        nonce_hash = hashlib.sha256(str(data["nonce"]).encode()).hexdigest()
+        if not verification or not hmac.compare_digest(verification.token_hash, nonce_hash):
+            return None
+        return verification
+    except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
+        return None
+
+def registration_otp_context(
+    request: Request,
+    verification: RegistrationVerification | None,
+    verification_token: str,
+    db: Session,
+    error: str | None = None,
+):
+    question, captcha_token = new_captcha("registration_resend")
+    project = db.get(Project, verification.project_id) if verification else None
+    return {
+        "request": request,
+        "mode": "register_otp",
+        "error": error,
+        "verification_token": verification_token,
+        "masked_email": mask_email(verification.email) if verification else "email của bạn",
+        "target_project": project,
+        "captcha_question": question,
+        "captcha_token": captcha_token,
+    }
 
 @app.post("/register")
 def register(
     request: Request,
     name: str = Form(...),
     email: str = Form(...),
-    teacher_name: str = Form(...),
+    teacher_id: int = Form(...),
     password: str = Form(...),
+    password_confirm: str = Form(...),
     project_token: str = Form(""),
+    captcha_answer: str = Form(...),
+    captcha_token: str = Form(...),
+    human_confirm: Optional[str] = Form(None),
+    website: str = Form(""),
     db: Session = Depends(db_session),
 ):
     name = name.strip()
     email = email.lower().strip()
-    teacher_name = teacher_name.strip()
-    target_project = db.scalar(select(Project).where(Project.share_token == project_token)) if project_token else None
+    target_project = db.scalar(
+        select(Project).where(Project.share_token == project_token).with_for_update()
+    ) if project_token else None
+    assigned_teacher_ids = set(db.scalars(select(TeacherAccountLink.teacher_id)).all())
+    assigned_teacher_ids.update(db.scalars(
+        select(User.teacher_id).where(User.role == "teacher", User.teacher_id.is_not(None))
+    ).all())
+    available_teachers = db.scalars(select(Teacher).where(
+        Teacher.project_id == target_project.id,
+        Teacher.id.not_in(assigned_teacher_ids),
+    ).order_by(Teacher.name.asc())).all() if target_project else []
+    fresh_question, fresh_captcha_token = new_captcha("registration")
     context = {
         "request": request, "mode": "register", "error": None,
         "target_project": target_project, "project_token": project_token if target_project else "",
+        "available_teachers": available_teachers,
+        "captcha_question": fresh_question,
+        "captcha_token": fresh_captcha_token,
+        "form_values": {"name": name, "email": email, "teacher_id": teacher_id},
     }
-    if project_token and not target_project:
-        context["error"] = "Liên kết đăng ký không hợp lệ hoặc đã được thay đổi."
+    if not target_project:
+        context["error"] = "Bạn cần dùng liên kết mời hợp lệ của bộ thời khóa biểu để đăng ký."
+        return templates.TemplateResponse("auth.html", context, status_code=400)
+    if website.strip() or human_confirm != "yes" or not captcha_is_valid(captcha_token, captcha_answer, "registration"):
+        context["error"] = "Xác minh bảo mật không hợp lệ hoặc thao tác quá nhanh. Hãy giải câu hỏi mới."
         return templates.TemplateResponse("auth.html", context, status_code=400)
     if not name:
         context["error"] = "Họ tên tài khoản không được để trống"
         return templates.TemplateResponse("auth.html", context, status_code=400)
-    if not teacher_name:
-        context["error"] = "Tên giáo viên mong muốn không được để trống"
-        return templates.TemplateResponse("auth.html", context, status_code=400)
     if len(name) > 120:
         context["error"] = "Họ tên tài khoản không được vượt quá 120 ký tự"
-        return templates.TemplateResponse("auth.html", context, status_code=400)
-    if len(teacher_name) > 120:
-        context["error"] = "Tên giáo viên mong muốn không được vượt quá 120 ký tự"
         return templates.TemplateResponse("auth.html", context, status_code=400)
     if len(email) > 255:
         context["error"] = "Email không được vượt quá 255 ký tự"
         return templates.TemplateResponse("auth.html", context, status_code=400)
-    if len(password) < 6:
-        context["error"] = "Mật khẩu phải có ít nhất 6 ký tự"
+    if len(password) < 8:
+        context["error"] = "Mật khẩu phải có ít nhất 8 ký tự"
+        return templates.TemplateResponse("auth.html", context, status_code=400)
+    if password != password_confirm:
+        context["error"] = "Hai lần nhập mật khẩu không khớp"
         return templates.TemplateResponse("auth.html", context, status_code=400)
     if not email or "@" not in email:
         context["error"] = "Email không hợp lệ"
@@ -1294,18 +1557,203 @@ def register(
     if db.scalar(select(User).where(User.email == email)):
         context["error"] = "Email đã tồn tại"
         return templates.TemplateResponse("auth.html", context, status_code=400)
-    user = User(
-        name=name,
+    teacher = db.scalar(select(Teacher).where(
+        Teacher.id == teacher_id,
+        Teacher.project_id == target_project.id,
+    ).with_for_update())
+    if not teacher or account_for_teacher(teacher_id, db):
+        context["error"] = "Hồ sơ giáo viên không còn khả dụng. Hãy tải lại liên kết mời."
+        return templates.TemplateResponse("auth.html", context, status_code=409)
+
+    now = datetime.now(timezone.utc)
+    for expired in db.scalars(select(RegistrationVerification).where(
+        RegistrationVerification.expires_at <= now.isoformat()
+    )).all():
+        db.delete(expired)
+    db.flush()
+    email_verification = db.scalar(select(RegistrationVerification).where(
+        RegistrationVerification.email == email
+    ).with_for_update())
+    teacher_verification = db.scalar(select(RegistrationVerification).where(
+        RegistrationVerification.teacher_id == teacher.id
+    ).with_for_update())
+    active_teacher_verification = teacher_verification and datetime.fromisoformat(teacher_verification.expires_at) > now
+    if active_teacher_verification and teacher_verification.email != email:
+        context["error"] = "Hồ sơ giáo viên này đang được xác minh bởi một email khác. Hãy thử lại sau 10 phút."
+        return templates.TemplateResponse("auth.html", context, status_code=409)
+    if email_verification and datetime.fromisoformat(email_verification.resend_available_at) > now:
+        context["error"] = "Mã OTP vừa được gửi tới email này. Vui lòng chờ 60 giây trước khi gửi lại."
+        return templates.TemplateResponse("auth.html", context, status_code=429)
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    nonce = secrets.token_urlsafe(32)
+    try:
+        if not send_registration_otp_email(email, otp, target_project.name):
+            raise RuntimeError("SMTP chưa được cấu hình")
+    except (OSError, smtplib.SMTPException, RuntimeError, ValueError) as exc:
+        logger.exception("Could not send registration OTP to %s: %s", email, exc)
+        context["error"] = "Chưa thể gửi mã OTP. Vui lòng kiểm tra email hoặc thử lại sau."
+        return templates.TemplateResponse("auth.html", context, status_code=503)
+
+    old_rows = {row.id: row for row in (email_verification, teacher_verification) if row is not None}
+    for row in old_rows.values():
+        db.delete(row)
+    db.flush()
+    verification = RegistrationVerification(
         email=email,
-        requested_teacher_name=teacher_name,
-        requested_project_id=target_project.id if target_project else None,
+        name=name,
         password_hash=pwd.hash(password),
-        role="pending",
+        project_id=target_project.id,
+        teacher_id=teacher.id,
+        otp_hash=registration_otp_hash(email, otp),
+        token_hash=hashlib.sha256(nonce.encode()).hexdigest(),
+        expires_at=(now + timedelta(seconds=REGISTRATION_OTP_TTL_SECONDS)).isoformat(),
+        resend_available_at=(now + timedelta(seconds=REGISTRATION_OTP_RESEND_SECONDS)).isoformat(),
+        attempt_count=0,
     )
-    db.add(user); db.commit()
-    res = RedirectResponse("/account-pending", 303)
-    set_session_cookie(res, user)
-    return res
+    db.add(verification)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        context["error"] = "Email hoặc hồ sơ giáo viên đang được xác minh ở một phiên khác. Hãy thử lại sau."
+        return templates.TemplateResponse("auth.html", context, status_code=409)
+    verification_token = registration_signer.dumps({"id": verification.id, "nonce": nonce})
+    resend_question, resend_captcha = new_captcha("registration_resend")
+    return templates.TemplateResponse("auth.html", {
+        "request": request,
+        "mode": "register_otp",
+        "error": None,
+        "verification_token": verification_token,
+        "masked_email": mask_email(email),
+        "target_project": target_project,
+        "captcha_question": resend_question,
+        "captcha_token": resend_captcha,
+    })
+
+@app.post("/register/verify", response_class=HTMLResponse)
+def verify_registration_otp(
+    request: Request,
+    verification_token: str = Form(...),
+    otp: str = Form(...),
+    db: Session = Depends(db_session),
+):
+    verification = registration_verification_for_token(verification_token, db, lock=True)
+    now = datetime.now(timezone.utc)
+    if not verification or datetime.fromisoformat(verification.expires_at) <= now:
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Mã OTP không hợp lệ hoặc đã hết hạn. Hãy quay lại link mời để đăng ký lại.",
+        ), status_code=400)
+    if verification.attempt_count >= REGISTRATION_OTP_MAX_ATTEMPTS:
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Bạn đã nhập sai quá số lần cho phép. Hãy gửi lại mã OTP mới.",
+        ), status_code=429)
+    normalized_otp = otp.strip()
+    if not normalized_otp.isdigit() or len(normalized_otp) != 6 or not hmac.compare_digest(
+        verification.otp_hash,
+        registration_otp_hash(verification.email, normalized_otp),
+    ):
+        verification.attempt_count += 1
+        remaining = max(0, REGISTRATION_OTP_MAX_ATTEMPTS - verification.attempt_count)
+        db.commit()
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            f"Mã OTP không đúng. Bạn còn {remaining} lần thử.",
+        ), status_code=400)
+
+    teacher = db.scalar(select(Teacher).where(
+        Teacher.id == verification.teacher_id,
+        Teacher.project_id == verification.project_id,
+    ).with_for_update())
+    if not teacher or account_for_teacher(verification.teacher_id, db):
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Hồ sơ giáo viên đã được liên kết với tài khoản khác. Hãy liên hệ quản trị viên.",
+        ), status_code=409)
+    if db.scalar(select(User.id).where(User.email == verification.email)) is not None:
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Email này đã được đăng ký. Hãy chuyển sang trang đăng nhập.",
+        ), status_code=409)
+
+    user = User(
+        name=verification.name,
+        email=verification.email,
+        password_hash=verification.password_hash,
+        role="teacher",
+        teacher_id=teacher.id,
+    )
+    db.add(user)
+    try:
+        db.flush()
+        ensure_teacher_link(user, teacher, db)
+        db.delete(verification)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, None, verification_token, db,
+            "Email hoặc hồ sơ giáo viên vừa được đăng ký ở một phiên khác. Hãy đăng nhập hoặc liên hệ quản trị viên.",
+        ), status_code=409)
+    response = RedirectResponse(f"/teacher?project_id={teacher.project_id}", 303)
+    set_session_cookie(response, user)
+    return response
+
+@app.post("/register/resend", response_class=HTMLResponse)
+def resend_registration_otp(
+    request: Request,
+    verification_token: str = Form(...),
+    captcha_answer: str = Form(...),
+    captcha_token: str = Form(...),
+    human_confirm: Optional[str] = Form(None),
+    website: str = Form(""),
+    db: Session = Depends(db_session),
+):
+    verification = registration_verification_for_token(verification_token, db, lock=True)
+    if not verification:
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, None, verification_token, db,
+            "Phiên xác minh không còn hợp lệ. Hãy đăng ký lại từ link mời.",
+        ), status_code=400)
+    if website.strip() or human_confirm != "yes" or not captcha_is_valid(captcha_token, captcha_answer, "registration_resend"):
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Xác minh bảo mật không đúng hoặc thao tác quá nhanh.",
+        ), status_code=400)
+    now = datetime.now(timezone.utc)
+    if datetime.fromisoformat(verification.resend_available_at) > now:
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Vui lòng chờ đủ 60 giây trước khi yêu cầu mã mới.",
+        ), status_code=429)
+    project = db.get(Project, verification.project_id)
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    try:
+        if not send_registration_otp_email(
+            verification.email,
+            otp,
+            project.name if project else "Smart TKB",
+        ):
+            raise RuntimeError("SMTP chưa được cấu hình")
+    except (OSError, smtplib.SMTPException, RuntimeError, ValueError) as exc:
+        logger.exception("Could not resend registration OTP to %s: %s", verification.email, exc)
+        return templates.TemplateResponse("auth.html", registration_otp_context(
+            request, verification, verification_token, db,
+            "Chưa thể gửi lại mã OTP. Vui lòng thử lại sau.",
+        ), status_code=503)
+    verification.otp_hash = registration_otp_hash(verification.email, otp)
+    nonce = secrets.token_urlsafe(32)
+    verification.token_hash = hashlib.sha256(nonce.encode()).hexdigest()
+    verification.expires_at = (now + timedelta(seconds=REGISTRATION_OTP_TTL_SECONDS)).isoformat()
+    verification.resend_available_at = (now + timedelta(seconds=REGISTRATION_OTP_RESEND_SECONDS)).isoformat()
+    verification.attempt_count = 0
+    db.commit()
+    refreshed_token = registration_signer.dumps({"id": verification.id, "nonce": nonce})
+    return templates.TemplateResponse("auth.html", registration_otp_context(
+        request, verification, refreshed_token, db,
+    ))
 
 @app.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_page(request: Request):
@@ -1343,7 +1791,8 @@ def forgot_password(
     dev_reset_link = None
     allow_local_link = development_reset_links_enabled(request)
     smtp_configured = bool(os.getenv("SMTP_HOST"))
-    if account and (smtp_configured or allow_local_link):
+    base_url = public_base_url(request)
+    if account and (smtp_configured or allow_local_link) and base_url:
         nonce = secrets.token_urlsafe(32)
         account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
         account.reset_token_expires_at = (
@@ -1351,15 +1800,20 @@ def forgot_password(
         ).isoformat()
         db.commit()
         token = reset_signer.dumps({"uid": account.id, "nonce": nonce})
-        reset_url = f"{str(request.base_url).rstrip('/')}/reset-password/{token}"
+        reset_url = f"{base_url}/reset-password/{token}"
         email_sent = False
         if smtp_configured:
             try:
                 email_sent = send_password_reset_email(account.email, reset_url)
-            except (OSError, smtplib.SMTPException):
+                if email_sent:
+                    logger.info("Password-reset email accepted by SMTP for %s", account.email)
+            except (OSError, smtplib.SMTPException, ValueError) as exc:
                 email_sent = False
+                logger.exception("Could not send password-reset email to %s: %s", account.email, exc)
         if allow_local_link and not email_sent:
             dev_reset_link = reset_url
+    elif account and smtp_configured and not base_url:
+        logger.error("Password reset skipped because APP_BASE_URL is not configured")
 
     question, fresh_token = new_captcha()
     return templates.TemplateResponse("forgot_password.html", {
@@ -1442,7 +1896,7 @@ def logout():
 
 @app.get("/account-pending", response_class=HTMLResponse)
 def account_pending(request: Request, user: User = Depends(current_user)):
-    if user.role == "admin":
+    if is_admin(user):
         return RedirectResponse("/projects", 303)
     if user.role == "teacher":
         return RedirectResponse("/teacher", 303)
@@ -1450,9 +1904,12 @@ def account_pending(request: Request, user: User = Depends(current_user)):
 
 @app.get("/admin/users", response_class=HTMLResponse)
 def admin_users(request: Request, user: User = Depends(current_user), db: Session = Depends(db_session)):
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
-    projects = db.scalars(select(Project).where(Project.owner_id == user.id)).all()
+    project_query = select(Project)
+    if not is_super_admin(user):
+        project_query = project_query.where(Project.owner_id == user.id)
+    projects = db.scalars(project_query.order_by(Project.id.asc())).all()
     project_names = {project.id: project.name for project in projects}
     project_ids = set(project_names)
     managed_teacher_ids = admin_teacher_ids(user, db)
@@ -1499,7 +1956,7 @@ def update_account(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
     account = db.get(User, account_id)
     if not account or not admin_can_manage_account(user, account, db):
@@ -1535,7 +1992,7 @@ def delete_account(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
     account = db.get(User, account_id)
     if not account or not admin_can_manage_account(user, account, db):
@@ -1559,7 +2016,7 @@ def approve_teacher_account(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
     account = db.get(User, account_id)
     if not account or not admin_can_manage_account(user, account, db):
@@ -1577,7 +2034,7 @@ def approve_teacher_account(
     if selected_teacher_id is not None:
         teacher = db.get(Teacher, selected_teacher_id)
         project = db.get(Project, teacher.project_id) if teacher else None
-        if not teacher or not project or project.owner_id != user.id:
+        if not teacher or not project or (not is_super_admin(user) and project.owner_id != user.id):
             raise HTTPException(400, "Giáo viên không hợp lệ hoặc không thuộc bộ thời khóa biểu của bạn")
         if account.requested_project_id is not None and project.id != account.requested_project_id:
             raise HTTPException(403, "Tài khoản này được mời vào một bộ thời khóa biểu khác")
@@ -1587,14 +2044,15 @@ def approve_teacher_account(
         teacher_name = (account.requested_teacher_name or "").strip()
         if not teacher_name:
             raise HTTPException(400, "Hãy nhập tên giáo viên mong muốn hoặc chọn một giáo viên có sẵn")
-        managed_projects = db.scalars(
-            select(Project).where(Project.owner_id == user.id).order_by(Project.id.asc())
-        ).all()
+        managed_project_query = select(Project)
+        if not is_super_admin(user):
+            managed_project_query = managed_project_query.where(Project.owner_id == user.id)
+        managed_projects = db.scalars(managed_project_query.order_by(Project.id.asc())).all()
         if selected_project_id is None and len(managed_projects) == 1:
             project = managed_projects[0]
         else:
             project = db.get(Project, selected_project_id) if selected_project_id is not None else None
-        if not project or project.owner_id != user.id:
+        if not project or (not is_super_admin(user) and project.owner_id != user.id):
             raise HTTPException(400, "Hãy chọn bộ thời khóa biểu để tạo hồ sơ giáo viên mới")
         if account.requested_project_id is not None and project.id != account.requested_project_id:
             raise HTTPException(403, "Tài khoản này được mời vào một bộ thời khóa biểu khác")
@@ -1620,7 +2078,7 @@ def promote_teacher_to_admin(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
-    if user.role != "admin":
+    if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
     account = db.get(User, account_id)
     if not account:
@@ -1640,14 +2098,17 @@ def promote_teacher_to_admin(
 def projects(request: Request, user: User = Depends(current_user), db: Session = Depends(db_session)):
     if user.role == "teacher":
         return RedirectResponse("/teacher", 303)
-    if user.role != "admin":
+    if not is_admin(user):
         return RedirectResponse("/account-pending", 303)
-    rows = db.scalars(select(Project).where(Project.owner_id == user.id).order_by(Project.id.desc())).all()
+    project_query = select(Project)
+    if not is_super_admin(user):
+        project_query = project_query.where(Project.owner_id == user.id)
+    rows = db.scalars(project_query.order_by(Project.id.desc())).all()
     return templates.TemplateResponse("projects.html", {"request": request, "user": user, "projects": rows})
 
 @app.post("/projects")
 def create_project(name: str = Form(...), school_name: str = Form(...), days: int = Form(6), sessions: int = Form(2), periods: int = Form(5), user: User = Depends(current_user), db: Session = Depends(db_session)):
-    if user.role!="admin": raise HTTPException(403)
+    if not is_admin(user): raise HTTPException(403)
     clean_name=name.strip(); clean_school_name=school_name.strip()
     if not clean_name: raise HTTPException(400,"Tên bộ thời khóa biểu không được để trống")
     if not clean_school_name: raise HTTPException(400,"Tên trường không được để trống")
@@ -1682,6 +2143,26 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
         for account in legacy_accounts:
             if account.teacher_id not in linked_source_ids:
                 db.add(TeacherAccountLink(user_id=account.id,teacher_id=maps["tea"][account.teacher_id]))
+    for x in db.scalars(select(TeacherSubject).where(TeacherSubject.project_id==pid)):
+        if x.teacher_id in maps["tea"] and x.subject_id in maps["sub"]:
+            db.add(TeacherSubject(project_id=p.id,teacher_id=maps["tea"][x.teacher_id],subject_id=maps["sub"][x.subject_id]))
+    # Chỉ sao chép nguyện vọng đang được áp dụng vì đây là ràng buộc hiện hành
+    # của lịch. Lịch sử pending/rejected/superseded vẫn thuộc project gốc.
+    for x in db.scalars(select(TeacherPreference).where(
+        TeacherPreference.project_id==pid,
+        TeacherPreference.status=="accepted",
+    )):
+        if x.teacher_id in maps["tea"]:
+            db.add(TeacherPreference(
+                project_id=p.id,
+                teacher_id=maps["tea"][x.teacher_id],
+                preferred_json=x.preferred_json,
+                unavailable_json=x.unavailable_json,
+                note=x.note,
+                status="accepted",
+                created_at=x.created_at,
+                reviewed_at=x.reviewed_at,
+            ))
     for x in db.scalars(select(Grade).where(Grade.project_id==pid)):
         n=Grade(project_id=p.id,name=x.name);db.add(n);db.flush();maps["grade"][x.id]=n.id
     for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)):
@@ -1705,6 +2186,264 @@ class EntityIn(BaseModel):
     type: str
     data: dict
 
+class BulkAssignmentSubjectIn(BaseModel):
+    subject_id: int
+    periods_per_week: int = 1
+    block_mode: str = "free"
+
+class BulkAssignmentIn(BaseModel):
+    teacher_id: int
+    class_ids: list[int]
+    subjects: list[BulkAssignmentSubjectIn] = Field(default_factory=list)
+    # Tương thích với client cũ trong lúc nâng cấp. Giao diện mới dùng subjects.
+    subject_ids: list[int] = Field(default_factory=list)
+    periods_per_week: int = 1
+    block_mode: str = "free"
+
+def ensure_unique_project_name(
+    db: Session,
+    model,
+    project_id: int,
+    name: str,
+    label: str,
+    exclude_id: int | None = None,
+) -> None:
+    stmt = select(model.id).where(
+        model.project_id == project_id,
+        func.lower(model.name) == name.lower(),
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(model.id != exclude_id)
+    if db.scalar(stmt) is not None:
+        raise HTTPException(409, f"{label} ‘{name}’ đã tồn tại trong bộ thời khóa biểu")
+
+def validated_subject_ids(db: Session, project_id: int, values) -> list[int]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        values = [values]
+    result = []
+    for value in values:
+        try:
+            subject_id = int(value)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, "Danh sách môn của giáo viên không hợp lệ") from exc
+        if subject_id > 0 and subject_id not in result:
+            result.append(subject_id)
+    if not result:
+        return []
+    found = set(db.scalars(select(Subject.id).where(
+        Subject.project_id == project_id,
+        Subject.id.in_(result),
+    )).all())
+    if found != set(result):
+        raise HTTPException(400, "Có môn học không thuộc bộ thời khóa biểu")
+    return result
+
+def replace_teacher_subjects(db: Session, project_id: int, teacher_id: int, subject_ids: list[int]) -> None:
+    rows = db.scalars(select(TeacherSubject).where(
+        TeacherSubject.project_id == project_id,
+        TeacherSubject.teacher_id == teacher_id,
+    )).all()
+    existing = {row.subject_id: row for row in rows}
+    wanted = set(subject_ids)
+    for subject_id, row in existing.items():
+        if subject_id not in wanted:
+            db.delete(row)
+    for subject_id in subject_ids:
+        if subject_id not in existing:
+            db.add(TeacherSubject(project_id=project_id, teacher_id=teacher_id, subject_id=subject_id))
+
+def teacher_week_capacity(
+    project: Project,
+    teacher: Teacher,
+    max_periods_day: int | None = None,
+    unavailable_slots: set[int] | None = None,
+    extra_unavailable: set[int] | None = None,
+    project_blocked_slots: set[int] | None = None,
+) -> int:
+    daily_limit = max_periods_day if max_periods_day is not None else teacher.max_periods_day
+    periods_per_day = project.sessions * project.periods_per_session
+    project_blocked = project_blocked_slots if project_blocked_slots is not None else set(valid_slots(
+        project, parse_slots(project.blocked_slots_json), strict=False,
+    ))
+    teacher_blocked = (
+        parse_slots(teacher.unavailable_json)
+        if unavailable_slots is None else set(unavailable_slots)
+    ) | set(extra_unavailable or set())
+    teacher_blocked = set(valid_slots(project, teacher_blocked, strict=False))
+    capacity = 0
+    for day in range(project.days):
+        start = day * periods_per_day
+        available = sum(
+            1 for slot in range(start, start + periods_per_day)
+            if slot not in project_blocked and slot not in teacher_blocked
+        )
+        capacity += min(daily_limit, available)
+    return capacity
+
+def class_week_capacity(
+    project: Project,
+    school_class: SchoolClass,
+    unavailable_slots: set[int] | None = None,
+    project_blocked_slots: set[int] | None = None,
+) -> int:
+    maximum = project.days * project.sessions * project.periods_per_session
+    project_blocked = project_blocked_slots if project_blocked_slots is not None else set(valid_slots(
+        project, parse_slots(project.blocked_slots_json), strict=False,
+    ))
+    class_blocked = parse_slots(school_class.unavailable_json) if unavailable_slots is None else unavailable_slots
+    class_blocked = set(valid_slots(project, class_blocked, strict=False))
+    return maximum - len(project_blocked | class_blocked)
+
+def teacher_assigned_periods(db: Session, project_id: int, teacher_id: int) -> int:
+    value = db.scalar(select(func.coalesce(func.sum(Assignment.periods_per_week), 0)).where(
+        Assignment.project_id == project_id,
+        Assignment.teacher_id == teacher_id,
+    ))
+    return int(value or 0)
+
+def class_assigned_periods(db: Session, project_id: int, class_id: int) -> int:
+    value = db.scalar(select(func.coalesce(func.sum(Assignment.periods_per_week), 0)).where(
+        Assignment.project_id == project_id,
+        Assignment.class_id == class_id,
+    ))
+    return int(value or 0)
+
+def ensure_teacher_load_fits(
+    db: Session,
+    project: Project,
+    teacher: Teacher,
+    projected_periods: int,
+    max_periods_day: int | None = None,
+    unavailable_slots: set[int] | None = None,
+    project_blocked_slots: set[int] | None = None,
+) -> None:
+    _preferred, accepted_unavailable = accepted_teacher_preferences(db, project.id)
+    capacity = teacher_week_capacity(
+        project,
+        teacher,
+        max_periods_day=max_periods_day,
+        unavailable_slots=unavailable_slots,
+        extra_unavailable=accepted_unavailable.get(teacher.id, set()),
+        project_blocked_slots=project_blocked_slots,
+    )
+    if projected_periods > capacity:
+        raise HTTPException(
+            409,
+            f"Tải dạy của {teacher.name} sẽ là {projected_periods} tiết/tuần, "
+            f"vượt khả năng tối đa hiện tại {capacity} tiết/tuần theo số ngày, "
+            "tiết tránh và giới hạn tiết/ngày.",
+        )
+
+def ensure_class_load_fits(
+    project: Project,
+    school_class: SchoolClass,
+    projected_periods: int,
+    unavailable_slots: set[int] | None = None,
+    project_blocked_slots: set[int] | None = None,
+) -> None:
+    capacity = class_week_capacity(
+        project,
+        school_class,
+        unavailable_slots=unavailable_slots,
+        project_blocked_slots=project_blocked_slots,
+    )
+    if projected_periods > capacity:
+        raise HTTPException(
+            409,
+            f"Tải học của lớp {school_class.name} sẽ là {projected_periods} tiết/tuần, "
+            f"vượt {capacity} ô có thể học theo khóa lịch và tiết tránh hiện tại.",
+        )
+
+def duplicate_assignment_issues(db: Session, assignments: list[Assignment]) -> list[dict]:
+    grouped = defaultdict(list)
+    for assignment in assignments:
+        grouped[(assignment.class_id, assignment.subject_id)].append(assignment)
+    issues = []
+    for (class_id, subject_id), rows in grouped.items():
+        if len(rows) < 2:
+            continue
+        school_class = db.get(SchoolClass, class_id)
+        subject = db.get(Subject, subject_id)
+        teacher_names = []
+        for row in rows:
+            teacher = db.get(Teacher, row.teacher_id)
+            teacher_names.append(teacher.name if teacher else f"Giáo viên #{row.teacher_id}")
+        issues.append({
+            "class_id": class_id,
+            "class_name": school_class.name if school_class else f"Lớp #{class_id}",
+            "subject_id": subject_id,
+            "subject_name": subject.name if subject else f"Môn #{subject_id}",
+            "assignment_ids": sorted(row.id for row in rows),
+            "teacher_names": teacher_names,
+        })
+    return sorted(issues, key=lambda item: (item["class_name"], item["subject_name"]))
+
+def schedule_teacher_capacity_issues(
+    db: Session,
+    project: Project,
+    assignments: list[Assignment],
+) -> list[dict]:
+    """Return teacher loads that cannot fit even before conflict solving.
+
+    This necessary (but not sufficient) feasibility check also covers legacy
+    and imported data that predates assignment-time load validation. It lets the
+    scheduler explain the real constraint instead of appearing to skip teachers.
+    """
+    assigned_by_teacher = Counter()
+    for assignment in assignments:
+        assigned_by_teacher[assignment.teacher_id] += int(assignment.periods_per_week or 0)
+
+    _preferred, accepted_unavailable = accepted_teacher_preferences(db, project.id)
+    project_blocked = set(valid_slots(
+        project, parse_slots(project.blocked_slots_json), strict=False,
+    ))
+    issues = []
+    for teacher_id, assigned in assigned_by_teacher.items():
+        teacher = db.get(Teacher, teacher_id)
+        if not teacher:
+            continue
+        capacity = teacher_week_capacity(
+            project,
+            teacher,
+            extra_unavailable=accepted_unavailable.get(teacher.id, set()),
+            project_blocked_slots=project_blocked,
+        )
+        if assigned > capacity:
+            issues.append({
+                "teacher_id": teacher.id,
+                "teacher_name": teacher.name,
+                "assigned": assigned,
+                "capacity": capacity,
+                "excess": assigned - capacity,
+            })
+    return sorted(issues, key=lambda item: (-item["excess"], item["teacher_name"]))
+
+def schedule_class_capacity_issues(
+    project: Project,
+    classes: list[SchoolClass],
+    assignments: list[Assignment],
+) -> list[dict]:
+    assigned_by_class = Counter()
+    for assignment in assignments:
+        assigned_by_class[assignment.class_id] += int(assignment.periods_per_week or 0)
+    issues = []
+    for school_class in classes:
+        assigned = assigned_by_class[school_class.id]
+        if not assigned:
+            continue
+        capacity = class_week_capacity(project, school_class)
+        if assigned > capacity:
+            issues.append({
+                "class_id": school_class.id,
+                "class_name": school_class.name,
+                "assigned": assigned,
+                "capacity": capacity,
+                "excess": assigned - capacity,
+            })
+    return sorted(issues, key=lambda item: (-item["excess"], item["class_name"]))
+
 def required_text(data: dict, key: str, label: str, max_length: int) -> str:
     return bounded_text(data.get(key, ""), label, max_length)
 
@@ -1721,10 +2460,12 @@ def required_id(data: dict, key: str, label: str) -> int:
 @app.post("/api/projects/{pid}/entity")
 def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Session=Depends(db_session)):
     project=get_project_for_update(pid,user,db); d=payload.data
+    teacher_subject_ids: list[int] | None = None
     if payload.type=="department":
         obj=Department(project_id=pid,name=required_text(d,"name","Tên tổ chuyên môn",120))
     elif payload.type=="subject":
         name=required_text(d,"name","Tên môn học",120)
+        ensure_unique_project_name(db, Subject, pid, name, "Môn học")
         max_consecutive=bounded_int(d.get("max_consecutive"),2,1,4,"Số tiết liên tiếp tối đa")
         short_name=(str(d.get("short_name") or "").strip() or name[:5])[:20]
         obj=Subject(project_id=pid,name=name,short_name=short_name,max_consecutive=max_consecutive)
@@ -1738,11 +2479,13 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
             if not department or department.project_id!=pid: raise HTTPException(400,"Tổ chuyên môn không hợp lệ")
         max_periods_day=bounded_int(d.get("max_periods_day"),5,1,10,"Số tiết tối đa mỗi ngày")
         short_name=(str(d.get("short_name") or "").strip() or name)[:30]
+        teacher_subject_ids=validated_subject_ids(db,pid,d.get("subject_ids",[]))
         obj=Teacher(project_id=pid,name=name,short_name=short_name,department_id=department_id,max_periods_day=max_periods_day,unavailable_json=json.dumps(valid_slots(project,d.get("unavailable",[]))))
     elif payload.type=="grade":
         obj=Grade(project_id=pid,name=required_text(d,"name","Tên khối lớp",80))
     elif payload.type=="class":
         name=required_text(d,"name","Tên lớp học",80)
+        ensure_unique_project_name(db, SchoolClass, pid, name, "Lớp học")
         grade_id=d.get("grade_id") or None
         if grade_id:
             try: grade_id=int(grade_id)
@@ -1757,20 +2500,180 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
         school_class=db.get(SchoolClass,class_id); subject=db.get(Subject,subject_id); teacher=db.get(Teacher,teacher_id)
         if not school_class or not subject or not teacher or any(x.project_id!=pid for x in (school_class,subject,teacher)):
             raise HTTPException(400,"Lớp, môn hoặc giáo viên không thuộc bộ thời khóa biểu")
-        duplicate=db.scalar(select(Assignment.id).where(
+        allowed=db.scalar(select(TeacherSubject.id).where(
+            TeacherSubject.project_id==pid,
+            TeacherSubject.teacher_id==teacher.id,
+            TeacherSubject.subject_id==subject.id,
+        ))
+        if allowed is None:
+            raise HTTPException(409,f"{teacher.name} chưa được cấu hình dạy môn {subject.name}")
+        duplicate=db.scalar(select(Assignment).where(
             Assignment.project_id==pid,
             Assignment.class_id==school_class.id,
             Assignment.subject_id==subject.id,
-            Assignment.teacher_id==teacher.id,
         ))
         if duplicate is not None:
-            raise HTTPException(409,"Phân công lớp – môn – giáo viên này đã tồn tại")
+            if duplicate.teacher_id==teacher.id:
+                raise HTTPException(409,"Phân công lớp – môn này đã tồn tại")
+            other=db.get(Teacher,duplicate.teacher_id)
+            raise HTTPException(409,f"{school_class.name} – {subject.name} đã được phân công cho {other.name if other else 'giáo viên khác'}")
         periods=bounded_int(d.get("periods_per_week"),1,1,40,"Số tiết mỗi tuần")
         try: mode=normalized_block_mode(d.get("block_mode","free"),periods,subject,project)
         except ValueError as exc: raise HTTPException(400,str(exc)) from exc
+        ensure_teacher_load_fits(db,project,teacher,teacher_assigned_periods(db,pid,teacher.id)+periods)
+        ensure_class_load_fits(
+            project,school_class,class_assigned_periods(db,pid,school_class.id)+periods,
+        )
         obj=Assignment(project_id=pid,class_id=school_class.id,subject_id=subject.id,teacher_id=teacher.id,periods_per_week=periods,block_mode=mode,consecutive_pattern="")
     else: raise HTTPException(400,"Loại dữ liệu không hợp lệ")
-    db.add(obj); db.commit(); return {"ok":True,"id":obj.id}
+    db.add(obj)
+    db.flush()
+    if payload.type=="teacher" and teacher_subject_ids is not None:
+        replace_teacher_subjects(db,pid,obj.id,teacher_subject_ids)
+    db.commit(); return {"ok":True,"id":obj.id}
+
+@app.post("/api/projects/{pid}/assignments/bulk")
+def add_assignments_bulk(
+    pid: int,
+    payload: BulkAssignmentIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    project = get_project_for_update(pid, user, db)
+    teacher = db.get(Teacher, payload.teacher_id)
+    if not teacher or teacher.project_id != pid:
+        raise HTTPException(400, "Giáo viên không thuộc bộ thời khóa biểu")
+
+    class_ids = list(dict.fromkeys(int(value) for value in payload.class_ids if int(value) > 0))
+    if not class_ids:
+        raise HTTPException(400, "Hãy chọn ít nhất một lớp học")
+
+    raw_subjects = payload.subjects or [
+        BulkAssignmentSubjectIn(
+            subject_id=subject_id,
+            periods_per_week=payload.periods_per_week,
+            block_mode=payload.block_mode,
+        )
+        for subject_id in payload.subject_ids
+    ]
+    configs: dict[int, BulkAssignmentSubjectIn] = {}
+    for config in raw_subjects:
+        if config.subject_id > 0:
+            configs[config.subject_id] = config
+    subject_ids = list(configs)
+    if not subject_ids:
+        raise HTTPException(400, "Hãy chọn ít nhất một môn học")
+
+    subjects = db.scalars(select(Subject).where(
+        Subject.project_id == pid,
+        Subject.id.in_(subject_ids),
+    )).all()
+    classes = db.scalars(select(SchoolClass).where(
+        SchoolClass.project_id == pid,
+        SchoolClass.id.in_(class_ids),
+    )).all()
+    subject_map = {item.id: item for item in subjects}
+    class_map = {item.id: item for item in classes}
+    if set(subject_map) != set(subject_ids):
+        raise HTTPException(400, "Có môn học không thuộc bộ thời khóa biểu")
+    if set(class_map) != set(class_ids):
+        raise HTTPException(400, "Có lớp học không thuộc bộ thời khóa biểu")
+
+    allowed_subject_ids = set(db.scalars(select(TeacherSubject.subject_id).where(
+        TeacherSubject.project_id == pid,
+        TeacherSubject.teacher_id == teacher.id,
+        TeacherSubject.subject_id.in_(subject_ids),
+    )).all())
+    not_allowed = [subject_map[sid].name for sid in subject_ids if sid not in allowed_subject_ids]
+    if not_allowed:
+        raise HTTPException(
+            409,
+            f"{teacher.name} chưa được cấu hình dạy: {', '.join(not_allowed)}",
+        )
+
+    normalized: dict[int, tuple[int, str]] = {}
+    for subject_id, config in configs.items():
+        subject = subject_map[subject_id]
+        periods = bounded_int(config.periods_per_week, 1, 1, 40, f"Số tiết/tuần của {subject.name}")
+        try:
+            mode = normalized_block_mode(config.block_mode, periods, subject, project)
+        except ValueError as exc:
+            raise HTTPException(400, f"{subject.name}: {exc}") from exc
+        normalized[subject_id] = (periods, mode)
+
+    existing_rows = db.scalars(select(Assignment).where(
+        Assignment.project_id == pid,
+        Assignment.subject_id.in_(subject_ids),
+        Assignment.class_id.in_(class_ids),
+    )).all()
+    existing_by_pair = defaultdict(list)
+    for item in existing_rows:
+        existing_by_pair[(item.subject_id, item.class_id)].append(item)
+    existing_pairs = set(existing_by_pair)
+
+    conflicts = []
+    for subject_id in subject_ids:
+        for class_id in class_ids:
+            rows = existing_by_pair.get((subject_id, class_id), [])
+            other_rows = [row for row in rows if row.teacher_id != teacher.id]
+            if other_rows:
+                other = db.get(Teacher, other_rows[0].teacher_id)
+                conflicts.append(
+                    f"{class_map[class_id].name} – {subject_map[subject_id].name} "
+                    f"({other.name if other else 'giáo viên khác'})"
+                )
+    if conflicts:
+        preview = "; ".join(conflicts[:5])
+        suffix = f"; và {len(conflicts)-5} cặp khác" if len(conflicts) > 5 else ""
+        raise HTTPException(
+            409,
+            f"Không thể tạo vì môn của lớp đã được phân công cho giáo viên khác: {preview}{suffix}.",
+        )
+
+    added_periods = 0
+    added_periods_by_class = Counter()
+    for subject_id in subject_ids:
+        periods, _ = normalized[subject_id]
+        for class_id in class_ids:
+            if (subject_id, class_id) not in existing_pairs:
+                added_periods += periods
+                added_periods_by_class[class_id] += periods
+    current_periods = teacher_assigned_periods(db, pid, teacher.id)
+    ensure_teacher_load_fits(db, project, teacher, current_periods + added_periods)
+    for class_id, class_added_periods in added_periods_by_class.items():
+        ensure_class_load_fits(
+            project,
+            class_map[class_id],
+            class_assigned_periods(db,pid,class_id)+class_added_periods,
+        )
+
+    created = 0
+    skipped = 0
+    for subject_id in subject_ids:
+        periods, mode = normalized[subject_id]
+        for class_id in class_ids:
+            if (subject_id, class_id) in existing_pairs:
+                skipped += 1
+                continue
+            db.add(Assignment(
+                project_id=pid,
+                class_id=class_id,
+                subject_id=subject_id,
+                teacher_id=teacher.id,
+                periods_per_week=periods,
+                block_mode=mode,
+                consecutive_pattern="",
+            ))
+            created += 1
+
+    db.commit()
+    if created and skipped:
+        message = f"Đã tạo {created} phân công; bỏ qua {skipped} phân công đã tồn tại."
+    elif created:
+        message = f"Đã tạo {created} phân công."
+    else:
+        message = f"Không tạo mới: {skipped} phân công đã tồn tại."
+    return {"ok": True, "created": created, "skipped": skipped, "message": message}
 
 @app.put("/api/projects/{pid}/entity/{typ}/{eid}")
 def update_entity(
@@ -1792,6 +2695,7 @@ def update_entity(
     name_limit = {"subject": 120, "teacher": 120, "class": 80}[typ]
     name = bounded_text(d.get("name", ""), "Tên", name_limit)
     if typ == "subject":
+        ensure_unique_project_name(db, Subject, pid, name, "Môn học", exclude_id=obj.id)
         short_name = bounded_text(d.get("short_name", ""), "Tên rút gọn", 20)
         new_max_consecutive = bounded_int(
             d.get("max_consecutive"), 1, 1, 4, "Số tiết liên tiếp tối đa"
@@ -1888,11 +2792,28 @@ def update_entity(
                     409,
                     f"Không thể giảm còn {new_max_periods_day} tiết/ngày vì lịch hiện tại có ngày giáo viên đang dạy {highest_current} tiết. Hãy điều chỉnh lịch trước.",
                 )
+        assigned_total = teacher_assigned_periods(db, pid, obj.id)
+        ensure_teacher_load_fits(db, project, obj, assigned_total, max_periods_day=new_max_periods_day)
+        if "subject_ids" in d:
+            teacher_subject_ids = validated_subject_ids(db, pid, d.get("subject_ids"))
+            assigned_subject_ids = set(db.scalars(select(Assignment.subject_id).where(
+                Assignment.project_id == pid,
+                Assignment.teacher_id == obj.id,
+            )).all())
+            removed_in_use = assigned_subject_ids - set(teacher_subject_ids)
+            if removed_in_use:
+                names = db.scalars(select(Subject.name).where(Subject.id.in_(removed_in_use))).all()
+                raise HTTPException(
+                    409,
+                    "Không thể bỏ môn đang có phân công: " + ", ".join(names) + ". Hãy xóa/chuyển phân công trước.",
+                )
+            replace_teacher_subjects(db, pid, obj.id, teacher_subject_ids)
         obj.name = name
         obj.short_name = short_name
         obj.department_id = department_id
         obj.max_periods_day = new_max_periods_day
     else:
+        ensure_unique_project_name(db, SchoolClass, pid, name, "Lớp học", exclude_id=obj.id)
         grade_id = d.get("grade_id") or None
         if grade_id is not None:
             try:
@@ -1976,6 +2897,16 @@ def update_assignment(pid:int,assignment_id:int,payload:AssignmentUpdateIn,user:
 
     old_periods=assignment.periods_per_week
     old_mode=assignment.block_mode
+    teacher=db.get(Teacher,assignment.teacher_id)
+    if not teacher or teacher.project_id!=pid:
+        raise HTTPException(409,"Giáo viên của phân công không còn tồn tại")
+    projected_total=teacher_assigned_periods(db,pid,teacher.id)-old_periods+periods
+    ensure_teacher_load_fits(db,project,teacher,projected_total)
+    school_class=db.get(SchoolClass,assignment.class_id)
+    if not school_class or school_class.project_id!=pid:
+        raise HTTPException(409,"Lớp của phân công không còn tồn tại")
+    projected_class_total=class_assigned_periods(db,pid,school_class.id)-old_periods+periods
+    ensure_class_load_fits(project,school_class,projected_class_total)
     periods_changed=periods!=old_periods
     mode_changed=mode!=old_mode
 
@@ -2026,9 +2957,18 @@ def delete_entity(pid:int,typ:str,eid:int,user:User=Depends(current_user),db:Ses
     if typ=="assignment":
         for l in db.scalars(select(Lesson).where(Lesson.assignment_id==eid)).all(): db.delete(l)
         for fixed_lesson in db.scalars(select(FixedLesson).where(FixedLesson.assignment_id==eid)).all(): db.delete(fixed_lesson)
+    if typ=="subject":
+        for link in db.scalars(select(TeacherSubject).where(TeacherSubject.subject_id==eid)).all():
+            db.delete(link)
     if typ=="teacher":
+        for link in db.scalars(select(TeacherSubject).where(TeacherSubject.teacher_id==eid)).all():
+            db.delete(link)
         for preference in db.scalars(select(TeacherPreference).where(TeacherPreference.teacher_id==eid)).all():
             db.delete(preference)
+        for verification in db.scalars(select(RegistrationVerification).where(
+            RegistrationVerification.teacher_id==eid
+        )).all():
+            db.delete(verification)
     db.delete(obj); db.commit(); return {"ok":True}
 
 class ConstraintIn(BaseModel):
@@ -2088,6 +3028,14 @@ def constraints(pid:int,payload:ConstraintIn,user:User=Depends(current_user),db:
                 return JSONResponse({"ok":False,"message":"Ràng buộc mới xung đột với tiết cố định. Hãy bỏ cố định trước."},409)
             removed_ids.update(lesson.id for lesson in affected)
 
+    if payload.entity_type=="teacher":
+        ensure_teacher_load_fits(
+            db,p,obj,teacher_assigned_periods(db,pid,obj.id),unavailable_slots=slots,
+        )
+    else:
+        ensure_class_load_fits(
+            p,obj,class_assigned_periods(db,pid,obj.id),unavailable_slots=slots,
+        )
     obj.unavailable_json=json.dumps(sorted(slots))
     for lesson in lessons:
         if lesson.id in removed_ids:
@@ -2139,6 +3087,21 @@ def save_session_locks(pid:int,payload:SessionLocksIn,user:User=Depends(current_
             "ok":False,
             "message":"Buổi hoặc tiết mới khóa đang chứa tiết cố định. Hãy bỏ cố định trước.",
         },409)
+
+    teachers=db.scalars(select(Teacher).where(Teacher.project_id==pid)).all()
+    for teacher in teachers:
+        assigned=teacher_assigned_periods(db,pid,teacher.id)
+        if assigned:
+            ensure_teacher_load_fits(
+                db,project,teacher,assigned,project_blocked_slots=blocked_set,
+            )
+    classes=db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)).all()
+    for school_class in classes:
+        assigned=class_assigned_periods(db,pid,school_class.id)
+        if assigned:
+            ensure_class_load_fits(
+                project,school_class,assigned,project_blocked_slots=blocked_set,
+            )
 
     project.blocked_slots_json=json.dumps(blocked)
     for assignment_id,lessons in lessons_by_assignment.items():
@@ -2339,6 +3302,66 @@ class GenerateScheduleIn(BaseModel):
 def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends(current_user),db:Session=Depends(db_session)):
     p=get_project_for_update(pid,user,db)
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==pid)).all()
+    duplicate_issues=duplicate_assignment_issues(db,assignments)
+    if duplicate_issues:
+        details="; ".join(
+            f"{item['class_name']} – {item['subject_name']} "
+            f"(phân công ID {', '.join(map(str,item['assignment_ids']))})"
+            for item in duplicate_issues[:5]
+        )
+        suffix=f"; và {len(duplicate_issues)-5} cặp khác" if len(duplicate_issues)>5 else ""
+        return JSONResponse({
+            "ok":False,
+            "reason":"duplicate_assignments",
+            "duplicate_assignment_issues":duplicate_issues,
+            "message":(
+                "Không thể xếp lịch vì một lớp–môn đang có nhiều phân công: "
+                f"{details}{suffix}. Hãy xóa hoặc chuyển dữ liệu để mỗi lớp–môn "
+                "chỉ còn một giáo viên rồi xếp lại."
+            ),
+        },409)
+    capacity_issues=schedule_teacher_capacity_issues(db,p,assignments)
+    if capacity_issues:
+        details="; ".join(
+            f"{item['teacher_name']}: đã phân công {item['assigned']} tiết, "
+            f"tối đa xếp được {item['capacity']} tiết (dư {item['excess']})"
+            for item in capacity_issues[:5]
+        )
+        suffix=(
+            f"; và {len(capacity_issues)-5} giáo viên khác"
+            if len(capacity_issues)>5 else ""
+        )
+        return JSONResponse({
+            "ok":False,
+            "reason":"teacher_over_capacity",
+            "capacity_issues":capacity_issues,
+            "message":(
+                "Không thể xếp đầy đủ vì tải dạy vượt số ô khả dụng: "
+                f"{details}{suffix}. Hãy giảm/chuyển phân công, tăng giới hạn "
+                "tiết/ngày hoặc bỏ bớt tiết tránh rồi xếp lại."
+            ),
+        },409)
+    classes=db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)).all()
+    class_capacity_issues=schedule_class_capacity_issues(p,classes,assignments)
+    if class_capacity_issues:
+        details="; ".join(
+            f"{item['class_name']}: cần {item['assigned']} tiết, "
+            f"chỉ còn {item['capacity']} ô (dư {item['excess']})"
+            for item in class_capacity_issues[:5]
+        )
+        suffix=(
+            f"; và {len(class_capacity_issues)-5} lớp khác"
+            if len(class_capacity_issues)>5 else ""
+        )
+        return JSONResponse({
+            "ok":False,
+            "reason":"class_over_capacity",
+            "class_capacity_issues":class_capacity_issues,
+            "message":(
+                "Không thể xếp đầy đủ vì tải học của lớp vượt số ô khả dụng: "
+                f"{details}{suffix}. Hãy giảm phân công hoặc bỏ bớt khóa/tiết tránh của lớp."
+            ),
+        },409)
     existing=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
     assignment_by_id={assignment.id:assignment for assignment in assignments}
 
@@ -3164,71 +4187,15 @@ def export_csv_legacy(pid:int,user:User=Depends(current_user),db:Session=Depends
 
 @app.get("/projects/{pid}/export.xlsx")
 def export_excel(pid:int,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-    from openpyxl.worksheet.table import Table, TableStyleInfo
+    from app.excel_export import build_timetable_workbook
 
-    p=get_project(pid,user,db); data=project_data(db,p)
-    workbook=Workbook(); sheet=workbook.active; sheet.title="Thời khóa biểu"
-    sheet.sheet_view.showGridLines=False
-    sheet.merge_cells("A1:F1"); sheet["A1"]=p.name
-    sheet.merge_cells("A2:F2"); sheet["A2"]=p.school_name
-    sheet["A1"].font=Font(name="Aptos Display",size=18,bold=True,color="FFFFFF")
-    sheet["A1"].fill=PatternFill("solid",fgColor="1D4ED8")
-    sheet["A1"].alignment=Alignment(horizontal="left",vertical="center")
-    sheet["A2"].font=Font(name="Aptos",size=11,color="475467")
-    sheet["A2"].alignment=Alignment(horizontal="left",vertical="center")
-    sheet.row_dimensions[1].height=30; sheet.row_dimensions[2].height=22
+    p=get_project(pid,user,db)
+    data=project_data(db,p)
+    workbook=build_timetable_workbook(p,data)
 
-    headers=["Lớp","Thứ","Buổi","Tiết","Môn","Giáo viên"]
-    sheet.append([]); sheet.append(headers)
-    header_fill=PatternFill("solid",fgColor="DBEAFE")
-    header_border=Border(bottom=Side(style="thin",color="93C5FD"))
-    for cell in sheet[4]:
-        cell.font=Font(name="Aptos",bold=True,color="1E3A8A")
-        cell.fill=header_fill; cell.border=header_border
-        cell.alignment=Alignment(vertical="center")
-    sheet.row_dimensions[4].height=24
-
-    assignments={item["id"]:item for item in data["assignments"]}
-    rows=[]
-    for lesson in data["lessons"]:
-        assignment=assignments.get(lesson["assignment_id"])
-        if not assignment:
-            continue
-        day,session,period=slot_meta(p,lesson["slot"])
-        rows.append((
-            lesson["slot"],assignment["class_name"],DAYS[day],
-            "Cả buổi" if p.sessions==1 else ("Sáng" if session==0 else "Chiều"),period+1,
-            assignment["subject_name"],assignment["teacher_name"],
-        ))
-    rows.sort(key=lambda row:(row[0],row[1]))
-    for _,class_name,day_name,session_name,period,subject_name,teacher_name in rows:
-        sheet.append([class_name,day_name,session_name,period,subject_name,teacher_name])
-
-    last_row=4+len(rows)
-    if rows:
-        table=Table(displayName="ThoiKhoaBieu",ref=f"A4:F{last_row}")
-        table.tableStyleInfo=TableStyleInfo(
-            name="TableStyleMedium2",showFirstColumn=False,showLastColumn=False,
-            showRowStripes=True,showColumnStripes=False,
-        )
-        sheet.add_table(table)
-    else:
-        sheet.merge_cells("A5:F5"); sheet["A5"]="Chưa có tiết học nào được xếp."
-        sheet["A5"].font=Font(name="Aptos",italic=True,color="667085")
-        sheet["A5"].alignment=Alignment(horizontal="center")
-        sheet.auto_filter.ref="A4:F4"
-
-    widths={"A":16,"B":14,"C":12,"D":10,"E":24,"F":24}
-    for column,width in widths.items(): sheet.column_dimensions[column].width=width
-    sheet.freeze_panes="A5"; sheet.auto_filter.ref=f"A4:F{last_row}"
-    sheet.print_title_rows="1:4"; sheet.page_setup.orientation="landscape"
-    sheet.page_setup.fitToWidth=1; sheet.sheet_properties.pageSetUpPr.fitToPage=True
-    sheet.print_area=f"A1:F{max(last_row,5)}"
-    sheet["D5" if rows else "D4"].number_format="0"
-
-    output=io.BytesIO(); workbook.save(output); output.seek(0)
+    output=io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
     encoded_filename=quote(f"{p.name}.xlsx",safe="")
     disposition=f"attachment; filename=thoi-khoa-bieu.xlsx; filename*=UTF-8''{encoded_filename}"
     return StreamingResponse(
@@ -3246,17 +4213,31 @@ def project_data(db:Session,p:Project):
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==p.id)).all()
     lessons=db.scalars(select(Lesson).where(Lesson.project_id==p.id)).all()
     sm={x.id:x for x in subs};tm={x.id:x for x in teas};cm={x.id:x for x in classes}
+    teacher_subject_rows=db.scalars(select(TeacherSubject).where(TeacherSubject.project_id==p.id)).all()
+    teacher_subject_map=defaultdict(list)
+    for row in teacher_subject_rows:
+        teacher_subject_map[row.teacher_id].append(row.subject_id)
+    teacher_loads=Counter()
+    for assignment in assignments:
+        teacher_loads[assignment.teacher_id]+=assignment.periods_per_week
+    _preferred,accepted_unavailable=accepted_teacher_preferences(db,p.id)
+    capacity_issues=schedule_teacher_capacity_issues(db,p,assignments)
+    class_capacity_issues=schedule_class_capacity_issues(p,classes,assignments)
+    duplicate_issues=duplicate_assignment_issues(db,assignments)
     assigned_teacher_ids={x.teacher_id for x in assignments};assigned_subject_ids={x.subject_id for x in assignments};assigned_class_ids={x.class_id for x in assignments}
     return {
       "project":{"id":p.id,"name":p.name,"school_name":p.school_name,"days":p.days,"sessions":p.sessions,"periods":p.periods_per_session,"share_token":p.share_token,"blocked_slots":valid_slots(p,parse_slots(p.blocked_slots_json),strict=False)},
       "departments":[{"id":x.id,"name":x.name} for x in deps],
       "subjects":[{"id":x.id,"name":x.name,"short_name":x.short_name,"max_consecutive":x.max_consecutive} for x in subs],
-      "teachers":[{"id":x.id,"name":x.name,"short_name":x.short_name,"department_id":x.department_id,"max_periods_day":x.max_periods_day,"unavailable":list(parse_slots(x.unavailable_json))} for x in teas],
+      "teachers":[{"id":x.id,"name":x.name,"short_name":x.short_name,"department_id":x.department_id,"max_periods_day":x.max_periods_day,"unavailable":list(parse_slots(x.unavailable_json)),"subject_ids":sorted(teacher_subject_map.get(x.id,[])),"assigned_periods":teacher_loads.get(x.id,0),"week_capacity":teacher_week_capacity(p,x,extra_unavailable=accepted_unavailable.get(x.id,set()))} for x in teas],
       "grades":[{"id":x.id,"name":x.name} for x in grades],
       "classes":[{"id":x.id,"name":x.name,"grade_id":x.grade_id,"unavailable":list(parse_slots(x.unavailable_json))} for x in classes],
       "assignments":[{"id":x.id,"class_id":x.class_id,"subject_id":x.subject_id,"teacher_id":x.teacher_id,"periods_per_week":x.periods_per_week,"block_mode":x.block_mode,"class_name":cm.get(x.class_id).name if cm.get(x.class_id) else "?","subject_name":sm.get(x.subject_id).name if sm.get(x.subject_id) else "?","subject_short":sm.get(x.subject_id).short_name if sm.get(x.subject_id) else "?","teacher_name":tm.get(x.teacher_id).name if tm.get(x.teacher_id) else "?","teacher_short":tm.get(x.teacher_id).short_name if tm.get(x.teacher_id) else "?"} for x in assignments],
       "lessons":[{"id":x.id,"assignment_id":x.assignment_id,"slot":x.slot,"locked":x.locked} for x in lessons],
       "coverage":{
+        "duplicate_assignments":duplicate_issues,
+        "over_capacity_teachers":capacity_issues,
+        "over_capacity_classes":class_capacity_issues,
         "unassigned_teachers":[{"id":x.id,"name":x.name} for x in teas if x.id not in assigned_teacher_ids],
         "unassigned_subjects":[{"id":x.id,"name":x.name} for x in subs if x.id not in assigned_subject_ids],
         "unassigned_classes":[{"id":x.id,"name":x.name} for x in classes if x.id not in assigned_class_ids],
@@ -3799,8 +4780,10 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
             "exact":True,
         },True,nodes
 
-    population_size=max(18,min(40,max(12,len(task_rows))))
-    generations=max(12,min(60,max(tries//3,18)))
+    # Quy mô cũ dừng ở 40×60 nên các project vừa/lớn dễ hết lượt trước khi
+    # tìm thấy nghiệm. Vẫn giữ trần hữu hạn để request không chạy vô hạn.
+    population_size=max(24,min(56,max(18,len(task_rows))))
+    generations=max(18,min(75,max(tries//3,24)))
     elite_count=max(2,population_size//5)
 
     seed_candidate=evaluate([None]*len(task_rows))
@@ -3842,9 +4825,10 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
 
     if best_candidate["unscheduled"]>0:
         missing_periods=sum(task[2]-len(task[5]) for task in task_rows)
-        exact_allowed=len(task_rows)<=30 and missing_periods<=36
+        exact_allowed=len(task_rows)<=48 and missing_periods<=60
         if exact_allowed:
-            exact_result,exhausted,nodes=exact_fallback(max(50000,tries*1500))
+            node_limit=min(750000,max(75000,tries*2000))
+            exact_result,exhausted,nodes=exact_fallback(node_limit)
             if exact_result is not None:
                 return exact_result
             best_candidate["proven_infeasible"]=exhausted
@@ -3877,6 +4861,11 @@ def seed_project(db:Session,p:Project):
     db.add_all([s1,s2,s3]);db.flush()
     t1=Teacher(project_id=p.id,department_id=d1.id,name="Nguyễn Văn An",short_name="An",max_periods_day=4);t2=Teacher(project_id=p.id,department_id=d2.id,name="Trần Thị Bình",short_name="Bình",max_periods_day=4);t3=Teacher(project_id=p.id,department_id=d1.id,name="Lê Minh Châu",short_name="Châu",max_periods_day=4)
     db.add_all([t1,t2,t3]);db.flush()
+    db.add_all([
+        TeacherSubject(project_id=p.id,teacher_id=t1.id,subject_id=s1.id),
+        TeacherSubject(project_id=p.id,teacher_id=t2.id,subject_id=s2.id),
+        TeacherSubject(project_id=p.id,teacher_id=t3.id,subject_id=s3.id),
+    ])
     g=Grade(project_id=p.id,name="Khối 10");db.add(g);db.flush()
     c1=SchoolClass(project_id=p.id,grade_id=g.id,name="10A1");c2=SchoolClass(project_id=p.id,grade_id=g.id,name="10A2");db.add_all([c1,c2]);db.flush()
     for c in [c1,c2]:
@@ -3886,12 +4875,18 @@ def seed_project(db:Session,p:Project):
 def ensure_demo():
     db=SessionLocal()
     try:
-        # Chỉ bỏ qua bootstrap khi hệ thống thực sự đã có quản trị viên.
-        # Trước đây chỉ cần tồn tại một user (kể cả pending/teacher) là hàm
-        # dừng, khiến database không có admin không thể tự phục hồi.
-        if db.scalar(select(User.id).where(User.role == "admin").limit(1)) is not None:
+        existing_admin = db.scalar(select(User.id).where(User.role.in_(ADMIN_ROLES)).limit(1))
+        if SUPER_ADMIN_USER_ID > 0:
+            existing_bootstrap = db.get(User, SUPER_ADMIN_USER_ID)
+        else:
+            existing_bootstrap = db.scalar(
+                select(User).where(func.lower(User.email) == BOOTSTRAP_ADMIN_EMAIL).limit(1)
+            ) if BOOTSTRAP_ADMIN_EMAIL else None
+        if existing_bootstrap and existing_bootstrap.role == "super_admin":
             return
         if not BOOTSTRAP_ADMIN_EMAIL or len(BOOTSTRAP_ADMIN_PASSWORD) < 8:
+            if existing_admin is not None:
+                return
             raise RuntimeError(
                 "Database chưa có quản trị viên. Hãy cấu hình BOOTSTRAP_ADMIN_EMAIL và "
                 "BOOTSTRAP_ADMIN_PASSWORD (ít nhất 8 ký tự) trong .env để khôi phục quyền quản trị."
@@ -3901,17 +4896,13 @@ def ensure_demo():
         # thay vì tạo user trùng email. Áp dụng mật khẩu bootstrap để chủ hệ
         # thống chắc chắn có thể đăng nhập lại và tăng session_version để vô
         # hiệu hóa các phiên cũ của tài khoản vừa được khôi phục.
-        user = db.scalar(
-            select(User)
-            .where(func.lower(User.email) == BOOTSTRAP_ADMIN_EMAIL)
-            .limit(1)
-        )
+        user = existing_bootstrap
         if user is None:
             user=User(
                 email=BOOTSTRAP_ADMIN_EMAIL,
                 name="Quản trị viên",
                 password_hash=pwd.hash(BOOTSTRAP_ADMIN_PASSWORD),
-                role="admin",
+                role="super_admin",
                 is_superadmin=True,
             )
             db.add(user)
@@ -3921,7 +4912,7 @@ def ensure_demo():
             ).all():
                 db.delete(link)
             clear_teacher_identity(user)
-            user.role = "admin"
+            user.role = "super_admin"
             user.is_superadmin = True
             user.password_hash = pwd.hash(BOOTSTRAP_ADMIN_PASSWORD)
             user.session_version = max(1, user.session_version or 1) + 1

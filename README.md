@@ -15,10 +15,11 @@ Smart TKB là ứng dụng web hỗ trợ nhà trường xây dựng, quản lý
 
 ## Quy trình đăng ký tài khoản
 
-1. Giáo viên đăng ký bằng họ tên, email và mật khẩu.
-2. Quản trị viên mở **Quản lý tài khoản**, chọn hồ sơ giáo viên tương ứng và xác nhận.
+1. Quản trị viên tạo sẵn hồ sơ giáo viên và gửi link mời đăng ký của project.
+2. Giáo viên mở link mời, điền đầy đủ họ tên, chọn đúng hồ sơ, email, mật khẩu và hoàn thành xác minh chống bot.
+3. Hệ thống gửi mã OTP 6 số qua email. Nhập đúng OTP sẽ kích hoạt ngay tài khoản giáo viên, không cần quản trị viên duyệt lại.
 
-Khi xác nhận, quản trị viên có thể gắn tài khoản với một hồ sơ giáo viên có sẵn chưa có tài khoản, hoặc tạo hồ sơ giáo viên mới từ tên giáo viên mà người đăng ký đã nhập.
+Mã OTP có hiệu lực 10 phút, tối đa 5 lần nhập và giới hạn gửi lại sau 60 giây.
 
 ## Yêu cầu hệ thống
 
@@ -69,10 +70,12 @@ Tạo file `.env` tại thư mục gốc của dự án:
 
 ```env
 APP\_ENV=production
+APP\_BASE\_URL=https://tkb.example.com
 DATABASE\_URL=postgresql+psycopg://postgres:MAT\_KHAU\_POSTGRES@localhost:5432/teacher\_timetable
 SECRET\_KEY=THAY\_BANG\_CHUOI\_BI\_MAT\_NGAU\_NHIEN
 BOOTSTRAP\_ADMIN\_EMAIL=admin@example.com
 BOOTSTRAP\_ADMIN\_PASSWORD=mat-khau-manh-it-nhat-8-ky-tu
+SUPER\_ADMIN\_USER\_ID=1
 SESSION\_TTL\_SECONDS=43200
 SEED\_DEMO\_DATA=false
 ```
@@ -84,6 +87,8 @@ python -c "import secrets; print(secrets.token\_urlsafe(64))"
 ```
 
 ## Cấu hình quên mật khẩu và SMTP
+
+Trong production phải cấu hình `APP_BASE_URL` bằng origin công khai cố định của ứng dụng. Hệ thống không tạo link đặt lại mật khẩu từ Host header do trình duyệt gửi lên.
 
 Trong môi trường công khai, chức năng quên mật khẩu chỉ gửi liên kết đặt lại qua SMTP. Liên kết kiểm thử chỉ được hiển thị khi đồng thời thỏa mãn hai điều kiện:
 
@@ -149,10 +154,10 @@ Quản trị viên chỉ được duyệt và nâng quyền các tài khoản gi
 
 ### Dành cho giáo viên
 
-1. Đăng ký tài khoản.
-2. Chờ quản trị viên xác nhận và gắn với hồ sơ giáo viên.
-3. Tải lại trang hoặc đăng nhập lại sau khi được duyệt.
-4. Xem lịch dạy cá nhân tại cổng giáo viên.
+1. Mở link mời đăng ký do quản trị viên gửi từ project.
+2. Điền đầy đủ thông tin, chọn đúng hồ sơ giáo viên và hoàn thành xác minh bảo mật.
+3. Nhập mã OTP được gửi qua email để kích hoạt tài khoản.
+4. Xem lịch dạy cá nhân tại cổng giáo viên ngay sau khi xác nhận thành công.
 5. Gửi các tiết mong muốn, các tiết cần tránh và ghi chú cho quản trị viên.
 6. Cập nhật email hoặc mật khẩu trong trang tài khoản cá nhân.
 

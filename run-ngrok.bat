@@ -9,6 +9,7 @@ if not defined PORT set "PORT=8000"
 rem Tham so thu hai la URL ngrok co dinh, vi du:
 rem run-ngrok.bat 8000 https://ten-cua-ban.ngrok.app
 set "PUBLIC_URL=%~2"
+if defined PUBLIC_URL set "APP_BASE_URL=%PUBLIC_URL%"
 
 set "LOCAL_SCRIPT=%~dp0run-local.bat"
 if not exist "%LOCAL_SCRIPT%" (

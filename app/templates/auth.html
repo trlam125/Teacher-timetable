@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{{'Đăng nhập' if mode=='login' else 'Đăng ký tài khoản'}}</title>
+  <title>{{'Đăng nhập' if mode=='login' else ('Xác nhận OTP' if mode=='register_otp' else 'Đăng ký tài khoản')}}</title>
   <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode');}})();</script>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="/static/auth-extra.css">
@@ -25,7 +25,7 @@
       </div>
       <div class="floating-lessons" aria-hidden="true"><span class="floating-lesson lesson-math"><b>TOÁN</b><small>10A1 · T2</small></span><span class="floating-lesson lesson-literature"><b>VĂN</b><small>10A2 · T4</small></span><span class="floating-lesson lesson-tech"><b>TIN</b><small>10A3 · T6</small></span></div>
     </section>
-  <form class="auth-card panda-card" method="post" autocomplete="off">
+  <form class="auth-card panda-card" method="post" action="{{'/register/verify' if mode=='register_otp' else ''}}" autocomplete="off">
     <div class="panda" aria-hidden="true">
       <span class="panda-ear panda-ear-left"></span><span class="panda-ear panda-ear-right"></span>
       <div class="panda-face"><span class="panda-eye-patch panda-eye-left"><i class="panda-eye"><b></b></i></span><span class="panda-eye-patch panda-eye-right"><i class="panda-eye"><b></b></i></span><span class="panda-muzzle"></span><span class="panda-nose"></span><span class="panda-mouth"></span></div>
@@ -33,23 +33,60 @@
     </div>
     <div class="auth-card-body">
     <a class="brand" href="/">Smart TKB</a>
-    <h1>{{'Đăng nhập' if mode=='login' else 'Tạo tài khoản giáo viên'}}</h1>
+    <h1>{{'Đăng nhập' if mode=='login' else ('Xác nhận email' if mode=='register_otp' else 'Tạo tài khoản giáo viên')}}</h1>
     {% if mode=='login' %}
       <p class="muted">Hệ thống tự chuyển đến cổng quản trị hoặc cổng giáo viên theo quyền tài khoản.</p>
-    {% else %}
-      <p class="muted">Tài khoản mới cần được quản trị viên xác nhận và gắn với hồ sơ giáo viên trước khi sử dụng.</p>
+    {% elif mode=='register' %}
+      <p class="muted">Chọn đúng hồ sơ giáo viên và xác nhận email bằng OTP để kích hoạt tài khoản ngay.</p>
       {% if target_project %}<div class="alert"><b>Đăng ký vào:</b> {{target_project.name}} · {{target_project.school_name}}</div>{% endif %}
+    {% else %}
+      <p class="muted">Mã OTP 6 số đã được gửi tới <b>{{masked_email}}</b> và có hiệu lực trong 10 phút.</p>
+      {% if target_project %}<div class="alert"><b>Bộ thời khóa biểu:</b> {{target_project.name}} · {{target_project.school_name}}</div>{% endif %}
     {% endif %}
     {% if error %}<div class="alert error">{{error}}</div>{% endif %}
     {% if mode=='register' %}
-      <input type="hidden" name="project_token" value="{{project_token or ''}}">
-      <label>Họ tên tài khoản<input name="name" required></label>
-      <label>Tên giáo viên mong muốn<input name="teacher_name" placeholder="Ví dụ: Lê Minh Châu" required></label>
+      {% if target_project %}
+        <input type="hidden" name="project_token" value="{{project_token or ''}}">
+        <label>Họ và tên đầy đủ<input name="name" value="{{form_values.name or ''}}" maxlength="120" required></label>
+        <label>Hồ sơ giáo viên
+          <select name="teacher_id" required>
+            <option value="">Chọn đúng hồ sơ của bạn</option>
+            {% for teacher in available_teachers %}<option value="{{teacher.id}}" {% if form_values.teacher_id == teacher.id %}selected{% endif %}>{{teacher.name}}</option>{% endfor %}
+          </select>
+        </label>
+        {% if not available_teachers %}<div class="alert error">Project hiện không còn hồ sơ giáo viên nào chưa có tài khoản.</div>{% endif %}
+      {% else %}
+        <div class="alert error">Đăng ký chỉ mở qua link mời của quản trị viên. Hãy yêu cầu quản trị viên gửi link đăng ký từ project.</div>
+      {% endif %}
     {% endif %}
-    <label class="auth-field">Email<span class="auth-input-wrap"><i class="field-icon mail-icon" aria-hidden="true"></i><input id="authEmail" type="email" name="email" autocomplete="email" placeholder="ten@truonghoc.edu.vn" required autofocus></span></label>
-    <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input id="authPassword" type="password" name="password" autocomplete="{{'current-password' if mode=='login' else 'new-password'}}" placeholder="Tối thiểu 6 ký tự" minlength="6" required><button class="password-toggle" type="button" aria-label="Giữ để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
+    {% if mode in ['login','register'] and (mode=='login' or target_project) %}
+      <label class="auth-field">Email<span class="auth-input-wrap"><i class="field-icon mail-icon" aria-hidden="true"></i><input id="authEmail" type="email" name="email" value="{{form_values.email or '' if mode=='register' else ''}}" autocomplete="email" placeholder="ten@truonghoc.edu.vn" maxlength="255" required autofocus></span></label>
+      <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input id="authPassword" type="password" name="password" autocomplete="{{'current-password' if mode=='login' else 'new-password'}}" placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" minlength="{{8 if mode=='register' else 6}}" required><button class="password-toggle" type="button" aria-label="Giữ để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
+      {% if mode=='register' %}<label class="auth-field">Nhập lại mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input type="password" name="password_confirm" autocomplete="new-password" minlength="8" required></span></label>{% endif %}
+    {% endif %}
+    {% if mode=='register' and target_project %}
+      <div class="captcha-box">
+        <label class="check-label"><input type="checkbox" name="human_confirm" value="yes" required> Tôi đang tự thực hiện đăng ký này</label>
+        <label>Xác minh: <b>{{captcha_question}}</b><input name="captcha_answer" inputmode="numeric" autocomplete="off" required></label>
+        <input type="hidden" name="captcha_token" value="{{captcha_token}}">
+        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+    {% elif mode=='register_otp' %}
+      <input type="hidden" name="verification_token" value="{{verification_token}}">
+      <label class="auth-field">Mã OTP 6 số<span class="auth-input-wrap"><input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus></span></label>
+      <div class="captcha-box otp-resend-captcha">
+        <p class="muted">Khi cần gửi lại mã, hãy xác minh:</p>
+        <label class="check-label"><input type="checkbox" name="human_confirm" value="yes"> Tôi đang tự yêu cầu mã mới</label>
+        <label><b>{{captcha_question}}</b><input name="captcha_answer" inputmode="numeric" autocomplete="off"></label>
+        <input type="hidden" name="captcha_token" value="{{captcha_token}}">
+        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+    {% endif %}
     {% if mode=='login' %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif %}
-    <button class="auth-submit" type="submit"><span>{{'Đăng nhập' if mode=='login' else 'Gửi yêu cầu đăng ký'}}</span><i aria-hidden="true">→</i></button>
+    {% if mode=='login' or (mode=='register' and target_project and available_teachers) or mode=='register_otp' %}
+      <button class="auth-submit" type="submit"><span>{{'Đăng nhập' if mode=='login' else ('Xác nhận và kích hoạt' if mode=='register_otp' else 'Gửi mã OTP')}}</span><i aria-hidden="true">→</i></button>
+    {% endif %}
+    {% if mode=='register_otp' %}<button class="btn ghost wide" type="submit" formaction="/register/resend" formnovalidate>Gửi lại mã OTP</button>{% endif %}
     {% if mode=='login' %}
       <p>Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
     {% else %}
