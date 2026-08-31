@@ -2182,7 +2182,7 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
 def project_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
     p=get_project(pid,user,db)
     data=project_data(db,p)
-    return templates.TemplateResponse("workspace.html", {"request":request,"user":user,"p":p,"data":data,"days":DAYS})
+    return templates.TemplateResponse("workspace.html", {"request":request,"user":user,"p":p,"data":data,"days":DAYS,"chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip())})
 
 @app.get("/projects/{pid}/chatbot", response_class=HTMLResponse)
 def chatbot_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
