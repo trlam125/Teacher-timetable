@@ -224,6 +224,32 @@
                         8A1 là 3 tiết/tuần nghĩa là phân bố tổng cộng 3 tiết vào các ngày/buổi còn trống, không phải 3
                         tiết mỗi ngày.</p>
                 </div>
+                <div class="assignment-filter-panel" aria-label="Bộ lọc phân công">
+                    <label>Lớp
+                        <select id="assignmentFilterClass" onchange="renderAssignmentTable()">
+                            <option value="">Tất cả lớp</option>
+                        </select>
+                    </label>
+                    <label>Môn
+                        <select id="assignmentFilterSubject" onchange="renderAssignmentTable()">
+                            <option value="">Tất cả môn</option>
+                        </select>
+                    </label>
+                    <label>Giáo viên
+                        <select id="assignmentFilterTeacher" onchange="renderAssignmentTable()">
+                            <option value="">Tất cả giáo viên</option>
+                        </select>
+                    </label>
+                    <label>Trạng thái kiểm tra
+                        <select id="assignmentFilterStatus" onchange="renderAssignmentTable()">
+                            <option value="all">Tất cả phân công hiện có</option>
+                            <option value="missing">Cần kiểm tra thiếu môn</option>
+                            <option value="unassigned_class">Lớp chưa có phân công</option>
+                        </select>
+                    </label>
+                    <button class="btn ghost assignment-filter-reset" type="button" onclick="resetAssignmentFilters()">Bỏ lọc</button>
+                </div>
+                <div id="assignmentCompletenessSummary"></div>
                 <div id="assignmentTable"></div>
             </section>
             <section id="constraints" class="tab">
@@ -339,7 +365,7 @@
         </form>
     </dialog>
     <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
-    <script src="/static/app.js?v=31"></script>
+    <script src="/static/app.js?v=32"></script>
     <script src="/static/chatbot.js?v=5"></script>
 </body>
 
