@@ -329,9 +329,17 @@
 
   fileInput.addEventListener('change', () => {
     const files = [...fileInput.files];
+    const allowedExtensions = ['.docx', '.xlsx', '.csv', '.pdf'];
+    const hasUnsupportedFile = files.some(file => {
+      const name = file.name.toLowerCase();
+      return !allowedExtensions.some(extension => name.endsWith(extension));
+    });
     if (files.length > 3) {
       fileInput.value = '';
       addMessage('assistant', 'Chỉ được đính kèm tối đa 3 tệp.', 'error');
+    } else if (hasUnsupportedFile) {
+      fileInput.value = '';
+      addMessage('assistant', 'Chỉ hỗ trợ tệp Word (.docx), Excel (.xlsx), CSV hoặc PDF.', 'error');
     } else if (files.some(file => file.size > 5 * 1024 * 1024)) {
       fileInput.value = '';
       addMessage('assistant', 'Mỗi tệp không được vượt quá 5 MB.', 'error');
@@ -396,6 +404,11 @@
     payload.append('preferred_model', activeModel);
     selectedFiles.forEach(file => payload.append('files', file));
 
+    // Tệp đã được chụp vào FormData, nên xóa ngay khỏi bộ soạn thảo sau khi bấm Gửi.
+    // File objects trong selectedFiles/FormData vẫn còn nguyên cho request hiện tại.
+    fileInput.value = '';
+    updateFilePreview();
+
     const currentVersion = ++requestVersion;
     const controller = new AbortController();
     activeController = controller;
@@ -433,8 +446,6 @@
       addMessage('assistant', result.answer);
       history.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
       if (history.length > 8) history.splice(0, history.length - 8);
-      fileInput.value = '';
-      updateFilePreview();
     } catch (error) {
       if (currentVersion !== requestVersion) return;
       loading.remove();

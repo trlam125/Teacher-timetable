@@ -13,6 +13,8 @@ from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 from openpyxl import load_workbook
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -26,6 +28,9 @@ MAX_DOCX_XML_BYTES = 12 * 1024 * 1024
 MAX_DOCX_UNCOMPRESSED_BYTES = 30 * 1024 * 1024
 MAX_DOCX_BLOCKS = 500
 MAX_DOCX_TABLES = 20
+MAX_PDF_PAGES = 80
+MAX_PDF_PAGE_CHARS = 12_000
+MAX_PDF_TEXT_CHARS = 180_000
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 W = f"{{{WORD_NAMESPACE}}}"
@@ -166,6 +171,55 @@ def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
     }
 
 
+def _parse_pdf(filename: str, content: bytes) -> dict[str, Any]:
+    try:
+        reader = PdfReader(io.BytesIO(content), strict=False)
+    except (PdfReadError, ValueError, TypeError, OSError) as exc:
+        raise ChatbotError("Không thể đọc tệp PDF. Hãy kiểm tra lại tệp đã tải lên.") from exc
+
+    if reader.is_encrypted:
+        try:
+            unlocked = reader.decrypt("")
+        except Exception as exc:
+            raise ChatbotError("PDF đang được bảo vệ bằng mật khẩu nên chatbot không thể đọc.") from exc
+        if not unlocked:
+            raise ChatbotError("PDF đang được bảo vệ bằng mật khẩu nên chatbot không thể đọc.")
+
+    pages: list[dict[str, Any]] = []
+    total_chars = 0
+    truncated = len(reader.pages) > MAX_PDF_PAGES
+    for page_number, page in enumerate(reader.pages[:MAX_PDF_PAGES], start=1):
+        if total_chars >= MAX_PDF_TEXT_CHARS:
+            truncated = True
+            break
+        try:
+            extracted = page.extract_text() or ""
+        except Exception:
+            extracted = ""
+        extracted = extracted.replace("\x00", "").strip()
+        if not extracted:
+            continue
+        remaining = MAX_PDF_TEXT_CHARS - total_chars
+        page_text = extracted[: min(MAX_PDF_PAGE_CHARS, remaining)]
+        if len(extracted) > len(page_text):
+            truncated = True
+        total_chars += len(page_text)
+        pages.append({"page": page_number, "text": page_text})
+
+    if not pages:
+        raise ChatbotError(
+            "PDF không có văn bản có thể đọc. Nếu đây là PDF scan/ảnh, hãy dùng PDF có lớp văn bản hoặc chuyển nội dung sang Word/Excel."
+        )
+
+    return {
+        "filename": filename[:200],
+        "type": "pdf",
+        "pages": pages,
+        "page_count": len(reader.pages),
+        "truncated": truncated,
+    }
+
+
 def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
     """Đọc bảng vào cấu trúc giới hạn; không lưu file người dùng lên máy chủ."""
     if not filename:
@@ -239,7 +293,10 @@ def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
     if lower_name.endswith(".docx"):
         return _parse_docx(filename, content)
 
-    raise ChatbotError("Chỉ hỗ trợ tệp .docx, .xlsx hoặc .csv.")
+    if lower_name.endswith(".pdf"):
+        return _parse_pdf(filename, content)
+
+    raise ChatbotError("Chỉ hỗ trợ tệp .docx, .xlsx, .csv hoặc .pdf.")
 
 
 def _compact_project_data(data: dict[str, Any]) -> dict[str, Any]:

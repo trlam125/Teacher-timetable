@@ -729,3 +729,98 @@ dialog[open] {
 .nav.active .nav-icon {
   transform: scale(1.15);
 }
+
+
+/* Mobile layout hardening for workspace/forms/tables */
+@media (max-width: 600px) {
+  .content {
+    min-width: 0;
+    padding: 16px 12px 88px;
+  }
+
+  .page-title, .section-head {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .page-title > div, .section-head > div {
+    min-width: 0;
+  }
+
+  .page-title > .row, .section-head > .row {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .page-title > .row > select,
+  .section-head > .row > select,
+  .constraint-toolbar > select {
+    min-width: 0;
+    flex: 1 1 145px;
+    max-width: 100%;
+  }
+
+  .row {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .constraint-toolbar {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .constraint-toolbar .btn {
+    flex: 1 1 100%;
+  }
+
+  dialog {
+    max-width: 96vw;
+    max-height: 90dvh;
+  }
+
+  .modal-form {
+    width: min(92vw, 430px);
+    min-width: 0;
+    max-height: 86dvh;
+    overflow-y: auto;
+    padding: 20px 16px;
+  }
+
+  .empty-state {
+    padding: 30px 16px;
+  }
+
+  #subjectTable, #departmentTable, #teacherTable, #gradeTable,
+  #classTable, #assignmentTable, #teacherAccountTable {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #subjectTable .data-table, #departmentTable .data-table,
+  #teacherTable .data-table, #gradeTable .data-table,
+  #classTable .data-table, #assignmentTable .data-table,
+  #teacherAccountTable .data-table {
+    min-width: 620px;
+  }
+
+  .stats {
+    gap: 10px;
+  }
+
+  .stats article {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .stats strong {
+    font-size: 26px;
+  }
+}

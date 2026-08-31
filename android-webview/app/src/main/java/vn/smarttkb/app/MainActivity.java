@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -24,6 +25,7 @@ import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -43,11 +45,13 @@ public class MainActivity extends Activity {
     // Khi URL ngrok thay đổi, chỉ cần sửa hằng số này rồi build lại APK.
     private static final String SERVER_URL = "https://yahoo-speech-radiation.ngrok-free.dev";
     private static final int STORAGE_PERMISSION_REQUEST = 41;
+    private static final int FILE_CHOOSER_REQUEST = 42;
 
     private WebView webView;
     private ProgressBar progressBar;
     private LinearLayout errorPanel;
     private PendingDownload pendingDownload;
+    private ValueCallback<Uri[]> filePathCallback;
     private boolean mainFrameLoadFailed;
 
     @Override
@@ -86,7 +90,7 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        settings.setAllowContentAccess(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
@@ -103,6 +107,31 @@ public class MainActivity extends Activity {
             public void onProgressChanged(WebView view, int progress) {
                 progressBar.setProgress(progress);
                 progressBar.setVisibility(progress < 100 ? View.VISIBLE : View.GONE);
+            }
+
+            @Override
+            public boolean onShowFileChooser(
+                    WebView webView,
+                    ValueCallback<Uri[]> callback,
+                    FileChooserParams fileChooserParams
+            ) {
+                if (filePathCallback != null) {
+                    filePathCallback.onReceiveValue(null);
+                }
+                filePathCallback = callback;
+                Intent intent = fileChooserParams.createIntent();
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                if (fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+                try {
+                    startActivityForResult(intent, FILE_CHOOSER_REQUEST);
+                    return true;
+                } catch (ActivityNotFoundException exception) {
+                    filePathCallback = null;
+                    Toast.makeText(MainActivity.this, "Không tìm thấy ứng dụng chọn tệp.", Toast.LENGTH_LONG).show();
+                    return false;
+                }
             }
         });
 
@@ -219,6 +248,31 @@ public class MainActivity extends Activity {
         }
     }
 
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == FILE_CHOOSER_REQUEST) {
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                if (data.getClipData() != null) {
+                    int count = data.getClipData().getItemCount();
+                    results = new Uri[count];
+                    for (int index = 0; index < count; index++) {
+                        results[index] = data.getClipData().getItemAt(index).getUri();
+                    }
+                } else if (data.getData() != null) {
+                    results = new Uri[]{data.getData()};
+                }
+            }
+            if (filePathCallback != null) {
+                filePathCallback.onReceiveValue(results);
+                filePathCallback = null;
+            }
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -296,6 +350,10 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (filePathCallback != null) {
+            filePathCallback.onReceiveValue(null);
+            filePathCallback = null;
+        }
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();

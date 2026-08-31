@@ -6,7 +6,7 @@
     <title>Trợ lý phân công · {{ p.name }}</title>
     <script>(function(){const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark-mode')})()</script>
     <link rel="stylesheet" href="/static/style.css?v=32">
-    <link rel="stylesheet" href="/static/chatbot.css?v=4">
+    <link rel="stylesheet" href="/static/chatbot.css?v=5">
 </head>
 <body class="chatbot-page">
     <header class="appbar chatbot-appbar">
@@ -25,7 +25,7 @@
             <p>Trợ lý tự đọc giáo viên, môn, lớp, phân công và lịch đã xếp trong bộ thời khóa biểu này.</p>
             <div class="guide-block">
                 <b>Có thể đính kèm</b>
-                <span>Tối đa 3 tệp Word .docx, Excel .xlsx hoặc CSV; mỗi tệp tối đa 5 MB. Tệp chỉ được đọc cho yêu cầu hiện tại, không lưu trên máy chủ.</span>
+                <span>Tối đa 3 tệp Word .docx, Excel .xlsx, CSV hoặc PDF; mỗi tệp tối đa 5 MB. PDF cần có lớp văn bản. Tệp chỉ được đọc cho yêu cầu hiện tại, không lưu trên máy chủ.</span>
             </div>
             <div class="guide-block warning">
                 <b>Lưu ý</b>
@@ -53,8 +53,8 @@
                 </div>
                 <textarea id="chatInput" maxlength="4000" rows="3" placeholder="Ví dụ: Đối chiếu bảng đính kèm và đề xuất cách phân công đủ tiết..." required></textarea>
                 <div class="composer-actions">
-                    <label class="attach-button" title="Đính kèm bảng phân công">
-                        <input id="chatFile" type="file" accept=".docx,.xlsx,.csv" multiple hidden>
+                    <label class="attach-button" title="Đính kèm tài liệu">
+                        <input id="chatFile" type="file" accept=".docx,.xlsx,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple hidden>
                         <span>📎 Đính kèm tài liệu</span>
                     </label>
                     <button id="clearChat" class="clear-button" type="button">Xóa hội thoại</button>
@@ -66,6 +66,6 @@
     </main>
 
     <script>window.CHATBOT_PROJECT_ID={{ p.id }};window.CHATBOT_ENABLED={{ chatbot_enabled | tojson }};window.CHATBOT_PRIMARY_MODEL={{ chatbot_primary_model | tojson }};</script>
-    <script src="/static/chatbot.js?v=5"></script>
+    <script src="/static/chatbot.js?v=7"></script>
 </body>
 </html>

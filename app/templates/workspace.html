@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="/static/style.css?v=32">
     <script src="/static/operation-status.js?v=3" defer></script>
     <link rel="stylesheet" href="/static/preferences.css?v=4">
-    <link rel="stylesheet" href="/static/effects.css?v=2">
-    <link rel="stylesheet" href="/static/chatbot.css?v=4">
+    <link rel="stylesheet" href="/static/effects.css?v=3">
+    <link rel="stylesheet" href="/static/chatbot.css?v=5">
 </head>
 
 <body>
@@ -34,8 +34,7 @@
                 stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg></button><button class="btn ghost" onclick="copyShare()">Chia sẻ</button><a class="btn ghost"
-            href="/projects/{{p.id}}/export.xlsx">Xuất Excel</a><button class="btn" onclick="window.print()">In /
-            PDF</button>
+            href="/projects/{{p.id}}/export.xlsx">Xuất Excel</a>
     </header>
     <div class="workspace">
         <aside class="sidebar"><button class="nav active" data-tab="overview"><svg class="nav-icon" viewBox="0 0 24 24">
@@ -346,7 +345,7 @@
             <textarea id="chatInput" maxlength="4000" rows="2" placeholder="Hỏi trợ lý về phân công, lịch học..." required></textarea>
             <div class="composer-actions">
                 <label class="attach-button chatbot-attach" title="Đính kèm tài liệu">
-                    <input id="chatFile" type="file" accept=".docx,.xlsx,.csv" multiple hidden>
+                    <input id="chatFile" type="file" accept=".docx,.xlsx,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple hidden>
                     <span aria-hidden="true">📎</span><span class="attach-text">Tệp</span>
                 </label>
                 <button id="clearChat" class="clear-button" type="button">Xóa</button>
@@ -366,7 +365,7 @@
     </dialog>
     <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
     <script src="/static/app.js?v=32"></script>
-    <script src="/static/chatbot.js?v=5"></script>
+    <script src="/static/chatbot.js?v=7"></script>
 </body>
 
 </html>
