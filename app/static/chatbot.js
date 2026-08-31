@@ -128,9 +128,11 @@
   function parseListItem(line) {
     const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.+)$/);
     if (!match) return null;
+    const ordered = /^\d/.test(match[2]);
     return {
       indent: listIndent(match[1]),
-      type: /^\d/.test(match[2]) ? 'ol' : 'ul',
+      type: ordered ? 'ol' : 'ul',
+      start: ordered ? Number.parseInt(match[2], 10) : null,
       content: match[3],
     };
   }
@@ -141,7 +143,10 @@
 
     while (index < items.length && items[index].indent === baseIndent) {
       const type = items[index].type;
-      html += `<${type}>`;
+      const start = type === 'ol' && Number.isFinite(items[index].start) && items[index].start > 1
+        ? ` start="${items[index].start}"`
+        : '';
+      html += `<${type}${start}>`;
 
       while (index < items.length) {
         const item = items[index];
@@ -164,8 +169,7 @@
     return { html, index };
   }
 
-  function renderListBlock(lines) {
-    const items = lines.map(parseListItem).filter(Boolean);
+  function renderListItems(items) {
     if (!items.length) return '';
     let index = 0;
     let html = '';
@@ -176,6 +180,48 @@
       index = rendered.index;
     }
     return html;
+  }
+
+  function isListContinuationBoundary(lines, index) {
+    const trimmed = String(lines[index] || '').trim();
+    if (!trimmed) return false;
+    if (/^@@CODEBLOCK_\d+@@$/.test(trimmed)) return true;
+    if (/^(#{1,3})\s+/.test(trimmed) || /^---+$/.test(trimmed) || /^>\s?/.test(trimmed)) return true;
+    return index + 1 < lines.length && lines[index].includes('|') && isTableSeparator(lines[index + 1]);
+  }
+
+  function collectListBlock(lines, startIndex) {
+    const items = [];
+    let index = startIndex;
+
+    while (index < lines.length) {
+      const parsed = parseListItem(lines[index]);
+      if (parsed) {
+        items.push(parsed);
+        index += 1;
+        continue;
+      }
+
+      const trimmed = String(lines[index] || '').trim();
+      if (!trimmed) {
+        let nextIndex = index + 1;
+        while (nextIndex < lines.length && !String(lines[nextIndex] || '').trim()) nextIndex += 1;
+        if (nextIndex < lines.length && parseListItem(lines[nextIndex])) {
+          index = nextIndex;
+          continue;
+        }
+        break;
+      }
+
+      if (!items.length || isListContinuationBoundary(lines, index)) break;
+
+      // Smaller models sometimes wrap a long list item onto a new physical line
+      // without repeating the list marker. Keep that text inside the same <li>.
+      items[items.length - 1].content += ` ${trimmed}`;
+      index += 1;
+    }
+
+    return { html: renderListItems(items), index };
   }
 
   function renderMarkdown(markdown) {
@@ -248,12 +294,9 @@
 
       if (parseListItem(line)) {
         flushParagraph();
-        const listLines = [];
-        while (index < lines.length && parseListItem(lines[index])) {
-          listLines.push(lines[index]);
-          index += 1;
-        }
-        out.push(renderListBlock(listLines));
+        const rendered = collectListBlock(lines, index);
+        out.push(rendered.html);
+        index = rendered.index;
         continue;
       }
 

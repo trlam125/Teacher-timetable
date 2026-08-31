@@ -10,7 +10,7 @@
     <script src="/static/operation-status.js?v=3" defer></script>
     <link rel="stylesheet" href="/static/preferences.css?v=4">
     <link rel="stylesheet" href="/static/effects.css?v=3">
-    <link rel="stylesheet" href="/static/chatbot.css?v=5">
+    <link rel="stylesheet" href="/static/chatbot.css?v=6">
 </head>
 
 <body>
@@ -365,7 +365,7 @@
     </dialog>
     <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
     <script src="/static/app.js?v=33"></script>
-    <script src="/static/chatbot.js?v=8"></script>
+    <script src="/static/chatbot.js?v=9"></script>
 </body>
 
 </html>

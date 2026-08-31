@@ -670,8 +670,8 @@ def _call_gemini_model(
 
     candidate = candidates[0]
     parts = candidate.get("content", {}).get("parts", [])
-    answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text")).strip()
-    if not answer:
+    answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
+    if not answer.strip():
         raise ChatbotError(
             "Gemini không trả về nội dung văn bản.",
             code="gemini_empty_text",
@@ -686,12 +686,29 @@ def _coerce_gemini_result(value: Any) -> tuple[str, str | None]:
     """Keep tests/custom callers compatible with the former plain-string return."""
     if isinstance(value, tuple) and len(value) == 2:
         text, finish_reason = value
-        return str(text or "").strip(), str(finish_reason).strip() if finish_reason else None
-    return str(value or "").strip(), None
+        return str(text or ""), str(finish_reason).strip() if finish_reason else None
+    return str(value or ""), None
 
 
 def _join_answer_chunks(chunks: list[str], *, truncated: bool = False) -> str:
-    answer = "\n".join(chunk.strip() for chunk in chunks if chunk and chunk.strip()).strip()
+    # Continuations are generated from the exact previous model text. Preserve
+    # boundary whitespace whenever Gemini returns it. If both sides touch with
+    # no whitespace, a lowercase continuation is most likely the remainder of a
+    # token/word cut by MAX_TOKENS (for example ``Ph`` + ``ân``). Otherwise put
+    # the chunks on separate lines so independently complete sections do not run
+    # together.
+    answer = ""
+    for chunk in (value for value in chunks if value and value.strip()):
+        if not answer:
+            answer = chunk
+            continue
+        if answer[-1].isspace() or chunk[0].isspace():
+            answer += chunk
+        elif answer[-1].isalpha() and chunk[0].islower():
+            answer += chunk
+        else:
+            answer += "\n" + chunk
+    answer = answer.strip()
     if truncated:
         answer = f"{answer}\n\n{GEMINI_TRUNCATION_WARNING}" if answer else GEMINI_TRUNCATION_WARNING
     return answer
@@ -730,7 +747,7 @@ def _generate_complete_answer(
 
         provider_calls += 1
         answer, finish_reason = _coerce_gemini_result(raw_result)
-        if not answer:
+        if not answer.strip():
             exc = ChatbotError(
                 "Gemini không trả về nội dung văn bản.",
                 code="gemini_empty_text",

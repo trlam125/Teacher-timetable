@@ -149,8 +149,10 @@
   border-radius: 4px 15px 15px;
   background: var(--bg);
   line-height: 1.65;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
 }
 
 .chat-message.user .message-body {
@@ -159,6 +161,7 @@
   border-radius: 15px 4px 15px 15px;
   background: var(--primary);
   color: white;
+  white-space: pre-wrap;
 }
 
 .chat-message.error .message-body {

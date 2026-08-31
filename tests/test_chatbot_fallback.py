@@ -309,6 +309,50 @@ class ChatbotFallbackTests(unittest.TestCase):
         clear=False,
     )
     @patch("app.chatbot._call_gemini_model")
+    def test_max_tokens_mid_word_is_joined_without_breaking_vietnamese(self, call_model):
+        call_model.side_effect = [
+            ("Lý do: Ph", "MAX_TOKENS"),
+            ("ân công theo QĐ 07.", "STOP"),
+        ]
+
+        answer, _, _ = ask_gemini("Liệt kê tất cả", [], self.project_data)
+
+        self.assertEqual(answer, "Lý do: Phân công theo QĐ 07.")
+        self.assertNotIn("Ph\nân", answer)
+        self.assertNotIn("Ph ân", answer)
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "primary-model",
+            "GEMINI_ATTEMPTS_PER_MODEL": "1",
+            "GEMINI_RETRY_BASE_SECONDS": "0",
+        },
+        clear=False,
+    )
+    @patch("app.chatbot._call_gemini_model")
+    def test_max_tokens_preserves_leading_space_from_continuation(self, call_model):
+        call_model.side_effect = [
+            ("Lý do: theo", "MAX_TOKENS"),
+            (" phân công theo QĐ 07.", "STOP"),
+        ]
+
+        answer, _, _ = ask_gemini("Liệt kê tất cả", [], self.project_data)
+
+        self.assertEqual(answer, "Lý do: theo phân công theo QĐ 07.")
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "primary-model",
+            "GEMINI_ATTEMPTS_PER_MODEL": "1",
+            "GEMINI_RETRY_BASE_SECONDS": "0",
+        },
+        clear=False,
+    )
+    @patch("app.chatbot._call_gemini_model")
     def test_repeated_max_tokens_is_not_silently_treated_as_complete(self, call_model):
         call_model.side_effect = [
             ("Phần 1", "MAX_TOKENS"),
