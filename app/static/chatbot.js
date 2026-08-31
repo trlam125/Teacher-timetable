@@ -416,7 +416,7 @@
     const timeoutId = window.setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, 70000);
+    }, 150000);
 
     try {
       const response = await fetch(`/api/projects/${projectId}/chatbot`, {
@@ -432,7 +432,11 @@
 
       loading.remove();
       if (!response.ok) {
-        if (response.status >= 500 || response.status === 401 || response.status === 403 || response.status === 404) {
+        if (response.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        if (response.status >= 500 || response.status === 403 || response.status === 404) {
           setConnectionState(false);
           addMessage('assistant', 'Không thể kết nối tới chatbot. Vui lòng thử lại sau.', 'error');
         } else {

@@ -468,7 +468,11 @@ def _normalize_assistant_markdown(answer: str) -> str:
     return "\n".join(normalized).strip()
 
 
-GEMINI_FALLBACK_MODELS = ("gemini-3.6-flash", "gemini-3.5-flash")
+GEMINI_FALLBACK_MODELS = (
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",
+)
 GEMINI_MAX_OUTPUT_TOKENS = 8192
 # Frontend waits 150 seconds. Keep the whole backend failover chain below that
 # so the browser does not abort while the server is still calling Gemini.
@@ -534,6 +538,7 @@ def _same_model_retryable(exc: ChatbotError) -> bool:
     if exc.code == "gemini_http":
         return exc.provider_status in {408, 429, 500, 502, 503, 504}
     return exc.code in {
+        "gemini_network",
         "gemini_invalid_response",
         "gemini_empty_response",
         "gemini_empty_text",
@@ -637,6 +642,7 @@ def _call_gemini_model(
             "Không thể kết nối Gemini. Hãy kiểm tra mạng và thử lại.",
             code="gemini_network",
             model_name=model,
+            retry_with_fallback=True,
         ) from exc
     except json.JSONDecodeError as exc:
         raise ChatbotError(

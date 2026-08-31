@@ -1,8 +1,9 @@
 import os
 import unittest
 from unittest.mock import patch
+from urllib.error import URLError
 
-from app.chatbot import ChatbotError, _call_gemini_model, ask_gemini
+from app.chatbot import ChatbotError, _call_gemini_model, _configured_model_chain, _same_model_retryable, ask_gemini
 
 
 class ChatbotFallbackTests(unittest.TestCase):
@@ -15,6 +16,27 @@ class ChatbotFallbackTests(unittest.TestCase):
             "assignments": [],
             "lessons": [],
         }
+
+    @patch.dict(os.environ, {"GEMINI_MODEL": "gemini-3.7-flash"}, clear=False)
+    def test_fallback_chain_keeps_older_stable_model_as_last_resort(self):
+        self.assertEqual(
+            _configured_model_chain(),
+            [
+                "gemini-3.7-flash",
+                "gemini-3.6-flash",
+                "gemini-3.5-flash",
+                "gemini-2.5-flash",
+            ],
+        )
+
+    @patch("app.chatbot.urlopen", side_effect=URLError("temporary network failure"))
+    def test_network_error_is_retryable_and_can_fallback(self, _urlopen):
+        with self.assertRaises(ChatbotError) as raised:
+            _call_gemini_model("gemini-3.7-flash", "test-key", b"{}", timeout_seconds=1)
+
+        self.assertEqual(raised.exception.code, "gemini_network")
+        self.assertTrue(raised.exception.retry_with_fallback)
+        self.assertTrue(_same_model_retryable(raised.exception))
 
     @patch.dict(
         os.environ,
