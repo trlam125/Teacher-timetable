@@ -18,6 +18,7 @@
   const popupStatus = document.querySelector('.chatbot-popup-status');
   const pageStatus = document.querySelector('.chatbot-status');
   const history = [];
+  let documentContext = [];
 
   let requestVersion = 0;
   let activeController = null;
@@ -417,6 +418,7 @@
     activeController?.abort();
     activeController = null;
     history.length = 0;
+    documentContext = [];
     messages.querySelectorAll('.chat-message.user,.chat-message.assistant:not(:first-child),.chat-loading').forEach(item => item.remove());
     fileInput.value = '';
     updateFilePreview();
@@ -444,6 +446,7 @@
     const payload = new FormData();
     payload.append('message', prompt);
     payload.append('history_json', JSON.stringify(history.slice(-8)));
+    payload.append('document_context_json', JSON.stringify(documentContext));
     payload.append('preferred_model', activeModel);
     selectedFiles.forEach(file => payload.append('files', file));
 
@@ -490,6 +493,7 @@
 
       setConnectionState(true);
       if (result.model_used) activeModel = String(result.model_used);
+      if (Array.isArray(result.document_context)) documentContext = result.document_context;
       addMessage('assistant', result.answer);
       history.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
       if (history.length > 8) history.splice(0, history.length - 8);

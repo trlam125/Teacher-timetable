@@ -45,6 +45,7 @@ logger = logging.getLogger("smart_tkb")
 
 ADMIN_ROLES = frozenset({"admin", "super_admin"})
 MAX_CHATBOT_ERROR_LOGS = 500
+MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS = 350_000
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -2236,7 +2237,10 @@ def create_project(name: str = Form(...), school_name: str = Form(...), days: in
     if not clean_school_name: raise HTTPException(400,"Tên trường không được để trống")
     if len(clean_name)>200: raise HTTPException(400,"Tên bộ thời khóa biểu không được vượt quá 200 ký tự")
     if len(clean_school_name)>200: raise HTTPException(400,"Tên trường không được vượt quá 200 ký tự")
-    p = Project(owner_id=user.id, name=clean_name, school_name=clean_school_name, days=max(1,min(days,7)), sessions=max(1,min(sessions,2)), periods_per_session=max(1,min(periods,8)))
+    validated_days=bounded_int(days,6,1,7,"Số ngày học")
+    validated_sessions=bounded_int(sessions,2,1,2,"Số buổi mỗi ngày")
+    validated_periods=bounded_int(periods,5,1,8,"Số tiết mỗi buổi")
+    p = Project(owner_id=user.id, name=clean_name, school_name=clean_school_name, days=validated_days, sessions=validated_sessions, periods_per_session=validated_periods)
     db.add(p); db.commit()
     return RedirectResponse(f"/projects/{p.id}", 303)
 
@@ -2328,6 +2332,7 @@ def chatbot_reply(
     pid:int,
     message:str=Form(...),
     history_json:str=Form("[]"),
+    document_context_json:str=Form("[]"),
     preferred_model:str=Form(""),
     files:list[UploadFile]|None=File(None),
     user:User=Depends(current_user),
@@ -2362,6 +2367,15 @@ def chatbot_reply(
         if content:
             history.append({"role":item["role"],"content":content[:8000]})
 
+    if len(document_context_json)>MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS:
+        raise HTTPException(400,"Ngữ cảnh tệp của cuộc trò chuyện quá lớn. Hãy xóa cuộc trò chuyện và đính kèm lại tệp cần dùng.")
+    try:
+        retained_documents=json.loads(document_context_json)
+    except (json.JSONDecodeError,TypeError):
+        raise HTTPException(400,"Ngữ cảnh tệp của cuộc trò chuyện không hợp lệ")
+    if not isinstance(retained_documents,list) or any(not isinstance(item,dict) for item in retained_documents):
+        raise HTTPException(400,"Ngữ cảnh tệp của cuộc trò chuyện không hợp lệ")
+
     upload_items=[item for item in (files or []) if item.filename]
     if len(upload_items)>MAX_UPLOAD_FILES:
         raise HTTPException(400,f"Chỉ được đính kèm tối đa {MAX_UPLOAD_FILES} tệp")
@@ -2376,6 +2390,17 @@ def chatbot_reply(
             uploaded_tables.append(parse_uploaded_table(file.filename,content))
         except ChatbotError as exc:
             raise HTTPException(400,str(exc))
+
+    document_map={}
+    for document in [*retained_documents,*uploaded_tables]:
+        filename=str(document.get("filename","")).strip()[:200]
+        document_type=str(document.get("type","")).strip()[:20]
+        if not filename or not document_type:
+            continue
+        document_map[(filename,document_type)]=document
+    document_context=list(document_map.values())
+    if len(json.dumps(document_context,ensure_ascii=False,separators=(",",":")))>MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS:
+        raise HTTPException(400,"Ngữ cảnh tệp của cuộc trò chuyện quá lớn. Hãy xóa cuộc trò chuyện và chỉ đính kèm các tệp cần thiết.")
 
     def persist_chatbot_failure(error_code: str, error_message: str, provider_status: int | None = None) -> None:
         try:
@@ -2408,7 +2433,7 @@ def chatbot_reply(
             clean_message,
             history,
             project_data(db,p),
-            uploaded_tables or None,
+            document_context or None,
             preferred_model=preferred_model.strip() or None,
         )
         for failure in fallback_failures:
@@ -2446,6 +2471,7 @@ def chatbot_reply(
     return {
         "answer":answer,
         "files_analyzed":len(uploaded_tables),
+        "document_context":document_context,
         "model_used":model_used,
         "fallback_used":model_used != (os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"),
     }
