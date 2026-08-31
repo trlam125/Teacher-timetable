@@ -4,6 +4,8 @@ import csv
 import io
 import json
 import os
+import random
+import time
 import zipfile
 from datetime import date, datetime
 from typing import Any
@@ -380,14 +382,13 @@ Quy tắc an toàn và độ chính xác:
 """
 
 
+GEMINI_FALLBACK_MODELS = ("gemini-3.6-flash", "gemini-3.5-flash")
+
+
 def _configured_model_chain() -> list[str]:
     primary = os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
-    fallback_env = os.getenv(
-        "GEMINI_FALLBACK_MODELS",
-        "gemini-3.6-flash,gemini-3.5-flash",
-    )
     models: list[str] = []
-    for model in [primary, *fallback_env.split(",")]:
+    for model in [primary, *GEMINI_FALLBACK_MODELS]:
         clean = model.strip()
         if clean and clean not in models:
             models.append(clean)
@@ -395,10 +396,57 @@ def _configured_model_chain() -> list[str]:
 
 
 def _model_chain_from(preferred_model: str | None) -> list[str]:
+    """Always retry the configured primary first.
+
+    Older browser sessions may still send the model that happened to answer the
+    previous request. Treat that value only as the first fallback preference;
+    never let it make the client permanently skip the primary model.
+    """
     models = _configured_model_chain()
-    if preferred_model and preferred_model in models:
-        return models[models.index(preferred_model):]
-    return models
+    if not models or not preferred_model or preferred_model not in models:
+        return models
+    primary = models[0]
+    if preferred_model == primary:
+        return models
+    return [primary, preferred_model, *[model for model in models[1:] if model != preferred_model]]
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)).strip())
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+def _env_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    try:
+        value = float(os.getenv(name, str(default)).strip())
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+def _same_model_retryable(exc: ChatbotError) -> bool:
+    if exc.code == "gemini_rate_limit":
+        return True
+    if exc.code == "gemini_http":
+        return exc.provider_status in {408, 429, 500, 502, 503, 504}
+    return exc.code in {
+        "gemini_invalid_response",
+        "gemini_empty_response",
+        "gemini_empty_text",
+    }
+
+
+def _sleep_with_backoff(retry_index: int) -> None:
+    base = _env_float("GEMINI_RETRY_BASE_SECONDS", 0.8, 0.0, 10.0)
+    maximum = _env_float("GEMINI_RETRY_MAX_SECONDS", 4.0, 0.0, 30.0)
+    delay = min(maximum, base * (2 ** max(0, retry_index)))
+    if delay <= 0:
+        return
+    jitter = random.uniform(0.0, delay * 0.25)
+    time.sleep(delay + jitter)
 
 
 def _call_gemini_model(
@@ -445,7 +493,7 @@ def _call_gemini_model(
                 provider_status=exc.code,
                 model_name=model,
             ) from exc
-        retryable = exc.code in {404, 500, 502, 503, 504}
+        retryable = exc.code in {404, 408, 429, 500, 502, 503, 504}
         raise ChatbotError(
             f"Gemini trả về lỗi {exc.code}: {detail or 'không có chi tiết'}",
             code="gemini_http",
@@ -547,21 +595,46 @@ def ask_gemini(
 
     attempts: list[dict[str, Any]] = []
     models = _model_chain_from(preferred_model)
-    for index, model in enumerate(models):
-        try:
-            answer = _call_gemini_model(model, api_key, payload)
-            return answer, model, attempts
-        except ChatbotError as exc:
-            attempts.append({
-                "model": model,
-                "code": str(exc.code),
-                "provider_status": exc.provider_status,
-                "message": str(exc),
-            })
-            has_next = index + 1 < len(models)
-            if not exc.retry_with_fallback or not has_next:
-                exc.attempts = attempts
-                raise
+    retries_per_model = _env_int("GEMINI_ATTEMPTS_PER_MODEL", 2, 1, 4)
+
+    for model_index, model in enumerate(models):
+        last_error: ChatbotError | None = None
+        calls_for_model = 0
+        for retry_index in range(retries_per_model):
+            calls_for_model += 1
+            try:
+                answer = _call_gemini_model(model, api_key, payload)
+                return answer, model, attempts
+            except ChatbotError as exc:
+                last_error = exc
+                can_retry_same_model = (
+                    exc.retry_with_fallback
+                    and _same_model_retryable(exc)
+                    and retry_index + 1 < retries_per_model
+                )
+                if can_retry_same_model:
+                    _sleep_with_backoff(retry_index)
+                    continue
+                break
+
+        if last_error is None:
+            continue
+
+        attempts.append({
+            "model": model,
+            "code": str(last_error.code),
+            "provider_status": last_error.provider_status,
+            "message": str(last_error),
+            "attempt_count": calls_for_model,
+        })
+        has_next = model_index + 1 < len(models)
+        if not last_error.retry_with_fallback or not has_next:
+            last_error.attempts = attempts
+            raise last_error
+
+        # A short delay before changing models avoids immediately hammering the
+        # provider during a capacity spike while keeping failover responsive.
+        _sleep_with_backoff(0)
 
     raise ChatbotError(
         "Không có model Gemini khả dụng.",
