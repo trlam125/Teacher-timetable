@@ -38,10 +38,16 @@ class ChatbotError(RuntimeError):
         *,
         code: str = "chatbot_error",
         provider_status: int | None = None,
+        model_name: str | None = None,
+        retry_with_fallback: bool = False,
+        attempts: list[dict[str, Any]] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.provider_status = provider_status
+        self.model_name = model_name
+        self.retry_with_fallback = retry_with_fallback
+        self.attempts = attempts or []
 
 
 def _cell_value(value: Any) -> str:
@@ -313,7 +319,122 @@ Quy tắc an toàn và độ chính xác:
 - Slot thời khóa biểu là số kỹ thuật; ưu tiên các trường day/session/period đã được hệ thống tính sẵn, không tự suy diễn slot nếu dữ liệu thiếu hoặc bị đánh dấu invalid_slot.
 - Chuẩn hóa cẩn thận các biến thể như 8A1/8 A 1, dấu phẩy thập phân và tên môn viết tắt, nhưng phải nêu rõ khi cách hiểu còn mơ hồ.
 - Tự kiểm tra lại mọi phép cộng số tiết. Giá trị bất thường như 35 tiết/tuần phải được đánh dấu để người dùng xác nhận, không tự sửa ngầm.
+- Khi dùng bảng Markdown, chỉ dùng cú pháp bảng Markdown chuẩn; không chèn thẻ HTML như <br>. Giữ tối đa 5 cột khi có thể, viết nội dung ô ngắn gọn và dùng dấu phẩy hoặc dấu chấm phẩy để ngăn nhiều mục. Nếu thông tin quá rộng, chia thành nhiều bảng nhỏ thay vì một bảng quá nhiều cột.
 """
+
+
+def _configured_model_chain() -> list[str]:
+    primary = os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
+    fallback_env = os.getenv(
+        "GEMINI_FALLBACK_MODELS",
+        "gemini-3.6-flash,gemini-3.5-flash",
+    )
+    models: list[str] = []
+    for model in [primary, *fallback_env.split(",")]:
+        clean = model.strip()
+        if clean and clean not in models:
+            models.append(clean)
+    return models
+
+
+def _model_chain_from(preferred_model: str | None) -> list[str]:
+    models = _configured_model_chain()
+    if preferred_model and preferred_model in models:
+        return models[models.index(preferred_model):]
+    return models
+
+
+def _call_gemini_model(
+    model: str,
+    api_key: str,
+    payload: bytes,
+) -> str:
+    endpoint = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{quote(model, safe='')}:generateContent"
+    )
+    request = Request(
+        endpoint,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "x-goog-api-key": api_key,
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=60) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = ""
+        try:
+            error_data = json.loads(exc.read().decode("utf-8"))
+            detail = str(error_data.get("error", {}).get("message", ""))
+        except Exception:
+            pass
+        if exc.code == 429:
+            raise ChatbotError(
+                "API Gemini đã hết hạn mức tạm thời. Hãy thử lại sau.",
+                code="gemini_rate_limit",
+                provider_status=exc.code,
+                model_name=model,
+                retry_with_fallback=True,
+            ) from exc
+        if exc.code in (401, 403):
+            raise ChatbotError(
+                "Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập API.",
+                code="gemini_auth",
+                provider_status=exc.code,
+                model_name=model,
+            ) from exc
+        retryable = exc.code in {404, 500, 502, 503, 504}
+        raise ChatbotError(
+            f"Gemini trả về lỗi {exc.code}: {detail or 'không có chi tiết'}",
+            code="gemini_http",
+            provider_status=exc.code,
+            model_name=model,
+            retry_with_fallback=retryable,
+        ) from exc
+    except (URLError, TimeoutError) as exc:
+        raise ChatbotError(
+            "Không thể kết nối Gemini. Hãy kiểm tra mạng và thử lại.",
+            code="gemini_network",
+            model_name=model,
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise ChatbotError(
+            "Gemini trả về dữ liệu không hợp lệ.",
+            code="gemini_invalid_response",
+            model_name=model,
+            retry_with_fallback=True,
+        ) from exc
+
+    candidates = result.get("candidates") or []
+    if not candidates:
+        block_reason = result.get("promptFeedback", {}).get("blockReason")
+        if block_reason:
+            raise ChatbotError(
+                f"Yêu cầu bị Gemini từ chối: {block_reason}.",
+                code="gemini_blocked",
+                model_name=model,
+            )
+        raise ChatbotError(
+            "Gemini không trả về câu trả lời.",
+            code="gemini_empty_response",
+            model_name=model,
+            retry_with_fallback=True,
+        )
+    parts = candidates[0].get("content", {}).get("parts", [])
+    answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text")).strip()
+    if not answer:
+        raise ChatbotError(
+            "Gemini không trả về nội dung văn bản.",
+            code="gemini_empty_text",
+            model_name=model,
+            retry_with_fallback=True,
+        )
+    return answer
 
 
 def ask_gemini(
@@ -321,7 +442,8 @@ def ask_gemini(
     history: list[dict[str, str]],
     project_data: dict[str, Any],
     uploaded_table: list[dict[str, Any]] | None = None,
-) -> str:
+    preferred_model: str | None = None,
+) -> tuple[str, str, list[dict[str, Any]]]:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise ChatbotError(
@@ -329,11 +451,6 @@ def ask_gemini(
             code="missing_api_key",
         )
 
-    model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
-    endpoint = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{quote(model, safe='')}:generateContent"
-    )
     context = {
         "smart_tkb_data": _compact_project_data(project_data),
         "uploaded_documents": uploaded_table,
@@ -370,71 +487,27 @@ def ask_gemini(
             "maxOutputTokens": 4096,
         },
     }, ensure_ascii=False).encode("utf-8")
-    request = Request(
-        endpoint,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json; charset=utf-8",
-            "x-goog-api-key": api_key,
-        },
-    )
 
-    try:
-        with urlopen(request, timeout=60) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
-        detail = ""
+    attempts: list[dict[str, Any]] = []
+    models = _model_chain_from(preferred_model)
+    for index, model in enumerate(models):
         try:
-            error_data = json.loads(exc.read().decode("utf-8"))
-            detail = str(error_data.get("error", {}).get("message", ""))
-        except Exception:
-            pass
-        if exc.code == 429:
-            raise ChatbotError(
-                "API Gemini đã hết hạn mức tạm thời. Hãy thử lại sau.",
-                code="gemini_rate_limit",
-                provider_status=exc.code,
-            ) from exc
-        if exc.code in (401, 403):
-            raise ChatbotError(
-                "Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập API.",
-                code="gemini_auth",
-                provider_status=exc.code,
-            ) from exc
-        raise ChatbotError(
-            f"Gemini trả về lỗi {exc.code}: {detail or 'không có chi tiết'}",
-            code="gemini_http",
-            provider_status=exc.code,
-        ) from exc
-    except (URLError, TimeoutError) as exc:
-        raise ChatbotError(
-            "Không thể kết nối Gemini. Hãy kiểm tra mạng và thử lại.",
-            code="gemini_network",
-        ) from exc
-    except json.JSONDecodeError as exc:
-        raise ChatbotError(
-            "Gemini trả về dữ liệu không hợp lệ.",
-            code="gemini_invalid_response",
-        ) from exc
+            answer = _call_gemini_model(model, api_key, payload)
+            return answer, model, attempts
+        except ChatbotError as exc:
+            attempts.append({
+                "model": model,
+                "code": str(exc.code),
+                "provider_status": exc.provider_status,
+                "message": str(exc),
+            })
+            has_next = index + 1 < len(models)
+            if not exc.retry_with_fallback or not has_next:
+                exc.attempts = attempts
+                raise
 
-    candidates = result.get("candidates") or []
-    if not candidates:
-        block_reason = result.get("promptFeedback", {}).get("blockReason")
-        if block_reason:
-            raise ChatbotError(
-                f"Yêu cầu bị Gemini từ chối: {block_reason}.",
-                code="gemini_blocked",
-            )
-        raise ChatbotError(
-            "Gemini không trả về câu trả lời.",
-            code="gemini_empty_response",
-        )
-    parts = candidates[0].get("content", {}).get("parts", [])
-    answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text")).strip()
-    if not answer:
-        raise ChatbotError(
-            "Gemini không trả về nội dung văn bản.",
-            code="gemini_empty_text",
-        )
-    return answer
+    raise ChatbotError(
+        "Không có model Gemini khả dụng.",
+        code="gemini_no_model",
+        attempts=attempts,
+    )

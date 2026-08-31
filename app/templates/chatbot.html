@@ -6,7 +6,7 @@
     <title>Trợ lý phân công · {{ p.name }}</title>
     <script>(function(){const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark-mode')})()</script>
     <link rel="stylesheet" href="/static/style.css?v=32">
-    <link rel="stylesheet" href="/static/chatbot.css?v=3">
+    <link rel="stylesheet" href="/static/chatbot.css?v=4">
 </head>
 <body class="chatbot-page">
     <header class="appbar chatbot-appbar">
@@ -65,7 +65,7 @@
         </section>
     </main>
 
-    <script>window.CHATBOT_PROJECT_ID={{ p.id }};window.CHATBOT_ENABLED={{ chatbot_enabled | tojson }};</script>
-    <script src="/static/chatbot.js?v=4"></script>
+    <script>window.CHATBOT_PROJECT_ID={{ p.id }};window.CHATBOT_ENABLED={{ chatbot_enabled | tojson }};window.CHATBOT_PRIMARY_MODEL={{ chatbot_primary_model | tojson }};</script>
+    <script src="/static/chatbot.js?v=5"></script>
 </body>
 </html>

@@ -2222,7 +2222,15 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
 def project_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
     p=get_project(pid,user,db)
     data=project_data(db,p)
-    return templates.TemplateResponse("workspace.html", {"request":request,"user":user,"p":p,"data":data,"days":DAYS,"chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip())})
+    return templates.TemplateResponse("workspace.html", {
+        "request":request,
+        "user":user,
+        "p":p,
+        "data":data,
+        "days":DAYS,
+        "chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
+        "chatbot_primary_model":os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
+    })
 
 @app.get("/projects/{pid}/chatbot", response_class=HTMLResponse)
 def chatbot_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
@@ -2232,6 +2240,7 @@ def chatbot_page(pid:int, request:Request, user:User=Depends(current_user), db:S
         "user":user,
         "p":p,
         "chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
+        "chatbot_primary_model":os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
     })
 
 @app.post("/api/projects/{pid}/chatbot")
@@ -2239,6 +2248,7 @@ def chatbot_reply(
     pid:int,
     message:str=Form(...),
     history_json:str=Form("[]"),
+    preferred_model:str=Form(""),
     files:list[UploadFile]|None=File(None),
     user:User=Depends(current_user),
     db:Session=Depends(db_session),
@@ -2314,14 +2324,37 @@ def chatbot_reply(
             logger.exception("Could not persist chatbot error log for project %s", pid)
 
     try:
-        answer=ask_gemini(clean_message,history,project_data(db,p),uploaded_tables or None)
+        answer, model_used, fallback_failures = ask_gemini(
+            clean_message,
+            history,
+            project_data(db,p),
+            uploaded_tables or None,
+            preferred_model=preferred_model.strip() or None,
+        )
+        for failure in fallback_failures:
+            persist_chatbot_failure(
+                str(failure.get("code") or "chatbot_error"),
+                f"[model={failure.get('model') or 'unknown'}] {failure.get('message') or ''}",
+                failure.get("provider_status"),
+            )
     except ChatbotError as exc:
         logger.warning("Chatbot request failed for project %s: %s", pid, exc)
-        persist_chatbot_failure(
-            str(getattr(exc, "code", "chatbot_error")),
-            str(exc),
-            getattr(exc, "provider_status", None),
-        )
+        attempts = list(getattr(exc, "attempts", []) or [])
+        if attempts:
+            for failure in attempts:
+                persist_chatbot_failure(
+                    str(failure.get("code") or "chatbot_error"),
+                    f"[model={failure.get('model') or 'unknown'}] {failure.get('message') or ''}",
+                    failure.get("provider_status"),
+                )
+        else:
+            model_name = getattr(exc, "model_name", None)
+            prefix = f"[model={model_name}] " if model_name else ""
+            persist_chatbot_failure(
+                str(getattr(exc, "code", "chatbot_error")),
+                f"{prefix}{exc}",
+                getattr(exc, "provider_status", None),
+            )
         raise HTTPException(503,"Không thể kết nối tới chatbot. Vui lòng thử lại sau.")
     except Exception as exc:
         logger.exception("Unexpected chatbot failure for project %s", pid)
@@ -2330,7 +2363,12 @@ def chatbot_reply(
             f"{type(exc).__name__}: {exc}",
         )
         raise HTTPException(503,"Không thể kết nối tới chatbot. Vui lòng thử lại sau.")
-    return {"answer":answer,"files_analyzed":len(uploaded_tables)}
+    return {
+        "answer":answer,
+        "files_analyzed":len(uploaded_tables),
+        "model_used":model_used,
+        "fallback_used":model_used != (os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"),
+    }
 
 class EntityIn(BaseModel):
     type: str

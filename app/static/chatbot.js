@@ -21,6 +21,7 @@
 
   let requestVersion = 0;
   let activeController = null;
+  let activeModel = String(window.CHATBOT_PRIMARY_MODEL || 'gemini-3.7-flash').trim() || 'gemini-3.7-flash';
 
   const escapeHtml = value => String(value)
     .replaceAll('&', '&amp;')
@@ -46,6 +47,7 @@
       return token;
     };
 
+    source = source.replace(/<br\s*\/?>/gi, () => protect('<br>'));
     source = source.replace(/`([^`\n]+)`/g, (_, code) => protect(`<code>${escapeHtml(code)}</code>`));
     source = source.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
       return protect(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
@@ -89,7 +91,7 @@
 
   function isTableSeparator(line) {
     const cells = splitTableRow(line);
-    return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell.trim()));
+    return cells.length > 0 && cells.every(cell => /^:?-{2,}:?$/.test(cell.trim()));
   }
 
   function tableAlignment(separatorCell) {
@@ -391,6 +393,7 @@
     const payload = new FormData();
     payload.append('message', prompt);
     payload.append('history_json', JSON.stringify(history.slice(-8)));
+    payload.append('preferred_model', activeModel);
     selectedFiles.forEach(file => payload.append('files', file));
 
     const currentVersion = ++requestVersion;
@@ -426,6 +429,7 @@
       }
 
       setConnectionState(true);
+      if (result.model_used) activeModel = String(result.model_used);
       addMessage('assistant', result.answer);
       history.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
       if (history.length > 8) history.splice(0, history.length - 8);

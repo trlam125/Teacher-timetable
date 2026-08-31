@@ -10,7 +10,7 @@
     <script src="/static/operation-status.js?v=3" defer></script>
     <link rel="stylesheet" href="/static/preferences.css?v=4">
     <link rel="stylesheet" href="/static/effects.css?v=2">
-    <link rel="stylesheet" href="/static/chatbot.css?v=3">
+    <link rel="stylesheet" href="/static/chatbot.css?v=4">
 </head>
 
 <body>
@@ -33,7 +33,7 @@
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg></button><button class="btn ghost" onclick="copyShare()">Chia sẻ</button><button class="btn ghost" id="chatbotTopButton" type="button" onclick="window.toggleChatbotPopup && window.toggleChatbotPopup()">Trợ lý AI</button><a class="btn ghost"
+            </svg></button><button class="btn ghost" onclick="copyShare()">Chia sẻ</button><a class="btn ghost"
             href="/projects/{{p.id}}/export.xlsx">Xuất Excel</a><button class="btn" onclick="window.print()">In /
             PDF</button>
     </header>
@@ -338,9 +338,9 @@
                     onclick="entityModal.close()">Hủy</button><button class="btn">Lưu</button></div>
         </form>
     </dialog>
-    <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
+    <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
     <script src="/static/app.js?v=31"></script>
-    <script src="/static/chatbot.js?v=4"></script>
+    <script src="/static/chatbot.js?v=5"></script>
 </body>
 
 </html>
