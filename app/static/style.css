@@ -516,6 +516,8 @@ dialog::backdrop { background: var(--dialog-backdrop); }
   box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
 }
 
+.operation-status-content { min-width: 0; }
+
 .operation-status-icon {
   display: grid;
   width: 46px;
@@ -538,10 +540,16 @@ dialog::backdrop { background: var(--dialog-backdrop); }
 
 .operation-status.is-success .operation-status-icon { background: #dcfce7; }
 .operation-status.is-error .operation-status-icon { background: #fee2e2; }
+.operation-status.is-info .operation-status-icon,
+.operation-status.is-confirm .operation-status-icon { background: var(--soft); }
 .operation-status.is-success .operation-status-spinner,
-.operation-status.is-error .operation-status-spinner { display: none; }
+.operation-status.is-error .operation-status-spinner,
+.operation-status.is-info .operation-status-spinner,
+.operation-status.is-confirm .operation-status-spinner { display: none; }
 .operation-status.is-success .operation-status-result,
-.operation-status.is-error .operation-status-result {
+.operation-status.is-error .operation-status-result,
+.operation-status.is-info .operation-status-result,
+.operation-status.is-confirm .operation-status-result {
   display: block;
   font-size: 25px;
   font-weight: 900;
@@ -549,6 +557,8 @@ dialog::backdrop { background: var(--dialog-backdrop); }
 }
 .operation-status.is-success .operation-status-result::before { content: "✓"; color: #15803d; }
 .operation-status.is-error .operation-status-result::before { content: "!"; color: #b91c1c; }
+.operation-status.is-info .operation-status-result::before { content: "i"; color: var(--primary); }
+.operation-status.is-confirm .operation-status-result::before { content: "?"; color: var(--primary); }
 
 .operation-status-title {
   display: block;
@@ -560,32 +570,21 @@ dialog::backdrop { background: var(--dialog-backdrop); }
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+  white-space: pre-line;
 }
+
+.operation-status-actions {
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.operation-status-actions:not([hidden]) { display: flex; }
 
 @keyframes operation-status-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
   .operation-status-spinner { animation-duration: 1.8s; }
-}
-
-#toast {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  padding: 12px 16px;
-  background: #111827;
-  color: #fff;
-  border-radius: 9px;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: .2s;
-  pointer-events: none;
-  z-index: 50;
-}
-
-#toast.show {
-  opacity: 1;
-  transform: none;
 }
 
 @media (max-width: 900px) {

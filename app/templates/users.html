@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quản lý tài khoản</title>
   <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode');}})();function toggleTheme(){const isDark=document.documentElement.classList.toggle('dark-mode');localStorage.setItem('theme',isDark?'dark':'light');}</script>
-  <link rel="stylesheet" href="/static/style.css?v=31">
-  <script src="/static/operation-status.js?v=1" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=32">
+  <script src="/static/operation-status.js?v=2" defer></script>
   <link rel="stylesheet" href="/static/effects.css?v=2">
   <link rel="stylesheet" href="/static/auth-extra.css">
 </head>
@@ -110,7 +110,7 @@
           {% endif %}
 
           {% if account.id != user.id %}
-            <form method="post" action="/admin/users/{{account.id}}/delete" onsubmit="return confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.');">
+            <form method="post" action="/admin/users/{{account.id}}/delete" onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.', {title: 'Xóa tài khoản', confirmText: 'Xóa'}).then(ok => { if (ok) this.submit(); });">
               <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
             </form>
           {% else %}

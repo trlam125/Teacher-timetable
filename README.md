@@ -14,6 +14,7 @@
 * Đăng ký tài khoản giáo viên qua link mời và xác thực OTP email.
 * Chia sẻ thời khóa biểu bằng liên kết và xuất CSV.
 * Nhân bản bộ thời khóa biểu cho học kỳ mới.
+* Trợ lý AI riêng để kiểm tra, đối chiếu file Word/Excel/CSV và đề xuất phân công.
 
 ## Công nghệ sử dụng
 
@@ -119,6 +120,21 @@ SMTP_STARTTLS=false
 ```
 
 Khi triển khai production, `APP_BASE_URL` cần được đặt thành địa chỉ công khai của ứng dụng.
+
+## Cấu hình chatbot Gemini
+
+Tạo API key trong Google AI Studio rồi thêm vào `.env` trên máy chủ:
+
+```env
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+GEMINI_MODEL=gemini-3.7-flash
+```
+
+Không đặt API key trong JavaScript hoặc commit file `.env`. Sau khi khởi động lại
+ứng dụng, mở một bộ thời khóa biểu và chọn **Trợ lý AI**. Chatbot đọc dữ liệu của
+bộ hiện tại và có thể đối chiếu cùng lúc tối đa 3 tệp `.docx`, `.xlsx` hoặc `.csv`;
+mỗi tệp tối đa 5 MB và tổng không quá 12 MB. Chatbot
+chỉ đề xuất, không tự ghi thay đổi vào cơ sở dữ liệu.
 
 ## Chạy ứng dụng
 

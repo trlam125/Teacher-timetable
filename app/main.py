@@ -22,7 +22,7 @@ from app.logic import (
 )
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -2183,6 +2183,74 @@ def project_page(pid:int, request:Request, user:User=Depends(current_user), db:S
     p=get_project(pid,user,db)
     data=project_data(db,p)
     return templates.TemplateResponse("workspace.html", {"request":request,"user":user,"p":p,"data":data,"days":DAYS})
+
+@app.get("/projects/{pid}/chatbot", response_class=HTMLResponse)
+def chatbot_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
+    p=get_project(pid,user,db)
+    return templates.TemplateResponse("chatbot.html", {
+        "request":request,
+        "user":user,
+        "p":p,
+        "chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
+    })
+
+@app.post("/api/projects/{pid}/chatbot")
+def chatbot_reply(
+    pid:int,
+    message:str=Form(...),
+    history_json:str=Form("[]"),
+    files:list[UploadFile]|None=File(None),
+    user:User=Depends(current_user),
+    db:Session=Depends(db_session),
+):
+    from app.chatbot import (
+        MAX_TOTAL_UPLOAD_BYTES,
+        MAX_UPLOAD_BYTES,
+        MAX_UPLOAD_FILES,
+        ChatbotError,
+        ask_gemini,
+        parse_uploaded_table,
+    )
+
+    p=get_project(pid,user,db)
+    clean_message=message.strip()
+    if not clean_message:
+        raise HTTPException(400,"Hãy nhập nội dung cần tư vấn")
+    if len(clean_message)>4000:
+        raise HTTPException(400,"Nội dung không được vượt quá 4.000 ký tự")
+    try:
+        raw_history=json.loads(history_json)
+    except (json.JSONDecodeError,TypeError):
+        raise HTTPException(400,"Lịch sử trò chuyện không hợp lệ")
+    if not isinstance(raw_history,list):
+        raise HTTPException(400,"Lịch sử trò chuyện không hợp lệ")
+    history=[]
+    for item in raw_history[-8:]:
+        if not isinstance(item,dict) or item.get("role") not in {"user","assistant"}:
+            continue
+        content=str(item.get("content","")).strip()
+        if content:
+            history.append({"role":item["role"],"content":content[:8000]})
+
+    upload_items=[item for item in (files or []) if item.filename]
+    if len(upload_items)>MAX_UPLOAD_FILES:
+        raise HTTPException(400,f"Chỉ được đính kèm tối đa {MAX_UPLOAD_FILES} tệp")
+    uploaded_tables=[]
+    total_upload_bytes=0
+    for file in upload_items:
+        content=file.file.read(MAX_UPLOAD_BYTES+1)
+        total_upload_bytes+=len(content)
+        if total_upload_bytes>MAX_TOTAL_UPLOAD_BYTES:
+            raise HTTPException(400,"Tổng dung lượng tệp vượt quá giới hạn 12 MB")
+        try:
+            uploaded_tables.append(parse_uploaded_table(file.filename,content))
+        except ChatbotError as exc:
+            raise HTTPException(400,str(exc))
+    try:
+        answer=ask_gemini(clean_message,history,project_data(db,p),uploaded_tables or None)
+    except ChatbotError as exc:
+        raise HTTPException(503,str(exc))
+    return {"answer":answer,"files_analyzed":len(uploaded_tables)}
 
 class EntityIn(BaseModel):
     type: str

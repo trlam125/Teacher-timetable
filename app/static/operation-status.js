@@ -4,9 +4,9 @@
   const originalFetch = window.fetch.bind(window);
   const state = {
     activeRequests: 0,
-    visible: false,
-    settleTimer: null,
-    lastResult: null,
+    current: null,
+    hideTimer: null,
+    queue: [],
     startedAt: 0,
   };
 
@@ -18,20 +18,25 @@
     panel.id = 'operationStatus';
     panel.className = 'operation-status';
     panel.hidden = true;
-    panel.setAttribute('role', 'status');
-    panel.setAttribute('aria-live', 'polite');
-    panel.setAttribute('aria-busy', 'true');
     panel.innerHTML = `
-      <div class="operation-status-card">
+      <section class="operation-status-card" role="status" aria-live="polite">
         <div class="operation-status-icon" aria-hidden="true">
           <span class="operation-status-spinner"></span>
           <span class="operation-status-result"></span>
         </div>
-        <div>
+        <div class="operation-status-content">
           <strong class="operation-status-title">Đang xử lý</strong>
           <p class="operation-status-message">Vui lòng chờ trong giây lát…</p>
+          <div class="operation-status-actions" hidden>
+            <button type="button" class="btn ghost" data-operation-cancel>Hủy</button>
+            <button type="button" class="btn" data-operation-confirm>Đồng ý</button>
+          </div>
         </div>
-      </div>`;
+      </section>`;
+    panel.addEventListener('click', event => {
+      if (event.target.closest('[data-operation-confirm]')) resolveConfirmation(true);
+      if (event.target.closest('[data-operation-cancel]')) resolveConfirmation(false);
+    });
     document.body.appendChild(panel);
     return panel;
   }
@@ -52,116 +57,152 @@
     return 'Đang xử lý yêu cầu…';
   }
 
-  function showPending(message) {
+  function setPanel(mode, title, message) {
     const panel = ensurePanel();
-    const wasVisible = state.visible;
-    clearTimeout(state.settleTimer);
-    state.visible = true;
-    if (!wasVisible) {
-      state.startedAt = Date.now();
-      state.lastResult = null;
-    }
+    const card = panel.querySelector('.operation-status-card');
+    const actions = panel.querySelector('.operation-status-actions');
+    clearTimeout(state.hideTimer);
     panel.hidden = false;
-    panel.className = 'operation-status is-pending';
-    panel.setAttribute('aria-busy', 'true');
-    panel.querySelector('.operation-status-title').textContent = message;
-    panel.querySelector('.operation-status-message').textContent = 'Vui lòng chờ, không đóng trang hoặc thao tác lặp lại.';
+    panel.className = `operation-status is-${mode}`;
+    card.setAttribute('role', mode === 'confirm' ? 'alertdialog' : 'status');
+    card.setAttribute('aria-live', mode === 'error' ? 'assertive' : 'polite');
+    panel.querySelector('.operation-status-title').textContent = title;
+    panel.querySelector('.operation-status-message').textContent = message;
+    actions.hidden = mode !== 'confirm';
+  }
+
+  function showPending(message) {
+    state.current = {type: 'pending'};
+    setPanel('pending', message, 'Vui lòng chờ, không đóng trang hoặc thao tác lặp lại.');
   }
 
   function begin(message) {
+    if (state.activeRequests === 0) state.startedAt = Date.now();
     state.activeRequests += 1;
-    showPending(message);
+    showPending(message || 'Đang xử lý…');
   }
 
-  function resultMessage(payload, response, fallback) {
-    if (payload && typeof payload === 'object') {
-      const detail = Array.isArray(payload.detail)
-        ? payload.detail.map(item => item.msg || String(item)).join('; ')
-        : payload.detail;
-      return payload.message || detail || fallback;
-    }
-    return fallback || (response.ok ? 'Thao tác đã hoàn tất.' : 'Không thể hoàn tất thao tác.');
-  }
-
-  async function readResult(response) {
-    try {
-      const type = response.headers.get('content-type') || '';
-      if (!type.includes('application/json')) return null;
-      return await response.clone().json();
-    } catch (_error) {
-      return null;
-    }
-  }
-
-  function scheduleSettle() {
-    if (state.activeRequests > 0) return;
-    clearTimeout(state.settleTimer);
-    const elapsed = Date.now() - state.startedAt;
-    const minimumPendingTime = Math.max(0, 280 - elapsed);
-    state.settleTimer = setTimeout(() => {
-      if (state.activeRequests > 0 || !state.visible) return;
-      const panel = ensurePanel();
-      const result = state.lastResult || {ok: true, message: 'Thao tác đã hoàn tất.'};
-      panel.className = `operation-status ${result.ok ? 'is-success' : 'is-error'}`;
-      panel.setAttribute('aria-busy', 'false');
-      panel.querySelector('.operation-status-title').textContent = result.ok ? 'Hoàn tất' : 'Chưa hoàn tất';
-      panel.querySelector('.operation-status-message').textContent = result.message;
-      state.settleTimer = setTimeout(() => reset(), result.ok ? 700 : 1200);
-    }, minimumPendingTime + 120);
-  }
-
-  function finish(result) {
+  function finish() {
     state.activeRequests = Math.max(0, state.activeRequests - 1);
-    if (result && (!state.lastResult || !result.ok || state.lastResult.ok)) {
-      state.lastResult = result;
-    }
-    scheduleSettle();
+    if (state.activeRequests > 0) return;
+    const remaining = Math.max(0, 320 - (Date.now() - state.startedAt));
+    state.hideTimer = setTimeout(() => {
+      if (state.activeRequests > 0) return;
+      hidePanel();
+      drainQueue();
+    }, remaining);
   }
 
-  function reset() {
-    clearTimeout(state.settleTimer);
+  function hidePanel() {
+    clearTimeout(state.hideTimer);
     const panel = document.querySelector('#operationStatus');
     if (panel) panel.hidden = true;
+    state.current = null;
+  }
+
+  function notificationKind(message, requestedKind) {
+    if (requestedKind) return requestedKind;
+    const normalized = String(message).toLowerCase();
+    if (['lỗi', 'thất bại', 'không thể', 'không được', 'chưa hoàn tất'].some(word => normalized.includes(word))) return 'error';
+    if (['đã ', 'thành công', 'hoàn tất'].some(word => normalized.includes(word))) return 'success';
+    return 'info';
+  }
+
+  function enqueue(item) {
+    const last = state.queue[state.queue.length - 1];
+    if (item.type === 'notice' && last?.type === 'notice' && last.message === item.message) return;
+    state.queue.push(item);
+    drainQueue();
+  }
+
+  function notify(message, kind) {
+    if (!message) return;
+    enqueue({type: 'notice', message: String(message), kind: notificationKind(message, kind)});
+  }
+
+  function confirmAction(message, options = {}) {
+    return new Promise(resolve => {
+      enqueue({
+        type: 'confirm',
+        message: String(message),
+        title: options.title || 'Xác nhận thao tác',
+        confirmText: options.confirmText || 'Đồng ý',
+        cancelText: options.cancelText || 'Hủy',
+        resolve,
+      });
+    });
+  }
+
+  function drainQueue() {
+    if (state.activeRequests > 0 || state.current || state.queue.length === 0) return;
+    const item = state.queue.shift();
+    state.current = item;
+    if (item.type === 'confirm') {
+      const panel = ensurePanel();
+      panel.querySelector('[data-operation-confirm]').textContent = item.confirmText;
+      panel.querySelector('[data-operation-cancel]').textContent = item.cancelText;
+      setPanel('confirm', item.title, item.message);
+      panel.querySelector('[data-operation-confirm]').focus();
+      return;
+    }
+
+    const titles = {success: 'Hoàn tất', error: 'Chưa hoàn tất', info: 'Thông báo'};
+    setPanel(item.kind, titles[item.kind], item.message);
+    const duration = item.kind === 'error' ? 3200 : 1900;
+    state.hideTimer = setTimeout(() => {
+      hidePanel();
+      drainQueue();
+    }, duration);
+  }
+
+  function resolveConfirmation(accepted) {
+    if (state.current?.type !== 'confirm') return;
+    const {resolve} = state.current;
+    hidePanel();
+    resolve(accepted);
+    drainQueue();
+  }
+
+  function reset(options = {}) {
+    hidePanel();
     state.activeRequests = 0;
-    state.visible = false;
-    state.lastResult = null;
     state.startedAt = 0;
+    if (options.clearQueue) state.queue.length = 0;
+    drainQueue();
   }
 
   window.fetch = async function operationAwareFetch(input, init) {
     const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
-    const followsActiveOperation = !isMutation && state.visible;
+    const followsActiveOperation = !isMutation && state.current?.type === 'pending';
 
     if (!isMutation && !followsActiveOperation) return originalFetch(input, init);
     begin(isMutation ? requestLabel(url, method) : 'Đang cập nhật giao diện…');
-
     try {
-      const response = await originalFetch(input, init);
-      const payload = isMutation ? await readResult(response) : null;
-      finish(isMutation ? {
-        ok: response.ok,
-        message: resultMessage(payload, response),
-      } : null);
-      return response;
+      return await originalFetch(input, init);
     } catch (error) {
-      finish({ok: false, message: 'Mất kết nối tới máy chủ. Vui lòng thử lại.'});
+      notify('Mất kết nối tới máy chủ. Vui lòng thử lại.', 'error');
       throw error;
+    } finally {
+      finish();
     }
   };
 
   document.addEventListener('submit', event => {
     queueMicrotask(() => {
-      if (event.defaultPrevented || state.visible) return;
-      const submitterText = (event.submitter && event.submitter.textContent || '').trim();
-      const message = submitterText ? `Đang thực hiện: ${submitterText}…` : 'Đang gửi biểu mẫu…';
-      showPending(message);
+      if (event.defaultPrevented || state.activeRequests > 0) return;
+      const submitterText = (event.submitter?.textContent || '').trim();
+      begin(submitterText ? `Đang thực hiện: ${submitterText}…` : 'Đang gửi biểu mẫu…');
     });
   });
 
-  window.OperationStatus = {begin, finish, reset};
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && state.current?.type === 'confirm') resolveConfirmation(false);
+  });
+
+  window.OperationStatus = {begin, finish, notify, confirm: confirmAction, reset};
   window.addEventListener('pageshow', event => {
-    if (event.persisted) reset();
+    if (event.persisted) reset({clearQueue: true});
   });
 })();

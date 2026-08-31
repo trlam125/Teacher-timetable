@@ -362,10 +362,6 @@ dialog::backdrop {
   animation: fx-backdrop-in 0.25s ease both;
 }
 
-#toast.show {
-  animation: fx-toast-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
 @keyframes fx-slide-down {
   from { opacity: 0; transform: translateY(-18px); }
   to { opacity: 1; transform: translateY(0); }
@@ -394,11 +390,6 @@ dialog::backdrop {
 @keyframes fx-backdrop-in {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@keyframes fx-toast-in {
-  from { opacity: 0; transform: translateY(-12px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes fx-ripple {
