@@ -15,7 +15,12 @@
   const fab = document.querySelector('#chatbotFab');
   const closeButton = document.querySelector('#chatbotClose');
   const minimizeButton = document.querySelector('#chatbotMinimize');
+  const popupStatus = document.querySelector('.chatbot-popup-status');
+  const pageStatus = document.querySelector('.chatbot-status');
   const history = [];
+
+  let requestVersion = 0;
+  let activeController = null;
 
   const escapeHtml = value => String(value)
     .replaceAll('&', '&amp;')
@@ -24,14 +29,151 @@
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
 
+  function setConnectionState(connected) {
+    const status = popupStatus || pageStatus;
+    if (!status) return;
+    status.classList.toggle('is-ready', connected);
+    status.classList.toggle('is-offline', !connected);
+    status.textContent = connected ? 'Sẵn sàng hỗ trợ' : 'Không thể kết nối tới chatbot';
+  }
+
   function renderInline(text) {
-    let safe = escapeHtml(text);
-    safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
-    safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    safe = safe.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-    safe = safe.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
-    safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    let source = String(text ?? '');
+    const protectedParts = [];
+    const protect = html => {
+      const token = `@@INLINE_${protectedParts.length}@@`;
+      protectedParts.push(html);
+      return token;
+    };
+
+    source = source.replace(/`([^`\n]+)`/g, (_, code) => protect(`<code>${escapeHtml(code)}</code>`));
+    source = source.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
+      return protect(`<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`);
+    });
+
+    let safe = escapeHtml(source);
+    safe = safe.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    safe = safe.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+    safe = safe.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+    safe = safe.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+
+    protectedParts.forEach((html, index) => {
+      safe = safe.replaceAll(`@@INLINE_${index}@@`, html);
+    });
     return safe;
+  }
+
+  function splitTableRow(line) {
+    let value = String(line).trim();
+    if (value.startsWith('|')) value = value.slice(1);
+    if (value.endsWith('|') && !value.endsWith('\\|')) value = value.slice(0, -1);
+
+    const cells = [];
+    let cell = '';
+    for (let index = 0; index < value.length; index += 1) {
+      const char = value[index];
+      const next = value[index + 1];
+      if (char === '\\' && next === '|') {
+        cell += '|';
+        index += 1;
+      } else if (char === '|') {
+        cells.push(cell.trim());
+        cell = '';
+      } else {
+        cell += char;
+      }
+    }
+    cells.push(cell.trim());
+    return cells;
+  }
+
+  function isTableSeparator(line) {
+    const cells = splitTableRow(line);
+    return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell.trim()));
+  }
+
+  function tableAlignment(separatorCell) {
+    const value = separatorCell.trim();
+    if (value.startsWith(':') && value.endsWith(':')) return 'center';
+    if (value.endsWith(':')) return 'right';
+    return 'left';
+  }
+
+  function renderTable(headerLine, separatorLine, bodyLines) {
+    const headers = splitTableRow(headerLine);
+    const separators = splitTableRow(separatorLine);
+    const alignments = headers.map((_, index) => tableAlignment(separators[index] || '---'));
+    const rows = bodyLines.map(splitTableRow);
+
+    const head = headers.map((cell, index) => (
+      `<th class="align-${alignments[index]}">${renderInline(cell)}</th>`
+    )).join('');
+
+    const body = rows.map(row => {
+      const cells = headers.map((_, index) => (
+        `<td class="align-${alignments[index]}">${renderInline(row[index] || '')}</td>`
+      )).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+
+    return `<div class="message-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  function listIndent(raw) {
+    return raw.replace(/\t/g, '    ').length;
+  }
+
+  function parseListItem(line) {
+    const match = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.+)$/);
+    if (!match) return null;
+    return {
+      indent: listIndent(match[1]),
+      type: /^\d/.test(match[2]) ? 'ol' : 'ul',
+      content: match[3],
+    };
+  }
+
+  function renderListSequence(items, startIndex, baseIndent) {
+    let index = startIndex;
+    let html = '';
+
+    while (index < items.length && items[index].indent === baseIndent) {
+      const type = items[index].type;
+      html += `<${type}>`;
+
+      while (index < items.length) {
+        const item = items[index];
+        if (item.indent < baseIndent || item.indent > baseIndent || item.type !== type) break;
+
+        html += `<li>${renderInline(item.content)}`;
+        index += 1;
+
+        while (index < items.length && items[index].indent > baseIndent) {
+          const nestedIndent = items[index].indent;
+          const nested = renderListSequence(items, index, nestedIndent);
+          html += nested.html;
+          index = nested.index;
+        }
+        html += '</li>';
+      }
+      html += `</${type}>`;
+    }
+
+    return { html, index };
+  }
+
+  function renderListBlock(lines) {
+    const items = lines.map(parseListItem).filter(Boolean);
+    if (!items.length) return '';
+    let index = 0;
+    let html = '';
+    while (index < items.length) {
+      const rendered = renderListSequence(items, index, items[index].indent);
+      html += rendered.html;
+      if (rendered.index <= index) break;
+      index = rendered.index;
+    }
+    return html;
   }
 
   function renderMarkdown(markdown) {
@@ -45,7 +187,6 @@
 
     const lines = protectedSource.split('\n');
     const out = [];
-    let listType = null;
     let paragraph = [];
 
     const flushParagraph = () => {
@@ -53,55 +194,89 @@
       out.push(`<p>${renderInline(paragraph.join(' '))}</p>`);
       paragraph = [];
     };
-    const closeList = () => {
-      if (!listType) return;
-      out.push(`</${listType}>`);
-      listType = null;
-    };
 
-    for (const raw of lines) {
+    for (let index = 0; index < lines.length;) {
+      const raw = lines[index];
       const line = raw.trimEnd();
       const trimmed = line.trim();
+
       if (!trimmed) {
         flushParagraph();
-        closeList();
+        index += 1;
         continue;
       }
+
       if (/^@@CODEBLOCK_\d+@@$/.test(trimmed)) {
-        flushParagraph(); closeList(); out.push(trimmed); continue;
+        flushParagraph();
+        out.push(trimmed);
+        index += 1;
+        continue;
       }
+
+      if (index + 1 < lines.length && line.includes('|') && isTableSeparator(lines[index + 1])) {
+        flushParagraph();
+        const bodyLines = [];
+        let bodyIndex = index + 2;
+        while (bodyIndex < lines.length) {
+          const candidate = lines[bodyIndex];
+          if (!candidate.trim() || !candidate.includes('|') || parseListItem(candidate)) break;
+          bodyLines.push(candidate);
+          bodyIndex += 1;
+        }
+        out.push(renderTable(line, lines[index + 1], bodyLines));
+        index = bodyIndex;
+        continue;
+      }
+
       const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
       if (heading) {
-        flushParagraph(); closeList();
+        flushParagraph();
         const level = heading[1].length;
         out.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+        index += 1;
         continue;
       }
+
       if (/^---+$/.test(trimmed)) {
-        flushParagraph(); closeList(); out.push('<hr>'); continue;
-      }
-      const bullet = trimmed.match(/^[-*+]\s+(.+)$/);
-      const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
-      if (bullet || numbered) {
         flushParagraph();
-        const wanted = bullet ? 'ul' : 'ol';
-        if (listType !== wanted) { closeList(); out.push(`<${wanted}>`); listType = wanted; }
-        out.push(`<li>${renderInline((bullet || numbered)[1])}</li>`);
+        out.push('<hr>');
+        index += 1;
         continue;
       }
+
+      if (parseListItem(line)) {
+        flushParagraph();
+        const listLines = [];
+        while (index < lines.length && parseListItem(lines[index])) {
+          listLines.push(lines[index]);
+          index += 1;
+        }
+        out.push(renderListBlock(listLines));
+        continue;
+      }
+
       const quote = trimmed.match(/^>\s?(.*)$/);
       if (quote) {
-        flushParagraph(); closeList(); out.push(`<blockquote>${renderInline(quote[1])}</blockquote>`); continue;
+        flushParagraph();
+        const quoteLines = [];
+        while (index < lines.length) {
+          const current = lines[index].trim().match(/^>\s?(.*)$/);
+          if (!current) break;
+          quoteLines.push(current[1]);
+          index += 1;
+        }
+        out.push(`<blockquote>${renderInline(quoteLines.join(' '))}</blockquote>`);
+        continue;
       }
-      closeList();
-      paragraph.push(trimmed);
-    }
-    flushParagraph();
-    closeList();
 
+      paragraph.push(trimmed);
+      index += 1;
+    }
+
+    flushParagraph();
     let html = out.join('');
     codeBlocks.forEach((block, index) => {
-      html = html.replace(`@@CODEBLOCK_${index}@@`, block);
+      html = html.replaceAll(`@@CODEBLOCK_${index}@@`, block);
     });
     return html;
   }
@@ -185,10 +360,14 @@
   });
 
   clearChat.addEventListener('click', () => {
+    requestVersion += 1;
+    activeController?.abort();
+    activeController = null;
     history.length = 0;
     messages.querySelectorAll('.chat-message.user,.chat-message.assistant:not(:first-child),.chat-loading').forEach(item => item.remove());
     fileInput.value = '';
     updateFilePreview();
+    sendButton.disabled = !window.CHATBOT_ENABLED;
     input.focus();
   });
 
@@ -197,7 +376,8 @@
     const prompt = input.value.trim();
     if (!prompt || sendButton.disabled) return;
     if (!window.CHATBOT_ENABLED) {
-      addMessage('assistant', 'Máy chủ chưa có GEMINI_API_KEY.', 'error');
+      setConnectionState(false);
+      addMessage('assistant', 'Không thể kết nối tới chatbot. Vui lòng thử lại sau.', 'error');
       return;
     }
 
@@ -213,25 +393,57 @@
     payload.append('history_json', JSON.stringify(history.slice(-8)));
     selectedFiles.forEach(file => payload.append('files', file));
 
+    const currentVersion = ++requestVersion;
+    const controller = new AbortController();
+    activeController = controller;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 70000);
+
     try {
-      const response = await fetch(`/api/projects/${projectId}/chatbot`, { method: 'POST', body: payload });
+      const response = await fetch(`/api/projects/${projectId}/chatbot`, {
+        method: 'POST',
+        body: payload,
+        signal: controller.signal,
+        headers: {
+          'X-Skip-Operation-Status': '1',
+        },
+      });
       const result = await response.json().catch(() => ({}));
+      if (currentVersion !== requestVersion) return;
+
       loading.remove();
       if (!response.ok) {
-        addMessage('assistant', result.detail || result.message || 'Không thể nhận câu trả lời.', 'error');
+        if (response.status >= 500 || response.status === 401 || response.status === 403 || response.status === 404) {
+          setConnectionState(false);
+          addMessage('assistant', 'Không thể kết nối tới chatbot. Vui lòng thử lại sau.', 'error');
+        } else {
+          addMessage('assistant', result.detail || result.message || 'Không thể xử lý yêu cầu.', 'error');
+        }
         return;
       }
+
+      setConnectionState(true);
       addMessage('assistant', result.answer);
       history.push({ role: 'user', content: prompt }, { role: 'assistant', content: result.answer });
       if (history.length > 8) history.splice(0, history.length - 8);
       fileInput.value = '';
       updateFilePreview();
     } catch (error) {
+      if (currentVersion !== requestVersion) return;
       loading.remove();
-      addMessage('assistant', 'Mất kết nối tới máy chủ. Hãy thử lại.', 'error');
+      if (error?.name === 'AbortError' && !timedOut) return;
+      setConnectionState(false);
+      addMessage('assistant', 'Không thể kết nối tới chatbot. Vui lòng thử lại sau.', 'error');
     } finally {
-      sendButton.disabled = false;
-      input.focus();
+      window.clearTimeout(timeoutId);
+      if (currentVersion === requestVersion) {
+        activeController = null;
+        sendButton.disabled = false;
+        input.focus();
+      }
     }
   });
 })();

@@ -32,7 +32,16 @@ W = f"{{{WORD_NAMESPACE}}}"
 
 
 class ChatbotError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "chatbot_error",
+        provider_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.provider_status = provider_status
 
 
 def _cell_value(value: Any) -> str:
@@ -229,6 +238,44 @@ def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
 
 def _compact_project_data(data: dict[str, Any]) -> dict[str, Any]:
     project = data.get("project", {})
+    days = int(project.get("days") or 0)
+    sessions = int(project.get("sessions") or 0)
+    periods = int(project.get("periods") or 0)
+    periods_per_day = sessions * periods
+    day_names = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
+
+    scheduled_lessons: list[dict[str, Any]] = []
+    for lesson in data.get("lessons", []):
+        try:
+            slot = int(lesson.get("slot"))
+            assignment_id = int(lesson.get("assignment_id"))
+        except (AttributeError, TypeError, ValueError):
+            continue
+
+        row: dict[str, Any] = {
+            "assignment_id": assignment_id,
+            "slot": slot,
+            "locked": bool(lesson.get("locked", False)),
+        }
+        if periods_per_day > 0 and periods > 0 and 0 <= slot < days * periods_per_day:
+            day_index = slot // periods_per_day
+            inside_day = slot % periods_per_day
+            session_index = inside_day // periods
+            period_index = inside_day % periods
+            row.update({
+                "day": day_names[day_index] if day_index < len(day_names) else f"Ngày {day_index + 1}",
+                "session": (
+                    "Cả buổi" if sessions == 1
+                    else "Buổi sáng" if session_index == 0
+                    else "Buổi chiều" if session_index == 1
+                    else f"Buổi {session_index + 1}"
+                ),
+                "period": period_index + 1,
+            })
+        else:
+            row["invalid_slot"] = True
+        scheduled_lessons.append(row)
+
     return {
         "project": {
             "name": project.get("name"),
@@ -244,14 +291,15 @@ def _compact_project_data(data: dict[str, Any]) -> dict[str, Any]:
         "grades": data.get("grades", []),
         "classes": data.get("classes", []),
         "current_assignments": data.get("assignments", []),
+        "scheduled_lessons": scheduled_lessons,
         "coverage_checks": data.get("coverage", {}),
     }
 
 
-SYSTEM_INSTRUCTION = """Bạn là trợ lý phân công giảng dạy của Smart TKB. Trả lời bằng tiếng Việt, ngắn gọn nhưng đủ căn cứ.
+SYSTEM_INSTRUCTION = """Bạn là trợ lý phân công giảng dạy và thời khóa biểu của Smart TKB. Trả lời bằng tiếng Việt, ngắn gọn nhưng đủ căn cứ.
 
 Nhiệm vụ:
-- Phân tích phân công hiện tại và bảng người dùng đính kèm.
+- Phân tích phân công hiện tại, thời khóa biểu đã xếp và bảng người dùng đính kèm.
 - Kiểm tra đủ lớp, môn, số tiết; tải giáo viên; đúng chuyên môn; các giới hạn và mâu thuẫn nhìn thấy trong dữ liệu.
 - Đề xuất phương án cụ thể, ưu tiên bảng gồm: Giáo viên | Môn | Lớp | Số tiết/tuần | Lý do.
 - Phân biệt rõ yêu cầu bắt buộc, giả định và gợi ý tối ưu.
@@ -261,7 +309,8 @@ Quy tắc an toàn và độ chính xác:
 - Không bịa giáo viên, lớp, môn, định mức hoặc quy định không có trong dữ liệu. Nếu thiếu dữ liệu, nói rõ cần bổ sung gì.
 - Không tuyên bố đã sửa dữ liệu. Bạn chỉ đề xuất; người quản trị phải duyệt và nhập thay đổi vào hệ thống.
 - Khi phát hiện mâu thuẫn, nêu chính xác các dòng/đối tượng liên quan và cách xử lý.
-- Slot thời khóa biểu là số kỹ thuật; chỉ diễn giải slot khi đủ dữ liệu để tính chắc chắn.
+- Dữ liệu scheduled_lessons đã có sẵn thứ, buổi và tiết; khi người dùng hỏi lịch học hãy dùng các trường này và đối chiếu assignment_id với current_assignments.
+- Slot thời khóa biểu là số kỹ thuật; ưu tiên các trường day/session/period đã được hệ thống tính sẵn, không tự suy diễn slot nếu dữ liệu thiếu hoặc bị đánh dấu invalid_slot.
 - Chuẩn hóa cẩn thận các biến thể như 8A1/8 A 1, dấu phẩy thập phân và tên môn viết tắt, nhưng phải nêu rõ khi cách hiểu còn mơ hồ.
 - Tự kiểm tra lại mọi phép cộng số tiết. Giá trị bất thường như 35 tiết/tuần phải được đánh dấu để người dùng xác nhận, không tự sửa ngầm.
 """
@@ -275,7 +324,10 @@ def ask_gemini(
 ) -> str:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
-        raise ChatbotError("Chatbot chưa được cấu hình GEMINI_API_KEY trên máy chủ.")
+        raise ChatbotError(
+            "Chatbot chưa được cấu hình GEMINI_API_KEY trên máy chủ.",
+            code="missing_api_key",
+        )
 
     model = os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
     endpoint = (
@@ -289,7 +341,8 @@ def ask_gemini(
     context_json = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     if len(context_json) > 350_000:
         raise ChatbotError(
-            "Dữ liệu gửi cho chatbot quá lớn. Hãy dùng bảng ít dòng hơn hoặc chia thành nhiều lần phân tích."
+            "Dữ liệu gửi cho chatbot quá lớn. Hãy dùng bảng ít dòng hơn hoặc chia thành nhiều lần phân tích.",
+            code="context_too_large",
         )
 
     contents: list[dict[str, Any]] = []
@@ -338,23 +391,50 @@ def ask_gemini(
         except Exception:
             pass
         if exc.code == 429:
-            raise ChatbotError("API Gemini đã hết hạn mức tạm thời. Hãy thử lại sau.") from exc
+            raise ChatbotError(
+                "API Gemini đã hết hạn mức tạm thời. Hãy thử lại sau.",
+                code="gemini_rate_limit",
+                provider_status=exc.code,
+            ) from exc
         if exc.code in (401, 403):
-            raise ChatbotError("Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập API.") from exc
-        raise ChatbotError(f"Gemini trả về lỗi {exc.code}: {detail or 'không có chi tiết'}") from exc
+            raise ChatbotError(
+                "Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập API.",
+                code="gemini_auth",
+                provider_status=exc.code,
+            ) from exc
+        raise ChatbotError(
+            f"Gemini trả về lỗi {exc.code}: {detail or 'không có chi tiết'}",
+            code="gemini_http",
+            provider_status=exc.code,
+        ) from exc
     except (URLError, TimeoutError) as exc:
-        raise ChatbotError("Không thể kết nối Gemini. Hãy kiểm tra mạng và thử lại.") from exc
+        raise ChatbotError(
+            "Không thể kết nối Gemini. Hãy kiểm tra mạng và thử lại.",
+            code="gemini_network",
+        ) from exc
     except json.JSONDecodeError as exc:
-        raise ChatbotError("Gemini trả về dữ liệu không hợp lệ.") from exc
+        raise ChatbotError(
+            "Gemini trả về dữ liệu không hợp lệ.",
+            code="gemini_invalid_response",
+        ) from exc
 
     candidates = result.get("candidates") or []
     if not candidates:
         block_reason = result.get("promptFeedback", {}).get("blockReason")
         if block_reason:
-            raise ChatbotError(f"Yêu cầu bị Gemini từ chối: {block_reason}.")
-        raise ChatbotError("Gemini không trả về câu trả lời.")
+            raise ChatbotError(
+                f"Yêu cầu bị Gemini từ chối: {block_reason}.",
+                code="gemini_blocked",
+            )
+        raise ChatbotError(
+            "Gemini không trả về câu trả lời.",
+            code="gemini_empty_response",
+        )
     parts = candidates[0].get("content", {}).get("parts", [])
     answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text")).strip()
     if not answer:
-        raise ChatbotError("Gemini không trả về nội dung văn bản.")
+        raise ChatbotError(
+            "Gemini không trả về nội dung văn bản.",
+            code="gemini_empty_text",
+        )
     return answer

@@ -6,7 +6,7 @@
     <title>Trợ lý phân công · {{ p.name }}</title>
     <script>(function(){const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark-mode')})()</script>
     <link rel="stylesheet" href="/static/style.css?v=32">
-    <link rel="stylesheet" href="/static/chatbot.css?v=1">
+    <link rel="stylesheet" href="/static/chatbot.css?v=3">
 </head>
 <body class="chatbot-page">
     <header class="appbar chatbot-appbar">
@@ -14,7 +14,7 @@
         <div><b>Trợ lý phân công</b><small>{{ p.name }} · {{ p.school_name }}</small></div>
         <div class="spacer"></div>
         <span class="chatbot-status {{ 'is-ready' if chatbot_enabled else 'is-offline' }}">
-            {{ 'Gemini đã sẵn sàng' if chatbot_enabled else 'Chưa cấu hình API key' }}
+            {{ 'Sẵn sàng hỗ trợ' if chatbot_enabled else 'Không thể kết nối tới chatbot' }}
         </span>
     </header>
 
@@ -22,7 +22,7 @@
         <aside class="chatbot-guide">
             <div class="chatbot-logo" aria-hidden="true">✦</div>
             <h1>Phân công hợp lý hơn</h1>
-            <p>Trợ lý tự đọc giáo viên, môn, lớp và phân công đang có trong bộ thời khóa biểu này.</p>
+            <p>Trợ lý tự đọc giáo viên, môn, lớp, phân công và lịch đã xếp trong bộ thời khóa biểu này.</p>
             <div class="guide-block">
                 <b>Có thể đính kèm</b>
                 <span>Tối đa 3 tệp Word .docx, Excel .xlsx hoặc CSV; mỗi tệp tối đa 5 MB. Tệp chỉ được đọc cho yêu cầu hiện tại, không lưu trên máy chủ.</span>
@@ -37,7 +37,7 @@
             <div id="chatMessages" class="chat-messages" aria-live="polite">
                 <article class="chat-message assistant">
                     <div class="message-avatar">AI</div>
-                    <div class="message-body">Xin chào! Bạn có thể yêu cầu mình kiểm tra tải giáo viên, tìm phân công thiếu hoặc đề xuất phân công lại. Nếu có bảng yêu cầu riêng, hãy đính kèm bên dưới.</div>
+                    <div class="message-body">Xin chào! Bạn có thể yêu cầu mình kiểm tra tải giáo viên, tìm phân công thiếu, xem lịch học hoặc đề xuất phân công lại. Nếu có bảng yêu cầu riêng, hãy đính kèm bên dưới.</div>
                 </article>
                 <div class="suggestion-list">
                     <button type="button" data-prompt="Kiểm tra phân công hiện tại: lớp/môn nào còn thiếu, giáo viên nào quá tải hoặc dạy chưa đúng chuyên môn?">Kiểm tra toàn bộ phân công</button>
@@ -66,6 +66,6 @@
     </main>
 
     <script>window.CHATBOT_PROJECT_ID={{ p.id }};window.CHATBOT_ENABLED={{ chatbot_enabled | tojson }};</script>
-    <script src="/static/chatbot.js?v=1"></script>
+    <script src="/static/chatbot.js?v=4"></script>
 </body>
 </html>

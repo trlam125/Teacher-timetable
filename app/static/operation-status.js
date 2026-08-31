@@ -174,9 +174,12 @@
   window.fetch = async function operationAwareFetch(input, init) {
     const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
     const url = typeof input === 'string' ? input : (input && input.url) || '';
+    const headers = new Headers((init && init.headers) || (input && input.headers) || undefined);
+    const skipOperationStatus = headers.get('X-Skip-Operation-Status') === '1';
     const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
     const followsActiveOperation = !isMutation && state.current?.type === 'pending';
 
+    if (skipOperationStatus) return originalFetch(input, init);
     if (!isMutation && !followsActiveOperation) return originalFetch(input, init);
     begin(isMutation ? requestLabel(url, method) : 'Đang cập nhật giao diện…');
     try {

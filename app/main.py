@@ -32,7 +32,7 @@ import hmac
 import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, func, inspect, select
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, delete, func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -41,6 +41,7 @@ load_dotenv()
 logger = logging.getLogger("smart_tkb")
 
 ADMIN_ROLES = frozenset({"admin", "super_admin"})
+MAX_CHATBOT_ERROR_LOGS = 500
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -216,6 +217,23 @@ class TeacherPreference(Base):
     status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
     created_at: Mapped[str] = mapped_column(String(40), default=lambda: datetime.now().isoformat(timespec="seconds"))
     reviewed_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+
+class ChatbotErrorLog(Base):
+    __tablename__ = "chatbot_error_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[str] = mapped_column(
+        String(40),
+        default=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        index=True,
+    )
+    project_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    project_name: Mapped[str] = mapped_column(String(200), default="")
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    user_name: Mapped[str] = mapped_column(String(120), default="")
+    user_email: Mapped[str] = mapped_column(String(255), default="")
+    error_code: Mapped[str] = mapped_column(String(64), default="chatbot_error", index=True)
+    provider_status: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str] = mapped_column(Text)
 
 Base.metadata.create_all(engine)
 
@@ -1937,6 +1955,15 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
             for teacher in teachers
             if teacher.id not in assigned_teacher_ids
         ]
+    chatbot_error_logs = []
+    chatbot_error_log_count = 0
+    if is_super_admin(user):
+        chatbot_error_log_count = db.scalar(select(func.count(ChatbotErrorLog.id))) or 0
+        chatbot_error_logs = db.scalars(
+            select(ChatbotErrorLog)
+            .order_by(ChatbotErrorLog.id.desc())
+            .limit(100)
+        ).all()
     return templates.TemplateResponse("users.html", {
         "request": request,
         "user": user,
@@ -1946,7 +1973,20 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
         "managed_teacher_ids": managed_teacher_ids,
         "managed_account_ids": managed_account_ids,
         "project_names": project_names,
+        "chatbot_error_logs": chatbot_error_logs,
+        "chatbot_error_log_count": chatbot_error_log_count,
     })
+
+@app.post("/admin/chatbot-logs/clear")
+def clear_chatbot_error_logs(
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if not is_super_admin(user):
+        raise HTTPException(403, "Chỉ super admin được xóa log chatbot")
+    db.execute(delete(ChatbotErrorLog))
+    db.commit()
+    return RedirectResponse("/admin/users#chatbot-logs", 303)
 
 @app.post("/admin/users/{account_id}/update")
 def update_account(
@@ -2246,10 +2286,50 @@ def chatbot_reply(
             uploaded_tables.append(parse_uploaded_table(file.filename,content))
         except ChatbotError as exc:
             raise HTTPException(400,str(exc))
+
+    def persist_chatbot_failure(error_code: str, error_message: str, provider_status: int | None = None) -> None:
+        try:
+            db.add(ChatbotErrorLog(
+                project_id=p.id,
+                project_name=p.name,
+                user_id=user.id,
+                user_name=user.name,
+                user_email=user.email,
+                error_code=error_code[:64],
+                provider_status=provider_status,
+                error_message=error_message[:8000],
+            ))
+            db.commit()
+            cutoff_id = db.scalar(
+                select(ChatbotErrorLog.id)
+                .order_by(ChatbotErrorLog.id.desc())
+                .offset(MAX_CHATBOT_ERROR_LOGS - 1)
+                .limit(1)
+            )
+            if cutoff_id is not None:
+                db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.id < cutoff_id))
+                db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Could not persist chatbot error log for project %s", pid)
+
     try:
         answer=ask_gemini(clean_message,history,project_data(db,p),uploaded_tables or None)
     except ChatbotError as exc:
-        raise HTTPException(503,str(exc))
+        logger.warning("Chatbot request failed for project %s: %s", pid, exc)
+        persist_chatbot_failure(
+            str(getattr(exc, "code", "chatbot_error")),
+            str(exc),
+            getattr(exc, "provider_status", None),
+        )
+        raise HTTPException(503,"Không thể kết nối tới chatbot. Vui lòng thử lại sau.")
+    except Exception as exc:
+        logger.exception("Unexpected chatbot failure for project %s", pid)
+        persist_chatbot_failure(
+            "internal_error",
+            f"{type(exc).__name__}: {exc}",
+        )
+        raise HTTPException(503,"Không thể kết nối tới chatbot. Vui lòng thử lại sau.")
     return {"answer":answer,"files_analyzed":len(uploaded_tables)}
 
 class EntityIn(BaseModel):

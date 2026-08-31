@@ -119,6 +119,63 @@
         </article>
       {% endfor %}
     </div>
+
+    {% if user.role == 'super_admin' %}
+      <section id="chatbot-logs" class="panel" style="margin-top:28px">
+        <div class="section-head" style="margin-bottom:16px">
+          <div>
+            <h2 style="margin:0 0 6px">Log lỗi chatbot</h2>
+            <p>
+              Lưu lỗi kỹ thuật từ Gemini để super admin kiểm tra. Không lưu nội dung câu hỏi hoặc tệp người dùng; hệ thống chỉ giữ tối đa 500 log mới nhất.
+              {% if chatbot_error_log_count %}Đang có {{ chatbot_error_log_count }} log; bảng hiển thị tối đa 100 log mới nhất.{% endif %}
+            </p>
+          </div>
+          {% if chatbot_error_logs %}
+            <form method="post" action="/admin/chatbot-logs/clear" onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ log lỗi chatbot?', {title: 'Xóa log chatbot', confirmText: 'Xóa log'}).then(ok => { if (ok) this.submit(); });">
+              <button class="btn ghost danger-btn" type="submit">Xóa log</button>
+            </form>
+          {% endif %}
+        </div>
+
+        {% if chatbot_error_logs %}
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Thời gian (UTC)</th>
+                  <th>Project</th>
+                  <th>Tài khoản</th>
+                  <th>Loại lỗi</th>
+                  <th>Chi tiết kỹ thuật</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for log in chatbot_error_logs %}
+                  <tr>
+                    <td style="white-space:nowrap">{{ log.created_at }}</td>
+                    <td>
+                      <b>{{ log.project_name or ('Project #' ~ log.project_id) }}</b>
+                      {% if log.project_id %}<div class="muted">ID {{ log.project_id }}</div>{% endif %}
+                    </td>
+                    <td>
+                      <b>{{ log.user_name or 'Không xác định' }}</b>
+                      {% if log.user_email %}<div class="muted">{{ log.user_email }}</div>{% endif %}
+                    </td>
+                    <td style="white-space:nowrap">
+                      <span class="pill">{{ log.error_code }}</span>
+                      {% if log.provider_status %}<div class="muted" style="margin-top:6px">HTTP {{ log.provider_status }}</div>{% endif %}
+                    </td>
+                    <td style="min-width:320px;max-width:520px;white-space:normal;word-break:break-word">{{ log.error_message }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="muted" style="margin:0">Chưa có lỗi chatbot nào được ghi nhận.</p>
+        {% endif %}
+      </section>
+    {% endif %}
   </main>
 </body>
 </html>
