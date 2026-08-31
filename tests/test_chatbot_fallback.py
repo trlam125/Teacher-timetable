@@ -167,6 +167,76 @@ class ChatbotFallbackTests(unittest.TestCase):
         self.assertEqual(call_model.call_count, 1)
         self.assertEqual(raised.exception.attempts[0]["model"], "primary-model")
 
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "primary-model",
+            "GEMINI_ATTEMPTS_PER_MODEL": "1",
+            "GEMINI_RETRY_BASE_SECONDS": "0",
+        },
+        clear=False,
+    )
+    @patch("app.chatbot._call_gemini_model")
+    def test_malformed_pipe_rows_are_made_readable(self, call_model):
+        call_model.return_value = (
+            "| 7A2, 7A3 | 16 | Cập nhật đủ theo PCCM\n"
+            "- Hoàng Thị Nhung | Toán, Tin học | 9A3, 8A3 | 17 | Theo PCCM"
+        )
+
+        answer, _, _ = ask_gemini("test", [], self.project_data)
+
+        self.assertNotIn("|", answer)
+        self.assertIn("7A2, 7A3 — 16 — Cập nhật đủ theo PCCM", answer)
+        self.assertIn("- Hoàng Thị Nhung — Toán, Tin học — 9A3, 8A3 — 17 — Theo PCCM", answer)
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "primary-model",
+            "GEMINI_ATTEMPTS_PER_MODEL": "1",
+            "GEMINI_RETRY_BASE_SECONDS": "0",
+        },
+        clear=False,
+    )
+    @patch("app.chatbot._call_gemini_model")
+    def test_valid_markdown_table_is_preserved(self, call_model):
+        table = (
+            "| Giáo viên | Số tiết |\n"
+            "| --- | --- |\n"
+            "| Hoàng Thị Nhung | 17 |"
+        )
+        call_model.return_value = table
+
+        answer, _, _ = ask_gemini("test", [], self.project_data)
+
+        self.assertEqual(answer, table)
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API_KEY": "test-key",
+            "GEMINI_MODEL": "primary-model",
+            "GEMINI_ATTEMPTS_PER_MODEL": "1",
+            "GEMINI_RETRY_BASE_SECONDS": "0",
+        },
+        clear=False,
+    )
+    @patch("app.chatbot._call_gemini_model")
+    def test_prompt_prioritizes_complete_answers_and_has_larger_output_budget(self, call_model):
+        import json
+
+        call_model.return_value = "answer"
+        ask_gemini("Liệt kê tất cả giáo viên", [], self.project_data)
+
+        payload = json.loads(call_model.call_args.args[2].decode("utf-8"))
+        instruction = payload["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("không tự rút gọn câu trả lời", instruction.lower())
+        self.assertIn("liệt kê đầy đủ tất cả kết quả phù hợp", instruction.lower())
+        self.assertEqual(payload["generationConfig"]["maxOutputTokens"], 8192)
+
+
 
 if __name__ == "__main__":
     unittest.main()
