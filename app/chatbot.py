@@ -49,6 +49,7 @@ class ChatbotError(RuntimeError):
         model_name: str | None = None,
         retry_with_fallback: bool = False,
         attempts: list[dict[str, Any]] | None = None,
+        provider_call_count: int = 0,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -56,6 +57,7 @@ class ChatbotError(RuntimeError):
         self.model_name = model_name
         self.retry_with_fallback = retry_with_fallback
         self.attempts = attempts or []
+        self.provider_call_count = max(0, int(provider_call_count))
 
 
 def _cell_value(value: Any) -> str:
@@ -467,6 +469,21 @@ def _normalize_assistant_markdown(answer: str) -> str:
 
 
 GEMINI_FALLBACK_MODELS = ("gemini-3.6-flash", "gemini-3.5-flash")
+GEMINI_MAX_OUTPUT_TOKENS = 8192
+# Frontend waits 150 seconds. Keep the whole backend failover chain below that
+# so the browser does not abort while the server is still calling Gemini.
+GEMINI_TOTAL_TIMEOUT_SECONDS = 135.0
+GEMINI_REQUEST_TIMEOUT_SECONDS = 45.0
+GEMINI_DEADLINE_RESERVE_SECONDS = 2.0
+GEMINI_MAX_CONTINUATIONS = 2
+GEMINI_CONTINUE_PROMPT = (
+    "Tiếp tục chính xác từ phần câu trả lời vừa bị cắt. Chỉ viết phần còn thiếu, "
+    "không lặp lại nội dung đã trả lời, vẫn giữ đầy đủ tất cả kết quả liên quan."
+)
+GEMINI_TRUNCATION_WARNING = (
+    "> ⚠️ Câu trả lời vẫn quá dài và đã chạm giới hạn đầu ra sau nhiều phần. "
+    "Hãy nhắn “tiếp tục” hoặc chia nhỏ yêu cầu để xem phần còn lại."
+)
 
 
 def _configured_model_chain() -> list[str]:
@@ -523,21 +540,51 @@ def _same_model_retryable(exc: ChatbotError) -> bool:
     }
 
 
-def _sleep_with_backoff(retry_index: int) -> None:
+def _sleep_with_backoff(retry_index: int, *, deadline: float | None = None) -> None:
     base = _env_float("GEMINI_RETRY_BASE_SECONDS", 0.8, 0.0, 10.0)
     maximum = _env_float("GEMINI_RETRY_MAX_SECONDS", 4.0, 0.0, 30.0)
     delay = min(maximum, base * (2 ** max(0, retry_index)))
     if delay <= 0:
         return
-    jitter = random.uniform(0.0, delay * 0.25)
-    time.sleep(delay + jitter)
+    delay += random.uniform(0.0, delay * 0.25)
+    if deadline is not None:
+        remaining = deadline - time.monotonic() - GEMINI_DEADLINE_RESERVE_SECONDS
+        delay = min(delay, max(0.0, remaining))
+    if delay > 0:
+        time.sleep(delay)
+
+
+def _request_timeout(deadline: float, model: str) -> float:
+    remaining = deadline - time.monotonic() - GEMINI_DEADLINE_RESERVE_SECONDS
+    if remaining <= 0:
+        raise ChatbotError(
+            "Chatbot đã vượt quá thời gian xử lý tối đa. Hãy thử lại sau.",
+            code="gemini_deadline",
+            model_name=model,
+        )
+    return max(0.5, min(GEMINI_REQUEST_TIMEOUT_SECONDS, remaining))
+
+
+def _build_gemini_payload(contents: list[dict[str, Any]]) -> bytes:
+    # Do not send sampling controls such as temperature/topP/topK. New Gemini
+    # Flash models may ignore or reject those legacy parameters; the only output
+    # control needed here is the token budget.
+    return json.dumps({
+        "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
+        "contents": contents,
+        "generationConfig": {
+            "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+        },
+    }, ensure_ascii=False).encode("utf-8")
 
 
 def _call_gemini_model(
     model: str,
     api_key: str,
     payload: bytes,
-) -> str:
+    *,
+    timeout_seconds: float = GEMINI_REQUEST_TIMEOUT_SECONDS,
+) -> tuple[str, str | None]:
     endpoint = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"{quote(model, safe='')}:generateContent"
@@ -553,7 +600,7 @@ def _call_gemini_model(
     )
 
     try:
-        with urlopen(request, timeout=60) as response:
+        with urlopen(request, timeout=timeout_seconds) as response:
             result = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         detail = ""
@@ -614,7 +661,9 @@ def _call_gemini_model(
             model_name=model,
             retry_with_fallback=True,
         )
-    parts = candidates[0].get("content", {}).get("parts", [])
+
+    candidate = candidates[0]
+    parts = candidate.get("content", {}).get("parts", [])
     answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text")).strip()
     if not answer:
         raise ChatbotError(
@@ -623,7 +672,81 @@ def _call_gemini_model(
             model_name=model,
             retry_with_fallback=True,
         )
+    finish_reason = str(candidate.get("finishReason") or "").strip() or None
+    return answer, finish_reason
+
+
+def _coerce_gemini_result(value: Any) -> tuple[str, str | None]:
+    """Keep tests/custom callers compatible with the former plain-string return."""
+    if isinstance(value, tuple) and len(value) == 2:
+        text, finish_reason = value
+        return str(text or "").strip(), str(finish_reason).strip() if finish_reason else None
+    return str(value or "").strip(), None
+
+
+def _join_answer_chunks(chunks: list[str], *, truncated: bool = False) -> str:
+    answer = "\n".join(chunk.strip() for chunk in chunks if chunk and chunk.strip()).strip()
+    if truncated:
+        answer = f"{answer}\n\n{GEMINI_TRUNCATION_WARNING}" if answer else GEMINI_TRUNCATION_WARNING
     return answer
+
+
+def _generate_complete_answer(
+    model: str,
+    api_key: str,
+    base_contents: list[dict[str, Any]],
+    deadline: float,
+) -> tuple[str, int]:
+    """Generate one answer and automatically continue when Gemini hits MAX_TOKENS."""
+    contents = list(base_contents)
+    chunks: list[str] = []
+    provider_calls = 0
+
+    for continuation_index in range(GEMINI_MAX_CONTINUATIONS + 1):
+        try:
+            timeout_seconds = _request_timeout(deadline, model)
+        except ChatbotError:
+            if chunks:
+                return _join_answer_chunks(chunks, truncated=True), provider_calls
+            raise
+
+        payload = _build_gemini_payload(contents)
+        try:
+            raw_result = _call_gemini_model(
+                model,
+                api_key,
+                payload,
+                timeout_seconds=timeout_seconds,
+            )
+        except ChatbotError as exc:
+            exc.provider_call_count = provider_calls + 1
+            raise
+
+        provider_calls += 1
+        answer, finish_reason = _coerce_gemini_result(raw_result)
+        if not answer:
+            exc = ChatbotError(
+                "Gemini không trả về nội dung văn bản.",
+                code="gemini_empty_text",
+                model_name=model,
+                retry_with_fallback=True,
+                provider_call_count=provider_calls,
+            )
+            raise exc
+        chunks.append(answer)
+
+        if (finish_reason or "").upper() != "MAX_TOKENS":
+            return _join_answer_chunks(chunks), provider_calls
+
+        if continuation_index >= GEMINI_MAX_CONTINUATIONS:
+            return _join_answer_chunks(chunks, truncated=True), provider_calls
+
+        contents.extend([
+            {"role": "model", "parts": [{"text": answer}]},
+            {"role": "user", "parts": [{"text": GEMINI_CONTINUE_PROMPT}]},
+        ])
+
+    return _join_answer_chunks(chunks, truncated=True), provider_calls
 
 
 def ask_gemini(
@@ -669,28 +792,26 @@ def ask_gemini(
         }],
     })
 
-    payload = json.dumps({
-        "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
-        "contents": contents,
-        "generationConfig": {
-            "maxOutputTokens": 8192,
-            "temperature": 0.2,
-        },
-    }, ensure_ascii=False).encode("utf-8")
-
     attempts: list[dict[str, Any]] = []
     models = _model_chain_from(preferred_model)
     retries_per_model = _env_int("GEMINI_ATTEMPTS_PER_MODEL", 2, 1, 4)
+    deadline = time.monotonic() + GEMINI_TOTAL_TIMEOUT_SECONDS
 
     for model_index, model in enumerate(models):
         last_error: ChatbotError | None = None
         calls_for_model = 0
         for retry_index in range(retries_per_model):
-            calls_for_model += 1
             try:
-                answer = _call_gemini_model(model, api_key, payload)
+                answer, provider_calls = _generate_complete_answer(
+                    model,
+                    api_key,
+                    contents,
+                    deadline,
+                )
+                calls_for_model += provider_calls
                 return _normalize_assistant_markdown(answer), model, attempts
             except ChatbotError as exc:
+                calls_for_model += max(0, int(getattr(exc, "provider_call_count", 0)))
                 last_error = exc
                 can_retry_same_model = (
                     exc.retry_with_fallback
@@ -698,7 +819,7 @@ def ask_gemini(
                     and retry_index + 1 < retries_per_model
                 )
                 if can_retry_same_model:
-                    _sleep_with_backoff(retry_index)
+                    _sleep_with_backoff(retry_index, deadline=deadline)
                     continue
                 break
 
@@ -719,7 +840,7 @@ def ask_gemini(
 
         # A short delay before changing models avoids immediately hammering the
         # provider during a capacity spike while keeping failover responsive.
-        _sleep_with_backoff(0)
+        _sleep_with_backoff(0, deadline=deadline)
 
     raise ChatbotError(
         "Không có model Gemini khả dụng.",

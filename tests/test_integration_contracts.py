@@ -94,6 +94,25 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn("[(target_size,candidate)]", function_source)
         self.assertNotIn("target_anchored_index", function_source)
 
+    def test_tray_and_generate_operations_keep_pending_until_notice(self):
+        self.assertIn("function beginTrackedOperation(message)", JS)
+        self.assertIn("function operationHeaders(headers={})", JS)
+
+        generate_start = JS.index("async function generateSchedule")
+        generate_end = JS.index("function goToAssignments", generate_start)
+        generate_source = JS[generate_start:generate_end]
+        self.assertIn("beginTrackedOperation('Đang xếp thời khóa biểu…')", generate_source)
+        self.assertIn("headers:operationHeaders({'Content-Type':'application/json'})", generate_source)
+        self.assertIn("await refresh(true)", generate_source)
+        self.assertIn("finally{finishOperation()}", generate_source)
+
+        tray_start = JS.index("async function removeLesson")
+        tray_end = JS.index("async function dropToTray", tray_start)
+        tray_source = JS[tray_start:tray_end]
+        self.assertGreaterEqual(tray_source.count("beginTrackedOperation('Đang đưa tiết về khay…')"), 3)
+        self.assertGreaterEqual(tray_source.count("headers:operationHeaders()"), 3)
+        self.assertGreaterEqual(tray_source.count("await refresh(true)"), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
