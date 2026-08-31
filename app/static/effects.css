@@ -218,6 +218,81 @@ h1, h2, h3, .brand, .appbar b {
   box-shadow: 0 5px 12px rgba(37, 99, 235, 0.2);
 }
 
+.schedule-action-btn {
+  min-width: 142px;
+  white-space: nowrap;
+}
+
+.schedule-action-btn:disabled {
+  cursor: wait;
+  opacity: 1;
+}
+
+.schedule-action-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 1.3em;
+  min-width: 112px;
+  overflow: hidden;
+}
+
+.schedule-action-content {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  line-height: 1.3;
+  will-change: transform, opacity;
+}
+
+.schedule-action-enter {
+  animation: schedule-action-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.schedule-action-leaving {
+  pointer-events: none;
+  animation: schedule-action-out 0.22s cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+
+.schedule-action-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.schedule-action-spinner {
+  animation: schedule-action-spin 0.85s linear infinite;
+}
+
+.schedule-action-success {
+  color: #fff;
+}
+
+.schedule-action-error {
+  color: #fff;
+}
+
+@keyframes schedule-action-in {
+  from { opacity: 0; transform: translateY(115%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes schedule-action-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-115%); }
+}
+
+@keyframes schedule-action-spin {
+  to { transform: rotate(360deg); }
+}
+
 .btn.ghost {
   color: var(--fx-navy);
   border-color: rgba(148, 163, 184, 0.32);
@@ -824,3 +899,166 @@ dialog[open] {
     font-size: 26px;
   }
 }
+
+
+/* Inline action states: keep progress/success/error on the control instead of opening a status popup. */
+.inline-action-btn {
+  min-width: max-content;
+  white-space: nowrap;
+}
+.inline-action-btn:disabled {
+  cursor: wait;
+  opacity: 1;
+}
+.inline-action-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 84px;
+  height: 1.3em;
+  overflow: hidden;
+}
+.inline-action-content {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  line-height: 1.3;
+  will-change: transform, opacity;
+}
+.inline-action-enter { animation: schedule-action-in .28s cubic-bezier(.22,1,.36,1) both; }
+.inline-action-leaving { pointer-events: none; animation: schedule-action-out .22s cubic-bezier(.55,0,1,.45) both; }
+.inline-action-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.inline-action-spinner { animation: schedule-action-spin .85s linear infinite; }
+.inline-action-feedback {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(360px, 45vw);
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  vertical-align: middle;
+}
+.inline-action-feedback[hidden] { display: none; }
+.inline-action-feedback.is-success { color: #15803d; }
+.inline-action-feedback.is-error { color: #b91c1c; }
+:root.dark-mode .inline-action-feedback.is-success { color: #6ee7b7; }
+:root.dark-mode .inline-action-feedback.is-error { color: #fca5a5; }
+.inline-form-message {
+  margin: 2px 0 12px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.inline-form-message[hidden] { display: none; }
+.inline-form-message.is-success { background: rgba(22,163,74,.10); color: #15803d; }
+.inline-form-message.is-error { background: rgba(220,38,38,.09); color: #b91c1c; }
+:root.dark-mode .inline-form-message.is-success { color: #6ee7b7; }
+:root.dark-mode .inline-form-message.is-error { color: #fca5a5; }
+.tray-action-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.tray-action-status[hidden] { display: none; }
+.tray-action-status.is-success { background: rgba(22,163,74,.10); color: #15803d; }
+.tray-action-status.is-error { background: rgba(220,38,38,.09); color: #b91c1c; }
+.tray-status-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: schedule-action-spin .75s linear infinite;
+}
+/* Constraint cells use the same vertical state transition as action buttons. */
+.constraint-state-cell, .global-slot-lock, .session-lock-state {
+  overflow: hidden;
+}
+.constraint-state-cell {
+  display: grid;
+  place-items: center;
+  user-select: none;
+  transition: background-color .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.constraint-state-cell:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  outline-offset: -3px;
+}
+.constraint-state-stage {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.constraint-state-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 2px 5px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+}
+.constraint-state-content.is-allowed { color: var(--muted); }
+.constraint-state-content.is-blocked { color: #b91c1c; }
+.constraint-state-enter { animation: schedule-action-in .28s cubic-bezier(.22,1,.36,1) both; }
+.constraint-state-leaving { pointer-events: none; animation: schedule-action-out .22s cubic-bezier(.55,0,1,.45) both; }
+.constraint-state-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.constraint-timetable .constraint-state-cell:not(.blocked):hover {
+  background: color-mix(in srgb, var(--primary) 5%, var(--card-bg));
+}
+.constraint-timetable .constraint-state-cell.blocked {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ef4444 32%, transparent);
+}
+.global-slot-lock .constraint-state-stage { min-height: 24px; }
+.global-slot-lock .constraint-state-content { font-size: 11px; }
+.session-lock-state { display: block; margin-top: 3px; }
+.session-lock-state .constraint-state-stage { min-height: 20px; }
+.session-lock-state .constraint-state-content { justify-content: flex-start; padding: 0; font-size: 12px; font-weight: 600; }
+.session-lock-state .constraint-state-icon { width: 12px; height: 12px; flex-basis: 12px; }
+:root.dark-mode .constraint-state-content.is-blocked { color: #fca5a5; }
+@media (max-width: 720px) {
+  .inline-action-feedback { flex-basis: 100%; max-width: 100%; margin: 7px 0 0; }
+}
+.session-lock-state,
+.session-lock-state span { margin-top: 0; }
+
+.session-lock-state .constraint-state-content > span { display: inline; margin: 0; font-size: inherit; color: inherit; }

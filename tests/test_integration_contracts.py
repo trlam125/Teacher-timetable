@@ -94,24 +94,28 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn("[(target_size,candidate)]", function_source)
         self.assertNotIn("target_anchored_index", function_source)
 
-    def test_tray_and_generate_operations_keep_pending_until_notice(self):
-        self.assertIn("function beginTrackedOperation(message)", JS)
+    def test_workspace_mutations_use_inline_action_states_instead_of_status_popup(self):
         self.assertIn("function operationHeaders(headers={})", JS)
+        self.assertIn("function setInlineActionState(button,state", JS)
+        self.assertIn("function setTrayActionStatus(state,message", JS)
 
         generate_start = JS.index("async function generateSchedule")
         generate_end = JS.index("function goToAssignments", generate_start)
         generate_source = JS[generate_start:generate_end]
-        self.assertIn("beginTrackedOperation('Đang xếp thời khóa biểu…')", generate_source)
+        self.assertIn("setScheduleActionState('loading')", generate_source)
         self.assertIn("headers:operationHeaders({'Content-Type':'application/json'})", generate_source)
         self.assertIn("await refresh(true)", generate_source)
-        self.assertIn("finally{finishOperation()}", generate_source)
+        self.assertNotIn("beginTrackedOperation", generate_source)
+        self.assertNotIn("toast(", generate_source)
 
         tray_start = JS.index("async function removeLesson")
         tray_end = JS.index("async function dropToTray", tray_start)
         tray_source = JS[tray_start:tray_end]
-        self.assertGreaterEqual(tray_source.count("beginTrackedOperation('Đang đưa tiết về khay…')"), 3)
-        self.assertGreaterEqual(tray_source.count("headers:operationHeaders()"), 3)
-        self.assertGreaterEqual(tray_source.count("await refresh(true)"), 3)
+        self.assertGreaterEqual(tray_source.count("headers:operationHeaders()"), 4)
+        self.assertGreaterEqual(tray_source.count("await refresh(true)"), 4)
+        self.assertIn("setTrayActionStatus('loading'", tray_source)
+        self.assertNotIn("beginTrackedOperation", tray_source)
+        self.assertNotIn("toast(", tray_source)
 
 
 if __name__ == "__main__":

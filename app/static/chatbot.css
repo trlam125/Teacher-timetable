@@ -496,3 +496,14 @@
   .chatbot-popup .clear-button { display: none; }
   .chatbot-popup .chatbot-send { margin-left: auto; }
 }
+
+
+/* Workspace safe area for the floating AI button: the last row can scroll above the FAB instead of sitting underneath it. */
+.workspace .content {
+  padding-bottom: max(112px, calc(30px + env(safe-area-inset-bottom)));
+}
+@media (max-width: 620px) {
+  .workspace .content {
+    padding-bottom: max(92px, calc(76px + env(safe-area-inset-bottom)));
+  }
+}

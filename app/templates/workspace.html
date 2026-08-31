@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="/static/style.css?v=32">
     <script src="/static/operation-status.js?v=3" defer></script>
     <link rel="stylesheet" href="/static/preferences.css?v=4">
-    <link rel="stylesheet" href="/static/effects.css?v=3">
-    <link rel="stylesheet" href="/static/chatbot.css?v=6">
+    <link rel="stylesheet" href="/static/effects.css?v=6">
+    <link rel="stylesheet" href="/static/chatbot.css?v=7">
 </head>
 
 <body>
@@ -33,7 +33,7 @@
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg></button><button class="btn ghost" onclick="copyShare()">Chia sẻ</button><a class="btn ghost"
+            </svg></button><button class="btn ghost" onclick="copyShare(this)">Chia sẻ</button><a class="btn ghost"
             href="/projects/{{p.id}}/export.xlsx">Xuất Excel</a>
     </header>
     <div class="workspace">
@@ -90,7 +90,7 @@
                     <div>
                         <h1>{{p.name}}</h1>
                         <p>{{p.school_name}} · {{p.days}} ngày · {{p.sessions}} buổi/ngày</p>
-                    </div><button class="btn" onclick="generateSchedule()">Xếp tự động</button>
+                    </div><button class="btn schedule-action-btn" data-schedule-action onclick="generateSchedule()"><span class="schedule-action-stage"><span class="schedule-action-content">Xếp tự động</span></span></button>
                 </div>
                 <div class="stats">
                     <article><strong id="statTeachers">{{data.teachers|length}}</strong><span>Giáo viên</span></article>
@@ -130,7 +130,7 @@
                     <div>
                         <h2>Tài khoản giáo viên</h2>
                         <p>Mỗi tài khoản chỉ được xem lịch và gửi nguyện vọng cho đúng giáo viên được liên kết.</p>
-                    </div><button class="btn" onclick="openTeacherAccount()">+ Cấp tài khoản</button>
+                    </div><button class="btn" onclick="openTeacherAccount(undefined,this)">+ Cấp tài khoản</button>
                 </div>
                 <div id="teacherAccountTable">
                     <div class="empty-state">Đang tải tài khoản…</div>
@@ -262,7 +262,7 @@
                 <div class="constraint-toolbar"><select id="constraintType">
                         <option value="teacher">Giáo viên</option>
                         <option value="class">Lớp</option>
-                    </select><select id="constraintEntity"></select><button class="btn" onclick="saveConstraints()">Lưu
+                    </select><select id="constraintEntity"></select><button class="btn" onclick="saveConstraints(this)">Lưu
                         ràng buộc</button></div>
                 <div id="constraintGrid"></div>
             </section>
@@ -271,7 +271,7 @@
                     <div>
                         <h1>Hòm thư nguyện vọng</h1>
                         <p>Duyệt đề xuất tiết mong muốn và tiết cần tránh của giáo viên bộ môn.</p>
-                    </div><button class="btn" onclick="copyTeacherInvite()">Sao chép liên kết đăng ký</button>
+                    </div><button class="btn" onclick="copyTeacherInvite(this)">Sao chép liên kết đăng ký</button>
                 </div>
                 <div id="preferenceInbox">
                     <div class="empty-state">Đang tải hòm thư…</div>
@@ -287,8 +287,7 @@
                             <option value="overview" selected>Xem tổng quát</option>
                             <option value="class">Xem theo lớp</option>
                             <option value="teacher">Xem theo giáo viên</option>
-                        </select><select id="viewEntity"></select><button class="btn" onclick="generateSchedule()">Xếp
-                            tự động</button></div>
+                        </select><select id="viewEntity"></select><button class="btn schedule-action-btn" data-schedule-action onclick="generateSchedule()"><span class="schedule-action-stage"><span class="schedule-action-content">Xếp tự động</span></span></button></div>
                 </div>
                 <div id="assignmentCoverage"></div>
                 <div class="manual-tray-panel">
@@ -296,7 +295,7 @@
                         <div>
                             <h2>Kho tiết chưa xếp</h2>
                             <p>Phân công mới nằm ở đây. Kéo tiết vào lịch hoặc kéo tiết từ lịch ngược về khay.</p>
-                        </div><button class="btn ghost" onclick="returnAllToTray()">Đưa toàn bộ về khay</button>
+                        </div><button class="btn ghost" onclick="returnAllToTray(this)">Đưa toàn bộ về khay</button>
                     </div>
                     <div id="scheduledAssignmentTray" class="scheduled-assignment-tray"></div>
                     <div id="unscheduledTray" class="unscheduled-tray" ondragover="event.preventDefault()"
@@ -360,11 +359,11 @@
             <h2 id="modalTitle"></h2>
             <div id="entityFields"></div>
             <div class="row end"><button type="button" class="btn ghost"
-                    onclick="entityModal.close()">Hủy</button><button class="btn">Lưu</button></div>
+                    onclick="entityModal.close()">Hủy</button><button id="entitySubmitButton" class="btn" type="submit">Lưu</button></div>
         </form>
     </dialog>
     <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
-    <script src="/static/app.js?v=33"></script>
+    <script src="/static/app.js?v=37"></script>
     <script src="/static/chatbot.js?v=9"></script>
 </body>
 
