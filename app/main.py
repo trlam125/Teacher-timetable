@@ -17,8 +17,11 @@ from app.logic import (
     normalize_slot_values,
     parse_integer_set,
     pop_matching_fixed_task,
+    remap_slot_for_session_expansion,
+    remap_slots_for_session_expansion,
     required_double_removal_slots,
     revoke_last_teacher_profile,
+    schedule_validation_peers,
 )
 from urllib.parse import quote
 
@@ -162,6 +165,18 @@ class Grade(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     name: Mapped[str] = mapped_column(String(80))
+
+class GradeSubjectRequirement(Base):
+    __tablename__ = "grade_subject_requirements"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    grade_id: Mapped[int] = mapped_column(ForeignKey("grades.id"), index=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    periods_per_week: Mapped[int] = mapped_column(Integer, default=1)
+    block_mode: Mapped[str] = mapped_column(String(24), default="free")
+    __table_args__ = (
+        UniqueConstraint("project_id", "grade_id", "subject_id", name="uq_grade_subject_requirement"),
+    )
 
 class SchoolClass(Base):
     __tablename__ = "classes"
@@ -448,17 +463,81 @@ def migrate_schema():
                     "AND fixed_lessons.slot=lessons.slot)"
                 )
 
-        # Bản demo cũ từng được tạo chỉ với một buổi. Khôi phục cả sáng và chiều.
+        # Bản demo cũ từng được tạo chỉ với một buổi. Khi mở thêm buổi chiều,
+        # phải remap mọi slot theo tọa độ (ngày, buổi, tiết) cũ trước khi đổi
+        # sessions; nếu chỉ UPDATE sessions thì slot của ngày 2+ sẽ bị hiểu thành
+        # buổi chiều/ngày khác.
         if "projects" in inspector.get_table_names():
             project_columns = {column["name"] for column in inspector.get_columns("projects")}
             if "blocked_slots_json" not in project_columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE projects ADD COLUMN blocked_slots_json TEXT NOT NULL DEFAULT '[]'"
                 )
-            connection.exec_driver_sql(
-                "UPDATE projects SET sessions=2 "
+            legacy_demo_projects = connection.exec_driver_sql(
+                "SELECT id, periods_per_session, blocked_slots_json FROM projects "
                 "WHERE name='TKB học kỳ I' AND school_name='THPT Demo' AND sessions=1"
-            )
+            ).mappings().all()
+            for legacy_project in legacy_demo_projects:
+                project_id = int(legacy_project["id"])
+                periods_per_session = int(legacy_project["periods_per_session"])
+
+                def remap_json_slots(raw_value):
+                    return json.dumps(remap_slots_for_session_expansion(
+                        parse_integer_set(raw_value),
+                        old_sessions=1,
+                        new_sessions=2,
+                        periods_per_session=periods_per_session,
+                    ))
+
+                connection.exec_driver_sql(
+                    "UPDATE projects SET blocked_slots_json=%s WHERE id=%s",
+                    (remap_json_slots(legacy_project["blocked_slots_json"]), project_id),
+                )
+
+                for table_name in ("lessons", "fixed_lessons"):
+                    if table_name not in inspector.get_table_names():
+                        continue
+                    rows = connection.exec_driver_sql(
+                        f"SELECT id, slot FROM {table_name} WHERE project_id=%s",
+                        (project_id,),
+                    ).mappings().all()
+                    for row in rows:
+                        mapped_slot = remap_slot_for_session_expansion(
+                            row["slot"],
+                            old_sessions=1,
+                            new_sessions=2,
+                            periods_per_session=periods_per_session,
+                        )
+                        connection.exec_driver_sql(
+                            f"UPDATE {table_name} SET slot=%s WHERE id=%s",
+                            (mapped_slot, row["id"]),
+                        )
+
+                json_slot_columns = {
+                    "teachers": ("unavailable_json",),
+                    "classes": ("unavailable_json",),
+                    "teacher_preferences": ("preferred_json", "unavailable_json"),
+                }
+                for table_name, column_names in json_slot_columns.items():
+                    if table_name not in inspector.get_table_names():
+                        continue
+                    selected_columns = ", ".join(("id", *column_names))
+                    rows = connection.exec_driver_sql(
+                        f"SELECT {selected_columns} FROM {table_name} WHERE project_id=%s",
+                        (project_id,),
+                    ).mappings().all()
+                    for row in rows:
+                        assignments_sql = ", ".join(f"{column}=%s" for column in column_names)
+                        values = tuple(remap_json_slots(row[column]) for column in column_names)
+                        connection.exec_driver_sql(
+                            f"UPDATE {table_name} SET {assignments_sql} WHERE id=%s",
+                            (*values, row["id"]),
+                        )
+
+                connection.exec_driver_sql(
+                    "UPDATE projects SET sessions=2 WHERE id=%s",
+                    (project_id,),
+                )
 
 migrate_schema()
 class Passwords:
@@ -1080,9 +1159,8 @@ def pattern_completion_plan(project: Project, assignment: Assignment, slots: lis
     if placements is None:
         return None
     ppd=project.sessions*project.periods_per_session
-    anchored=[(size,start,set(covered)) for size,start,covered in placements if covered]
     plan = []
-    for placement_index,(target_size,start,covered) in enumerate(placements):
+    for target_size,start,covered in placements:
         if not covered:
             plan.append({
                 "size": target_size,
@@ -1092,7 +1170,6 @@ def pattern_completion_plan(project: Project, assignment: Assignment, slots: lis
             continue
         if len(covered)==target_size:
             continue
-        target_anchored_index=sum(1 for _size,_start,item_covered in placements[:placement_index] if item_covered)
         alternative_starts=[]
         for day in range(project.days):
             for session in range(project.sessions):
@@ -1102,12 +1179,13 @@ def pattern_completion_plan(project: Project, assignment: Assignment, slots: lis
                     candidate_slots=set(range(candidate,candidate+target_size))
                     if current.intersection(candidate_slots)!=covered:
                         continue
-                    forced=[]
-                    anchored_index=0
-                    for size,chosen_start,_chosen_covered in anchored:
-                        forced.append((size,candidate if anchored_index==target_anchored_index else chosen_start))
-                        anchored_index+=1
-                    if _complete_pattern_placement(project,expected,slots,forced) is not None:
+                    # Chỉ ép candidate của chính cụm đang xét. Các cụm neo còn
+                    # lại phải được phép tự chọn lại vị trí; nếu ghim chúng theo
+                    # một nghiệm tạm thời, ta có thể loại nhầm một candidate mà
+                    # thực tế thuộc một nghiệm hoàn chỉnh khác.
+                    if _complete_pattern_placement(
+                        project, expected, slots, [(target_size,candidate)]
+                    ) is not None:
                         alternative_starts.append(candidate)
         plan.append({
             "size": target_size,
@@ -2133,6 +2211,8 @@ def promote_teacher_to_admin(
         db.delete(link)
     clear_teacher_identity(account)
     account.role = "admin"
+    # Thay đổi quyền phải vô hiệu toàn bộ cookie phiên cũ của tài khoản giáo viên.
+    account.session_version += 1
     db.commit()
     return RedirectResponse("/admin/users", 303)
 
@@ -2176,15 +2256,8 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
         n=Subject(project_id=p.id,name=x.name,short_name=x.short_name,max_consecutive=x.max_consecutive);db.add(n);db.flush();maps["sub"][x.id]=n.id
     for x in db.scalars(select(Teacher).where(Teacher.project_id==pid)):
         n=Teacher(project_id=p.id,department_id=maps["dep"].get(x.department_id),name=x.name,short_name=x.short_name,max_periods_day=x.max_periods_day,unavailable_json=x.unavailable_json);db.add(n);db.flush();maps["tea"][x.id]=n.id
-    source_links=db.scalars(select(TeacherAccountLink).where(TeacherAccountLink.teacher_id.in_(list(maps["tea"])))).all() if maps["tea"] else []
-    linked_source_ids={link.teacher_id for link in source_links}
-    for link in source_links:
-        db.add(TeacherAccountLink(user_id=link.user_id,teacher_id=maps["tea"][link.teacher_id]))
-    if maps["tea"]:
-        legacy_accounts=db.scalars(select(User).where(User.role=="teacher",User.teacher_id.in_(list(maps["tea"])))).all()
-        for account in legacy_accounts:
-            if account.teacher_id not in linked_source_ids:
-                db.add(TeacherAccountLink(user_id=account.id,teacher_id=maps["tea"][account.teacher_id]))
+    # Bản sao chỉ sao chép dữ liệu chuyên môn. Quyền tài khoản giáo viên không
+    # được kế thừa tự động để tránh cấp quyền ngoài ý muốn cho project mới.
     for x in db.scalars(select(TeacherSubject).where(TeacherSubject.project_id==pid)):
         if x.teacher_id in maps["tea"] and x.subject_id in maps["sub"]:
             db.add(TeacherSubject(project_id=p.id,teacher_id=maps["tea"][x.teacher_id],subject_id=maps["sub"][x.subject_id]))
@@ -2207,6 +2280,13 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
             ))
     for x in db.scalars(select(Grade).where(Grade.project_id==pid)):
         n=Grade(project_id=p.id,name=x.name);db.add(n);db.flush();maps["grade"][x.id]=n.id
+    for x in db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.project_id==pid)):
+        if x.grade_id in maps["grade"] and x.subject_id in maps["sub"]:
+            db.add(GradeSubjectRequirement(
+                project_id=p.id, grade_id=maps["grade"][x.grade_id],
+                subject_id=maps["sub"][x.subject_id], periods_per_week=x.periods_per_week,
+                block_mode=x.block_mode,
+            ))
     for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)):
         n=SchoolClass(project_id=p.id,grade_id=maps["grade"].get(x.grade_id),name=x.name,unavailable_json=x.unavailable_json);db.add(n);db.flush();maps["cls"][x.id]=n.id
     for x in db.scalars(select(Assignment).where(Assignment.project_id==pid)):
@@ -2441,6 +2521,55 @@ def replace_teacher_subjects(db: Session, project_id: int, teacher_id: int, subj
     for subject_id in subject_ids:
         if subject_id not in existing:
             db.add(TeacherSubject(project_id=project_id, teacher_id=teacher_id, subject_id=subject_id))
+
+def normalized_grade_requirements(
+    db: Session, project: Project, values
+) -> list[tuple[int, int, str]]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise HTTPException(400, "Chương trình môn của khối không hợp lệ")
+    configs: dict[int, tuple[int, str]] = {}
+    for item in values:
+        if not isinstance(item, dict):
+            raise HTTPException(400, "Chương trình môn của khối không hợp lệ")
+        subject_id = required_id(item, "subject_id", "Môn học")
+        subject = db.get(Subject, subject_id)
+        if not subject or subject.project_id != project.id:
+            raise HTTPException(400, "Có môn học không thuộc bộ thời khóa biểu")
+        periods = bounded_int(
+            item.get("periods_per_week"), 1, 1, 40, f"Số tiết/tuần của {subject.name}"
+        )
+        try:
+            mode = normalized_block_mode(item.get("block_mode", "free"), periods, subject, project)
+        except ValueError as exc:
+            raise HTTPException(400, f"{subject.name}: {exc}") from exc
+        configs[subject_id] = (periods, mode)
+    return [(subject_id, periods, mode) for subject_id, (periods, mode) in configs.items()]
+
+def replace_grade_requirements(
+    db: Session, project: Project, grade_id: int, values
+) -> None:
+    configs = normalized_grade_requirements(db, project, values)
+    rows = db.scalars(select(GradeSubjectRequirement).where(
+        GradeSubjectRequirement.project_id == project.id,
+        GradeSubjectRequirement.grade_id == grade_id,
+    )).all()
+    existing = {row.subject_id: row for row in rows}
+    wanted = {subject_id for subject_id, _, _ in configs}
+    for subject_id, row in existing.items():
+        if subject_id not in wanted:
+            db.delete(row)
+    for subject_id, periods, mode in configs:
+        row = existing.get(subject_id)
+        if row is None:
+            db.add(GradeSubjectRequirement(
+                project_id=project.id, grade_id=grade_id, subject_id=subject_id,
+                periods_per_week=periods, block_mode=mode,
+            ))
+        else:
+            row.periods_per_week = periods
+            row.block_mode = mode
 
 def teacher_week_capacity(
     project: Project,
@@ -2718,6 +2847,8 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
     db.flush()
     if payload.type=="teacher" and teacher_subject_ids is not None:
         replace_teacher_subjects(db,pid,obj.id,teacher_subject_ids)
+    if payload.type=="grade":
+        replace_grade_requirements(db,project,obj.id,d.get("subject_requirements",[]))
     db.commit(); return {"ok":True,"id":obj.id}
 
 @app.post("/api/projects/{pid}/assignments/bulk")
@@ -2873,14 +3004,14 @@ def update_entity(
     db: Session = Depends(db_session),
 ):
     project = get_project_for_update(pid, user, db)
-    if payload.type != typ or typ not in {"subject", "teacher", "class"}:
+    if payload.type != typ or typ not in {"subject", "teacher", "grade", "class"}:
         raise HTTPException(400, "Loại dữ liệu không hợp lệ")
-    model = {"subject": Subject, "teacher": Teacher, "class": SchoolClass}[typ]
+    model = {"subject": Subject, "teacher": Teacher, "grade": Grade, "class": SchoolClass}[typ]
     obj = db.get(model, eid)
     if not obj or obj.project_id != pid:
         raise HTTPException(404, "Không tìm thấy dữ liệu cần sửa")
     d = payload.data
-    name_limit = {"subject": 120, "teacher": 120, "class": 80}[typ]
+    name_limit = {"subject": 120, "teacher": 120, "grade": 80, "class": 80}[typ]
     name = bounded_text(d.get("name", ""), "Tên", name_limit)
     if typ == "subject":
         ensure_unique_project_name(db, Subject, pid, name, "Môn học", exclude_id=obj.id)
@@ -3000,6 +3131,9 @@ def update_entity(
         obj.short_name = short_name
         obj.department_id = department_id
         obj.max_periods_day = new_max_periods_day
+    elif typ == "grade":
+        obj.name = name
+        replace_grade_requirements(db, project, obj.id, d.get("subject_requirements", []))
     else:
         ensure_unique_project_name(db, SchoolClass, pid, name, "Lớp học", exclude_id=obj.id)
         grade_id = d.get("grade_id") or None
@@ -3133,7 +3267,8 @@ def delete_entity(pid:int,typ:str,eid:int,user:User=Depends(current_user),db:Ses
     if not obj or obj.project_id!=pid: raise HTTPException(404)
     dependency={
         "department":db.scalar(select(Teacher.id).where(Teacher.department_id==eid)),
-        "subject":db.scalar(select(Assignment.id).where(Assignment.subject_id==eid)),
+        "subject":db.scalar(select(Assignment.id).where(Assignment.subject_id==eid))
+            or db.scalar(select(GradeSubjectRequirement.id).where(GradeSubjectRequirement.subject_id==eid)),
         "teacher":db.scalar(select(Assignment.id).where(Assignment.teacher_id==eid)),
         "grade":db.scalar(select(SchoolClass.id).where(SchoolClass.grade_id==eid)),
         "class":db.scalar(select(Assignment.id).where(Assignment.class_id==eid)),
@@ -3148,6 +3283,11 @@ def delete_entity(pid:int,typ:str,eid:int,user:User=Depends(current_user),db:Ses
     if typ=="subject":
         for link in db.scalars(select(TeacherSubject).where(TeacherSubject.subject_id==eid)).all():
             db.delete(link)
+        for requirement in db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.subject_id==eid)).all():
+            db.delete(requirement)
+    if typ=="grade":
+        for requirement in db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.grade_id==eid)).all():
+            db.delete(requirement)
     if typ=="teacher":
         for link in db.scalars(select(TeacherSubject).where(TeacherSubject.teacher_id==eid)).all():
             db.delete(link)
@@ -3610,8 +3750,12 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
         if not assignment:
             invalid_lessons.append(lesson)
             continue
-        if lesson_slot_error(db,p,assignment,lesson.slot,lesson.id):
-            if assignment_requires_double(assignment):
+        if lesson_slot_error(
+            db,p,assignment,lesson.slot,lesson.id,target_locked=bool(lesson.locked),
+        ):
+            if lesson.locked:
+                invalid_lessons.append(lesson)
+            elif assignment_requires_double(assignment):
                 rebuild_assignment_ids.add(assignment.id)
             else:
                 invalid_lessons.append(lesson)
@@ -3629,10 +3773,23 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
             rebuild_assignment_ids.add(assignment.id)
 
     if rebuild_assignment_ids:
-        invalid_lessons.extend(
-            lesson for lesson in existing
-            if lesson.assignment_id in rebuild_assignment_ids
-        )
+        # Với required_double, lỗi ở một tiết di động chỉ yêu cầu dựng lại phần
+        # di động của phân công. Các tiết khóa hợp lệ phải được giữ lại; chỉ khi
+        # chính tập tiết khóa không thể thuộc bất kỳ mẫu hợp lệ nào mới báo lỗi
+        # cố định.
+        for assignment_id in rebuild_assignment_ids:
+            assignment=assignment_by_id.get(assignment_id)
+            assignment_lessons=[
+                lesson for lesson in existing if lesson.assignment_id==assignment_id
+            ]
+            locked_assignment_lessons=[lesson for lesson in assignment_lessons if lesson.locked]
+            if assignment and locked_assignment_lessons:
+                locked_slots=[lesson.slot for lesson in locked_assignment_lessons]
+                if remaining_pattern_groups(p,assignment,locked_slots) is None:
+                    invalid_lessons.extend(locked_assignment_lessons)
+            invalid_lessons.extend(
+                lesson for lesson in assignment_lessons if not lesson.locked
+            )
     invalid_lessons=list({lesson.id:lesson for lesson in invalid_lessons}.values())
     locked_invalid=[lesson for lesson in invalid_lessons if lesson.locked]
     if locked_invalid:
@@ -3646,8 +3803,14 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
         db.flush()
         existing=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
 
-    expected=sum(a.periods_per_week for a in assignments)
-    missing=max(0,expected-len(existing))
+    # Tính số tiết còn thiếu theo từng phân công, không lấy tổng toàn project.
+    # Cách này vẫn đúng nếu dữ liệu cũ/import từng bị lệch giữa các phân công
+    # (một phân công thừa tiết trong khi phân công khác lại thiếu).
+    existing_counts=Counter(lesson.assignment_id for lesson in existing)
+    missing=sum(
+        max(0,assignment.periods_per_week-existing_counts[assignment.id])
+        for assignment in assignments
+    )
 
     # Từ lần xếp thứ hai trở đi, tuyệt đối giữ nguyên các tiết đang có.
     # Chỉ bổ sung những tiết còn thiếu trong khay; nếu lịch đã đủ thì không làm gì.
@@ -3722,7 +3885,10 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
     db.commit()
     return {"ok":True,"score":result["score"],"unscheduled":0,"message":f"Đã xếp đầy đủ {len(result['lessons'])} tiết."}
 
-def lesson_slot_error(db:Session,project:Project,assignment:Assignment,slot:int,exclude_lesson_id:Optional[int]=None):
+def lesson_slot_error(
+    db:Session,project:Project,assignment:Assignment,slot:int,
+    exclude_lesson_id:Optional[int]=None,*,target_locked:bool=False,
+):
     if slot not in all_slots(project): return "Ô thời khóa biểu không hợp lệ."
     if slot in parse_slots(project.blocked_slots_json): return "Buổi này đã bị khóa và không được xếp tiết."
     teacher=db.get(Teacher,assignment.teacher_id);school_class=db.get(SchoolClass,assignment.class_id);subject=db.get(Subject,assignment.subject_id)
@@ -3734,6 +3900,9 @@ def lesson_slot_error(db:Session,project:Project,assignment:Assignment,slot:int,
     if slot in parse_slots(school_class.unavailable_json): return "Lớp không học ở tiết này."
     existing_lessons=db.scalars(select(Lesson).where(Lesson.project_id==project.id)).all()
     existing_lessons=[lesson for lesson in existing_lessons if lesson.id!=exclude_lesson_id]
+    existing_lessons=schedule_validation_peers(
+        existing_lessons,target_locked=target_locked,
+    )
     for lesson in existing_lessons:
         if lesson.slot!=slot: continue
         other=db.get(Assignment,lesson.assignment_id)
@@ -4397,6 +4566,7 @@ def project_data(db:Session,p:Project):
     subs=db.scalars(select(Subject).where(Subject.project_id==p.id)).all()
     teas=db.scalars(select(Teacher).where(Teacher.project_id==p.id)).all()
     grades=db.scalars(select(Grade).where(Grade.project_id==p.id)).all()
+    grade_requirements=db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.project_id==p.id)).all()
     classes=db.scalars(select(SchoolClass).where(SchoolClass.project_id==p.id)).all()
     assignments=db.scalars(select(Assignment).where(Assignment.project_id==p.id)).all()
     lessons=db.scalars(select(Lesson).where(Lesson.project_id==p.id)).all()
@@ -4419,6 +4589,10 @@ def project_data(db:Session,p:Project):
       "subjects":[{"id":x.id,"name":x.name,"short_name":x.short_name,"max_consecutive":x.max_consecutive} for x in subs],
       "teachers":[{"id":x.id,"name":x.name,"short_name":x.short_name,"department_id":x.department_id,"max_periods_day":x.max_periods_day,"unavailable":list(parse_slots(x.unavailable_json)),"subject_ids":sorted(teacher_subject_map.get(x.id,[])),"assigned_periods":teacher_loads.get(x.id,0),"week_capacity":teacher_week_capacity(p,x,extra_unavailable=accepted_unavailable.get(x.id,set()))} for x in teas],
       "grades":[{"id":x.id,"name":x.name} for x in grades],
+      "grade_requirements":[{
+          "id":x.id,"grade_id":x.grade_id,"subject_id":x.subject_id,
+          "periods_per_week":x.periods_per_week,"block_mode":x.block_mode,
+      } for x in grade_requirements],
       "classes":[{"id":x.id,"name":x.name,"grade_id":x.grade_id,"unavailable":list(parse_slots(x.unavailable_json))} for x in classes],
       "assignments":[{"id":x.id,"class_id":x.class_id,"subject_id":x.subject_id,"teacher_id":x.teacher_id,"periods_per_week":x.periods_per_week,"block_mode":x.block_mode,"class_name":cm.get(x.class_id).name if cm.get(x.class_id) else "?","subject_name":sm.get(x.subject_id).name if sm.get(x.subject_id) else "?","subject_short":sm.get(x.subject_id).short_name if sm.get(x.subject_id) else "?","teacher_name":tm.get(x.teacher_id).name if tm.get(x.teacher_id) else "?","teacher_short":tm.get(x.teacher_id).short_name if tm.get(x.teacher_id) else "?"} for x in assignments],
       "lessons":[{"id":x.id,"assignment_id":x.assignment_id,"slot":x.slot,"locked":x.locked} for x in lessons],

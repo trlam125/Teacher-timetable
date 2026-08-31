@@ -141,7 +141,7 @@
                 <div class="section-head">
                     <div>
                         <h1>Khối / nhóm lớp</h1>
-                        <p>Nhóm các lớp có chương trình tương tự.</p>
+                        <p>Nhóm các lớp có chương trình tương tự và cấu hình môn, số tiết/tuần chuẩn cho từng khối.</p>
                     </div><button class="btn" onclick="openEntity('grade')">+ Thêm khối</button>
                 </div>
                 <div id="gradeTable"></div>
@@ -243,7 +243,7 @@
                     <label>Trạng thái kiểm tra
                         <select id="assignmentFilterStatus" onchange="renderAssignmentTable()">
                             <option value="all">Tất cả phân công hiện có</option>
-                            <option value="missing">Cần kiểm tra thiếu môn</option>
+                            <option value="missing">Cần kiểm tra theo chương trình</option>
                             <option value="unassigned_class">Lớp chưa có phân công</option>
                         </select>
                     </label>

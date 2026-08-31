@@ -52,6 +52,48 @@ class IntegrationContractTests(unittest.TestCase):
     def test_stored_slots_use_non_strict_cleanup(self):
         self.assertIn("strict=False", MAIN)
 
+    def test_legacy_demo_session_migration_remaps_slots_first(self):
+        migration_start = MAIN.index("legacy_demo_projects =")
+        migration_end = MAIN.index("migrate_schema()", migration_start)
+        migration_source = MAIN[migration_start:migration_end]
+        self.assertIn("remap_slot_for_session_expansion", migration_source)
+        self.assertIn("remap_slots_for_session_expansion", migration_source)
+        self.assertIn('"lessons", "fixed_lessons"', migration_source)
+        self.assertIn('"teacher_preferences": ("preferred_json", "unavailable_json")', migration_source)
+        self.assertLess(
+            migration_source.index("remap_slot_for_session_expansion"),
+            migration_source.rindex("UPDATE projects SET sessions=2 WHERE id=%s"),
+        )
+
+    def test_locked_lessons_win_over_movable_conflicts_during_revalidation(self):
+        generate_start = MAIN.index("# Rà lại lịch cũ trước mỗi lần xếp")
+        generate_end = MAIN.index("existing_counts=Counter", generate_start)
+        generate_source = MAIN[generate_start:generate_end]
+        self.assertIn("target_locked=bool(lesson.locked)", generate_source)
+        self.assertIn("if lesson.locked:", generate_source)
+        self.assertIn("lesson for lesson in assignment_lessons if not lesson.locked", generate_source)
+
+    def test_generate_counts_missing_periods_per_assignment(self):
+        generate_start = MAIN.index('def generate(pid:int')
+        generate_end = MAIN.index('def lesson_slot_error', generate_start)
+        generate_source = MAIN[generate_start:generate_end]
+        self.assertIn(
+            'existing_counts=Counter(lesson.assignment_id for lesson in existing)',
+            generate_source,
+        )
+        self.assertIn(
+            'max(0,assignment.periods_per_week-existing_counts[assignment.id])',
+            generate_source,
+        )
+        self.assertNotIn('expected-len(existing)', generate_source)
+
+    def test_pattern_candidates_do_not_pin_other_anchored_groups(self):
+        start = MAIN.index("def pattern_completion_plan")
+        end = MAIN.index("def remaining_pattern_groups", start)
+        function_source = MAIN[start:end]
+        self.assertIn("[(target_size,candidate)]", function_source)
+        self.assertNotIn("target_anchored_index", function_source)
+
 
 if __name__ == "__main__":
     unittest.main()

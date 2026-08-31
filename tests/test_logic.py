@@ -1,4 +1,7 @@
+import ast
 import unittest
+from collections import Counter, defaultdict
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.logic import (
@@ -7,8 +10,11 @@ from app.logic import (
     normalize_slot_values,
     parse_integer_set,
     pop_matching_fixed_task,
+    remap_slot_for_session_expansion,
+    remap_slots_for_session_expansion,
     required_double_removal_slots,
     revoke_last_teacher_profile,
+    schedule_validation_peers,
 )
 
 
@@ -96,6 +102,108 @@ class SlotParsingTests(unittest.TestCase):
             normalize_slot_values([-1, 0, 4, 5], 5, strict=False),
             [0, 4],
         )
+
+
+class SessionExpansionMigrationTests(unittest.TestCase):
+    def test_slot_keeps_same_day_and_morning_period(self):
+        # 1 buổi x 5 tiết: slot 5 = ngày 2, tiết 1. Sau khi thêm buổi chiều,
+        # cùng tọa độ phải là slot 10 chứ không được giữ nguyên thành chiều ngày 1.
+        self.assertEqual(
+            remap_slot_for_session_expansion(
+                5, old_sessions=1, new_sessions=2, periods_per_session=5
+            ),
+            10,
+        )
+        self.assertEqual(
+            remap_slot_for_session_expansion(
+                9, old_sessions=1, new_sessions=2, periods_per_session=5
+            ),
+            14,
+        )
+
+    def test_slot_collections_are_remapped_without_duplicates(self):
+        self.assertEqual(
+            remap_slots_for_session_expansion(
+                [0, 4, 5, 9, 5],
+                old_sessions=1,
+                new_sessions=2,
+                periods_per_session=5,
+            ),
+            [0, 4, 10, 14],
+        )
+
+
+class LockedConflictPriorityTests(unittest.TestCase):
+    def test_locked_target_ignores_unlocked_peers(self):
+        locked_peer = SimpleNamespace(id=1, locked=True)
+        movable_peer = SimpleNamespace(id=2, locked=False)
+        peers = schedule_validation_peers(
+            [locked_peer, movable_peer], target_locked=True
+        )
+        self.assertEqual(peers, [locked_peer])
+
+    def test_unlocked_target_still_sees_all_peers(self):
+        locked_peer = SimpleNamespace(id=1, locked=True)
+        movable_peer = SimpleNamespace(id=2, locked=False)
+        peers = schedule_validation_peers(
+            [locked_peer, movable_peer], target_locked=False
+        )
+        self.assertEqual(peers, [locked_peer, movable_peer])
+
+
+class RequiredDoubleCompletionRegressionTests(unittest.TestCase):
+    @staticmethod
+    def _load_pattern_completion_plan():
+        main_path = Path(__file__).resolve().parents[1] / "app" / "main.py"
+        tree = ast.parse(main_path.read_text(encoding="utf-8"))
+        wanted = {
+            "_pack_pattern_groups_into_segments",
+            "_complete_pattern_placement",
+            "pattern_completion_plan",
+        }
+        functions = [
+            ast.unparse(node)
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name in wanted
+        ]
+        namespace = {
+            "Counter": Counter,
+            "defaultdict": defaultdict,
+            "slot_meta": lambda project, slot: (
+                slot // (project.sessions * project.periods_per_session),
+                (slot % (project.sessions * project.periods_per_session))
+                // project.periods_per_session,
+                (slot % (project.sessions * project.periods_per_session))
+                % project.periods_per_session,
+            ),
+            "assignment_requires_double": lambda assignment: assignment.block_mode
+            == "required_double",
+            "assignment_groups": lambda assignment: (
+                [2] * (assignment.periods_per_week // 2)
+                + ([1] if assignment.periods_per_week % 2 else [])
+            ),
+        }
+        exec(
+            "from __future__ import annotations\n" + "\n\n".join(functions),
+            namespace,
+        )
+        return namespace["pattern_completion_plan"]
+
+    def test_anchored_groups_may_rearrange_together(self):
+        pattern_completion_plan = self._load_pattern_completion_plan()
+        project = SimpleNamespace(days=1, sessions=1, periods_per_session=6)
+        assignment = SimpleNamespace(
+            periods_per_week=4, block_mode="required_double"
+        )
+
+        plan = pattern_completion_plan(project, assignment, [1, 4])
+        by_anchor = {item["anchor_slots"]: item for item in plan}
+
+        # Candidate start=1 completes [1,2], while the other anchored group can
+        # independently move to [4,5]. The old code incorrectly pinned it at
+        # [3,4] and therefore rejected start=1.
+        self.assertIn(1, by_anchor[(1,)]["candidate_starts"])
+        self.assertIn(4, by_anchor[(4,)]["candidate_starts"])
 
 
 class FixedLessonValidationTests(unittest.TestCase):

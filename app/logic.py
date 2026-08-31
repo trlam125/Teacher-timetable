@@ -4,6 +4,63 @@ import json
 from collections import Counter
 
 
+def remap_slot_for_session_expansion(
+    slot: int,
+    *,
+    old_sessions: int,
+    new_sessions: int,
+    periods_per_session: int,
+) -> int:
+    """Preserve day/session/period coordinates when the day gains sessions."""
+    if old_sessions < 1 or new_sessions < old_sessions or periods_per_session < 1:
+        raise ValueError("Cấu hình số buổi/tiết không hợp lệ")
+    if isinstance(slot, bool):
+        raise ValueError("Slot phải là số nguyên")
+    try:
+        value = int(slot)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("Slot phải là số nguyên") from exc
+
+    old_periods_per_day = old_sessions * periods_per_session
+    new_periods_per_day = new_sessions * periods_per_session
+    day = value // old_periods_per_day
+    inside_day = value % old_periods_per_day
+    session = inside_day // periods_per_session
+    period = inside_day % periods_per_session
+    return day * new_periods_per_day + session * periods_per_session + period
+
+
+def remap_slots_for_session_expansion(
+    slots: list[int] | set[int] | tuple[int, ...],
+    *,
+    old_sessions: int,
+    new_sessions: int,
+    periods_per_session: int,
+) -> list[int]:
+    """Remap slot collections without changing their timetable coordinates."""
+    return sorted({
+        remap_slot_for_session_expansion(
+            slot,
+            old_sessions=old_sessions,
+            new_sessions=new_sessions,
+            periods_per_session=periods_per_session,
+        )
+        for slot in slots
+    })
+
+
+def schedule_validation_peers(existing_lessons, *, target_locked: bool):
+    """Locked lessons are validated against other locked lessons first.
+
+    Unlocked rows are allowed to lose conflicts against a locked row because they
+    can be removed/rebuilt. This prevents a stale movable lesson from making a
+    valid fixed lesson look invalid.
+    """
+    if not target_locked:
+        return list(existing_lessons)
+    return [lesson for lesson in existing_lessons if bool(getattr(lesson, "locked", False))]
+
+
 def contiguous_session_group(
     slots: list[int] | set[int] | tuple[int, ...],
     target_slot: int,
