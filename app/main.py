@@ -473,6 +473,7 @@ RESET_TOKEN_TTL_SECONDS = 30 * 60
 REGISTRATION_OTP_TTL_SECONDS = 10 * 60
 REGISTRATION_OTP_RESEND_SECONDS = 60
 REGISTRATION_OTP_MAX_ATTEMPTS = 5
+MIN_PASSWORD_LENGTH = 8
 SESSION_TTL_SECONDS = max(300, int(os.getenv("SESSION_TTL_SECONDS", str(12 * 60 * 60))))
 APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
 APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
@@ -610,6 +611,7 @@ def set_session_cookie(response, user: User):
         max_age=SESSION_TTL_SECONDS,
         httponly=True,
         samesite="lax",
+        secure=APP_ENV == "production" or APP_BASE_URL.lower().startswith("https://"),
     )
 
 def current_user(request: Request, db: Session = Depends(db_session)) -> User:
@@ -1545,8 +1547,8 @@ def register(
     if len(email) > 255:
         context["error"] = "Email không được vượt quá 255 ký tự"
         return templates.TemplateResponse("auth.html", context, status_code=400)
-    if len(password) < 8:
-        context["error"] = "Mật khẩu phải có ít nhất 8 ký tự"
+    if len(password) < MIN_PASSWORD_LENGTH:
+        context["error"] = f"Mật khẩu phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự"
         return templates.TemplateResponse("auth.html", context, status_code=400)
     if password != password_confirm:
         context["error"] = "Hai lần nhập mật khẩu không khớp"
@@ -1864,8 +1866,8 @@ def reset_password(
     error = None
     if not account:
         error = "Liên kết đặt lại mật khẩu không hợp lệ, đã hết hạn hoặc đã được sử dụng."
-    elif len(password) < 6:
-        error = "Mật khẩu mới phải có ít nhất 6 ký tự."
+    elif len(password) < MIN_PASSWORD_LENGTH:
+        error = f"Mật khẩu mới phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự."
     elif password != password_confirm:
         error = "Hai lần nhập mật khẩu không khớp."
     if error:
@@ -1976,8 +1978,8 @@ def update_account(
     account.requested_teacher_name = requested_teacher_name or None
     password_changed = bool(password.strip())
     if password_changed:
-        if len(password.strip()) < 6:
-            raise HTTPException(400, "Mật khẩu mới phải có ít nhất 6 ký tự")
+        if len(password.strip()) < MIN_PASSWORD_LENGTH:
+            raise HTTPException(400, f"Mật khẩu mới phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự")
         account.password_hash = pwd.hash(password.strip())
         account.session_version += 1
     db.commit()
@@ -3713,11 +3715,11 @@ def save_teacher_account(pid:int,payload:TeacherAccountIn,user:User=Depends(curr
             )
         account.email=email; account.name=teacher.name
         if payload.password:
-            if len(payload.password)<6: raise HTTPException(400,"Mật khẩu phải có ít nhất 6 ký tự")
+            if len(payload.password)<MIN_PASSWORD_LENGTH: raise HTTPException(400,f"Mật khẩu phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự")
             account.password_hash=pwd.hash(payload.password)
             account.session_version+=1
     else:
-        if len(payload.password)<6: raise HTTPException(400,"Mật khẩu phải có ít nhất 6 ký tự")
+        if len(payload.password)<MIN_PASSWORD_LENGTH: raise HTTPException(400,f"Mật khẩu phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự")
         account=User(email=email,name=teacher.name,password_hash=pwd.hash(payload.password),role="teacher",teacher_id=teacher.id)
         db.add(account);db.flush()
     ensure_teacher_link(account,teacher,db)
@@ -3895,8 +3897,8 @@ def update_teacher_account(
         return templates.TemplateResponse("teacher_account.html",context,status_code=409)
     password_changed=bool(new_password)
     if password_changed:
-        if len(new_password)<6:
-            context["error"]="Mật khẩu mới phải có ít nhất 6 ký tự."
+        if len(new_password)<MIN_PASSWORD_LENGTH:
+            context["error"]=f"Mật khẩu mới phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự."
             return templates.TemplateResponse("teacher_account.html",context,status_code=400)
         if new_password!=confirm_password:
             context["error"]="Xác nhận mật khẩu mới không khớp."

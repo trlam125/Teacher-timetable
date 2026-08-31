@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quản lý tài khoản</title>
   <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode');}})();function toggleTheme(){const isDark=document.documentElement.classList.toggle('dark-mode');localStorage.setItem('theme',isDark?'dark':'light');}</script>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=31">
+  <script src="/static/operation-status.js?v=1" defer></script>
   <link rel="stylesheet" href="/static/effects.css?v=2">
   <link rel="stylesheet" href="/static/auth-extra.css">
 </head>
@@ -61,7 +62,7 @@
                 <input name="requested_teacher_name" value="{{account.requested_teacher_name or ''}}" placeholder="Ví dụ: Lê Minh Châu">
               </label>
               <label>Mật khẩu mới
-                <input type="password" name="password" minlength="6" placeholder="Để trống nếu không đổi">
+                <input type="password" name="password" minlength="8" placeholder="Để trống nếu không đổi">
               </label>
               <div class="row end">
                 <button class="btn">Lưu thay đổi</button>

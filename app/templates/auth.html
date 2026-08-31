@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{{'Đăng nhập' if mode=='login' else ('Xác nhận OTP' if mode=='register_otp' else 'Đăng ký tài khoản')}}</title>
   <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode');}})();</script>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=31">
+  <script src="/static/operation-status.js?v=1" defer></script>
   <link rel="stylesheet" href="/static/auth-extra.css">
   <link rel="stylesheet" href="/static/auth-panda.css?v=6">
   <script src="/static/auth-panda.js?v=4" defer></script>
@@ -61,7 +62,7 @@
     {% endif %}
     {% if mode in ['login','register'] and (mode=='login' or target_project) %}
       <label class="auth-field">Email<span class="auth-input-wrap"><i class="field-icon mail-icon" aria-hidden="true"></i><input id="authEmail" type="email" name="email" value="{{form_values.email or '' if mode=='register' else ''}}" autocomplete="email" placeholder="ten@truonghoc.edu.vn" maxlength="255" required autofocus></span></label>
-      <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input id="authPassword" type="password" name="password" autocomplete="{{'current-password' if mode=='login' else 'new-password'}}" placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" minlength="{{8 if mode=='register' else 6}}" required><button class="password-toggle" type="button" aria-label="Giữ để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
+      <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input id="authPassword" type="password" name="password" autocomplete="{{'current-password' if mode=='login' else 'new-password'}}" placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" {% if mode=='register' %}minlength="8"{% endif %} required><button class="password-toggle" type="button" aria-label="Giữ để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
       {% if mode=='register' %}<label class="auth-field">Nhập lại mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon" aria-hidden="true"></i><input type="password" name="password_confirm" autocomplete="new-password" minlength="8" required></span></label>{% endif %}
     {% endif %}
     {% if mode=='register' and target_project %}

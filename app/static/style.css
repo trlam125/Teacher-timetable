@@ -489,6 +489,85 @@ dialog::backdrop { background: var(--dialog-backdrop); }
   color: var(--muted);
 }
 
+.operation-status {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .52);
+  backdrop-filter: blur(3px);
+}
+
+.operation-status[hidden] { display: none !important; }
+
+.operation-status-card {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: min(440px, 100%);
+  padding: 20px;
+  color: var(--ink);
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
+}
+
+.operation-status-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--soft);
+}
+
+.operation-status-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(37, 99, 235, .2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: operation-status-spin .8s linear infinite;
+}
+
+.operation-status-result { display: none; }
+
+.operation-status.is-success .operation-status-icon { background: #dcfce7; }
+.operation-status.is-error .operation-status-icon { background: #fee2e2; }
+.operation-status.is-success .operation-status-spinner,
+.operation-status.is-error .operation-status-spinner { display: none; }
+.operation-status.is-success .operation-status-result,
+.operation-status.is-error .operation-status-result {
+  display: block;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1;
+}
+.operation-status.is-success .operation-status-result::before { content: "✓"; color: #15803d; }
+.operation-status.is-error .operation-status-result::before { content: "!"; color: #b91c1c; }
+
+.operation-status-title {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 17px;
+}
+
+.operation-status-message {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+@keyframes operation-status-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .operation-status-spinner { animation-duration: 1.8s; }
+}
+
 #toast {
   position: fixed;
   right: 24px;
