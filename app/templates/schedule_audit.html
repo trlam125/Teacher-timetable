@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Import &amp; kiểm tra thời khóa biểu</title>
+    <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })(); function toggleTheme() { const isDark = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', isDark ? 'dark' : 'light'); }</script>
+    <link rel="stylesheet" href="/static/style.css?v=38">
+    <script src="/static/operation-status.js?v=3" defer></script>
+    <link rel="stylesheet" href="/static/effects.css?v=6">
+</head>
+<body>
+    <header class="appbar">
+        <a class="brand" href="/projects">Smart TKB</a>
+        <div><b>Import &amp; kiểm tra TKB</b><small>Công cụ độc lập</small></div>
+        <div class="spacer"></div>
+        <button class="theme-toggle-btn" style="margin-right:10px" onclick="toggleTheme()" title="Đổi giao diện Sáng/Tối" aria-label="Đổi giao diện Sáng/Tối">
+            <svg class="theme-toggle-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg class="theme-toggle-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+        <a class="btn ghost" href="/projects">Dashboard</a>
+    </header>
+    <main class="content schedule-audit-standalone">
+        <div class="schedule-audit-context standalone">
+            <div>
+                <span class="pill">Độc lập hoàn toàn</span>
+                <b>Chỉ đọc và kiểm tra file bạn tải lên</b>
+                <small>Không dùng hay thay đổi bất kỳ thời khóa biểu nào trên Dashboard.</small>
+            </div>
+        </div>
+        <section id="audit">
+            <div class="section-head">
+                <div>
+                    <h1>Import &amp; kiểm tra thời khóa biểu</h1>
+                    <p>Hệ thống hiển thị lại thời khóa biểu ngay trên web. Các ô bị trùng lớp, trùng giáo viên hoặc trùng phòng sẽ được đánh dấu đỏ trực tiếp trên bảng.</p>
+                </div>
+            </div>
+            <div class="schedule-audit-viewer-layout">
+                <div class="schedule-audit-upload-card schedule-audit-upload-compact">
+                    <div class="schedule-audit-upload-copy">
+                        <div class="schedule-audit-icon" aria-hidden="true">✓</div>
+                        <div>
+                            <h2>Chọn file cần kiểm tra</h2>
+                            <p>Excel <b>.xlsx, .xlsm, .xls</b>, Word <b>.docx</b>, CSV hoặc TSV. Có thể kéo thả file vào vùng bên cạnh.</p>
+                        </div>
+                    </div>
+                    <label id="scheduleAuditDropzone" class="schedule-audit-dropzone compact" for="scheduleAuditFile" tabindex="0" role="button" aria-describedby="scheduleAuditDropHint">
+                        <input id="scheduleAuditFile" type="file" accept=".xlsx,.xlsm,.xls,.docx,.csv,.tsv" hidden>
+                        <span class="schedule-audit-import-icon" aria-hidden="true">&#8682;</span>
+                        <span class="schedule-audit-drop-title">Kéo thả file vào đây</span>
+                        <span id="scheduleAuditDropHint" class="schedule-audit-drop-hint">hoặc bấm để chọn file</span>
+                        <span id="scheduleAuditFileName" class="schedule-audit-file-name">Chưa chọn file</span>
+                    </label>
+                    <div class="schedule-audit-upload-actions">
+                        <div id="scheduleAuditFileActions" class="schedule-audit-file-actions" hidden><span>✓ File đã sẵn sàng</span><button class="schedule-audit-clear" type="button" onclick="clearScheduleAuditFile()">Bỏ file</button></div>
+                        <button id="scheduleAuditButton" class="btn schedule-audit-button" type="button" onclick="runScheduleAudit()">Kiểm tra thời khóa biểu</button>
+                        <small class="schedule-audit-note">Tối đa 15 MB.</small>
+                    </div>
+                </div>
+                <div id="scheduleAuditResult" class="schedule-audit-result schedule-audit-viewer-result">
+                    <div class="empty-state">Chọn một file thời khóa biểu để hiển thị và kiểm tra.</div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="/static/schedule-audit.js?v=2"></script>
+</body>
+</html>

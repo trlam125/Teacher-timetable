@@ -31,7 +31,7 @@
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg></button><span>Xin chào, {{user.name}}</span><a href="/admin/users">Quản lý tài khoản</a><a
+            </svg></button><a class="btn ghost" href="/schedule-audit" title="Import, kiểm tra và chuyển thời khóa biểu sang chế độ kéo-thả">Import &amp; kiểm tra TKB</a><span>Xin chào, {{user.name}}</span><a href="/admin/users">Quản lý tài khoản</a><a
             href="/logout">Đăng xuất</a>
     </header>
     <main class="container">
@@ -66,6 +66,7 @@
                     onclick="this.closest('dialog').close()">Hủy</button><button class="btn">Tạo</button></div>
         </form>
     </dialog>
+
 </body>
 
 </html>

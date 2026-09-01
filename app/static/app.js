@@ -140,7 +140,9 @@ function setScheduleActionState(state,resetAfter=0){
 }
 function launchConfetti(){const canvas=document.createElement('canvas');canvas.style.position='fixed';canvas.style.inset='0';canvas.style.width='100vw';canvas.style.height='100vh';canvas.style.pointerEvents='none';canvas.style.zIndex='999';document.body.appendChild(canvas);const ctx=canvas.getContext('2d');let width=canvas.width=window.innerWidth;let height=canvas.height=window.innerHeight;window.addEventListener('resize',()=>{width=canvas.width=window.innerWidth;height=canvas.height=window.innerHeight});const colors=['#2563eb','#06b6d4','#10b981','#f5b83d','#ec4899','#8b5cf6'];const particles=[];for(let i=0;i<120;i++){particles.push({x:Math.random()*width,y:Math.random()*height-height,r:Math.random()*6+4,d:Math.random()*width,color:colors[Math.floor(Math.random()*colors.length)],tilt:Math.random()*10-5,tiltAngleIncremental:Math.random()*0.07+0.02,tiltAngle:0,velocity:Math.random()*3+2})}let animationFrameId;let start=Date.now();function draw(){ctx.clearRect(0,0,width,height);let active=false;for(let i=0;i<particles.length;i++){const p=particles[i];p.tiltAngle+=p.tiltAngleIncremental;p.y+=(Math.cos(p.d)+3+p.r/2)/2*p.velocity*0.7;p.x+=Math.sin(p.tiltAngle)*0.5;if(p.y<height){active=true}ctx.beginPath();ctx.lineWidth=p.r;ctx.strokeStyle=p.color;ctx.moveTo(p.x+p.r/2+p.tilt,p.y);ctx.lineTo(p.x+p.tilt,p.y+p.tilt+p.r/2);ctx.stroke()}if(active&&Date.now()-start<3500){animationFrameId=requestAnimationFrame(draw)}else{cancelAnimationFrame(animationFrameId);canvas.remove()}}draw()}
 async function refresh(skipOperationStatus=false){const init=skipOperationStatus?{headers:operationHeaders()}:undefined;const r=await fetch(`/api/projects/${PROJECT_ID}/data`,init);const result=await r.json().catch(()=>null);if(!r.ok){const error=new Error(result?.message||result?.detail||'Không thể tải lại dữ liệu từ máy chủ.');error.isRefreshError=true;throw error}if(!result||typeof result!=='object'||Array.isArray(result)){const error=new Error('Dữ liệu trả về từ máy chủ không hợp lệ.');error.isRefreshError=true;throw error}data=result;renderAll();return data}
-document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');const t=$('#'+b.dataset.tab);if(t)t.classList.add('active');if(b.dataset.tab==='schedule')renderSchedule();if(b.dataset.tab==='constraints')renderConstraintSelectors();if(b.dataset.tab==='preferences')loadPreferenceInbox();if(b.dataset.tab==='teachers')loadTeacherAccounts()});
+function activateWorkspaceTab(tabName){const b=document.querySelector(`.nav[data-tab="${tabName}"]`);if(!b)return false;document.querySelectorAll('.nav,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');const t=$('#'+b.dataset.tab);if(t)t.classList.add('active');if(b.dataset.tab==='schedule')renderSchedule();if(b.dataset.tab==='constraints')renderConstraintSelectors();if(b.dataset.tab==='preferences')loadPreferenceInbox();if(b.dataset.tab==='teachers')loadTeacherAccounts();return true}
+document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>activateWorkspaceTab(b.dataset.tab));
+function activateRequestedWorkspaceTab(){const tab=new URLSearchParams(window.location.search).get('tab');if(tab)activateWorkspaceTab(tab)}
 function table(rows,cols,type){if(!rows.length)return '<div class="empty-state">Chưa có dữ liệu.</div>';const canEdit=['subject','teacher','grade','class'].includes(type);return `<table class="data-table"><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof c[1]==='function'?c[1](r):r[c[1]])}</td>`).join('')}<td><div class="row end">${canEdit?`<button class="danger-link" onclick="openEntityEdit('${type}',${r.id})">Sửa</button>`:''}<button class="danger-link" onclick="delEntity('${type}',${r.id},this)">Xóa</button></div></td></tr>`).join('')}</tbody></table>`}
 function describeBlockMode(mode,total){if(mode==='required_double'){const pairs=Math.floor(total/2),single=total%2;return `Bắt buộc tiết đôi · ${pairs?`${pairs} cặp × 2 tiết`:''}${pairs&&single?' + ':''}${single?'1 tiết đơn':''}`}if(mode==='preferred_double')return 'Ưu tiên tiết đôi · có thể tách khi cần';return 'Tự do · xếp riêng hoặc liền nhau'}
 function assignmentFilterState(){return {classId:Number($('#assignmentFilterClass')?.value||0),subjectId:Number($('#assignmentFilterSubject')?.value||0),teacherId:Number($('#assignmentFilterTeacher')?.value||0),status:$('#assignmentFilterStatus')?.value||'all'}}
@@ -441,6 +443,7 @@ renderSchedule=function(){renderScheduleWithoutGlobalLocks();markGlobalBlockedSl
 renderAll();
 renderScheduleSelectors();
 renderConstraintSelectors();
+activateRequestedWorkspaceTab();
 
 entityModal?.addEventListener('close',()=>{setEntityActionMessage('');const button=$('#entitySubmitButton');if(button)setInlineActionState(button,'idle',{idle:'Lưu'})});
 
@@ -451,3 +454,263 @@ document.addEventListener('dragleave',event=>{const target=event.target.closest(
 function clearDragEffects(){document.body.classList.remove('is-dragging');document.querySelectorAll('.dragging,.drag-over').forEach(item=>item.classList.remove('dragging','drag-over'))}
 document.addEventListener('drop',clearDragEffects);
 document.addEventListener('dragend',clearDragEffects);
+
+// ===== Kiểm tra thời khóa biểu từ file =====
+let scheduleAuditSelectedFile=null;
+let scheduleAuditRunId=0;
+let scheduleImportDraft=null;
+let scheduleImportEditRunId=0;
+const SCHEDULE_AUDIT_MAX_BYTES=15*1024*1024;
+const SCHEDULE_AUDIT_ALLOWED_EXTENSIONS=['xlsx','xlsm','xls','docx','csv','tsv'];
+function scheduleAuditFileValidationError(file){
+  if(!file)return 'Hãy chọn file thời khóa biểu trước khi kiểm tra.';
+  if(file.size>SCHEDULE_AUDIT_MAX_BYTES)return 'File vượt quá giới hạn 15 MB.';
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(!SCHEDULE_AUDIT_ALLOWED_EXTENSIONS.includes(ext))return 'Định dạng chưa hỗ trợ. Dùng .xlsx, .xlsm, .xls, .docx, .csv hoặc .tsv.';
+  return '';
+}
+function setScheduleAuditFile(file){
+  scheduleAuditSelectedFile=file||null;
+  const name=$('#scheduleAuditFileName'),drop=$('#scheduleAuditDropzone'),actions=$('#scheduleAuditFileActions'),button=$('#scheduleAuditButton');
+  if(name)name.textContent=file?`${file.name} · ${(file.size/1024/1024).toFixed(file.size>=1024*1024?2:3)} MB`:'Chưa chọn file';
+  if(drop){
+    drop.classList.toggle('has-file',!!file);
+    drop.setAttribute('aria-label',file?`File ${file.name} đã sẵn sàng. Bấm để chọn file khác.`:'Kéo thả file thời khóa biểu vào đây hoặc bấm để chọn file.');
+  }
+  if(actions)actions.hidden=!file;
+  if(button&&!button.disabled)button.textContent=file?'Kiểm tra lại':'Kiểm tra thời khóa biểu';
+}
+function clearScheduleAuditFile(resetResult=true){
+  scheduleAuditRunId+=1;
+  closeScheduleImportEditor();
+  const input=$('#scheduleAuditFile'),box=$('#scheduleAuditResult'),button=$('#scheduleAuditButton'),drop=$('#scheduleAuditDropzone');
+  if(input)input.value='';
+  setScheduleAuditFile(null);
+  if(button){button.disabled=false;button.textContent='Kiểm tra thời khóa biểu'}
+  if(drop)drop.classList.remove('is-analyzing','is-dragging');
+  if(resetResult&&box)box.innerHTML='<div class="empty-state">Chọn một file thời khóa biểu để bắt đầu kiểm tra.</div>';
+}
+function selectScheduleAuditFile(file,{autoRun=true}={}){
+  const error=scheduleAuditFileValidationError(file);
+  if(error){clearScheduleAuditFile(false);renderScheduleAuditError(error);return false}
+  closeScheduleImportEditor();
+  setScheduleAuditFile(file);
+  if(autoRun)runScheduleAudit();
+  return true;
+}
+function scheduleAuditIssueGroup(title,items,kind){
+  if(!items.length)return '';
+  return `<section class="schedule-audit-issue-group ${kind}"><div class="schedule-audit-group-head"><h3>${esc(title)}</h3><span>${items.length}</span></div><div class="schedule-audit-issue-list">${items.map(item=>`<article class="schedule-audit-issue ${esc(item.severity)}"><div class="schedule-audit-issue-mark">${item.severity==='error'?'!':'⚠'}</div><div class="schedule-audit-issue-body"><div class="schedule-audit-issue-title"><b>${esc(item.title)}</b>${item.slot_label?`<span>${esc(item.slot_label)}</span>`:''}</div><p>${esc(item.detail)}</p>${item.source?`<small>Nguồn: ${esc(item.source)}</small>`:''}</div></article>`).join('')}</div></section>`;
+}
+function renderScheduleAudit(report){
+  const box=$('#scheduleAuditResult');if(!box)return;
+  const summary=report.summary||{},detection=report.detection||{},issues=report.issues||[],errors=issues.filter(item=>item.severity==='error'),warnings=issues.filter(item=>item.severity==='warning');
+  const clean=!errors.length&&!warnings.length,layouts=(detection.layouts||[]).join(', ')||'Không xác định',scope=detection.scope_label||'Phần dữ liệu đã nhận diện';
+  box.innerHTML=`
+    <div class="schedule-audit-report-head ${clean?'clean':errors.length?'has-error':'has-warning'}">
+      <div><span class="schedule-audit-status-icon">${clean?'✓':errors.length?'!':'⚠'}</span></div>
+      <div><h2>${clean?'Không phát hiện lỗi thời khóa biểu':errors.length?`Phát hiện ${errors.length} lỗi cần xử lý`:`Có ${warnings.length} cảnh báo cần xem lại`}</h2><p>${esc(report.filename||'File')} · ${esc(report.format||'')} · Đã đọc ${Number(summary.read_lessons||0)} tiết, nhận diện ${Number(summary.recognized_lessons||0)} tiết.</p><p class="schedule-audit-detection"><b>Nhận diện:</b> ${esc(layouts)} · <b>Phạm vi:</b> ${esc(scope)}</p></div>
+    </div>
+    <div class="schedule-audit-stats">
+      <article><strong>${Number(summary.errors||0)}</strong><span>Lỗi</span></article>
+      <article><strong>${Number(summary.warnings||0)}</strong><span>Cảnh báo</span></article>
+      <article><strong>${Number(summary.collisions||0)}</strong><span>Lỗi trùng</span></article>
+      <article><strong>${Number(summary.missing_periods||0)}</strong><span>Tiết thiếu</span></article>
+      <article><strong>${Number(summary.extra_periods||0)}</strong><span>Tiết thừa</span></article>
+    </div>
+    ${Number(summary.recognized_lessons||0)>0?'<div class="schedule-audit-convert"><div><b>Muốn sửa trực tiếp lịch vừa import?</b><p>Chuyển các tiết đã nhận diện thành bản nháp kéo-thả ngay trên màn hình này. Bản nháp chưa làm thay đổi TKB hiện tại.</p></div><button id="scheduleAuditConvertButton" class="btn" type="button" onclick="convertScheduleAuditToEditor(this)">Chuyển sang chỉnh sửa</button></div>':''}
+    ${clean?'<div class="schedule-audit-clean"><b>✓ Lịch khớp với dữ liệu project.</b><p>Không thấy trùng lịch, thiếu/thừa tiết hoặc vi phạm ràng buộc trong phần dữ liệu đã nhận diện.</p></div>':''}
+    ${scheduleAuditIssueGroup('Lỗi cần sửa',errors,'errors')}
+    ${scheduleAuditIssueGroup('Cảnh báo',warnings,'warnings')}`;
+}
+function renderScheduleAuditError(message){
+  const box=$('#scheduleAuditResult');if(!box)return;
+  box.innerHTML=`<div class="schedule-audit-report-head has-error"><div><span class="schedule-audit-status-icon">!</span></div><div><h2>Không thể kiểm tra file</h2><p>${esc(message||'Đã xảy ra lỗi khi đọc thời khóa biểu.')}</p></div></div>`;
+}
+async function runScheduleAudit(){
+  const input=$('#scheduleAuditFile'),button=$('#scheduleAuditButton'),file=scheduleAuditSelectedFile||input?.files?.[0];
+  const validationError=scheduleAuditFileValidationError(file);
+  if(validationError){renderScheduleAuditError(validationError);return}
+  const runId=++scheduleAuditRunId,drop=$('#scheduleAuditDropzone');
+  if(button){button.disabled=true;button.textContent='Đang phân tích…'}
+  if(drop)drop.classList.add('is-analyzing');
+  const box=$('#scheduleAuditResult');if(box)box.innerHTML='<div class="schedule-audit-loading"><span></span><b>Đang đọc file và đối chiếu toàn bộ lịch…</b></div>';
+  try{
+    const form=new FormData();form.append('file',file,file.name);
+    const response=await fetch(`/api/projects/${PROJECT_ID}/schedule-audit`,{method:'POST',headers:operationHeaders(),body:form});
+    let result={};try{result=await response.json()}catch{}
+    if(runId!==scheduleAuditRunId)return;
+    if(!response.ok||!result.ok){renderScheduleAuditError(result.message||`Máy chủ trả về lỗi ${response.status}.`);return}
+    renderScheduleAudit(result);
+  }catch(error){
+    if(runId===scheduleAuditRunId)renderScheduleAuditError(error?.message||'Không thể kết nối tới máy chủ để kiểm tra file.');
+  }finally{
+    if(runId===scheduleAuditRunId){if(button){button.disabled=false;button.textContent='Kiểm tra lại'}if(drop)drop.classList.remove('is-analyzing')}
+  }
+}
+function closeScheduleImportEditor(){
+  scheduleImportEditRunId+=1;
+  scheduleImportDraft=null;
+  const editor=$('#scheduleImportEditor'),grid=$('#scheduleImportGrid'),tray=$('#scheduleImportTray'),status=$('#scheduleImportStatus');
+  if(editor)editor.hidden=true;
+  if(grid)grid.innerHTML='';
+  if(tray)tray.innerHTML='';
+  if(status){status.textContent='';status.className='schedule-import-status'}
+}
+function scheduleImportDraftLessonsPayload(){
+  return (scheduleImportDraft?.lessons||[]).map(item=>({draft_id:Number(item.draft_id),assignment_id:Number(item.assignment_id),slot:Number(item.slot)}));
+}
+function setScheduleImportStatus(message,kind='info'){
+  const box=$('#scheduleImportStatus');if(!box)return;
+  box.className=`schedule-import-status ${kind}`;box.textContent=message||'';
+}
+async function convertScheduleAuditToEditor(button){
+  const file=scheduleAuditSelectedFile||$('#scheduleAuditFile')?.files?.[0];
+  const validationError=scheduleAuditFileValidationError(file);
+  if(validationError){renderScheduleAuditError(validationError);return}
+  setInlineActionState(button,'loading',{idle:'Chuyển sang chỉnh sửa',loading:'Đang chuyển đổi...'});
+  try{
+    const form=new FormData();form.append('file',file,file.name);
+    const response=await fetch(`/api/projects/${PROJECT_ID}/schedule-import/convert`,{method:'POST',headers:operationHeaders(),body:form});
+    let result={};try{result=await response.json()}catch{}
+    if(!response.ok||!result.ok){setInlineActionState(button,'error',{idle:'Chuyển sang chỉnh sửa',error:'Không chuyển được'},2200);showInlineActionFeedback(button,result.message||'Không thể chuyển file thành bản nháp chỉnh sửa.','error',5200);return}
+    scheduleImportDraft={filename:result.filename||file.name,lessons:result.lessons||[],audit:result.audit||{}};
+    const editor=$('#scheduleImportEditor'),name=$('#scheduleImportName');
+    if(name)name.value=result.suggested_name||`TKB import - ${file.name}`;
+    if(editor)editor.hidden=false;
+    renderScheduleImportSelectors();
+    setScheduleImportStatus(`Đã chuyển ${scheduleImportDraft.lessons.length} tiết thành bản nháp. Kéo thả để chỉnh sửa trước khi lưu.`,'success');
+    setInlineActionState(button,'success',{idle:'Chuyển sang chỉnh sửa',success:'Đã chuyển đổi'},1300);
+    editor?.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch{
+    setInlineActionState(button,'error',{idle:'Chuyển sang chỉnh sửa',error:'Lỗi kết nối'},2200);
+    showInlineActionFeedback(button,'Mất kết nối tới máy chủ. Không thể tạo bản nháp chỉnh sửa.','error',5200);
+  }
+}
+function renderScheduleImportSelectors(){
+  const vt=$('#scheduleImportViewType'),ve=$('#scheduleImportViewEntity');if(!vt||!ve||!scheduleImportDraft)return;
+  if(vt.value==='overview'){ve.innerHTML='<option value="all">Toàn trường</option>';ve.disabled=true;ve.style.display='none'}
+  else{
+    ve.disabled=false;ve.style.display='';const rows=vt.value==='teacher'?data.teachers:data.classes,old=ve.value;
+    ve.innerHTML=opts(rows);if([...ve.options].some(option=>option.value===old))ve.value=old;
+  }
+  vt.onchange=()=>{renderScheduleImportSelectors()};
+  ve.onchange=()=>{renderScheduleImportDraft()};
+  renderScheduleImportDraft();
+}
+function scheduleImportVisibleAssignment(assignment){
+  const vt=$('#scheduleImportViewType'),ve=$('#scheduleImportViewEntity');
+  if(!vt||vt.value==='overview')return true;
+  if(!ve?.value)return false;
+  return vt.value==='class'?assignment.class_id===Number(ve.value):assignment.teacher_id===Number(ve.value);
+}
+function renderScheduleImportTray(){
+  const tray=$('#scheduleImportTray');if(!tray||!scheduleImportDraft)return;
+  const counts={};scheduleImportDraft.lessons.forEach(lesson=>counts[lesson.assignment_id]=(counts[lesson.assignment_id]||0)+1);
+  const rows=data.assignments.filter(scheduleImportVisibleAssignment).map(item=>({...item,scheduled:counts[item.id]||0,remaining:Math.max(0,item.periods_per_week-(counts[item.id]||0))}));
+  const pending=rows.filter(item=>item.remaining>0);
+  const hint='<div class="tray-drop-hint">Kéo tiết từ lịch xuống đây để gỡ khỏi bản nháp</div>';
+  tray.innerHTML=hint+(pending.length?pending.map(item=>`<div class="tray-lesson" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','import-assignment:${item.id}')"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>Còn ${item.remaining}</span></div>`).join(''):'<div class="empty-state compact">Không còn tiết thiếu trong phạm vi đang xem.</div>');
+}
+function scheduleImportClusteredLessonIds(){
+  const marked=new Set(),eligible=new Set(data.assignments.filter(item=>item.block_mode==='preferred_double'||item.block_mode==='required_double').map(item=>item.id)),groups=new Map(),pps=data.project.periods,ppd=data.project.sessions*pps;
+  for(const lesson of scheduleImportDraft?.lessons||[]){if(!eligible.has(lesson.assignment_id))continue;const day=Math.floor(lesson.slot/ppd),inside=lesson.slot%ppd,session=Math.floor(inside/pps),key=`${lesson.assignment_id}:${day}:${session}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(lesson)}
+  for(const lessons of groups.values()){lessons.sort((a,b)=>a.slot-b.slot);let run=[];const mark=()=>{if(run.length>1)run.forEach(item=>marked.add(item.draft_id));run=[]};for(const lesson of lessons){if(run.length&&lesson.slot!==run[run.length-1].slot+1)mark();run.push(lesson)}mark()}
+  return marked;
+}
+function scheduleImportLessonHtml(lesson,view,inCluster=false){
+  const assignment=data.assignments.find(item=>item.id===lesson.assignment_id);if(!assignment)return '';
+  return `<div class="lesson ${view==='overview'?'lesson-overview':''} ${inCluster?'lesson-cluster':''}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','import-lesson:${lesson.draft_id}')"><b>${esc(assignment.subject_short)}</b><small>${esc(assignment.class_name)} · ${esc(assignment.teacher_short)}</small><button class="lesson-remove" title="Gỡ tiết khỏi bản nháp" onclick="event.stopPropagation();removeScheduleImportLesson(${lesson.draft_id})">×</button></div>`;
+}
+function renderScheduleImportDraft(){
+  const box=$('#scheduleImportGrid'),vt=$('#scheduleImportViewType'),ve=$('#scheduleImportViewEntity');if(!box||!vt||!ve||!scheduleImportDraft)return;
+  if(vt.value!=='overview'&&!ve.value){box.innerHTML='<div class="empty-state">Hãy chọn lớp hoặc giáo viên.</div>';renderScheduleImportTray();return}
+  const days=data.project.days,pps=data.project.periods,sessions=data.project.sessions,clustered=scheduleImportClusteredLessonIds();
+  const legend='<div class="schedule-color-legend"><b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Tiết đang được ghép đôi</span></div>';
+  let html=`<div class="timetable ${vt.value==='overview'?'overview-timetable':''}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;
+  for(let day=0;day<days;day++)html+=`<div class="cell head">${['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'][day]}</div>`;
+  for(let session=0;session<sessions;session++)for(let period=0;period<pps;period++){
+    html+=`<div class="cell period">${sessions>1?(session===0?'S':'C')+' ':''}${period+1}</div>`;
+    for(let day=0;day<days;day++){
+      const slot=day*(sessions*pps)+session*pps+period;
+      const lessons=scheduleImportDraft.lessons.filter(item=>item.slot===slot).filter(item=>{const assignment=data.assignments.find(row=>row.id===item.assignment_id);return assignment&&scheduleImportVisibleAssignment(assignment)}).sort((left,right)=>{const a=data.assignments.find(row=>row.id===left.assignment_id),b=data.assignments.find(row=>row.id===right.assignment_id);return (a?.class_name||'').localeCompare(b?.class_name||'','vi')});
+      html+=`<div class="cell available schedule-import-cell" data-import-slot="${slot}" ondragover="event.preventDefault()" ondrop="dropScheduleImportLesson(event,${slot})">${lessons.map(item=>scheduleImportLessonHtml(item,vt.value,clustered.has(item.draft_id))).join('')}</div>`;
+    }
+  }
+  html+='</div>';box.innerHTML=legend+html;renderScheduleImportTray();
+}
+async function editScheduleImportDraft(action,payload={}){
+  if(!scheduleImportDraft)return false;
+  const runId=++scheduleImportEditRunId;
+  setScheduleImportStatus('Đang cập nhật bản nháp…','loading');
+  try{
+    const response=await fetch(`/api/projects/${PROJECT_ID}/schedule-import/edit`,{method:'POST',headers:operationHeaders({'Content-Type':'application/json'}),body:JSON.stringify({action,lessons:scheduleImportDraftLessonsPayload(),...payload})});
+    let result={};try{result=await response.json()}catch{}
+    if(runId!==scheduleImportEditRunId)return false;
+    if(!response.ok||!result.ok){setScheduleImportStatus(result.message||result.detail||'Không thể chỉnh sửa bản nháp.','error');return false}
+    scheduleImportDraft.lessons=result.lessons||[];renderScheduleImportDraft();setScheduleImportStatus(result.message||'Đã cập nhật bản nháp.','success');return true;
+  }catch{
+    if(runId===scheduleImportEditRunId)setScheduleImportStatus('Mất kết nối tới máy chủ. Không thể chỉnh sửa bản nháp.','error');return false;
+  }
+}
+async function dropScheduleImportLesson(event,slot){
+  event.preventDefault();const raw=event.dataTransfer?.getData('text/plain')||'';
+  if(raw.startsWith('import-assignment:')){const id=Number(raw.slice('import-assignment:'.length));if(Number.isInteger(id))await editScheduleImportDraft('add',{assignment_id:id,slot});return}
+  if(raw.startsWith('import-lesson:')){const id=Number(raw.slice('import-lesson:'.length));if(Number.isInteger(id))await editScheduleImportDraft('move',{draft_id:id,slot})}
+}
+async function dropScheduleImportToTray(event){
+  event.preventDefault();const raw=event.dataTransfer?.getData('text/plain')||'';if(!raw.startsWith('import-lesson:'))return;
+  const id=Number(raw.slice('import-lesson:'.length));if(Number.isInteger(id))await editScheduleImportDraft('remove',{draft_id:id});
+}
+async function removeScheduleImportLesson(draftId){await editScheduleImportDraft('remove',{draft_id:Number(draftId)})}
+async function saveScheduleImportDraft(button){
+  if(!scheduleImportDraft)return;
+  const name=$('#scheduleImportName')?.value?.trim()||'';if(!name){setScheduleImportStatus('Hãy nhập tên TKB mới trước khi lưu.','error');$('#scheduleImportName')?.focus();return}
+  setInlineActionState(button,'loading',{idle:'Save vào Dashboard',loading:'Đang lưu...'});setScheduleImportStatus('Đang tạo TKB mới trên Dashboard…','loading');
+  try{
+    const response=await fetch(`/api/projects/${PROJECT_ID}/schedule-import/save`,{method:'POST',headers:operationHeaders({'Content-Type':'application/json'}),body:JSON.stringify({name,lessons:scheduleImportDraftLessonsPayload()})});
+    let result={};try{result=await response.json()}catch{}
+    if(!response.ok||!result.ok){setInlineActionState(button,'error',{idle:'Save vào Dashboard',error:'Chưa lưu được'},2200);setScheduleImportStatus(result.message||result.detail||'Không thể lưu TKB import.','error');return}
+    setInlineActionState(button,'success',{idle:'Save vào Dashboard',success:'Đã lưu'},900);setScheduleImportStatus(result.message||'Đã lưu TKB mới trên Dashboard.','success');
+    setTimeout(()=>{window.location.href=result.dashboard_url||'/projects'},650);
+  }catch{
+    setInlineActionState(button,'error',{idle:'Save vào Dashboard',error:'Lỗi kết nối'},2200);setScheduleImportStatus('Mất kết nối tới máy chủ. Không thể lưu TKB import.','error');
+  }
+}
+const scheduleAuditInput=$('#scheduleAuditFile'),scheduleAuditDropzone=$('#scheduleAuditDropzone');
+if(scheduleAuditInput)scheduleAuditInput.addEventListener('change',()=>{
+  const file=scheduleAuditInput.files?.[0]||null;
+  if(file)selectScheduleAuditFile(file);
+});
+if(scheduleAuditDropzone){
+  let scheduleAuditDragDepth=0;
+  scheduleAuditDropzone.addEventListener('keydown',event=>{
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();scheduleAuditInput?.click()}
+  });
+  scheduleAuditDropzone.addEventListener('dragenter',event=>{
+    event.preventDefault();scheduleAuditDragDepth+=1;scheduleAuditDropzone.classList.add('is-dragging');
+    if(event.dataTransfer)event.dataTransfer.dropEffect='copy';
+  });
+  scheduleAuditDropzone.addEventListener('dragover',event=>{
+    event.preventDefault();scheduleAuditDropzone.classList.add('is-dragging');
+    if(event.dataTransfer)event.dataTransfer.dropEffect='copy';
+  });
+  scheduleAuditDropzone.addEventListener('dragleave',event=>{
+    event.preventDefault();scheduleAuditDragDepth=Math.max(0,scheduleAuditDragDepth-1);
+    if(!scheduleAuditDragDepth)scheduleAuditDropzone.classList.remove('is-dragging');
+  });
+  scheduleAuditDropzone.addEventListener('drop',event=>{
+    event.preventDefault();scheduleAuditDragDepth=0;scheduleAuditDropzone.classList.remove('is-dragging');
+    const files=Array.from(event.dataTransfer?.files||[]);
+    if(files.length>1){clearScheduleAuditFile(false);renderScheduleAuditError('Mỗi lần chỉ kiểm tra 1 file. Hãy thả lại một file thời khóa biểu.');return}
+    const file=files[0];if(file)selectScheduleAuditFile(file);
+  });
+}
+document.addEventListener('dragover',event=>{
+  if(Array.from(event.dataTransfer?.types||[]).includes('Files'))event.preventDefault();
+});
+document.addEventListener('drop',event=>{
+  if(!Array.from(event.dataTransfer?.types||[]).includes('Files'))return;
+  if(event.target?.closest?.('#scheduleAuditDropzone'))return;
+  event.preventDefault();
+});

@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MAIN = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
 JS = (ROOT / "app" / "static" / "app.js").read_text(encoding="utf-8")
+WORKSPACE = (ROOT / "app" / "templates" / "workspace.html").read_text(encoding="utf-8")
 
 
 class IntegrationContractTests(unittest.TestCase):
@@ -116,6 +117,23 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn("setTrayActionStatus('loading'", tray_source)
         self.assertNotIn("beginTrackedOperation", tray_source)
         self.assertNotIn("toast(", tray_source)
+
+    def test_schedule_audit_supports_integrated_drag_drop_import(self):
+        self.assertIn('id="scheduleAuditDropzone"', WORKSPACE)
+        self.assertIn('id="scheduleAuditFileActions"', WORKSPACE)
+        self.assertIn("scheduleAuditDropzone.addEventListener('drop'", JS)
+        self.assertIn("selectScheduleAuditFile(file)", JS)
+        self.assertIn("function clearScheduleAuditFile(", JS)
+        self.assertIn("function scheduleAuditFileValidationError(file)", JS)
+        self.assertIn("if(autoRun)runScheduleAudit()", JS)
+
+    def test_file_drop_outside_audit_zone_is_prevented(self):
+        self.assertIn("includes('Files')", JS)
+        self.assertIn("event.target?.closest?.('#scheduleAuditDropzone')", JS)
+
+    def test_schedule_audit_ignores_stale_async_results(self):
+        self.assertIn("let scheduleAuditRunId=0", JS)
+        self.assertIn("if(runId!==scheduleAuditRunId)return", JS)
 
 
 if __name__ == "__main__":

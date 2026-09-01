@@ -46,6 +46,7 @@ logger = logging.getLogger("smart_tkb")
 ADMIN_ROLES = frozenset({"admin", "super_admin"})
 MAX_CHATBOT_ERROR_LOGS = 500
 MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS = 350_000
+MAX_SCHEDULE_AUDIT_FILE_BYTES = 15 * 1024 * 1024
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -2302,6 +2303,19 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
         db.add(Lesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot,locked=x.locked))
     db.commit(); return RedirectResponse(f"/projects/{p.id}",303)
 
+@app.get("/schedule-audit", response_class=HTMLResponse)
+def standalone_schedule_audit_page(request:Request, user:User=Depends(current_user)):
+    return templates.TemplateResponse("schedule_audit.html", {
+        "request":request,
+        "user":user,
+        "days":DAYS,
+    })
+
+@app.get("/projects/{pid}/schedule-audit")
+def legacy_schedule_audit_page(pid:int, user:User=Depends(current_user)):
+    # Route cu chi de bookmark cu khong bi loi; khong doc bat ky du lieu project nao.
+    return RedirectResponse("/schedule-audit",303)
+
 @app.get("/projects/{pid}", response_class=HTMLResponse)
 def project_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
     p=get_project(pid,user,db)
@@ -2315,6 +2329,913 @@ def project_page(pid:int, request:Request, user:User=Depends(current_user), db:S
         "chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
         "chatbot_primary_model":os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
     })
+
+def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
+    filename = (file.filename or "").strip()
+    if not filename:
+        raise HTTPException(400, "Hãy chọn file thời khóa biểu cần kiểm tra.")
+    content = file.file.read(MAX_SCHEDULE_AUDIT_FILE_BYTES + 1)
+    if not content:
+        raise HTTPException(400, "File tải lên đang rỗng.")
+    if len(content) > MAX_SCHEDULE_AUDIT_FILE_BYTES:
+        raise HTTPException(413, "File quá lớn. Giới hạn kiểm tra là 15 MB.")
+    return filename, content
+
+@app.post("/api/schedule-audit")
+def standalone_audit_schedule_file(
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+):
+    filename, content = read_schedule_upload(file)
+    from app.schedule_audit import ScheduleAuditParseError, analyze_standalone_schedule_file
+    try:
+        return analyze_standalone_schedule_file(
+            filename=filename,
+            content=content,
+            include_editable=False,
+        )
+    except ScheduleAuditParseError as exc:
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("standalone schedule audit failed")
+        return JSONResponse(
+            {"ok": False, "message": "Không thể phân tích file thời khóa biểu này. Hãy kiểm tra lại cấu trúc file."},
+            status_code=500,
+        )
+
+@app.post("/api/schedule-import/convert")
+def standalone_convert_schedule_file_to_draft(
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+):
+    filename, content = read_schedule_upload(file)
+    from app.schedule_audit import ScheduleAuditParseError, analyze_standalone_schedule_file
+    try:
+        report = analyze_standalone_schedule_file(
+            filename=filename,
+            content=content,
+            include_editable=True,
+        )
+    except ScheduleAuditParseError as exc:
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("standalone schedule import conversion failed")
+        return JSONResponse(
+            {"ok": False, "message": "Không thể chuyển file thành bản nháp chỉnh sửa."},
+            status_code=500,
+        )
+    editable = report.pop("editable_lessons", [])
+    data = report.get("data") or {}
+    if not editable:
+        return JSONResponse(
+            {"ok": False, "message": "Không có tiết nào đủ thông tin để chuyển sang chỉnh sửa kéo-thả."},
+            status_code=400,
+        )
+    stem = os.path.splitext(os.path.basename(filename))[0].strip() or "TKB import"
+    return {
+        "ok": True,
+        "filename": filename,
+        "suggested_name": stem[:200],
+        "suggested_school_name": "Trường học",
+        "lessons": editable,
+        "data": data,
+        "audit": report,
+    }
+
+def audit_schedule_file(
+    pid: int,
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    p = get_project(pid, user, db)
+    filename, content = read_schedule_upload(file)
+
+    from app.schedule_audit import ScheduleAuditParseError, analyze_schedule_file
+
+    data = project_data(db, p)
+    try:
+        return analyze_schedule_file(
+            filename=filename,
+            content=content,
+            project=data["project"],
+            classes=data["classes"],
+            subjects=data["subjects"],
+            teachers=data["teachers"],
+            assignments=data["assignments"],
+        )
+    except ScheduleAuditParseError as exc:
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("schedule audit failed for project %s", pid)
+        return JSONResponse(
+            {"ok": False, "message": "Không thể phân tích file thời khóa biểu này. Hãy kiểm tra lại cấu trúc file."},
+            status_code=500,
+        )
+
+class ImportedDraftLessonIn(BaseModel):
+    draft_id: int = Field(ge=1)
+    assignment_id: int = Field(ge=1)
+    slot: int = Field(ge=0)
+
+class ImportedScheduleEditIn(BaseModel):
+    action: str
+    lessons: list[ImportedDraftLessonIn]
+    draft_id: Optional[int] = None
+    assignment_id: Optional[int] = None
+    slot: Optional[int] = None
+
+class ImportedScheduleSaveIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    lessons: list[ImportedDraftLessonIn]
+
+class StandaloneImportedScheduleEditIn(BaseModel):
+    action: str
+    data: dict
+    lessons: list[ImportedDraftLessonIn]
+    draft_id: Optional[int] = None
+    assignment_id: Optional[int] = None
+    slot: Optional[int] = None
+
+class StandaloneImportedScheduleSaveIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    school_name: str = Field(default="Trường học", max_length=200)
+    data: dict
+    lessons: list[ImportedDraftLessonIn]
+
+def normalize_standalone_import_data(raw_data: dict) -> dict:
+    if not isinstance(raw_data, dict):
+        raise HTTPException(400, "Dữ liệu bản nháp import không hợp lệ.")
+    raw_project = raw_data.get("project")
+    if not isinstance(raw_project, dict):
+        raise HTTPException(400, "Bản nháp thiếu cấu trúc thời khóa biểu.")
+    project = {
+        "id": 0,
+        "name": "TKB import",
+        "school_name": "Trường học",
+        "days": bounded_int(raw_project.get("days"), 6, 1, 7, "Số ngày học"),
+        "sessions": bounded_int(raw_project.get("sessions"), 1, 1, 2, "Số buổi mỗi ngày"),
+        "periods": bounded_int(raw_project.get("periods"), 5, 1, 8, "Số tiết mỗi buổi"),
+        "blocked_slots": [],
+    }
+
+    def rows_of(name: str, maximum: int) -> list[dict]:
+        rows = raw_data.get(name)
+        if not isinstance(rows, list) or len(rows) > maximum:
+            raise HTTPException(400, f"Dữ liệu {name} của bản nháp không hợp lệ.")
+        if any(not isinstance(item, dict) for item in rows):
+            raise HTTPException(400, f"Dữ liệu {name} của bản nháp không hợp lệ.")
+        return rows
+
+    class_rows = rows_of("classes", 2000)
+    subject_rows = rows_of("subjects", 1000)
+    teacher_rows = rows_of("teachers", 2000)
+    assignment_rows = rows_of("assignments", 10000)
+
+    classes = []
+    class_ids = set()
+    for row in class_rows:
+        item_id = bounded_int(row.get("id"), 0, 1, 1_000_000, "Mã lớp")
+        name = str(row.get("name") or "").strip()
+        if not name or len(name) > 80 or item_id in class_ids:
+            raise HTTPException(400, "Danh sách lớp của bản nháp không hợp lệ.")
+        class_ids.add(item_id)
+        classes.append({"id": item_id, "name": name, "grade_id": None, "unavailable": []})
+
+    subjects = []
+    subject_ids = set()
+    for row in subject_rows:
+        item_id = bounded_int(row.get("id"), 0, 1, 1_000_000, "Mã môn")
+        name = str(row.get("name") or "").strip()
+        short_name = str(row.get("short_name") or name).strip()[:20]
+        if not name or len(name) > 120 or item_id in subject_ids:
+            raise HTTPException(400, "Danh sách môn học của bản nháp không hợp lệ.")
+        subject_ids.add(item_id)
+        subjects.append({
+            "id": item_id, "name": name, "short_name": short_name or f"M{item_id}",
+            "max_consecutive": bounded_int(row.get("max_consecutive"), project["periods"], 1, 8, "Số tiết liên tiếp"),
+        })
+
+    teachers = []
+    teacher_ids = set()
+    for row in teacher_rows:
+        item_id = bounded_int(row.get("id"), 0, 1, 1_000_000, "Mã giáo viên")
+        name = str(row.get("name") or "").strip()
+        short_name = str(row.get("short_name") or name).strip()[:30]
+        if not name or len(name) > 120 or item_id in teacher_ids:
+            raise HTTPException(400, "Danh sách giáo viên của bản nháp không hợp lệ.")
+        teacher_ids.add(item_id)
+        teachers.append({
+            "id": item_id, "name": name, "short_name": short_name or f"GV{item_id}",
+            "department_id": None,
+            "max_periods_day": bounded_int(
+                row.get("max_periods_day"),
+                project["sessions"] * project["periods"],
+                1,
+                project["sessions"] * project["periods"],
+                "Số tiết tối đa/ngày",
+            ),
+            "unavailable": [],
+            "subject_ids": [],
+        })
+
+    classes_by_id = {row["id"]: row for row in classes}
+    subjects_by_id = {row["id"]: row for row in subjects}
+    teachers_by_id = {row["id"]: row for row in teachers}
+    assignments = []
+    assignment_ids = set()
+    assignment_pairs = set()
+    teacher_subjects = defaultdict(set)
+    for row in assignment_rows:
+        item_id = bounded_int(row.get("id"), 0, 1, 10_000_000, "Mã phân công")
+        class_id = bounded_int(row.get("class_id"), 0, 1, 1_000_000, "Mã lớp")
+        subject_id = bounded_int(row.get("subject_id"), 0, 1, 1_000_000, "Mã môn")
+        teacher_id = bounded_int(row.get("teacher_id"), 0, 1, 1_000_000, "Mã giáo viên")
+        if item_id in assignment_ids or class_id not in classes_by_id or subject_id not in subjects_by_id or teacher_id not in teachers_by_id:
+            raise HTTPException(400, "Danh sách phân công của bản nháp không hợp lệ.")
+        pair = (class_id, subject_id)
+        if pair in assignment_pairs:
+            raise HTTPException(400, "File có nhiều giáo viên cho cùng một lớp/môn; cấu trúc này chưa thể lưu thành TKB mới.")
+        assignment_ids.add(item_id)
+        assignment_pairs.add(pair)
+        teacher_subjects[teacher_id].add(subject_id)
+        assignments.append({
+            "id": item_id,
+            "class_id": class_id,
+            "subject_id": subject_id,
+            "teacher_id": teacher_id,
+            "periods_per_week": bounded_int(row.get("periods_per_week"), 1, 1, 100, "Số tiết/tuần"),
+            "block_mode": "free",
+            "class_name": classes_by_id[class_id]["name"],
+            "subject_name": subjects_by_id[subject_id]["name"],
+            "subject_short": subjects_by_id[subject_id]["short_name"],
+            "teacher_name": teachers_by_id[teacher_id]["name"],
+            "teacher_short": teachers_by_id[teacher_id]["short_name"],
+        })
+    for teacher in teachers:
+        teacher["subject_ids"] = sorted(teacher_subjects.get(teacher["id"], set()))
+    return {
+        "project": project,
+        "classes": classes,
+        "subjects": subjects,
+        "teachers": teachers,
+        "assignments": assignments,
+        "lessons": [],
+    }
+
+def normalize_standalone_draft_lessons(
+    data: dict,
+    lessons: list[ImportedDraftLessonIn],
+) -> tuple[list[dict[str, int]], dict[int, dict]]:
+    if len(lessons) > 10_000:
+        raise HTTPException(400, "Bản nháp có quá nhiều tiết để xử lý.")
+    assignments = {int(item["id"]): item for item in data["assignments"]}
+    normalized = []
+    seen_draft_ids = set()
+    project = data["project"]
+    maximum = int(project["days"]) * int(project["sessions"]) * int(project["periods"])
+    for item in lessons:
+        if item.draft_id in seen_draft_ids:
+            raise HTTPException(400, "Bản nháp có mã tiết bị trùng.")
+        if item.assignment_id not in assignments:
+            raise HTTPException(400, "Bản nháp chứa phân công không hợp lệ.")
+        if item.slot < 0 or item.slot >= maximum:
+            raise HTTPException(400, "Bản nháp chứa ô thời khóa biểu không hợp lệ.")
+        seen_draft_ids.add(item.draft_id)
+        normalized.append({
+            "draft_id": int(item.draft_id),
+            "assignment_id": int(item.assignment_id),
+            "slot": int(item.slot),
+        })
+    return normalized, assignments
+
+def standalone_draft_target_error(
+    data: dict,
+    assignment: dict,
+    slot: int,
+    lessons: list[dict[str, int]],
+    assignments: dict[int, dict],
+    *,
+    exclude_draft_id: Optional[int] = None,
+) -> Optional[str]:
+    project = data["project"]
+    maximum = int(project["days"]) * int(project["sessions"]) * int(project["periods"])
+    if slot < 0 or slot >= maximum:
+        return "Ô thời khóa biểu không hợp lệ."
+    peers = [item for item in lessons if item["draft_id"] != exclude_draft_id]
+    for item in peers:
+        if item["slot"] != slot:
+            continue
+        other = assignments.get(item["assignment_id"])
+        if other and (other["class_id"] == assignment["class_id"] or other["teacher_id"] == assignment["teacher_id"]):
+            return "Ô đích bị trùng lớp hoặc giáo viên."
+
+    teachers = {int(item["id"]): item for item in data["teachers"]}
+    subjects = {int(item["id"]): item for item in data["subjects"]}
+    teacher = teachers.get(int(assignment["teacher_id"]))
+    subject = subjects.get(int(assignment["subject_id"]))
+    ppd = int(project["sessions"]) * int(project["periods"])
+    day = slot // ppd
+    inside = slot % ppd
+    session = inside // int(project["periods"])
+    period = inside % int(project["periods"])
+    if teacher:
+        teacher_periods = sum(
+            1 for item in peers
+            if item["slot"] // ppd == day
+            and assignments[item["assignment_id"]]["teacher_id"] == assignment["teacher_id"]
+        )
+        if teacher_periods >= int(teacher["max_periods_day"]):
+            return "Giáo viên đã đạt số tiết tối đa trong ngày của bản import."
+    if subject:
+        same_subject_periods = []
+        for item in peers:
+            if item["slot"] // ppd != day:
+                continue
+            other = assignments[item["assignment_id"]]
+            other_inside = item["slot"] % ppd
+            if (
+                other_inside // int(project["periods"]) == session
+                and other["class_id"] == assignment["class_id"]
+                and other["subject_id"] == assignment["subject_id"]
+            ):
+                same_subject_periods.append(other_inside % int(project["periods"]))
+        run = sorted(set(same_subject_periods + [period]))
+        longest = current = 1
+        for left, right in zip(run, run[1:]):
+            current = current + 1 if right == left + 1 else 1
+            longest = max(longest, current)
+        if longest > int(subject["max_consecutive"]):
+            return "Vượt số tiết liên tiếp tối đa của môn học trong bản import."
+    return None
+
+def standalone_draft_validation_error(
+    data: dict,
+    lessons: list[dict[str, int]],
+    assignments: dict[int, dict],
+) -> Optional[str]:
+    counts = Counter(item["assignment_id"] for item in lessons)
+    for assignment_id, count in counts.items():
+        if count > int(assignments[assignment_id]["periods_per_week"]):
+            return "Có phân công đang vượt số tiết gốc trong file import."
+    for item in lessons:
+        assignment = assignments[item["assignment_id"]]
+        error = standalone_draft_target_error(
+            data, assignment, item["slot"], lessons, assignments,
+            exclude_draft_id=item["draft_id"],
+        )
+        if error:
+            return error
+    return None
+
+@app.post("/api/schedule-import/edit")
+def standalone_edit_imported_schedule_draft(
+    payload: StandaloneImportedScheduleEditIn,
+    user: User = Depends(current_user),
+):
+    data = normalize_standalone_import_data(payload.data)
+    lessons, assignments = normalize_standalone_draft_lessons(data, payload.lessons)
+    action = payload.action.strip().lower()
+    if action not in {"move", "add", "remove"}:
+        raise HTTPException(400, "Thao tác chỉnh sửa bản nháp không hợp lệ.")
+
+    if action == "remove":
+        if payload.draft_id is None:
+            raise HTTPException(400, "Thiếu mã tiết cần gỡ.")
+        updated = [item for item in lessons if item["draft_id"] != payload.draft_id]
+        if len(updated) == len(lessons):
+            raise HTTPException(404, "Không tìm thấy tiết cần gỡ trong bản nháp.")
+        return {"ok": True, "lessons": updated, "message": "Đã đưa tiết về kho của bản nháp."}
+
+    if payload.slot is None:
+        raise HTTPException(400, "Thiếu ô đích của thời khóa biểu.")
+
+    if action == "move":
+        if payload.draft_id is None:
+            raise HTTPException(400, "Thiếu mã tiết cần di chuyển.")
+        lesson = next((item for item in lessons if item["draft_id"] == payload.draft_id), None)
+        if lesson is None:
+            raise HTTPException(404, "Không tìm thấy tiết cần di chuyển trong bản nháp.")
+        assignment = assignments[lesson["assignment_id"]]
+        error = standalone_draft_target_error(
+            data, assignment, payload.slot, lessons, assignments,
+            exclude_draft_id=lesson["draft_id"],
+        )
+        if error:
+            return JSONResponse({"ok": False, "message": error}, status_code=409)
+        updated = [dict(item) for item in lessons]
+        for item in updated:
+            if item["draft_id"] == lesson["draft_id"]:
+                item["slot"] = int(payload.slot)
+                break
+        return {"ok": True, "lessons": updated, "message": "Đã di chuyển tiết trong bản nháp."}
+
+    if payload.assignment_id is None:
+        raise HTTPException(400, "Thiếu phân công cần thêm vào lịch.")
+    assignment = assignments.get(payload.assignment_id)
+    if assignment is None:
+        raise HTTPException(404, "Phân công không tồn tại trong bản import.")
+    scheduled = sum(1 for item in lessons if item["assignment_id"] == assignment["id"])
+    if scheduled >= int(assignment["periods_per_week"]):
+        return JSONResponse({"ok": False, "message": "Phân công này đã đủ số tiết theo file import."}, status_code=409)
+    error = standalone_draft_target_error(data, assignment, payload.slot, lessons, assignments)
+    if error:
+        return JSONResponse({"ok": False, "message": error}, status_code=409)
+    next_draft_id = max((item["draft_id"] for item in lessons), default=0) + 1
+    updated = [*lessons, {"draft_id": next_draft_id, "assignment_id": assignment["id"], "slot": int(payload.slot)}]
+    return {"ok": True, "lessons": updated, "message": "Đã thêm tiết vào bản nháp."}
+
+def create_project_from_standalone_import(
+    db: Session,
+    owner_id: int,
+    name: str,
+    school_name: str,
+    data: dict,
+    lessons: list[dict[str, int]],
+) -> Project:
+    project_data = data["project"]
+    project = Project(
+        owner_id=owner_id,
+        name=name,
+        school_name=school_name,
+        days=int(project_data["days"]),
+        sessions=int(project_data["sessions"]),
+        periods_per_session=int(project_data["periods"]),
+        blocked_slots_json="[]",
+    )
+    db.add(project)
+    db.flush()
+
+    subject_map = {}
+    for row in data["subjects"]:
+        item = Subject(
+            project_id=project.id,
+            name=row["name"],
+            short_name=row["short_name"],
+            max_consecutive=int(row["max_consecutive"]),
+        )
+        db.add(item); db.flush(); subject_map[int(row["id"])] = item.id
+
+    teacher_map = {}
+    for row in data["teachers"]:
+        item = Teacher(
+            project_id=project.id,
+            department_id=None,
+            name=row["name"],
+            short_name=row["short_name"],
+            max_periods_day=int(row["max_periods_day"]),
+            unavailable_json="[]",
+        )
+        db.add(item); db.flush(); teacher_map[int(row["id"])] = item.id
+
+    class_map = {}
+    for row in data["classes"]:
+        item = SchoolClass(
+            project_id=project.id,
+            grade_id=None,
+            name=row["name"],
+            unavailable_json="[]",
+        )
+        db.add(item); db.flush(); class_map[int(row["id"])] = item.id
+
+    assignment_map = {}
+    teacher_subject_pairs = set()
+    for row in data["assignments"]:
+        item = Assignment(
+            project_id=project.id,
+            class_id=class_map[int(row["class_id"])],
+            subject_id=subject_map[int(row["subject_id"])],
+            teacher_id=teacher_map[int(row["teacher_id"])],
+            periods_per_week=int(row["periods_per_week"]),
+            block_mode="free",
+            consecutive_pattern="",
+        )
+        db.add(item); db.flush(); assignment_map[int(row["id"])] = item.id
+        teacher_subject_pairs.add((int(row["teacher_id"]), int(row["subject_id"])))
+
+    for teacher_id, subject_id in teacher_subject_pairs:
+        db.add(TeacherSubject(
+            project_id=project.id,
+            teacher_id=teacher_map[teacher_id],
+            subject_id=subject_map[subject_id],
+        ))
+
+    for row in lessons:
+        mapped_assignment = assignment_map.get(int(row["assignment_id"]))
+        if mapped_assignment is None:
+            raise HTTPException(400, "Không thể ánh xạ một phân công khi lưu TKB import.")
+        db.add(Lesson(
+            project_id=project.id,
+            assignment_id=mapped_assignment,
+            slot=int(row["slot"]),
+            locked=False,
+        ))
+    return project
+
+@app.post("/api/schedule-import/save")
+def standalone_save_imported_schedule_as_project(
+    payload: StandaloneImportedScheduleSaveIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    clean_name = payload.name.strip()
+    clean_school_name = payload.school_name.strip() or "Trường học"
+    if not clean_name:
+        raise HTTPException(400, "Tên thời khóa biểu không được để trống.")
+    if len(clean_school_name) > 200:
+        raise HTTPException(400, "Tên trường không được vượt quá 200 ký tự.")
+    data = normalize_standalone_import_data(payload.data)
+    lessons, assignments = normalize_standalone_draft_lessons(data, payload.lessons)
+    error = standalone_draft_validation_error(data, lessons, assignments)
+    if error:
+        return JSONResponse({"ok": False, "message": f"Chưa thể lưu: {error}"}, status_code=409)
+    try:
+        project = create_project_from_standalone_import(
+            db, user.id, clean_name, clean_school_name, data, lessons,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("standalone imported schedule save failed")
+        raise
+    return {
+        "ok": True,
+        "project_id": project.id,
+        "dashboard_url": "/projects",
+        "message": "Đã lưu file import thành một bộ thời khóa biểu mới độc lập trên Dashboard.",
+    }
+
+def normalize_import_draft_lessons(
+    db: Session,
+    project: Project,
+    lessons: list[ImportedDraftLessonIn],
+) -> tuple[list[dict[str, int]], dict[int, Assignment]]:
+    if len(lessons) > 10_000:
+        raise HTTPException(400, "Bản nháp có quá nhiều tiết để xử lý.")
+    assignments = {
+        assignment.id: assignment
+        for assignment in db.scalars(select(Assignment).where(Assignment.project_id == project.id)).all()
+    }
+    normalized: list[dict[str, int]] = []
+    seen_draft_ids: set[int] = set()
+    maximum = project.days * project.sessions * project.periods_per_session
+    for item in lessons:
+        if item.draft_id in seen_draft_ids:
+            raise HTTPException(400, "Bản nháp có mã tiết bị trùng.")
+        seen_draft_ids.add(item.draft_id)
+        if item.assignment_id not in assignments:
+            raise HTTPException(400, "Bản nháp chứa phân công không còn tồn tại trong project.")
+        if item.slot < 0 or item.slot >= maximum:
+            raise HTTPException(400, "Bản nháp chứa ô thời khóa biểu không hợp lệ.")
+        normalized.append({
+            "draft_id": int(item.draft_id),
+            "assignment_id": int(item.assignment_id),
+            "slot": int(item.slot),
+        })
+    return normalized, assignments
+
+def imported_draft_target_error(
+    db: Session,
+    project: Project,
+    assignment: Assignment,
+    slot: int,
+    lessons: list[dict[str, int]],
+    assignments: dict[int, Assignment],
+    *,
+    exclude_draft_id: Optional[int] = None,
+    accepted_unavailable: Optional[dict[int, set[int]]] = None,
+) -> Optional[str]:
+    if slot not in all_slots(project):
+        return "Ô thời khóa biểu không hợp lệ."
+    if slot in parse_slots(project.blocked_slots_json):
+        return "Buổi này đã bị khóa và không được xếp tiết."
+    teacher = db.get(Teacher, assignment.teacher_id)
+    school_class = db.get(SchoolClass, assignment.class_id)
+    subject = db.get(Subject, assignment.subject_id)
+    if not teacher or not school_class or not subject:
+        return "Phân công không còn đầy đủ lớp, môn hoặc giáo viên."
+    if slot in parse_slots(teacher.unavailable_json):
+        return "Giáo viên không thể dạy ở tiết này theo ràng buộc chính thức."
+    if accepted_unavailable is None:
+        _, accepted_unavailable = accepted_teacher_preferences(db, project.id)
+    if slot in accepted_unavailable.get(teacher.id, set()):
+        return "Tiết này nằm trong nguyện vọng cần tránh đã được duyệt của giáo viên."
+    if slot in parse_slots(school_class.unavailable_json):
+        return "Lớp không học ở tiết này."
+
+    peers = [item for item in lessons if item["draft_id"] != exclude_draft_id]
+    for item in peers:
+        if item["slot"] != slot:
+            continue
+        other = assignments.get(item["assignment_id"])
+        if other and (other.class_id == assignment.class_id or other.teacher_id == assignment.teacher_id):
+            return "Ô đích bị trùng lớp hoặc giáo viên."
+
+    ppd = project.sessions * project.periods_per_session
+    target_day = slot // ppd
+    target_position = slot % ppd
+    target_session = target_position // project.periods_per_session
+    teacher_periods = 0
+    subject_periods: list[int] = []
+    for item in peers:
+        other = assignments.get(item["assignment_id"])
+        if not other or item["slot"] // ppd != target_day:
+            continue
+        if other.teacher_id == assignment.teacher_id:
+            teacher_periods += 1
+        position = item["slot"] % ppd
+        if (
+            position // project.periods_per_session == target_session
+            and other.class_id == assignment.class_id
+            and other.subject_id == assignment.subject_id
+        ):
+            subject_periods.append(position % project.periods_per_session)
+    if teacher_periods >= teacher.max_periods_day:
+        return "Giáo viên đã đạt số tiết tối đa trong ngày."
+    run = sorted(subject_periods + [target_position % project.periods_per_session])
+    longest = current = 1
+    for left, right in zip(run, run[1:]):
+        current = current + 1 if right == left + 1 else 1
+        longest = max(longest, current)
+    if longest > subject.max_consecutive:
+        return "Vượt số tiết liên tiếp tối đa của môn học."
+    return None
+
+def imported_draft_pattern_error(
+    project: Project,
+    assignment: Assignment,
+    lessons: list[dict[str, int]],
+) -> Optional[str]:
+    slots = [item["slot"] for item in lessons if item["assignment_id"] == assignment.id]
+    if len(slots) > assignment.periods_per_week:
+        return "Phân công này đã vượt số tiết/tuần."
+    if not partial_assignment_pattern_matches(project, assignment, slots):
+        return f"Vị trí này không thể hoàn thành hợp lệ theo chế độ {assignment_pattern_label(assignment)}."
+    return None
+
+def imported_draft_validation_error(
+    db: Session,
+    project: Project,
+    lessons: list[dict[str, int]],
+    assignments: dict[int, Assignment],
+) -> Optional[str]:
+    counts = Counter(item["assignment_id"] for item in lessons)
+    _, accepted_unavailable = accepted_teacher_preferences(db, project.id)
+    for assignment_id, count in counts.items():
+        assignment = assignments[assignment_id]
+        if count > assignment.periods_per_week:
+            return "Có phân công đang vượt số tiết/tuần. Hãy đưa bớt tiết về kho trước khi lưu."
+    for item in lessons:
+        assignment = assignments[item["assignment_id"]]
+        error = imported_draft_target_error(
+            db, project, assignment, item["slot"], lessons, assignments,
+            exclude_draft_id=item["draft_id"],
+            accepted_unavailable=accepted_unavailable,
+        )
+        if error:
+            return error
+    for assignment_id in counts:
+        error = imported_draft_pattern_error(project, assignments[assignment_id], lessons)
+        if error:
+            return error
+    return None
+
+def convert_schedule_file_to_draft(
+    pid: int,
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    project = get_project(pid, user, db)
+    filename, content = read_schedule_upload(file)
+    from app.schedule_audit import ScheduleAuditParseError, analyze_schedule_file
+    data = project_data(db, project)
+    try:
+        report = analyze_schedule_file(
+            filename=filename,
+            content=content,
+            project=data["project"],
+            classes=data["classes"],
+            subjects=data["subjects"],
+            teachers=data["teachers"],
+            assignments=data["assignments"],
+            include_editable=True,
+        )
+    except ScheduleAuditParseError as exc:
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("schedule import conversion failed for project %s", pid)
+        return JSONResponse(
+            {"ok": False, "message": "Không thể chuyển file thành bản nháp chỉnh sửa."},
+            status_code=500,
+        )
+    editable = report.pop("editable_lessons", [])
+    if not editable:
+        return JSONResponse(
+            {"ok": False, "message": "Không có tiết nào đủ thông tin để chuyển sang chỉnh sửa kéo-thả."},
+            status_code=400,
+        )
+    stem = os.path.splitext(os.path.basename(filename))[0].strip() or "TKB import"
+    suggested_name = f"{project.name} - {stem}"[:200]
+    return {
+        "ok": True,
+        "filename": filename,
+        "suggested_name": suggested_name,
+        "lessons": editable,
+        "audit": report,
+    }
+
+def edit_imported_schedule_draft(
+    pid: int,
+    payload: ImportedScheduleEditIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    project = get_project(pid, user, db)
+    lessons, assignments = normalize_import_draft_lessons(db, project, payload.lessons)
+    action = payload.action.strip().lower()
+    if action not in {"move", "add", "remove"}:
+        raise HTTPException(400, "Thao tác chỉnh sửa bản nháp không hợp lệ.")
+
+    if action == "remove":
+        if payload.draft_id is None:
+            raise HTTPException(400, "Thiếu mã tiết cần gỡ.")
+        before = len(lessons)
+        lessons = [item for item in lessons if item["draft_id"] != payload.draft_id]
+        if len(lessons) == before:
+            raise HTTPException(404, "Không tìm thấy tiết cần gỡ trong bản nháp.")
+        return {"ok": True, "lessons": lessons, "message": "Đã đưa tiết về kho của bản nháp."}
+
+    if payload.slot is None:
+        raise HTTPException(400, "Thiếu ô đích của thời khóa biểu.")
+
+    if action == "move":
+        if payload.draft_id is None:
+            raise HTTPException(400, "Thiếu mã tiết cần di chuyển.")
+        lesson = next((item for item in lessons if item["draft_id"] == payload.draft_id), None)
+        if lesson is None:
+            raise HTTPException(404, "Không tìm thấy tiết cần di chuyển trong bản nháp.")
+        assignment = assignments[lesson["assignment_id"]]
+        error = imported_draft_target_error(
+            db, project, assignment, payload.slot, lessons, assignments,
+            exclude_draft_id=lesson["draft_id"],
+        )
+        if error:
+            return JSONResponse({"ok": False, "message": error}, status_code=409)
+        updated = [dict(item) for item in lessons]
+        for item in updated:
+            if item["draft_id"] == lesson["draft_id"]:
+                item["slot"] = payload.slot
+                break
+        error = imported_draft_pattern_error(project, assignment, updated)
+        if error:
+            return JSONResponse({"ok": False, "message": error}, status_code=409)
+        return {"ok": True, "lessons": updated, "message": "Đã di chuyển tiết trong bản nháp."}
+
+    if payload.assignment_id is None:
+        raise HTTPException(400, "Thiếu phân công cần thêm vào lịch.")
+    assignment = assignments.get(payload.assignment_id)
+    if assignment is None:
+        raise HTTPException(404, "Phân công không còn tồn tại.")
+    scheduled = sum(1 for item in lessons if item["assignment_id"] == assignment.id)
+    if scheduled >= assignment.periods_per_week:
+        return JSONResponse({"ok": False, "message": "Phân công này đã đủ số tiết/tuần."}, status_code=409)
+    error = imported_draft_target_error(db, project, assignment, payload.slot, lessons, assignments)
+    if error:
+        return JSONResponse({"ok": False, "message": error}, status_code=409)
+    next_draft_id = max((item["draft_id"] for item in lessons), default=0) + 1
+    updated = [*lessons, {"draft_id": next_draft_id, "assignment_id": assignment.id, "slot": payload.slot}]
+    error = imported_draft_pattern_error(project, assignment, updated)
+    if error:
+        return JSONResponse({"ok": False, "message": error}, status_code=409)
+    return {"ok": True, "lessons": updated, "message": "Đã thêm tiết vào bản nháp."}
+
+def create_project_from_imported_schedule(
+    db: Session,
+    source: Project,
+    owner_id: int,
+    name: str,
+    lessons: list[dict[str, int]],
+) -> Project:
+    project = Project(
+        owner_id=owner_id,
+        name=name,
+        school_name=source.school_name,
+        days=source.days,
+        sessions=source.sessions,
+        periods_per_session=source.periods_per_session,
+        blocked_slots_json=source.blocked_slots_json,
+    )
+    db.add(project)
+    db.flush()
+    maps = {"dep": {}, "sub": {}, "tea": {}, "grade": {}, "cls": {}, "ass": {}}
+    for row in db.scalars(select(Department).where(Department.project_id == source.id)).all():
+        new = Department(project_id=project.id, name=row.name)
+        db.add(new); db.flush(); maps["dep"][row.id] = new.id
+    for row in db.scalars(select(Subject).where(Subject.project_id == source.id)).all():
+        new = Subject(project_id=project.id, name=row.name, short_name=row.short_name, max_consecutive=row.max_consecutive)
+        db.add(new); db.flush(); maps["sub"][row.id] = new.id
+    for row in db.scalars(select(Teacher).where(Teacher.project_id == source.id)).all():
+        new = Teacher(
+            project_id=project.id,
+            department_id=maps["dep"].get(row.department_id),
+            name=row.name,
+            short_name=row.short_name,
+            max_periods_day=row.max_periods_day,
+            unavailable_json=row.unavailable_json,
+        )
+        db.add(new); db.flush(); maps["tea"][row.id] = new.id
+    for row in db.scalars(select(TeacherSubject).where(TeacherSubject.project_id == source.id)).all():
+        if row.teacher_id in maps["tea"] and row.subject_id in maps["sub"]:
+            db.add(TeacherSubject(
+                project_id=project.id,
+                teacher_id=maps["tea"][row.teacher_id],
+                subject_id=maps["sub"][row.subject_id],
+            ))
+    for row in db.scalars(select(TeacherPreference).where(
+        TeacherPreference.project_id == source.id,
+        TeacherPreference.status == "accepted",
+    )).all():
+        if row.teacher_id in maps["tea"]:
+            db.add(TeacherPreference(
+                project_id=project.id,
+                teacher_id=maps["tea"][row.teacher_id],
+                preferred_json=row.preferred_json,
+                unavailable_json=row.unavailable_json,
+                note=row.note,
+                status="accepted",
+                created_at=row.created_at,
+                reviewed_at=row.reviewed_at,
+            ))
+    for row in db.scalars(select(Grade).where(Grade.project_id == source.id)).all():
+        new = Grade(project_id=project.id, name=row.name)
+        db.add(new); db.flush(); maps["grade"][row.id] = new.id
+    for row in db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.project_id == source.id)).all():
+        if row.grade_id in maps["grade"] and row.subject_id in maps["sub"]:
+            db.add(GradeSubjectRequirement(
+                project_id=project.id,
+                grade_id=maps["grade"][row.grade_id],
+                subject_id=maps["sub"][row.subject_id],
+                periods_per_week=row.periods_per_week,
+                block_mode=row.block_mode,
+            ))
+    for row in db.scalars(select(SchoolClass).where(SchoolClass.project_id == source.id)).all():
+        new = SchoolClass(
+            project_id=project.id,
+            grade_id=maps["grade"].get(row.grade_id),
+            name=row.name,
+            unavailable_json=row.unavailable_json,
+        )
+        db.add(new); db.flush(); maps["cls"][row.id] = new.id
+    for row in db.scalars(select(Assignment).where(Assignment.project_id == source.id)).all():
+        new = Assignment(
+            project_id=project.id,
+            class_id=maps["cls"][row.class_id],
+            subject_id=maps["sub"][row.subject_id],
+            teacher_id=maps["tea"][row.teacher_id],
+            periods_per_week=row.periods_per_week,
+            block_mode=row.block_mode,
+            consecutive_pattern="",
+        )
+        db.add(new); db.flush(); maps["ass"][row.id] = new.id
+    for item in lessons:
+        mapped_assignment_id = maps["ass"].get(item["assignment_id"])
+        if mapped_assignment_id is None:
+            raise HTTPException(400, "Không thể ánh xạ một phân công khi lưu TKB import.")
+        db.add(Lesson(
+            project_id=project.id,
+            assignment_id=mapped_assignment_id,
+            slot=item["slot"],
+            locked=False,
+        ))
+    return project
+
+def save_imported_schedule_as_project(
+    pid: int,
+    payload: ImportedScheduleSaveIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    source = get_project_for_update(pid, user, db)
+    clean_name = payload.name.strip()
+    if not clean_name:
+        raise HTTPException(400, "Tên thời khóa biểu không được để trống.")
+    lessons, assignments = normalize_import_draft_lessons(db, source, payload.lessons)
+    error = imported_draft_validation_error(db, source, lessons, assignments)
+    if error:
+        return JSONResponse(
+            {"ok": False, "message": f"Chưa thể lưu: {error}"},
+            status_code=409,
+        )
+    project = create_project_from_imported_schedule(db, source, user.id, clean_name, lessons)
+    db.commit()
+    return {
+        "ok": True,
+        "project_id": project.id,
+        "dashboard_url": "/projects",
+        "message": "Đã lưu TKB import thành một bộ thời khóa biểu mới trên Dashboard.",
+    }
+
 
 @app.get("/projects/{pid}/chatbot", response_class=HTMLResponse)
 def chatbot_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
