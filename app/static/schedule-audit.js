@@ -97,7 +97,8 @@ function renderScheduleAuditTable(report,ai=null){
   if(!classes.length||!cells.length)return '<div class="empty-state">Không có đủ dữ liệu để dựng bảng thời khóa biểu.</div>';
   const byCoordinate=new Map(),aiMap=scheduleAuditAiMap(ai);
   cells.forEach(item=>{const key=`${Number(item.slot)}:${Number(item.class_id)}`;if(!byCoordinate.has(key))byCoordinate.set(key,[]);byCoordinate.get(key).push(item);});
-  const slots=[...new Set(cells.map(item=>Number(item.slot)))].sort((a,b)=>a-b);
+  const totalSlots=Math.max(0,Number(viewer.days||0)*Number(viewer.sessions||0)*Number(viewer.periods||0));
+  const slots=totalSlots?Array.from({length:totalSlots},(_,index)=>index):[...new Set(cells.map(item=>Number(item.slot)))].sort((a,b)=>a-b);
   let previousDay=-1,previousSession=-1;
   let rows='';
   for(const slot of slots){
@@ -164,6 +165,15 @@ function filterScheduleAuditStats(type,query){
   const normalized=String(query||'').trim().toLocaleLowerCase('vi-VN');
   document.querySelectorAll(`#scheduleAuditView-${type} tbody tr[data-stat-text]`).forEach(row=>{row.hidden=!!normalized&&!String(row.dataset.statText||'').includes(normalized);});
 }
+function renderScheduleAuditDataIssues(issues){
+  if(!issues?.length)return '';
+  return `<div class="schedule-audit-inline-issues"><div class="schedule-audit-group-head"><h3>Cảnh báo/lỗi dữ liệu cần xem lại</h3><span>${issues.length}</span></div><div class="schedule-audit-issue-list">${issues.map(issue=>{
+    const severity=issue.severity==='error'?'error':'warning';
+    const severityLabel=severity==='error'?'Lỗi':'Cảnh báo';
+    const location=[issue.slot_label,issue.entity].filter(Boolean).join(' · ');
+    return `<article class="schedule-audit-issue ${severity}"><div class="schedule-audit-issue-mark">${severity==='error'?'!':'⚠'}</div><div><div class="schedule-audit-issue-title"><b>${esc(issue.title||'Cần xem lại')}</b><span>${severityLabel}</span></div>${issue.detail?`<p>${esc(issue.detail)}</p>`:''}${location?`<small><b>Vị trí:</b> ${esc(location)}</small>`:''}${issue.source?`<small><b>Nguồn:</b> ${esc(issue.source)}</small>`:''}</div></article>`;
+  }).join('')}</div></div>`;
+}
 
 function renderScheduleAudit(report,ai=scheduleAuditAiAnalysis){
   const box=$('#scheduleAuditResult');if(!box)return;
@@ -171,16 +181,21 @@ function renderScheduleAudit(report,ai=scheduleAuditAiAnalysis){
   const collisionIssues=issues.filter(item=>['teacher_collision','class_collision','room_collision'].includes(item.code));
   const nonCellIssues=issues.filter(item=>!['teacher_collision','class_collision','room_collision'].includes(item.code));
   const conflicts=Number(summary.collisions||collisionIssues.length),affected=Number(viewer.conflict_cells||0);
-  const hasConflict=conflicts>0,aiMarked=Number(ai?.summary?.marked_cells||0);
+  const hasConflict=conflicts>0,hasOtherIssues=nonCellIssues.length>0,aiMarked=Number(ai?.summary?.marked_cells||0);
+  const statusTitle=hasConflict
+    ?`Phát hiện ${conflicts} xung đột trong thời khóa biểu`
+    :hasOtherIssues
+      ?`Không có ô bị trùng, nhưng còn ${nonCellIssues.length} cảnh báo/lỗi dữ liệu`
+      :'Không phát hiện ô bị trùng';
   box.innerHTML=`
-    <div class="schedule-audit-view-head ${hasConflict?'has-error':'clean'}">
+    <div class="schedule-audit-view-head ${hasConflict||hasOtherIssues?'has-error':'clean'}">
       <div class="schedule-audit-view-summary">
-        <span class="schedule-audit-status-icon">${hasConflict?'!':'✓'}</span>
-        <div><h2>${hasConflict?`Phát hiện ${conflicts} xung đột trong thời khóa biểu`:'Không phát hiện ô bị trùng'}</h2><p>${esc(report.filename||'File')} · Đã đọc ${Number(summary.recognized_lessons||0)} tiết · ${Number(summary.classes||0)} lớp · ${Number(summary.teachers||0)} giáo viên.</p></div>
+        <span class="schedule-audit-status-icon">${hasConflict||hasOtherIssues?'!':'✓'}</span>
+        <div><h2>${statusTitle}</h2><p>${esc(report.filename||'File')} · Đã đọc ${Number(summary.recognized_lessons||0)} tiết · ${Number(summary.classes||0)} lớp · ${Number(summary.teachers||0)} giáo viên.</p></div>
       </div>
       <div class="schedule-audit-view-legend"><span class="legend-conflict"></span><b>Đỏ = lỗi rule</b>${hasConflict?`<small>${affected} ô</small>`:''}${ai?`<span class="legend-ai-warning"></span><b>Cam/vàng = AI</b><small>${aiMarked} ô</small>`:''}</div>
     </div>
-    ${nonCellIssues.length?`<div class="schedule-audit-inline-warning">⚠ Có ${nonCellIssues.length} dữ liệu chưa thể biểu diễn chính xác trên bảng. Các lỗi trùng vẫn được đánh dấu trực tiếp bằng ô đỏ.</div>`:''}
+    ${renderScheduleAuditDataIssues(nonCellIssues)}
     <div class="schedule-audit-tabs" role="tablist" aria-label="Chế độ xem thời khóa biểu">
       <button type="button" data-audit-view="timetable" onclick="switchScheduleAuditView('timetable')">Thời khóa biểu</button>
       <button type="button" data-audit-view="overview" onclick="switchScheduleAuditView('overview')">Tổng quan</button>

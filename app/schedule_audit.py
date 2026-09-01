@@ -1174,56 +1174,96 @@ _STANDALONE_SUBJECT_HINTS = {
 _STANDALONE_SUBJECT_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pattern, re.IGNORECASE), subject)
     for pattern, subject in (
-        (r"^\s*HĐTNHN\s*[-:]?\s*", "HĐTNHN"),
-        (r"^\s*TNHN\s*[-:]?\s*", "TNHN"),
-        (r"^\s*HĐTN\s*[-:]?\s*", "HĐTN"),
-        (r"^\s*N\.?\s*Văn\s*[-:]?\s*", "Ngữ văn"),
-        (r"^\s*(?:Ngữ\s*)?Văn\s*[-:]?\s*", "Ngữ văn"),
-        (r"^\s*T\.?\s*Anh\s*[-:]?\s*", "Tiếng Anh"),
-        (r"^\s*(?:Tiếng\s*)?Anh\s*[-:]?\s*", "Tiếng Anh"),
-        (r"^\s*(?:Vật\s*)?Lý\s*[-:]?\s*", "Vật lý"),
-        (r"^\s*Hóa(?:\s*học)?\s*[-:]?\s*", "Hóa học"),
-        (r"^\s*Sinh(?:\s*học)?\s*[-:]?\s*", "Sinh học"),
-        (r"^\s*(?:Lịch\s*)?Sử\s*[-:]?\s*", "Lịch sử"),
-        (r"^\s*Địa(?:\s*lý)?\s*[-:]?\s*", "Địa lý"),
-        (r"^\s*C\.?\s*Nghệ\s*[-:]?\s*", "Công nghệ"),
-        (r"^\s*CN\s*[-:]?\s*", "Công nghệ"),
+        # Put longer/full subject names before shorter prefixes. The trailing
+        # word boundary prevents cases such as "Sinh hoạt" being consumed as
+        # "Sinh" (Sinh học).
+        (r"^\s*HĐTNHN\b\s*[-:]?\s*", "HĐTNHN"),
+        (r"^\s*TNHN\b\s*[-:]?\s*", "TNHN"),
+        (r"^\s*HĐTN\b\s*[-:]?\s*", "HĐTN"),
+        (r"^\s*Sinh\s+hoạt\b\s*[-:]?\s*", "Sinh hoạt"),
+        (r"^\s*Chào\s+cờ\b\s*[-:]?\s*", "Chào cờ"),
+        (r"^\s*Trải\s+nghiệm\b\s*[-:]?\s*", "Trải nghiệm"),
+        (r"^\s*Công\s+nghệ\b\s*[-:]?\s*", "Công nghệ"),
+        (r"^\s*Thể\s+dục\b\s*[-:]?\s*", "Thể dục"),
+        (r"^\s*Âm\s+nhạc\b\s*[-:]?\s*", "Âm nhạc"),
+        (r"^\s*Mỹ\s+thuật\b\s*[-:]?\s*", "Mỹ thuật"),
+        (r"^\s*Quốc\s+phòng\b\s*[-:]?\s*", "Quốc phòng"),
+        (r"^\s*N\.?\s*Văn\b\s*[-:]?\s*", "Ngữ văn"),
+        (r"^\s*(?:Ngữ\s+)?Văn\b\s*[-:]?\s*", "Ngữ văn"),
+        (r"^\s*T\.?\s*Anh\b\s*[-:]?\s*", "Tiếng Anh"),
+        (r"^\s*(?:Tiếng\s+)?Anh\b\s*[-:]?\s*", "Tiếng Anh"),
+        (r"^\s*(?:Vật\s+)?Lý\b\s*[-:]?\s*", "Vật lý"),
+        (r"^\s*Hóa(?:\s+học)?\b\s*[-:]?\s*", "Hóa học"),
+        (r"^\s*Sinh(?:\s+học)?\b\s*[-:]?\s*", "Sinh học"),
+        (r"^\s*(?:Lịch\s+)?Sử\b\s*[-:]?\s*", "Lịch sử"),
+        (r"^\s*Địa(?:\s+lý)?\b\s*[-:]?\s*", "Địa lý"),
+        (r"^\s*C\.?\s*Nghệ\b\s*[-:]?\s*", "Công nghệ"),
+        (r"^\s*CN\b\s*[-:]?\s*", "Công nghệ"),
         (r"^\s*LSĐL(?:\s*\([^)]*\))?\s*[-:]?\s*", "LSĐL"),
         (r"^\s*KHTN(?:\s*\([^)]*\))?\s*[-:]?\s*", "KHTN"),
         (r"^\s*KHXH(?:\s*\([^)]*\))?\s*[-:]?\s*", "KHXH"),
         (r"^\s*NT\s*\(\s*Nhạc\s*\)\s*[-:]?\s*", "Âm nhạc"),
         (r"^\s*NT\s*\(\s*MT\s*\)\s*[-:]?\s*", "Mỹ thuật"),
-        (r"^\s*GDĐP\s*[-:]?\s*", "GDĐP"),
-        (r"^\s*GDDP\s*[-:]?\s*", "GDĐP"),
-        (r"^\s*GDKTPL\s*[-:]?\s*", "GDKTPL"),
-        (r"^\s*GDTC\s*[-:]?\s*", "GDTC"),
-        (r"^\s*GDCD\s*[-:]?\s*", "GDCD"),
-        (r"^\s*GDQP\s*[-:]?\s*", "GDQP"),
-        (r"^\s*Tin(?:\s*học)?\s*[-:]?\s*", "Tin học"),
-        (r"^\s*Toán\s*[-:]?\s*", "Toán"),
+        (r"^\s*GDĐP\b\s*[-:]?\s*", "GDĐP"),
+        (r"^\s*GDDP\b\s*[-:]?\s*", "GDĐP"),
+        (r"^\s*GDKTPL\b\s*[-:]?\s*", "GDKTPL"),
+        (r"^\s*GDTC\b\s*[-:]?\s*", "GDTC"),
+        (r"^\s*GDCD\b\s*[-:]?\s*", "GDCD"),
+        (r"^\s*GDQP\b\s*[-:]?\s*", "GDQP"),
+        (r"^\s*Tin(?:\s+học)?\b\s*[-:]?\s*", "Tin học"),
+        (r"^\s*Toán\b\s*[-:]?\s*", "Toán"),
     )
 )
 
 def _standalone_subject_prefix(value: str) -> tuple[str, str]:
-    text = _cell_text(value)
+    text = unicodedata.normalize("NFC", _cell_text(value))
+    if not text:
+        return "", ""
+
+    # First handle normalized aliases so the parser behaves the same for
+    # accented and unaccented text (e.g. "Công nghệ" / "cong nghe").
+    # Parenthesized forms are left to the regexes below because they know how
+    # to consume qualifiers such as KHTN(S) or NT(Nhạc) without treating the
+    # qualifier as part of the teacher name.
+    normalized = normalize_text(text)
+    for hint in sorted(_STANDALONE_SUBJECT_HINTS, key=len, reverse=True):
+        if normalized != hint and not normalized.startswith(f"{hint} "):
+            continue
+        prefix_end = None
+        for end in range(1, len(text) + 1):
+            if normalize_text(text[:end]) == hint:
+                prefix_end = end
+                break
+        if prefix_end is None:
+            continue
+        remainder_raw = text[prefix_end:]
+        if "(" in text[:prefix_end] or remainder_raw.lstrip().startswith("("):
+            continue
+        return _STANDALONE_SUBJECT_HINTS[hint], remainder_raw.strip(" -–—|;/: ")
+
     for pattern, subject in _STANDALONE_SUBJECT_PREFIX_PATTERNS:
         match = pattern.match(text)
         if match:
-            return subject, text[match.end():].strip(" -–—|;/")
+            return subject, text[match.end():].strip(" -–—|;/: ")
     return "", ""
 
 
 
 def _standalone_clean_entity_heading(value: str) -> str:
-    text = _cell_text(value)
+    """Remove timetable/entity labels while preserving the original Vietnamese name."""
+    original = _cell_text(value)
+    text = unicodedata.normalize("NFC", original)
+    timetable_label = r"(?:tkb|thời\s*khóa\s*biểu|thoi\s*khoa\s*bieu)"
+    possessive = r"(?:của|cua)"
+    entity_label = r"(?:lớp|lop|giáo\s*viên|giao\s*vien|gv)"
     text = re.sub(
-        r"^\s*(?:tkb|thoi\s*khoa\s*bieu)\s*(?:cua\s*)?(?:lop|giao\s*vien|gv)?\s*[:\-]?\s*",
+        rf"^\s*{timetable_label}\s*(?:{possessive}\s*)?(?:{entity_label})?\s*[:\-]?\s*",
         "",
         text,
         flags=re.IGNORECASE,
     ).strip()
-    text = re.sub(r"^\s*(?:lop|giao\s*vien|gv)\s*[:\-]?\s*", "", text, flags=re.IGNORECASE).strip()
-    return text or _cell_text(value)
+    text = re.sub(rf"^\s*{entity_label}\s*[:\-]?\s*", "", text, flags=re.IGNORECASE).strip()
+    return text or original
 
 
 def _standalone_class_token(value: str) -> str:
@@ -1249,6 +1289,26 @@ def _standalone_looks_like_class(value: str) -> bool:
     return bool(_standalone_class_token(value))
 
 
+def _standalone_without_class_token(value: str, class_name: str = "") -> str:
+    """Remove one class token from a mixed cell while preserving Vietnamese text."""
+    text = _cell_text(value)
+    target = normalize_text(class_name or _standalone_class_token(text))
+    if not text or not target:
+        return text
+    patterns = (
+        r"(?i)(?:\b(?:lớp|lop)\s*)?(\d{1,2}\s*[A-Z]{1,3}\s*\d{0,2})\b",
+        r"(?i)(?:\b(?:lớp|lop)\s*)?(\d{1,2}\s*[/\-]\s*\d{1,2})\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match or normalize_text(re.sub(r"\s+", "", match.group(1))).replace(" ", "") != target.replace(" ", ""):
+            continue
+        left = text[:match.start()].strip(" -–—|;/:,·•")
+        right = text[match.end():].strip(" -–—|;/:,·•")
+        return " ".join(part for part in (left, right) if part).strip()
+    return text
+
+
 def _standalone_subject_from_text(value: str) -> str:
     subject, _teacher = _standalone_subject_prefix(value)
     if subject:
@@ -1256,6 +1316,17 @@ def _standalone_subject_from_text(value: str) -> str:
     text = _cell_text(value)
     if not text:
         return ""
+    explicit = re.search(r"(?i)\b(?:môn|mon|subject)\s*[:\-]\s*([^|;/]+)", text)
+    if explicit:
+        explicit_text = explicit.group(1).strip()
+        explicit_subject, _remainder = _standalone_subject_prefix(explicit_text)
+        if explicit_subject:
+            return explicit_subject
+        explicit_norm = normalize_text(explicit_text)
+        if explicit_norm in _STANDALONE_SUBJECT_HINTS:
+            return _STANDALONE_SUBJECT_HINTS[explicit_norm]
+        if explicit_text:
+            return explicit_text
 
     # Prefer structured pieces and prefixes. Searching every token in the whole cell
     # can mistake a teacher's middle name (for example "Nguyễn Văn An") for môn Văn.
@@ -1293,7 +1364,7 @@ def _standalone_teacher_from_text(value: str, *, exclude: Iterable[str] = ()) ->
     text = _cell_text(value)
     if not text:
         return ""
-    explicit = re.search(r"(?i)\b(?:giao\s*vien|gv)\s*[:\-]\s*([^|;/]+)", text)
+    explicit = re.search(r"(?i)\b(?:giáo\s*viên|giao\s*vien|gv)\s*[:\-]\s*([^|;/]+)", text)
     if explicit:
         return explicit.group(1).strip()
     excluded = {normalize_text(item) for item in exclude if item}
@@ -1302,12 +1373,13 @@ def _standalone_teacher_from_text(value: str, *, exclude: Iterable[str] = ()) ->
         return remainder
     norm_text = normalize_text(text)
     parts = _standalone_split_parts(text)
-    subject_norms = set(_STANDALONE_SUBJECT_HINTS)
     for part in reversed(parts):
         norm = normalize_text(part)
         if not norm or norm in excluded or _standalone_looks_like_class(part):
             continue
-        if any(re.search(rf"(?:^|\s){re.escape(subject)}(?:\s|$)", norm) for subject in subject_norms):
+        # Only reject a part when the part itself reads like a subject. Looking
+        # for subject words anywhere would drop valid names such as Nguyen Van An.
+        if _standalone_subject_from_text(part):
             continue
         # Ten giao vien thuong co it nhat 2 tu; chap nhan ma GV viet hoa ngan neu co tien to GV.
         if len(norm.split()) >= 2:
@@ -1323,11 +1395,15 @@ def _standalone_parse_cell(
 ) -> tuple[str, str, str]:
     text = _cell_text(value)
     class_name = fixed_class or _standalone_class_token(text)
-    subject_name = _standalone_subject_from_text(text)
+    # Mixed cells such as "10A1 Toán Nguyễn Văn An" must be parsed from the
+    # content after the class token. Otherwise the subject prefix can prevent
+    # the remaining teacher name from being recognized.
+    semantic_text = _standalone_without_class_token(text, class_name)
+    subject_name = _standalone_subject_from_text(semantic_text)
     teacher_name = fixed_teacher
     if not teacher_name:
-        teacher_name = _standalone_teacher_from_text(text, exclude=(class_name, subject_name))
-    parts = _standalone_split_parts(text)
+        teacher_name = _standalone_teacher_from_text(semantic_text, exclude=(class_name, subject_name))
+    parts = _standalone_split_parts(semantic_text)
     if not subject_name:
         for part in parts:
             if class_name and normalize_text(part) == normalize_text(class_name):
@@ -1343,6 +1419,13 @@ def _standalone_parse_cell(
     # Khong tao entity tam tai buoc parse. De trong de tang phan analyze co the
     # canh bao ro rang va khong dem "chua xac dinh" nhu mon/giao vien that.
     return class_name.strip(), subject_name.strip(), teacher_name.strip()
+
+
+_STANDALONE_OPTIONAL_TEACHER_SUBJECTS = {"chao co", "sinh hoat", "trai nghiem", "hdtn", "hdtnhn", "tnhn"}
+
+
+def _standalone_teacher_is_optional(subject_name: str) -> bool:
+    return normalize_text(subject_name) in _STANDALONE_OPTIONAL_TEACHER_SUBJECTS
 
 
 def _standalone_day_index(value: str) -> int | None:
@@ -1363,6 +1446,48 @@ def _standalone_day_index(value: str) -> int | None:
         return 6 if number == 8 else number - 2
     return None
 
+def _standalone_heading_from_context(title: str, rows: list[list[str]], header_index: int) -> str:
+    """Pick the class/teacher heading from a sheet title or rows above the grid header."""
+    generic = {"", "du lieu", "data", "thoi khoa bieu", "tkb", "sheet"}
+
+    def is_generic_heading(normalized: str) -> bool:
+        return normalized in generic or re.fullmatch(r"sheet\s*\d+", normalized) is not None
+
+    title_heading = _standalone_clean_entity_heading(title)
+    title_norm = normalize_text(title_heading)
+
+    # A meaningful sheet/table title is the safest source. Excel's default
+    # Sheet1/Sheet2/... names are metadata, not class/teacher identities.
+    if not is_generic_heading(title_norm):
+        return title_heading
+
+    # Excel files often keep a generic sheet name and put the real heading in a
+    # merged cell directly above the weekday row. Scan bottom-up so the nearest
+    # heading wins over school names or other document banners.
+    fallback = ""
+    for row in reversed(rows[:header_index]):
+        for value in row:
+            raw = _cell_text(value)
+            if not raw:
+                continue
+            cleaned = _standalone_clean_entity_heading(raw)
+            cleaned_norm = normalize_text(cleaned)
+            if not cleaned_norm or is_generic_heading(cleaned_norm):
+                continue
+            raw_norm = normalize_text(raw)
+            has_entity_label = (
+                "thoi khoa bieu" in raw_norm
+                or raw_norm.startswith("giao vien ")
+                or raw_norm.startswith("gv ")
+                or raw_norm.startswith("lop ")
+            )
+            if has_entity_label or _standalone_looks_like_class(cleaned):
+                return cleaned
+            if not fallback and len(cleaned.split()) <= 8:
+                fallback = cleaned
+    return fallback or title_heading
+
+
 def _standalone_find_grid_header(rows: list[list[str]]) -> tuple[int, list[tuple[int, str]], int, int | None] | None:
     for header_index, row in enumerate(rows[:30]):
         day_cols = [(col, _cell_text(value)) for col, value in enumerate(row) if _standalone_day_index(_cell_text(value)) is not None]
@@ -1381,7 +1506,7 @@ def _standalone_parse_grid(title: str, rows: list[list[str]]) -> tuple[list[RawL
     if header is None:
         return [], ""
     header_index, day_cols, period_col, session_col = header
-    heading = _standalone_clean_entity_heading(title)
+    heading = _standalone_heading_from_context(title, rows, header_index)
     sample_cells: list[str] = []
     for values in rows[header_index + 1 : header_index + 18]:
         for col, _day in day_cols:
@@ -1491,7 +1616,9 @@ def _standalone_parse_wide(title: str, rows: list[list[str]]) -> tuple[list[RawL
             if not lesson or normalize_text(lesson) in {"x", "trong", "nghi", "off", "none", "na"}:
                 continue
             if teacher_wide:
-                class_name, subject_name, teacher_name = _standalone_parse_cell(lesson, fixed_teacher=header)
+                class_name, subject_name, teacher_name = _standalone_parse_cell(
+                    lesson, fixed_teacher=_standalone_clean_entity_heading(header),
+                )
                 if not class_name:
                     continue
                 parsed.append(RawLesson(
@@ -1801,11 +1928,12 @@ def analyze_standalone_schedule_file(
             ))
         if not teacher_name:
             teacher_name = f"GV chua xac dinh - {class_name} - {subject_name}"
-            issues.append(_issue(
-                "unknown_teacher", "warning", "Chua xac dinh duoc giao vien",
-                f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi hien thi.",
-                slot=slot, project=project, source=raw.source, entity=class_name,
-            ))
+            if not _standalone_teacher_is_optional(subject_name):
+                issues.append(_issue(
+                    "unknown_teacher", "warning", "Chua xac dinh duoc giao vien",
+                    f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi hien thi.",
+                    slot=slot, project=project, source=raw.source, entity=class_name,
+                ))
         normalized_rows.append({
             "slot": slot,
             "class_name": class_name,
@@ -1949,7 +2077,10 @@ def analyze_standalone_schedule_file(
     by_room_slot: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
     for entry in recognized:
         by_class_slot[(entry["slot"], entry["class_id"])].append(entry)
-        by_teacher_slot[(entry["slot"], entry["teacher_id"])].append(entry)
+        # A placeholder only means the file did not provide a teacher. It must
+        # never create a teacher-collision error because no real identity is known.
+        if not teacher_by_id[int(entry["teacher_id"])].get("is_placeholder"):
+            by_teacher_slot[(entry["slot"], entry["teacher_id"])].append(entry)
         room_key = normalize_text(entry["room"])
         if room_key:
             by_room_slot[(entry["slot"], room_key)].append(entry)
@@ -1977,9 +2108,11 @@ def analyze_standalone_schedule_file(
                 slot=slot, project=project, source="; ".join(row["source"] for row in rows), entity=teacher_by_id[teacher_id]["name"],
             ))
     for (slot, _room), rows in by_room_slot.items():
-        if len(rows) > 1:
+        distinct_class_ids = {int(row["class_id"]) for row in rows}
+        if len(distinct_class_ids) > 1:
             room = rows[0]["room"]
-            detail = f"Phòng {room} đang được dùng cho {len(rows)} lớp cùng lúc."
+            class_names = sorted({class_by_id[class_id]["name"] for class_id in distinct_class_ids}, key=normalize_text)
+            detail = f"Phòng {room} đang được dùng đồng thời cho: {', '.join(class_names)}."
             for row in rows:
                 conflict_codes_by_draft[int(row["draft_id"])].add("room_collision")
                 conflict_details_by_draft[int(row["draft_id"])].append(detail)
