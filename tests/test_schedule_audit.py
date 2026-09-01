@@ -282,3 +282,33 @@ def test_standalone_does_not_treat_teacher_middle_name_van_as_subject():
     cell = report["viewer"]["cells"][0]
     assert cell["subject_name"] == "Lịch sử"
     assert cell["teacher_name"] == "Nguyễn Văn An"
+
+
+def test_standalone_wide_ignores_auxiliary_columns_instead_of_creating_fake_classes():
+    content = workbook_bytes([
+        ["Thứ", "Buổi", "Tiết", "10A1", "10A2", "GV nghỉ", "Ghi chú", "Phòng"],
+        ["2", "Sáng", 1, "Toán Cô Hà", "Văn Thầy Minh", "Nguyễn Văn An", "Họp tổ", "P.201"],
+    ])
+    report = analyze_standalone_schedule_file(filename="tkb-cot-phu.xlsx", content=content)
+
+    assert report["summary"]["read_lessons"] == 2
+    assert report["summary"]["recognized_lessons"] == 2
+    assert {item["name"] for item in report["data"]["classes"]} == {"10A1", "10A2"}
+    raw_texts = {cell["raw_text"] for cell in report["viewer"]["cells"]}
+    assert raw_texts == {"Toán Cô Hà", "Văn Thầy Minh"}
+    assert "Nguyễn Văn An" not in raw_texts
+    assert "Họp tổ" not in raw_texts
+    assert "P.201" not in raw_texts
+
+
+def test_standalone_wide_ignores_auxiliary_header_variants():
+    content = workbook_bytes([
+        ["THỨ", "TIẾT", "10A1", "Giáo viên vắng", "Chú thích", "ROOM", "Số thứ tự"],
+        ["2", 1, "Hóa Cô Lan", "Cô Hạ", "Đổi tiết", "A101", 1],
+    ])
+    report = analyze_standalone_schedule_file(filename="tkb-cot-phu-bien-the.xlsx", content=content)
+
+    assert report["summary"]["read_lessons"] == 1
+    assert report["summary"]["recognized_lessons"] == 1
+    assert [item["name"] for item in report["data"]["classes"]] == ["10A1"]
+    assert report["viewer"]["cells"][0]["raw_text"] == "Hóa Cô Lan"

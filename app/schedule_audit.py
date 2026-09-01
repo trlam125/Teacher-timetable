@@ -399,10 +399,27 @@ def _parse_long_table(title: str, rows: list[list[str]]) -> list[RawLesson]:
     return []
 
 
+_WIDE_TABLE_AUXILIARY_HEADERS = {
+    # Columns that describe the row/schedule rather than a class/teacher entity.
+    "gv nghi", "giao vien nghi", "gv vang", "giao vien vang",
+    "ghi chu", "chu thich", "note", "notes", "remark", "remarks",
+    "phong", "phong hoc", "room", "rooms",
+    "stt", "so tt", "so thu tu", "tt",
+}
+
+
+def _is_wide_table_auxiliary_header(value: str) -> bool:
+    text = normalize_text(value)
+    if not text:
+        return False
+    if text in _WIDE_TABLE_AUXILIARY_HEADERS:
+        return True
+    # Generic long-table metadata headers must never become entity columns
+    # when the same sheet is interpreted as a wide timetable.
+    return _header_kind(value) in {"class", "subject", "teacher", "room", "lesson"}
+
+
 def _parse_wide_table(title: str, rows: list[list[str]], class_aliases: dict[str, int]) -> list[RawLesson]:
-    ignored_headers = {
-        "gv nghi", "giao vien nghi", "ghi chu", "note", "notes", "phong", "room", "stt", "so tt",
-    }
     best: tuple[int, int, dict[str, int], list[tuple[int, str]]] | None = None
     for header_index, row in enumerate(rows[:30]):
         kinds: dict[str, int] = {}
@@ -416,8 +433,7 @@ def _parse_wide_table(title: str, rows: list[list[str]], class_aliases: dict[str
         period_col = kinds["period"]
         for col, value in enumerate(row):
             header = _cell_text(value)
-            norm = normalize_text(header)
-            if col in kinds.values() or not header or norm in ignored_headers:
+            if col in kinds.values() or not header or _is_wide_table_auxiliary_header(header):
                 continue
             recognized = _exact_alias(header, class_aliases) is not None
             if recognized or col > period_col:
@@ -1432,7 +1448,13 @@ def _standalone_parse_wide(title: str, rows: list[list[str]]) -> tuple[list[RawL
                 kinds[kind] = col
         if "day" not in kinds or "period" not in kinds:
             continue
-        entity_cols = [(col, _cell_text(value)) for col, value in enumerate(row) if col not in kinds.values() and _cell_text(value)]
+        entity_cols = [
+            (col, _cell_text(value))
+            for col, value in enumerate(row)
+            if col not in kinds.values()
+            and _cell_text(value)
+            and not _is_wide_table_auxiliary_header(_cell_text(value))
+        ]
         if not entity_cols:
             continue
         score = len(entity_cols)
