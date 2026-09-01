@@ -9,6 +9,7 @@ let scheduleAuditAiRunId=0;
 let scheduleAuditLastReport=null;
 let scheduleAuditAiAnalysis=null;
 let scheduleAuditAiModel='';
+let scheduleAuditActiveView='timetable';
 const SCHEDULE_AUDIT_MAX_BYTES=15*1024*1024;
 const SCHEDULE_AUDIT_ALLOWED_EXTENSIONS=['xlsx','xlsm','xls','docx','csv','tsv'];
 
@@ -50,7 +51,7 @@ function clearScheduleAuditFile(resetResult=true){
 function selectScheduleAuditFile(file,{autoRun=true}={}){
   const error=scheduleAuditFileValidationError(file);
   if(error){clearScheduleAuditFile(false);renderScheduleAuditError(error);return false;}
-  scheduleAuditAiRunId+=1;scheduleAuditLastReport=null;resetScheduleAuditAiResult();
+  scheduleAuditAiRunId+=1;scheduleAuditLastReport=null;scheduleAuditActiveView='timetable';resetScheduleAuditAiResult();
   setScheduleAuditFile(file);
   if(autoRun)runScheduleAudit();
   return true;
@@ -110,6 +111,60 @@ function renderScheduleAuditTable(report,ai=null){
   }
   return `<div class="schedule-view-table-wrap"><table class="schedule-view-table"><thead><tr><th class="schedule-view-meta day">Thứ</th><th class="schedule-view-meta session">Buổi</th><th class="schedule-view-meta period">Tiết</th>${classes.map(cls=>`<th class="schedule-view-class">${esc(cls.name)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+function scheduleAuditBreakdownHtml(items,emptyLabel='Không có dữ liệu'){
+  if(!items?.length)return `<span class="schedule-stat-empty">${esc(emptyLabel)}</span>`;
+  return `<div class="schedule-stat-breakdown">${items.map(item=>`<span>${esc(item.name)} <b>${Number(item.lessons||0)}</b></span>`).join('')}</div>`;
+}
+function scheduleAuditStatsOverview(statistics){
+  const overview=statistics?.overview||{};
+  const leader=(item,fallback='—')=>item?.name?`<b>${esc(item.name)}</b><span>${Number(item.lessons||0)} tiết</span>`:`<b>${fallback}</b><span>Chưa có dữ liệu</span>`;
+  return `
+    <div class="schedule-stat-cards">
+      <article><span>Tổng số tiết</span><b>${Number(overview.total_lessons||0)}</b></article>
+      <article><span>Giáo viên</span><b>${Number(overview.total_teachers||0)}</b></article>
+      <article><span>Môn học</span><b>${Number(overview.total_subjects||0)}</b></article>
+      <article><span>Lớp học</span><b>${Number(overview.total_classes||0)}</b></article>
+    </div>
+    <div class="schedule-stat-highlights">
+      <article><small>Giáo viên dạy nhiều nhất</small>${leader(overview.busiest_teacher)}</article>
+      <article><small>Môn có nhiều tiết nhất</small>${leader(overview.largest_subject)}</article>
+      <article><small>Lớp có nhiều tiết nhất</small>${leader(overview.busiest_class)}</article>
+      <article><small>Trung bình / giáo viên</small><b>${Number(overview.avg_lessons_per_teacher||0).toLocaleString('vi-VN',{maximumFractionDigits:2})} tiết</b><span>TB / lớp: ${Number(overview.avg_lessons_per_class||0).toLocaleString('vi-VN',{maximumFractionDigits:2})} tiết</span></article>
+    </div>`;
+}
+function scheduleAuditStatsTable(rows,type){
+  const config={
+    teachers:{title:'Giáo viên',first:'Môn giảng dạy',second:'Lớp phụ trách',firstKey:'subjects',secondKey:'classes',search:'Tìm giáo viên…'},
+    subjects:{title:'Môn học',first:'Giáo viên',second:'Lớp học',firstKey:'teachers',secondKey:'classes',search:'Tìm môn học…'},
+    classes:{title:'Lớp học',first:'Môn học',second:'Giáo viên',firstKey:'subjects',secondKey:'teachers',search:'Tìm lớp học…'},
+  }[type];
+  if(!config)return '';
+  const body=(rows||[]).map(item=>`<tr data-stat-text="${esc(String(item.name||'').toLocaleLowerCase('vi-VN'))}"><td><b>${esc(item.name||'—')}</b></td><td class="schedule-stat-total">${Number(item.total_lessons||0)}</td><td>${scheduleAuditBreakdownHtml(item[config.firstKey])}</td><td>${scheduleAuditBreakdownHtml(item[config.secondKey])}</td></tr>`).join('');
+  return `<div class="schedule-stat-toolbar"><div><b>Thống kê theo ${esc(config.title.toLocaleLowerCase('vi-VN'))}</b><small>${Number((rows||[]).length)} mục</small></div><input type="search" placeholder="${esc(config.search)}" oninput="filterScheduleAuditStats('${type}',this.value)" aria-label="${esc(config.search)}"></div>
+    <div class="schedule-stat-table-wrap"><table class="schedule-stat-table"><thead><tr><th>${esc(config.title)}</th><th>Tổng tiết</th><th>${esc(config.first)}</th><th>${esc(config.second)}</th></tr></thead><tbody>${body||`<tr><td colspan="4" class="schedule-stat-none">Chưa có dữ liệu thống kê.</td></tr>`}</tbody></table></div>`;
+}
+function renderScheduleAuditStatistics(report){
+  const statistics=report?.statistics||{overview:{},teachers:[],subjects:[],classes:[]};
+  return `
+    <section id="scheduleAuditView-overview" class="schedule-audit-view-panel" data-audit-panel="overview" hidden>${scheduleAuditStatsOverview(statistics)}</section>
+    <section id="scheduleAuditView-teachers" class="schedule-audit-view-panel" data-audit-panel="teachers" hidden>${scheduleAuditStatsTable(statistics.teachers,'teachers')}</section>
+    <section id="scheduleAuditView-subjects" class="schedule-audit-view-panel" data-audit-panel="subjects" hidden>${scheduleAuditStatsTable(statistics.subjects,'subjects')}</section>
+    <section id="scheduleAuditView-classes" class="schedule-audit-view-panel" data-audit-panel="classes" hidden>${scheduleAuditStatsTable(statistics.classes,'classes')}</section>`;
+}
+function switchScheduleAuditView(view){
+  const allowed=new Set(['timetable','overview','teachers','subjects','classes']);
+  scheduleAuditActiveView=allowed.has(view)?view:'timetable';
+  document.querySelectorAll('[data-audit-view]').forEach(button=>{
+    const active=button.dataset.auditView===scheduleAuditActiveView;
+    button.classList.toggle('active',active);button.setAttribute('aria-selected',active?'true':'false');
+  });
+  document.querySelectorAll('[data-audit-panel]').forEach(panel=>{panel.hidden=panel.dataset.auditPanel!==scheduleAuditActiveView;});
+}
+function filterScheduleAuditStats(type,query){
+  const normalized=String(query||'').trim().toLocaleLowerCase('vi-VN');
+  document.querySelectorAll(`#scheduleAuditView-${type} tbody tr[data-stat-text]`).forEach(row=>{row.hidden=!!normalized&&!String(row.dataset.statText||'').includes(normalized);});
+}
+
 function renderScheduleAudit(report,ai=scheduleAuditAiAnalysis){
   const box=$('#scheduleAuditResult');if(!box)return;
   const summary=report.summary||{},viewer=report.viewer||{},issues=report.issues||[];
@@ -126,7 +181,16 @@ function renderScheduleAudit(report,ai=scheduleAuditAiAnalysis){
       <div class="schedule-audit-view-legend"><span class="legend-conflict"></span><b>Đỏ = lỗi rule</b>${hasConflict?`<small>${affected} ô</small>`:''}${ai?`<span class="legend-ai-warning"></span><b>Cam/vàng = AI</b><small>${aiMarked} ô</small>`:''}</div>
     </div>
     ${nonCellIssues.length?`<div class="schedule-audit-inline-warning">⚠ Có ${nonCellIssues.length} dữ liệu chưa thể biểu diễn chính xác trên bảng. Các lỗi trùng vẫn được đánh dấu trực tiếp bằng ô đỏ.</div>`:''}
-    ${renderScheduleAuditTable(report,ai)}`;
+    <div class="schedule-audit-tabs" role="tablist" aria-label="Chế độ xem thời khóa biểu">
+      <button type="button" data-audit-view="timetable" onclick="switchScheduleAuditView('timetable')">Thời khóa biểu</button>
+      <button type="button" data-audit-view="overview" onclick="switchScheduleAuditView('overview')">Tổng quan</button>
+      <button type="button" data-audit-view="teachers" onclick="switchScheduleAuditView('teachers')">Giáo viên</button>
+      <button type="button" data-audit-view="subjects" onclick="switchScheduleAuditView('subjects')">Môn học</button>
+      <button type="button" data-audit-view="classes" onclick="switchScheduleAuditView('classes')">Lớp học</button>
+    </div>
+    <section id="scheduleAuditView-timetable" class="schedule-audit-view-panel" data-audit-panel="timetable">${renderScheduleAuditTable(report,ai)}</section>
+    ${renderScheduleAuditStatistics(report)}`;
+  switchScheduleAuditView(scheduleAuditActiveView);
 }
 function renderScheduleAuditError(message){
   const box=$('#scheduleAuditResult');if(!box)return;

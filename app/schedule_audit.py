@@ -1638,6 +1638,107 @@ def _standalone_short_name(value: str, fallback: str) -> str:
     return "".join(word[0] for word in words if word)[:20].upper() or fallback[:20]
 
 
+
+def _standalone_statistics(
+    recognized: list[dict[str, Any]],
+    *,
+    class_by_id: dict[int, dict[str, Any]],
+    subject_by_id: dict[int, dict[str, Any]],
+    teacher_by_id: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
+    """Build reusable timetable statistics from already de-duplicated lessons."""
+    teacher_rows: dict[int, dict[str, Any]] = {}
+    subject_rows: dict[int, dict[str, Any]] = {}
+    class_rows: dict[int, dict[str, Any]] = {}
+
+    def bump(bucket: dict[str, int], name: str) -> None:
+        bucket[name] = bucket.get(name, 0) + 1
+
+    for entry in recognized:
+        class_id = int(entry["class_id"])
+        subject_id = int(entry["subject_id"])
+        teacher_id = int(entry["teacher_id"])
+        class_name = class_by_id[class_id]["name"]
+        subject_name = subject_by_id[subject_id]["name"]
+        teacher_name = teacher_by_id[teacher_id]["name"]
+
+        teacher = teacher_rows.setdefault(teacher_id, {
+            "id": teacher_id,
+            "name": teacher_name,
+            "total_lessons": 0,
+            "subjects": {},
+            "classes": {},
+        })
+        teacher["total_lessons"] += 1
+        bump(teacher["subjects"], subject_name)
+        bump(teacher["classes"], class_name)
+
+        subject = subject_rows.setdefault(subject_id, {
+            "id": subject_id,
+            "name": subject_name,
+            "total_lessons": 0,
+            "teachers": {},
+            "classes": {},
+        })
+        subject["total_lessons"] += 1
+        bump(subject["teachers"], teacher_name)
+        bump(subject["classes"], class_name)
+
+        class_row = class_rows.setdefault(class_id, {
+            "id": class_id,
+            "name": class_name,
+            "total_lessons": 0,
+            "subjects": {},
+            "teachers": {},
+        })
+        class_row["total_lessons"] += 1
+        bump(class_row["subjects"], subject_name)
+        bump(class_row["teachers"], teacher_name)
+
+    def breakdown(mapping: dict[str, int]) -> list[dict[str, Any]]:
+        return [
+            {"name": name, "lessons": count}
+            for name, count in sorted(mapping.items(), key=lambda item: (-item[1], normalize_text(item[0]), _identity_text(item[0])))
+        ]
+
+    def finalize(rows: dict[int, dict[str, Any]], detail_fields: tuple[str, ...]) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for row in rows.values():
+            item = dict(row)
+            for field in detail_fields:
+                item[field] = breakdown(item[field])
+            result.append(item)
+        result.sort(key=lambda item: (-int(item["total_lessons"]), normalize_text(item["name"]), _identity_text(item["name"])))
+        return result
+
+    teachers = finalize(teacher_rows, ("subjects", "classes"))
+    subjects = finalize(subject_rows, ("teachers", "classes"))
+    classes = finalize(class_rows, ("subjects", "teachers"))
+
+    def leader(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if not rows:
+            return None
+        return {"name": rows[0]["name"], "lessons": int(rows[0]["total_lessons"])}
+
+    total_lessons = len(recognized)
+    return {
+        "overview": {
+            "total_lessons": total_lessons,
+            "total_teachers": len(teachers),
+            "total_subjects": len(subjects),
+            "total_classes": len(classes),
+            "avg_lessons_per_teacher": round(total_lessons / len(teachers), 2) if teachers else 0,
+            "avg_lessons_per_class": round(total_lessons / len(classes), 2) if classes else 0,
+            "busiest_teacher": leader(teachers),
+            "largest_subject": leader(subjects),
+            "busiest_class": leader(classes),
+        },
+        "teachers": teachers,
+        "subjects": subjects,
+        "classes": classes,
+    }
+
+
 def analyze_standalone_schedule_file(
     *,
     filename: str,
@@ -1891,6 +1992,12 @@ def analyze_standalone_schedule_file(
         "cells": viewer_cells,
         "conflict_cells": len(affected_coordinates),
     }
+    statistics = _standalone_statistics(
+        recognized,
+        class_by_id=class_by_id,
+        subject_by_id=subject_by_id,
+        teacher_by_id=teacher_by_id,
+    )
     result = {
         "ok": True,
         "filename": filename,
@@ -1911,6 +2018,7 @@ def analyze_standalone_schedule_file(
         },
         "issues": issues,
         "viewer": viewer,
+        "statistics": statistics,
         "data": {
             "project": project,
             "classes": classes,
