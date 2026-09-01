@@ -5,7 +5,7 @@ import zipfile
 
 from openpyxl import Workbook
 
-from app.schedule_audit import analyze_schedule_file, read_tables
+from app.schedule_audit import analyze_schedule_file, analyze_standalone_schedule_file, read_tables
 
 
 def sample_context():
@@ -234,3 +234,51 @@ def test_docx_teacher_day_grid_is_detected():
     assert report["summary"]["recognized_lessons"] == 2
     assert report["summary"]["errors"] == 0
     assert report["detection"]["layouts"] == ["Theo giáo viên"]
+
+
+def test_standalone_keeps_vietnamese_diacritics_distinct_for_teacher_identity():
+    content = workbook_bytes([
+        ["Thứ", "Tiết", "10A1", "10A2"],
+        ["2", 1, "Toán Hà", "Toán Hạ"],
+    ])
+    report = analyze_standalone_schedule_file(filename="tkb-dau.xlsx", content=content)
+    assert report["summary"]["recognized_lessons"] == 2
+    assert report["summary"]["collisions"] == 0
+    assert {teacher["name"] for teacher in report["data"]["teachers"]} == {"Hà", "Hạ"}
+    cells = {cell["raw_text"]: cell for cell in report["viewer"]["cells"]}
+    assert cells["Toán Hà"]["teacher_name"] == "Hà"
+    assert cells["Toán Hạ"]["teacher_name"] == "Hạ"
+    assert not cells["Toán Hà"]["conflicts"]
+    assert not cells["Toán Hạ"]["conflicts"]
+
+
+def test_standalone_parses_common_vietnamese_subject_teacher_cells_without_losing_marks():
+    content = workbook_bytes([
+        ["Thứ", "Tiết", "10A1", "10A2", "10A3", "10A4", "10A5"],
+        ["2", 1, "Hóa Cô Lan", "Sinh Thầy Minh", "Lý Cô Hà", "Địa Cô Hương", "Sử Nguyễn Văn An"],
+    ])
+    report = analyze_standalone_schedule_file(filename="tkb-mon-gv.xlsx", content=content)
+    cells = {cell["raw_text"]: cell for cell in report["viewer"]["cells"]}
+    expected = {
+        "Hóa Cô Lan": ("Hóa học", "Cô Lan"),
+        "Sinh Thầy Minh": ("Sinh học", "Thầy Minh"),
+        "Lý Cô Hà": ("Vật lý", "Cô Hà"),
+        "Địa Cô Hương": ("Địa lý", "Cô Hương"),
+        "Sử Nguyễn Văn An": ("Lịch sử", "Nguyễn Văn An"),
+    }
+    assert report["summary"]["recognized_lessons"] == len(expected)
+    for raw_text, (subject, teacher) in expected.items():
+        assert cells[raw_text]["subject_name"] == subject
+        assert cells[raw_text]["teacher_name"] == teacher
+        assert cells[raw_text]["raw_text"] == raw_text
+
+
+def test_standalone_does_not_treat_teacher_middle_name_van_as_subject():
+    content = workbook_bytes([
+        ["Thứ", "Tiết", "10A1"],
+        ["2", 1, "Sử Nguyễn Văn An"],
+    ])
+    report = analyze_standalone_schedule_file(filename="tkb-su.xlsx", content=content)
+    cell = report["viewer"]["cells"][0]
+    assert cell["subject_name"] == "Lịch sử"
+    assert cell["teacher_name"] == "Nguyễn Văn An"

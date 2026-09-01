@@ -37,10 +37,18 @@ class RawLesson:
 
 
 def normalize_text(value: Any) -> str:
+    """Normalize for fuzzy/search matching; Vietnamese accents are intentionally ignored."""
     text = str(value or "").strip().casefold().replace("đ", "d")
     text = unicodedata.normalize("NFD", text)
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
     text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _identity_text(value: Any) -> str:
+    """Normalize an entity identity without throwing away Vietnamese diacritics."""
+    text = unicodedata.normalize("NFC", str(value or "").strip().casefold())
+    text = "".join(ch if ch.isalnum() else " " for ch in text)
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -1157,15 +1165,24 @@ _STANDALONE_SUBJECT_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = t
         (r"^\s*(?:Ngữ\s*)?Văn\s*[-:]?\s*", "Ngữ văn"),
         (r"^\s*T\.?\s*Anh\s*[-:]?\s*", "Tiếng Anh"),
         (r"^\s*(?:Tiếng\s*)?Anh\s*[-:]?\s*", "Tiếng Anh"),
+        (r"^\s*(?:Vật\s*)?Lý\s*[-:]?\s*", "Vật lý"),
+        (r"^\s*Hóa(?:\s*học)?\s*[-:]?\s*", "Hóa học"),
+        (r"^\s*Sinh(?:\s*học)?\s*[-:]?\s*", "Sinh học"),
+        (r"^\s*(?:Lịch\s*)?Sử\s*[-:]?\s*", "Lịch sử"),
+        (r"^\s*Địa(?:\s*lý)?\s*[-:]?\s*", "Địa lý"),
         (r"^\s*C\.?\s*Nghệ\s*[-:]?\s*", "Công nghệ"),
         (r"^\s*CN\s*[-:]?\s*", "Công nghệ"),
         (r"^\s*LSĐL(?:\s*\([^)]*\))?\s*[-:]?\s*", "LSĐL"),
         (r"^\s*KHTN(?:\s*\([^)]*\))?\s*[-:]?\s*", "KHTN"),
+        (r"^\s*KHXH(?:\s*\([^)]*\))?\s*[-:]?\s*", "KHXH"),
         (r"^\s*NT\s*\(\s*Nhạc\s*\)\s*[-:]?\s*", "Âm nhạc"),
         (r"^\s*NT\s*\(\s*MT\s*\)\s*[-:]?\s*", "Mỹ thuật"),
         (r"^\s*GDĐP\s*[-:]?\s*", "GDĐP"),
+        (r"^\s*GDDP\s*[-:]?\s*", "GDĐP"),
+        (r"^\s*GDKTPL\s*[-:]?\s*", "GDKTPL"),
         (r"^\s*GDTC\s*[-:]?\s*", "GDTC"),
         (r"^\s*GDCD\s*[-:]?\s*", "GDCD"),
+        (r"^\s*GDQP\s*[-:]?\s*", "GDQP"),
         (r"^\s*Tin(?:\s*học)?\s*[-:]?\s*", "Tin học"),
         (r"^\s*Toán\s*[-:]?\s*", "Toán"),
     )
@@ -1221,12 +1238,30 @@ def _standalone_subject_from_text(value: str) -> str:
     if subject:
         return subject
     text = _cell_text(value)
-    norm = normalize_text(text)
-    if not norm:
+    if not text:
         return ""
-    for hint in sorted(_STANDALONE_SUBJECT_HINTS, key=len, reverse=True):
-        if re.search(rf"(?:^|\s){re.escape(hint)}(?:\s|$)", norm):
-            return _STANDALONE_SUBJECT_HINTS[hint]
+
+    # Prefer structured pieces and prefixes. Searching every token in the whole cell
+    # can mistake a teacher's middle name (for example "Nguyễn Văn An") for môn Văn.
+    candidates = _standalone_split_parts(text)
+    class_name = _standalone_class_token(text)
+    full_norm = normalize_text(text)
+    class_norm = normalize_text(class_name)
+    normalized_candidates = [normalize_text(part) for part in candidates]
+    if class_norm and full_norm.startswith(f"{class_norm} "):
+        normalized_candidates.append(full_norm[len(class_norm):].strip())
+
+    for part in candidates:
+        part_subject, _remainder = _standalone_subject_prefix(part)
+        if part_subject:
+            return part_subject
+
+    for norm in normalized_candidates:
+        if not norm:
+            continue
+        for hint in sorted(_STANDALONE_SUBJECT_HINTS, key=len, reverse=True):
+            if norm == hint or norm.startswith(f"{hint} "):
+                return _STANDALONE_SUBJECT_HINTS[hint]
     return ""
 
 
@@ -1625,14 +1660,14 @@ def analyze_standalone_schedule_file(
             subject_name = f"Mon chua xac dinh - {class_name}"
             issues.append(_issue(
                 "unknown_subject", "warning", "Chua xac dinh duoc mon hoc",
-                f"{class_name} tai {slot_label(slot, project)} khong co ten mon ro rang; he thong tao mon tam de ban co the chinh sua sau khi import.",
+                f"{class_name} tai {slot_label(slot, project)} khong co ten mon ro rang; he thong tao mon tam de van hien thi day du tiet tren bang.",
                 slot=slot, project=project, source=raw.source, entity=class_name,
             ))
         if not teacher_name:
             teacher_name = f"GV chua xac dinh - {class_name} - {subject_name}"
             issues.append(_issue(
                 "unknown_teacher", "warning", "Chua xac dinh duoc giao vien",
-                f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi convert.",
+                f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi hien thi.",
                 slot=slot, project=project, source=raw.source, entity=class_name,
             ))
         normalized_rows.append({
@@ -1651,8 +1686,8 @@ def analyze_standalone_schedule_file(
     first_by_key: dict[tuple[int, str, str, str], dict[str, Any]] = {}
     for entry in normalized_rows:
         key = (
-            int(entry["slot"]), normalize_text(entry["class_name"]),
-            normalize_text(entry["subject_name"]), normalize_text(entry["teacher_name"]),
+            int(entry["slot"]), _identity_text(entry["class_name"]),
+            _identity_text(entry["subject_name"]), _identity_text(entry["teacher_name"]),
         )
         existing = first_by_key.get(key)
         if existing is not None and entry["origin"] != existing["origin"]:
@@ -1666,22 +1701,29 @@ def analyze_standalone_schedule_file(
             first_by_key[key] = entry
     normalized_rows = deduplicated
 
-    class_names = sorted({row["class_name"] for row in normalized_rows}, key=lambda value: normalize_text(value))
-    subject_names = sorted({row["subject_name"] for row in normalized_rows}, key=lambda value: normalize_text(value))
-    teacher_names = sorted({row["teacher_name"] for row in normalized_rows}, key=lambda value: normalize_text(value))
-    class_ids = {normalize_text(name): index for index, name in enumerate(class_names, start=1)}
-    subject_ids = {normalize_text(name): index for index, name in enumerate(subject_names, start=1)}
-    teacher_ids = {normalize_text(name): index for index, name in enumerate(teacher_names, start=1)}
+    def unique_entity_names(field: str) -> list[str]:
+        by_identity: dict[str, str] = {}
+        for row in normalized_rows:
+            name = row[field]
+            by_identity.setdefault(_identity_text(name), name)
+        return sorted(by_identity.values(), key=lambda value: (normalize_text(value), _identity_text(value)))
 
-    classes = [{"id": item_id, "name": name, "grade_id": None, "unavailable": []} for name, item_id in ((name, class_ids[normalize_text(name)]) for name in class_names)]
+    class_names = unique_entity_names("class_name")
+    subject_names = unique_entity_names("subject_name")
+    teacher_names = unique_entity_names("teacher_name")
+    class_ids = {_identity_text(name): index for index, name in enumerate(class_names, start=1)}
+    subject_ids = {_identity_text(name): index for index, name in enumerate(subject_names, start=1)}
+    teacher_ids = {_identity_text(name): index for index, name in enumerate(teacher_names, start=1)}
+
+    classes = [{"id": item_id, "name": name, "grade_id": None, "unavailable": []} for name, item_id in ((name, class_ids[_identity_text(name)]) for name in class_names)]
     subjects = [{
-        "id": subject_ids[normalize_text(name)], "name": name,
-        "short_name": _standalone_short_name(name, f"M{subject_ids[normalize_text(name)]}"),
+        "id": subject_ids[_identity_text(name)], "name": name,
+        "short_name": _standalone_short_name(name, f"M{subject_ids[_identity_text(name)]}"),
         "max_consecutive": int(project["periods"]),
     } for name in subject_names]
     teachers = [{
-        "id": teacher_ids[normalize_text(name)], "name": name,
-        "short_name": _standalone_short_name(name, f"GV{teacher_ids[normalize_text(name)]}"),
+        "id": teacher_ids[_identity_text(name)], "name": name,
+        "short_name": _standalone_short_name(name, f"GV{teacher_ids[_identity_text(name)]}"),
         "department_id": None, "max_periods_day": int(project["sessions"]) * int(project["periods"]),
         "unavailable": [], "subject_ids": [],
     } for name in teacher_names]
@@ -1690,9 +1732,9 @@ def analyze_standalone_schedule_file(
     assignment_counts: dict[tuple[int, int, int], int] = defaultdict(int)
     for row in normalized_rows:
         key = (
-            class_ids[normalize_text(row["class_name"])],
-            subject_ids[normalize_text(row["subject_name"])],
-            teacher_ids[normalize_text(row["teacher_name"])],
+            class_ids[_identity_text(row["class_name"])],
+            subject_ids[_identity_text(row["subject_name"])],
+            teacher_ids[_identity_text(row["teacher_name"])],
         )
         if key not in assignment_counts:
             assignment_keys.append(key)
@@ -1723,9 +1765,9 @@ def analyze_standalone_schedule_file(
     recognized: list[dict[str, Any]] = []
     for index, row in enumerate(normalized_rows, start=1):
         key = (
-            class_ids[normalize_text(row["class_name"])],
-            subject_ids[normalize_text(row["subject_name"])],
-            teacher_ids[normalize_text(row["teacher_name"])],
+            class_ids[_identity_text(row["class_name"])],
+            subject_ids[_identity_text(row["subject_name"])],
+            teacher_ids[_identity_text(row["teacher_name"])],
         )
         recognized.append({
             "draft_id": index,

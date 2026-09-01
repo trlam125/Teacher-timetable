@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
 JS = (ROOT / "app" / "static" / "app.js").read_text(encoding="utf-8")
 WORKSPACE = (ROOT / "app" / "templates" / "workspace.html").read_text(encoding="utf-8")
+AUDIT_TEMPLATE = (ROOT / "app" / "templates" / "schedule_audit.html").read_text(encoding="utf-8")
+AUDIT_JS = (ROOT / "app" / "static" / "schedule-audit.js").read_text(encoding="utf-8")
 
 
 class IntegrationContractTests(unittest.TestCase):
@@ -118,22 +120,45 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertNotIn("beginTrackedOperation", tray_source)
         self.assertNotIn("toast(", tray_source)
 
-    def test_schedule_audit_supports_integrated_drag_drop_import(self):
-        self.assertIn('id="scheduleAuditDropzone"', WORKSPACE)
-        self.assertIn('id="scheduleAuditFileActions"', WORKSPACE)
-        self.assertIn("scheduleAuditDropzone.addEventListener('drop'", JS)
-        self.assertIn("selectScheduleAuditFile(file)", JS)
-        self.assertIn("function clearScheduleAuditFile(", JS)
-        self.assertIn("function scheduleAuditFileValidationError(file)", JS)
-        self.assertIn("if(autoRun)runScheduleAudit()", JS)
+    def test_schedule_audit_is_standalone_from_workspace(self):
+        self.assertNotIn('id="scheduleAuditDropzone"', WORKSPACE)
+        self.assertNotIn('id="scheduleAuditFileActions"', WORKSPACE)
+        self.assertNotIn("scheduleAuditSelectedFile", JS)
+        self.assertNotIn("scheduleImportDraft", JS)
+        self.assertNotIn("schedule-import/convert", JS)
+        self.assertNotIn("schedule-import/edit", JS)
+        self.assertNotIn("schedule-import/save", JS)
+        self.assertNotIn('/api/schedule-import/convert', MAIN)
+        self.assertNotIn('/api/schedule-import/edit', MAIN)
+        self.assertNotIn('/api/schedule-import/save', MAIN)
+        self.assertIn('id="scheduleAuditDropzone"', AUDIT_TEMPLATE)
+        self.assertIn('id="scheduleAuditFileActions"', AUDIT_TEMPLATE)
+        self.assertIn("scheduleAuditDropzone.addEventListener('drop'", AUDIT_JS)
+        self.assertIn("selectScheduleAuditFile(file)", AUDIT_JS)
 
     def test_file_drop_outside_audit_zone_is_prevented(self):
-        self.assertIn("includes('Files')", JS)
-        self.assertIn("event.target?.closest?.('#scheduleAuditDropzone')", JS)
+        self.assertIn("includes('Files')", AUDIT_JS)
+        self.assertIn("event.target?.closest?.('#scheduleAuditDropzone')", AUDIT_JS)
 
     def test_schedule_audit_ignores_stale_async_results(self):
-        self.assertIn("let scheduleAuditRunId=0", JS)
-        self.assertIn("if(runId!==scheduleAuditRunId)return", JS)
+        self.assertIn("let scheduleAuditRunId=0", AUDIT_JS)
+        self.assertIn("if(runId!==scheduleAuditRunId)return", AUDIT_JS)
+
+    def test_schedule_audit_has_separate_ai_button_and_endpoint(self):
+        self.assertIn('id="scheduleAuditAiButton"', AUDIT_TEMPLATE)
+        self.assertIn('Phân tích bằng AI', AUDIT_TEMPLATE)
+        self.assertIn("data-enabled=\"{{ '1' if ai_enabled else '0' }}\"", AUDIT_TEMPLATE)
+        self.assertIn('@app.post("/api/schedule-audit/ai")', MAIN)
+        self.assertIn('def standalone_ai_audit_schedule_file', MAIN)
+        self.assertIn('async function runScheduleAuditAI()', AUDIT_JS)
+        self.assertIn("fetch('/api/schedule-audit/ai'", AUDIT_JS)
+        self.assertIn("let scheduleAuditAiRunId=0", AUDIT_JS)
+        self.assertIn("if(runId!==scheduleAuditAiRunId)return", AUDIT_JS)
+
+    def test_schedule_audit_ai_is_additive_not_replacement_for_rule_check(self):
+        self.assertIn("fetch('/api/schedule-audit'", AUDIT_JS)
+        self.assertIn("renderScheduleAudit(scheduleAuditLastReport,scheduleAuditAiAnalysis)", AUDIT_JS)
+        self.assertIn("AI là lớp kiểm tra bổ sung", AUDIT_JS)
 
 
 if __name__ == "__main__":
