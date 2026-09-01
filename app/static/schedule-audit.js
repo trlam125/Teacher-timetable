@@ -155,7 +155,7 @@ function renderScheduleAuditAiResult(report,ai,model){
   box.innerHTML=`
     <div class="schedule-audit-ai-head ${issues.length?'has-findings':'clean'}">
       <div><span class="schedule-audit-ai-icon">✦</span></div>
-      <div class="schedule-audit-ai-copy"><div class="schedule-audit-ai-title-row"><h2>Phân tích bằng AI</h2>${model?`<span>${esc(model)}</span>`:''}</div><p>${esc(ai?.overview||'Đã phân tích thời khóa biểu.')}</p><small>AI là lớp kiểm tra bổ sung theo heuristic; lỗi rule cứng vẫn được ưu tiên.</small></div>
+      <div class="schedule-audit-ai-copy"><div class="schedule-audit-ai-title-row"><h2>Phân tích bằng AI</h2></div><p>${esc(ai?.overview||'Đã phân tích thời khóa biểu.')}</p><small>AI là lớp kiểm tra bổ sung theo heuristic; lỗi rule cứng vẫn được ưu tiên.</small></div>
       <div class="schedule-audit-ai-counts"><b>${Number(summary.total||issues.length)}</b><span>điểm cần xem</span>${hasWarnings?`<small>${Number(summary.warnings||0)} cảnh báo</small>`:''}</div>
     </div>
     ${issues.length?`<div class="schedule-audit-ai-issues">${issues.map(issue=>{
