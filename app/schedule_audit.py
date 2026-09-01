@@ -1340,11 +1340,8 @@ def _standalone_parse_cell(
             if norm and not norm.startswith(("gv ", "giao vien ")):
                 subject_name = part.strip()
                 break
-    if not subject_name and fixed_teacher and class_name:
-        # TKB giao vien co the chi ghi ten lop; van cho phep convert bang mon tam.
-        subject_name = f"Mon chua xac dinh - {fixed_teacher}"
-    if not teacher_name and fixed_class and subject_name:
-        teacher_name = f"GV chua xac dinh - {fixed_class} - {subject_name}"
+    # Khong tao entity tam tai buoc parse. De trong de tang phan analyze co the
+    # canh bao ro rang va khong dem "chua xac dinh" nhu mon/giao vien that.
     return class_name.strip(), subject_name.strip(), teacher_name.strip()
 
 
@@ -1638,6 +1635,13 @@ def _standalone_short_name(value: str, fallback: str) -> str:
     return "".join(word[0] for word in words if word)[:20].upper() or fallback[:20]
 
 
+def _standalone_is_unknown_subject(value: str) -> bool:
+    return normalize_text(value).startswith("mon chua xac dinh")
+
+
+def _standalone_is_unknown_teacher(value: str) -> bool:
+    return normalize_text(value).startswith("gv chua xac dinh")
+
 
 def _standalone_statistics(
     recognized: list[dict[str, Any]],
@@ -1646,7 +1650,7 @@ def _standalone_statistics(
     subject_by_id: dict[int, dict[str, Any]],
     teacher_by_id: dict[int, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build reusable timetable statistics from already de-duplicated lessons."""
+    """Build timetable statistics without counting placeholder entities as real data."""
     teacher_rows: dict[int, dict[str, Any]] = {}
     subject_rows: dict[int, dict[str, Any]] = {}
     class_rows: dict[int, dict[str, Any]] = {}
@@ -1661,28 +1665,34 @@ def _standalone_statistics(
         class_name = class_by_id[class_id]["name"]
         subject_name = subject_by_id[subject_id]["name"]
         teacher_name = teacher_by_id[teacher_id]["name"]
+        known_subject = not _standalone_is_unknown_subject(subject_name)
+        known_teacher = not _standalone_is_unknown_teacher(teacher_name)
 
-        teacher = teacher_rows.setdefault(teacher_id, {
-            "id": teacher_id,
-            "name": teacher_name,
-            "total_lessons": 0,
-            "subjects": {},
-            "classes": {},
-        })
-        teacher["total_lessons"] += 1
-        bump(teacher["subjects"], subject_name)
-        bump(teacher["classes"], class_name)
+        if known_teacher:
+            teacher = teacher_rows.setdefault(teacher_id, {
+                "id": teacher_id,
+                "name": teacher_name,
+                "total_lessons": 0,
+                "subjects": {},
+                "classes": {},
+            })
+            teacher["total_lessons"] += 1
+            if known_subject:
+                bump(teacher["subjects"], subject_name)
+            bump(teacher["classes"], class_name)
 
-        subject = subject_rows.setdefault(subject_id, {
-            "id": subject_id,
-            "name": subject_name,
-            "total_lessons": 0,
-            "teachers": {},
-            "classes": {},
-        })
-        subject["total_lessons"] += 1
-        bump(subject["teachers"], teacher_name)
-        bump(subject["classes"], class_name)
+        if known_subject:
+            subject = subject_rows.setdefault(subject_id, {
+                "id": subject_id,
+                "name": subject_name,
+                "total_lessons": 0,
+                "teachers": {},
+                "classes": {},
+            })
+            subject["total_lessons"] += 1
+            if known_teacher:
+                bump(subject["teachers"], teacher_name)
+            bump(subject["classes"], class_name)
 
         class_row = class_rows.setdefault(class_id, {
             "id": class_id,
@@ -1692,8 +1702,10 @@ def _standalone_statistics(
             "teachers": {},
         })
         class_row["total_lessons"] += 1
-        bump(class_row["subjects"], subject_name)
-        bump(class_row["teachers"], teacher_name)
+        if known_subject:
+            bump(class_row["subjects"], subject_name)
+        if known_teacher:
+            bump(class_row["teachers"], teacher_name)
 
     def breakdown(mapping: dict[str, int]) -> list[dict[str, Any]]:
         return [
@@ -1721,13 +1733,14 @@ def _standalone_statistics(
         return {"name": rows[0]["name"], "lessons": int(rows[0]["total_lessons"])}
 
     total_lessons = len(recognized)
+    known_teacher_lessons = sum(int(row["total_lessons"]) for row in teachers)
     return {
         "overview": {
             "total_lessons": total_lessons,
             "total_teachers": len(teachers),
             "total_subjects": len(subjects),
             "total_classes": len(classes),
-            "avg_lessons_per_teacher": round(total_lessons / len(teachers), 2) if teachers else 0,
+            "avg_lessons_per_teacher": round(known_teacher_lessons / len(teachers), 2) if teachers else 0,
             "avg_lessons_per_class": round(total_lessons / len(classes), 2) if classes else 0,
             "busiest_teacher": leader(teachers),
             "largest_subject": leader(subjects),
@@ -1804,24 +1817,47 @@ def analyze_standalone_schedule_file(
             "raw_text": _cell_text(raw.lesson_text) or " · ".join(part for part in (subject_name, teacher_name) if part),
         })
 
-    # Gop cung mot tiet neu cung du lieu xuat hien o hai goc nhin lop/giao vien.
+    # Gop ban ghi trung hoan toan truoc khi tinh xung dot/thong ke. Mot dong bi
+    # lap trong cung sheet khong phai la hai tiet hoc. Van giu co che gop cung mot
+    # tiet neu no xuat hien o hai goc nhin lop/giao vien.
     deduplicated: list[dict[str, Any]] = []
-    first_by_key: dict[tuple[int, str, str, str], dict[str, Any]] = {}
+    first_by_exact_key: dict[tuple[int, str, str, str, str], dict[str, Any]] = {}
+    first_by_core_key: dict[tuple[int, str, str, str], dict[str, Any]] = {}
+
+    def merge_source(target: dict[str, Any], incoming: dict[str, Any]) -> None:
+        if incoming["source"] and incoming["source"] not in target["source"]:
+            target["source"] += f"; {incoming['source']}"
+        if not target["room"] and incoming["room"]:
+            target["room"] = incoming["room"]
+
     for entry in normalized_rows:
-        key = (
+        core_key = (
             int(entry["slot"]), _identity_text(entry["class_name"]),
             _identity_text(entry["subject_name"]), _identity_text(entry["teacher_name"]),
         )
-        existing = first_by_key.get(key)
-        if existing is not None and entry["origin"] != existing["origin"]:
-            if entry["source"] and entry["source"] not in existing["source"]:
-                existing["source"] += f"; {entry['source']}"
-            if not existing["room"] and entry["room"]:
-                existing["room"] = entry["room"]
+        exact_key = (*core_key, _identity_text(entry["room"]))
+        exact_existing = first_by_exact_key.get(exact_key)
+        if exact_existing is not None:
+            merge_source(exact_existing, entry)
             continue
+
+        core_existing = first_by_core_key.get(core_key)
+        rooms_compatible = bool(
+            core_existing is not None
+            and (
+                not _identity_text(core_existing["room"])
+                or not _identity_text(entry["room"])
+                or _identity_text(core_existing["room"]) == _identity_text(entry["room"])
+            )
+        )
+        if core_existing is not None and entry["origin"] != core_existing["origin"] and rooms_compatible:
+            merge_source(core_existing, entry)
+            first_by_exact_key[(*core_key, _identity_text(core_existing["room"]))] = core_existing
+            continue
+
         deduplicated.append(entry)
-        if existing is None:
-            first_by_key[key] = entry
+        first_by_exact_key[exact_key] = entry
+        first_by_core_key.setdefault(core_key, entry)
     normalized_rows = deduplicated
 
     def unique_entity_names(field: str) -> list[str]:
@@ -1834,6 +1870,8 @@ def analyze_standalone_schedule_file(
     class_names = unique_entity_names("class_name")
     subject_names = unique_entity_names("subject_name")
     teacher_names = unique_entity_names("teacher_name")
+    known_subject_names = [name for name in subject_names if not _standalone_is_unknown_subject(name)]
+    known_teacher_names = [name for name in teacher_names if not _standalone_is_unknown_teacher(name)]
     class_ids = {_identity_text(name): index for index, name in enumerate(class_names, start=1)}
     subject_ids = {_identity_text(name): index for index, name in enumerate(subject_names, start=1)}
     teacher_ids = {_identity_text(name): index for index, name in enumerate(teacher_names, start=1)}
@@ -1843,12 +1881,14 @@ def analyze_standalone_schedule_file(
         "id": subject_ids[_identity_text(name)], "name": name,
         "short_name": _standalone_short_name(name, f"M{subject_ids[_identity_text(name)]}"),
         "max_consecutive": int(project["periods"]),
+        "is_placeholder": _standalone_is_unknown_subject(name),
     } for name in subject_names]
     teachers = [{
         "id": teacher_ids[_identity_text(name)], "name": name,
         "short_name": _standalone_short_name(name, f"GV{teacher_ids[_identity_text(name)]}"),
         "department_id": None, "max_periods_day": int(project["sessions"]) * int(project["periods"]),
         "unavailable": [], "subject_ids": [],
+        "is_placeholder": _standalone_is_unknown_teacher(name),
     } for name in teacher_names]
 
     assignment_keys: list[tuple[int, int, int]] = []
@@ -1951,15 +1991,35 @@ def analyze_standalone_schedule_file(
     for warning in parse_warnings:
         issues.append(_issue("unread_table", "warning", "Co bang/sheet chua doc duoc", warning))
 
+    # Neu mot dong du lieu bi lap, cac canh bao phat sinh truoc buoc gop tiet cung
+    # khong nen xuat hien lap lai. Gop issue trung noi dung va noi nguon de nguoi
+    # dung van truy vet duoc vi tri trong file.
+    deduplicated_issues: list[dict[str, Any]] = []
+    first_issue_by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for issue in issues:
+        issue_key = (
+            issue.get("code"), issue.get("severity"), issue.get("title"),
+            issue.get("detail"), issue.get("slot"), issue.get("entity"),
+        )
+        existing_issue = first_issue_by_key.get(issue_key)
+        if existing_issue is not None:
+            source = _cell_text(issue.get("source"))
+            if source and source not in existing_issue.get("source", ""):
+                existing_issue["source"] = f"{existing_issue.get('source', '')}; {source}".strip("; ")
+            continue
+        first_issue_by_key[issue_key] = issue
+        deduplicated_issues.append(issue)
+    issues = deduplicated_issues
+
     severity_order = {"error": 0, "warning": 1, "info": 2}
     issues.sort(key=lambda item: (severity_order.get(item["severity"], 9), item.get("slot") is None, item.get("slot") or -1, item["title"]))
     errors = sum(1 for item in issues if item["severity"] == "error")
     warnings = sum(1 for item in issues if item["severity"] == "warning")
     collisions = sum(1 for item in issues if item["code"] in {"teacher_collision", "class_collision", "room_collision"})
     detection.update({
-        "scope_label": f"Doc lap · {len(classes)} lop · {len(teachers)} giao vien · {len(subjects)} mon",
+        "scope_label": f"Doc lap · {len(classes)} lop · {len(known_teacher_names)} giao vien · {len(known_subject_names)} mon",
         "classes": [row["name"] for row in classes],
-        "teachers": [row["name"] for row in teachers],
+        "teachers": known_teacher_names,
     })
 
     viewer_cells: list[dict[str, Any]] = []
@@ -2013,8 +2073,8 @@ def analyze_standalone_schedule_file(
             "missing_periods": 0,
             "extra_periods": 0,
             "classes": len(classes),
-            "teachers": len(teachers),
-            "subjects": len(subjects),
+            "teachers": len(known_teacher_names),
+            "subjects": len(known_subject_names),
         },
         "issues": issues,
         "viewer": viewer,

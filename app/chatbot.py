@@ -683,7 +683,7 @@ def _call_gemini_model(
 
 
 def _coerce_gemini_result(value: Any) -> tuple[str, str | None]:
-    """Keep tests/custom callers compatible with the former plain-string return."""
+    """Keep custom callers compatible with the former plain-string return."""
     if isinstance(value, tuple) and len(value) == 2:
         text, finish_reason = value
         return str(text or ""), str(finish_reason).strip() if finish_reason else None
