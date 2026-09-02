@@ -77,6 +77,19 @@ function scheduleAuditAiMap(ai){
   }
   return map;
 }
+function scheduleAuditDisplayLesson(item){
+  const raw=String(item.raw_text||'').trim();
+  const teacher=String(item.teacher_name||'').trim().replace(/^[.\-–—:;,\s]+/,'');
+  let subject=String(item.subject_name||'').trim();
+
+  if(raw&&teacher){
+    const escapedTeacher=teacher.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+');
+    subject=raw.replace(new RegExp(`[.\\-–—:;,\\s]*${escapedTeacher}\\s*$`,'i'),'').trim();
+    subject=subject.replace(/[.\-–—:;,\s]+$/,'').trim()||String(item.subject_name||'').trim();
+  }
+
+  return [subject,teacher].filter(Boolean).join(' - ')||raw;
+}
 function scheduleAuditCellHtml(entries,aiIssues=[]){
   if(!entries?.length)return '<td class="schedule-view-cell empty"></td>';
   const hasConflict=entries.some(item=>(item.conflicts||[]).length);
@@ -88,8 +101,8 @@ function scheduleAuditCellHtml(entries,aiIssues=[]){
   const title=[...details,...aiDetails,...entries.map(item=>item.source).filter(Boolean)].join('\n');
   const stateClass=hasConflict?' conflict':hasAiWarning?' ai-warning':hasAiSuggestion?' ai-suggestion':'';
   return `<td class="schedule-view-cell${stateClass}"${title?` title="${esc(title)}"`:''}>${entries.map(item=>{
-    const raw=item.raw_text||[item.subject_name,item.teacher_name].filter(Boolean).join(' ');
-    return `<div class="schedule-view-lesson"><b>${esc(raw)}</b>${item.room?`<small>Phòng ${esc(item.room)}</small>`:''}</div>`;
+    const displayText=scheduleAuditDisplayLesson(item);
+    return `<div class="schedule-view-lesson"><b>${esc(displayText)}</b>${item.room?`<small>Phòng ${esc(item.room)}</small>`:''}</div>`;
   }).join('')}${hasConflict?`<div class="schedule-view-conflict-tags">${conflictCodes.map(code=>`<span>! ${esc(scheduleAuditConflictLabel(code))}</span>`).join('')}</div>`:''}${aiIssues.length?`<div class="schedule-view-ai-tags"><span class="${hasAiWarning?'warning':'suggestion'}">✦ ${esc(scheduleAuditAiSeverityLabel(hasAiWarning?'warning':'suggestion'))}</span></div>`:''}</td>`;
 }
 function renderScheduleAuditTable(report,ai=null){

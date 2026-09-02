@@ -57,7 +57,7 @@
                             <button id="scheduleAuditButton" class="btn schedule-audit-button" type="button" onclick="runScheduleAudit()">Kiểm tra thời khóa biểu</button>
                             <button id="scheduleAuditAiButton" class="btn ghost schedule-audit-ai-button" type="button" data-enabled="{{ '1' if ai_enabled else '0' }}" onclick="runScheduleAuditAI()"{% if not ai_enabled %} disabled title="Chưa cấu hình GEMINI_API_KEY"{% endif %}>✦ Phân tích bằng AI</button>
                         </div>
-                        <small class="schedule-audit-note">Tối đa 15 MB. AI dùng API key Gemini hiện có trên máy chủ và chỉ chạy khi bạn bấm nút.</small>
+                        <small class="schedule-audit-note">Tối đa 15 MB</small>
                     </div>
                 </div>
                 <div id="scheduleAuditAiResult" class="schedule-audit-ai-result" hidden></div>
@@ -67,6 +67,6 @@
             </div>
         </section>
     </main>
-    <script src="/static/schedule-audit.js?v=5"></script>
+    <script src="/static/schedule-audit.js?v=6"></script>
 </body>
 </html>
