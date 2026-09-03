@@ -1155,6 +1155,23 @@ dialog[open] {
   animation: schedule-action-spin .85s linear infinite;
 }
 
+.action-feedback-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.action-feedback-stack .inline-action-feedback {
+  display: block;
+  max-width: min(320px, 52vw);
+  margin: 0;
+  line-height: 1.4;
+  white-space: normal;
+}
+
 .inline-action-feedback {
   display: inline-flex;
   align-items: center;
@@ -1368,6 +1385,14 @@ dialog[open] {
 }
 
 @media (max-width: 720px) {
+  .action-feedback-stack {
+    max-width: 100%;
+  }
+
+  .action-feedback-stack .inline-action-feedback {
+    max-width: 100%;
+  }
+
   .inline-action-feedback {
     flex-basis: 100%;
     max-width: 100%;
