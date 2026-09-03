@@ -1,15 +1,18 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tài khoản của tôi</title>
-  <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode');}})();</script>
-  <link rel="stylesheet" href="/static/style.css?v=32">
-  <script src="/static/operation-status.js?v=3" defer></script>
-  <link rel="stylesheet" href="/static/effects.css?v=6">
-  <link rel="stylesheet" href="/static/preferences.css?v=4">
+  <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })();</script>
+  <link rel="stylesheet" href="/static/style.css?v=1">
+  <script src="/static/operation-status.js?v=1" defer></script>
+  <link rel="stylesheet" href="/static/effects.css?v=1">
+  <link rel="stylesheet" href="/static/preferences.css?v=1">
+  <link rel="stylesheet" href="/static/chatbot.css?v=1">
 </head>
+
 <body>
   <header class="appbar">
     <b>Smart TKB · Cổng giáo viên</b>
@@ -52,5 +55,7 @@
       </div>
     </form>
   </main>
+  {% if chatbot_project_id %}{% include "_chatbot_popup.html" %}{% endif %}
 </body>
+
 </html>

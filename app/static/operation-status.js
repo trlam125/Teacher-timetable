@@ -8,6 +8,8 @@
     hideTimer: null,
     queue: [],
     startedAt: 0,
+    connectionAlertTimer: null,
+    connectionAlertToken: 0,
   };
 
   function ensurePanel() {
@@ -120,6 +122,35 @@
     enqueue({type: 'notice', message: String(message), kind: notificationKind(message, kind)});
   }
 
+  function clearConnectionAlert() {
+    state.connectionAlertToken += 1;
+    if (state.connectionAlertTimer) {
+      clearTimeout(state.connectionAlertTimer);
+      state.connectionAlertTimer = null;
+    }
+  }
+
+  function scheduleConnectionAlert() {
+    if (state.connectionAlertTimer) return;
+    const token = ++state.connectionAlertToken;
+    state.connectionAlertTimer = setTimeout(async () => {
+      state.connectionAlertTimer = null;
+      if (token !== state.connectionAlertToken) return;
+      try {
+        await originalFetch(window.location.href, {
+          method: 'HEAD',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: {'X-Skip-Operation-Status': '1'},
+        });
+        clearConnectionAlert();
+      } catch (error) {
+        if (token !== state.connectionAlertToken) return;
+        notify('Mất kết nối tới máy chủ. Vui lòng thử lại.', 'error');
+      }
+    }, 15000);
+  }
+
   function confirmAction(message, options = {}) {
     return new Promise(resolve => {
       enqueue({
@@ -165,6 +196,7 @@
 
   function reset(options = {}) {
     hidePanel();
+    clearConnectionAlert();
     state.activeRequests = 0;
     state.startedAt = 0;
     if (options.clearQueue) state.queue.length = 0;
@@ -183,9 +215,11 @@
     if (!isMutation && !followsActiveOperation) return originalFetch(input, init);
     begin(isMutation ? requestLabel(url, method) : 'Đang cập nhật giao diện…');
     try {
-      return await originalFetch(input, init);
+      const response = await originalFetch(input, init);
+      clearConnectionAlert();
+      return response;
     } catch (error) {
-      notify('Mất kết nối tới máy chủ. Vui lòng thử lại.', 'error');
+      scheduleConnectionAlert();
       throw error;
     } finally {
       finish();

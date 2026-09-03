@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>{{p.name}}</title>
     <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })(); function toggleTheme() { const isDark = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', isDark ? 'dark' : 'light'); }</script>
-    <link rel="stylesheet" href="/static/style.css?v=35">
-    <script src="/static/operation-status.js?v=3" defer></script>
-    <link rel="stylesheet" href="/static/preferences.css?v=4">
-    <link rel="stylesheet" href="/static/effects.css?v=6">
-    <link rel="stylesheet" href="/static/chatbot.css?v=9">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <script src="/static/operation-status.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/preferences.css?v=1">
+    <link rel="stylesheet" href="/static/effects.css?v=1">
+    <link rel="stylesheet" href="/static/chatbot.css?v=1">
 </head>
 
 <body>
@@ -90,7 +90,9 @@
                     <div>
                         <h1>{{p.name}}</h1>
                         <p>{{p.school_name}} · {{p.days}} ngày · {{p.sessions}} buổi/ngày</p>
-                    </div><button class="btn schedule-action-btn" data-schedule-action onclick="generateSchedule()"><span class="schedule-action-stage"><span class="schedule-action-content">Xếp tự động</span></span></button>
+                    </div><button class="btn schedule-action-btn" data-schedule-action
+                        onclick="generateSchedule()"><span class="schedule-action-stage"><span
+                                class="schedule-action-content">Xếp tự động</span></span></button>
                 </div>
                 <div class="stats">
                     <article><strong id="statTeachers">{{data.teachers|length}}</strong><span>Giáo viên</span></article>
@@ -246,7 +248,8 @@
                             <option value="unassigned_class">Lớp chưa có phân công</option>
                         </select>
                     </label>
-                    <button class="btn ghost assignment-filter-reset" type="button" onclick="resetAssignmentFilters()">Bỏ lọc</button>
+                    <button class="btn ghost assignment-filter-reset" type="button"
+                        onclick="resetAssignmentFilters()">Bỏ lọc</button>
                 </div>
                 <div id="assignmentCompletenessSummary"></div>
                 <div id="assignmentTable"></div>
@@ -262,7 +265,8 @@
                 <div class="constraint-toolbar"><select id="constraintType">
                         <option value="teacher">Giáo viên</option>
                         <option value="class">Lớp</option>
-                    </select><select id="constraintEntity"></select><button class="btn" onclick="saveConstraints(this)">Lưu
+                    </select><select id="constraintEntity"></select><button class="btn"
+                        onclick="saveConstraints(this)">Lưu
                         ràng buộc</button></div>
                 <div id="constraintGrid"></div>
             </section>
@@ -287,7 +291,9 @@
                             <option value="overview" selected>Xem tổng quát</option>
                             <option value="class">Xem theo lớp</option>
                             <option value="teacher">Xem theo giáo viên</option>
-                        </select><select id="viewEntity"></select><button class="btn schedule-action-btn" data-schedule-action onclick="generateSchedule()"><span class="schedule-action-stage"><span class="schedule-action-content">Xếp tự động</span></span></button></div>
+                        </select><select id="viewEntity"></select><button class="btn schedule-action-btn"
+                            data-schedule-action onclick="generateSchedule()"><span class="schedule-action-stage"><span
+                                    class="schedule-action-content">Xếp tự động</span></span></button></div>
                 </div>
                 <div id="assignmentCoverage"></div>
                 <div class="manual-tray-panel">
@@ -306,64 +312,19 @@
         </main>
     </div>
 
-    <button id="chatbotFab" class="chatbot-fab" type="button" aria-label="Mở Trợ lý AI" aria-controls="chatbotPopup" aria-expanded="false">
-        <span class="chatbot-fab-icon" aria-hidden="true">✦</span>
-    </button>
-
-    <section id="chatbotPopup" class="chatbot-popup" aria-label="Trợ lý AI" aria-hidden="true">
-        <header class="chatbot-popup-header">
-            <div class="chatbot-popup-avatar" aria-hidden="true">✦</div>
-            <div class="chatbot-popup-title">
-                <strong>Trợ lý AI</strong>
-                <span class="chatbot-popup-status {{ 'is-ready' if chatbot_enabled else 'is-offline' }}">
-                    {{ 'Sẵn sàng hỗ trợ' if chatbot_enabled else 'Không thể kết nối tới chatbot' }}
-                </span>
-            </div>
-            <button id="chatbotMinimize" class="chatbot-icon-button" type="button" aria-label="Thu nhỏ">−</button>
-            <button id="chatbotClose" class="chatbot-icon-button" type="button" aria-label="Đóng">×</button>
-        </header>
-
-        <div id="chatMessages" class="chat-messages chatbot-popup-messages" aria-live="polite">
-            <article class="chat-message assistant">
-                <div class="message-avatar">AI</div>
-                <div class="message-body">Xin chào! Bạn có thể yêu cầu mình kiểm tra tải giáo viên, tìm phân công thiếu, xem lịch học hoặc đề xuất phân công lại. Nếu có bảng yêu cầu riêng, hãy đính kèm bên dưới.</div>
-            </article>
-            <div class="suggestion-list">
-                <button type="button" data-prompt="Kiểm tra phân công hiện tại: lớp/môn nào còn thiếu, giáo viên nào quá tải hoặc dạy chưa đúng chuyên môn?">Kiểm tra toàn bộ</button>
-                <button type="button" data-prompt="Đề xuất cân bằng số tiết giữa các giáo viên nhưng không thay đổi giáo viên sang môn ngoài chuyên môn.">Cân bằng tải</button>
-                <button type="button" data-prompt="Tóm tắt phân công hiện tại theo từng giáo viên, gồm các lớp, môn và tổng số tiết mỗi tuần.">Tóm tắt giáo viên</button>
-            </div>
-        </div>
-
-        <form id="chatForm" class="chat-composer chatbot-popup-composer">
-            <div id="filePreview" class="file-preview" hidden>
-                <span id="fileName"></span>
-                <button id="removeFile" type="button" aria-label="Bỏ tệp đính kèm">×</button>
-            </div>
-            <textarea id="chatInput" maxlength="4000" rows="2" placeholder="Hỏi trợ lý về phân công, lịch học..." required></textarea>
-            <div class="composer-actions">
-                <label class="attach-button chatbot-attach" title="Đính kèm tài liệu">
-                    <input id="chatFile" type="file" accept=".docx,.xlsx,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple hidden>
-                    <span aria-hidden="true">📎</span><span class="attach-text">Tệp</span>
-                </label>
-                <button id="clearChat" class="clear-button" type="button">Xóa</button>
-                <span class="composer-hint">Enter để gửi</span>
-                <button id="sendChat" class="btn chatbot-send" type="submit" {{ '' if chatbot_enabled else 'disabled' }}>Gửi</button>
-            </div>
-        </form>
-    </section>
+    {% include "_chatbot_popup.html" %}
 
     <dialog id="entityModal">
         <form class="modal-form" onsubmit="submitEntity(event)">
             <h2 id="modalTitle"></h2>
             <div id="entityFields"></div>
             <div class="row end"><button type="button" class="btn ghost"
-                    onclick="entityModal.close()">Hủy</button><button id="entitySubmitButton" class="btn" type="submit">Lưu</button></div>
+                    onclick="entityModal.close()">Hủy</button><button id="entitySubmitButton" class="btn"
+                    type="submit">Lưu</button></div>
         </form>
     </dialog>
-    <script>window.PROJECT_ID = {{ p.id }}; window.CHATBOT_PROJECT_ID = {{ p.id }}; window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }}; window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
-    <script src="/static/app.js?v=41"></script>
-    <script src="/static/chatbot.js?v=9"></script>
+    <script>window.PROJECT_ID = {{ p.id }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
+    <script src="/static/app.js?v=1"></script>
 </body>
 
 </html>

@@ -1,0 +1,80 @@
+{% set is_teacher_chat = user is defined and user and user.role == 'teacher' %}
+<button id="chatbotFab" class="chatbot-fab" type="button" aria-label="Mở Trợ lý AI" aria-controls="chatbotPopup"
+    aria-expanded="false">
+    <span class="chatbot-fab-icon" aria-hidden="true">✦</span>
+</button>
+
+<section id="chatbotPopup" class="chatbot-popup" aria-label="Trợ lý AI" aria-hidden="true">
+    <header class="chatbot-popup-header">
+        <div class="chatbot-popup-avatar" aria-hidden="true">✦</div>
+        <div class="chatbot-popup-title">
+            <strong>Trợ lý AI</strong>
+            <span class="chatbot-popup-status {{ 'is-ready' if chatbot_enabled else 'is-offline' }}">
+                {{ 'Sẵn sàng hỗ trợ' if chatbot_enabled else 'Không thể kết nối tới chatbot' }}{% if
+                chatbot_project_name %} · {{ chatbot_project_name }}{% endif %}
+            </span>
+        </div>
+        <button id="chatbotMinimize" class="chatbot-icon-button" type="button" aria-label="Thu nhỏ">−</button>
+        <button id="chatbotClose" class="chatbot-icon-button" type="button" aria-label="Đóng">×</button>
+    </header>
+
+    <div id="chatMessages" class="chat-messages chatbot-popup-messages" aria-live="polite">
+        <article class="chat-message assistant">
+            <div class="message-avatar">AI</div>
+            <div class="message-body">{% if is_teacher_chat %}Xin chào! Bạn có thể hỏi mình về lịch dạy, phân công, số
+                tiết hoặc các nguyện vọng của chính bạn trong bộ thời khóa biểu này.{% else %}Xin chào! Bạn có thể yêu
+                cầu mình kiểm tra tải giáo viên, tìm phân công thiếu, xem lịch học hoặc đề xuất phân công lại. Nếu có
+                bảng yêu cầu riêng, hãy đính kèm bên dưới.{% endif %}</div>
+        </article>
+        <div class="suggestion-list">
+            {% if is_teacher_chat %}
+            <button type="button" data-prompt="Tóm tắt lịch dạy hiện tại của tôi theo từng ngày, lớp và môn.">Tóm tắt
+                lịch dạy</button>
+            <button type="button"
+                data-prompt="Kiểm tra phân công hiện tại của tôi: tổng số tiết, các lớp và môn đang phụ trách.">Kiểm tra
+                phân công</button>
+            <button type="button"
+                data-prompt="Từ lịch dạy hiện tại của tôi, hãy chỉ ra các ngày hoặc buổi có lịch dạy dày nhất.">Xem tải
+                theo ngày</button>
+            {% else %}
+            <button type="button"
+                data-prompt="Kiểm tra phân công hiện tại: lớp/môn nào còn thiếu, giáo viên nào quá tải hoặc dạy chưa đúng chuyên môn?">Kiểm
+                tra toàn bộ</button>
+            <button type="button"
+                data-prompt="Đề xuất cân bằng số tiết giữa các giáo viên nhưng không thay đổi giáo viên sang môn ngoài chuyên môn.">Cân
+                bằng tải</button>
+            <button type="button"
+                data-prompt="Tóm tắt phân công hiện tại theo từng giáo viên, gồm các lớp, môn và tổng số tiết mỗi tuần.">Tóm
+                tắt giáo viên</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <form id="chatForm" class="chat-composer chatbot-popup-composer">
+        <div id="filePreview" class="file-preview" hidden>
+            <span id="fileName"></span>
+            <button id="removeFile" type="button" aria-label="Bỏ tệp đính kèm">×</button>
+        </div>
+        <textarea id="chatInput" maxlength="4000" rows="2" placeholder="Hỏi trợ lý về phân công, lịch học..."
+            required></textarea>
+        <div class="composer-actions">
+            <label class="attach-button chatbot-attach" title="Đính kèm tài liệu">
+                <input id="chatFile" type="file"
+                    accept=".docx,.xlsx,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                    multiple hidden>
+                <span aria-hidden="true">📎</span><span class="attach-text">Tệp</span>
+            </label>
+            <button id="clearChat" class="clear-button" type="button">Xóa</button>
+            <span class="composer-hint">Enter để gửi</span>
+            <button id="sendChat" class="btn chatbot-send" type="submit" {{ '' if chatbot_enabled else 'disabled'
+                }}>Gửi</button>
+        </div>
+    </form>
+</section>
+
+<script>
+    window.CHATBOT_PROJECT_ID = {{ chatbot_project_id }};
+    window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }};
+    window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }};
+</script>
+<script src="/static/chatbot.js?v=1"></script>

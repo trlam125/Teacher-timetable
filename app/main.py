@@ -465,22 +465,64 @@ def migrate_schema():
                     "AND fixed_lessons.slot=lessons.slot)"
                 )
 
-        # Bản demo cũ từng được tạo chỉ với một buổi. Khi mở thêm buổi chiều,
-        # phải remap mọi slot theo tọa độ (ngày, buổi, tiết) cũ trước khi đổi
-        # sessions; nếu chỉ UPDATE sessions thì slot của ngày 2+ sẽ bị hiểu thành
-        # buổi chiều/ngày khác.
+        # Bản demo rất cũ từng được tạo chỉ với một buổi. Đây là migration
+        # thay đổi dữ liệu nên tuyệt đối không nhận diện project bằng tên/trường:
+        # người dùng có thể tạo project thật trùng các giá trị đó. Chỉ migrate
+        # các project_id được quản trị viên chỉ định rõ qua biến môi trường, và
+        # lưu marker theo từng project để migration không thể chạy lặp.
         if "projects" in inspector.get_table_names():
             project_columns = {column["name"] for column in inspector.get_columns("projects")}
             if "blocked_slots_json" not in project_columns:
                 connection.exec_driver_sql(
                     "ALTER TABLE projects ADD COLUMN blocked_slots_json TEXT NOT NULL DEFAULT '[]'"
                 )
-            legacy_demo_projects = connection.exec_driver_sql(
-                "SELECT id, periods_per_session, blocked_slots_json FROM projects "
-                "WHERE name='TKB học kỳ I' AND school_name='THPT Demo' AND sessions=1"
-            ).mappings().all()
-            for legacy_project in legacy_demo_projects:
-                project_id = int(legacy_project["id"])
+
+            connection.exec_driver_sql(
+                "CREATE TABLE IF NOT EXISTS app_data_migrations ("
+                "migration_key VARCHAR(200) PRIMARY KEY, "
+                "applied_at VARCHAR(40) NOT NULL"
+                ")"
+            )
+
+            configured_ids = os.getenv(
+                "LEGACY_DEMO_SESSION_EXPANSION_PROJECT_IDS", ""
+            )
+            legacy_demo_project_ids = set()
+            for raw_id in configured_ids.split(","):
+                raw_id = raw_id.strip()
+                if not raw_id:
+                    continue
+                try:
+                    project_id = int(raw_id)
+                except ValueError:
+                    logger.warning(
+                        "Bỏ qua project_id migration demo không hợp lệ: %r", raw_id
+                    )
+                    continue
+                if project_id > 0:
+                    legacy_demo_project_ids.add(project_id)
+
+            for project_id in sorted(legacy_demo_project_ids):
+                migration_key = f"legacy_demo_session_expansion_v1:{project_id}"
+                already_applied = connection.exec_driver_sql(
+                    "SELECT 1 FROM app_data_migrations WHERE migration_key=%s",
+                    (migration_key,),
+                ).scalar()
+                if already_applied:
+                    continue
+
+                legacy_project = connection.exec_driver_sql(
+                    "SELECT id, periods_per_session, blocked_slots_json FROM projects "
+                    "WHERE id=%s AND sessions=1",
+                    (project_id,),
+                ).mappings().first()
+                if legacy_project is None:
+                    logger.warning(
+                        "Không migrate project %s: không tồn tại hoặc sessions không còn là 1.",
+                        project_id,
+                    )
+                    continue
+
                 periods_per_session = int(legacy_project["periods_per_session"])
 
                 def remap_json_slots(raw_value):
@@ -539,6 +581,11 @@ def migrate_schema():
                 connection.exec_driver_sql(
                     "UPDATE projects SET sessions=2 WHERE id=%s",
                     (project_id,),
+                )
+                connection.exec_driver_sql(
+                    "INSERT INTO app_data_migrations (migration_key, applied_at) "
+                    "VALUES (%s, %s)",
+                    (migration_key, datetime.now(timezone.utc).isoformat()),
                 )
 
 migrate_schema()
@@ -739,6 +786,41 @@ def get_project(pid: int, user: User, db: Session) -> Project:
     if not p or (not is_super_admin(user) and p.owner_id != user.id):
         raise HTTPException(404)
     return p
+
+def chatbot_ui_context(project: Project | None) -> dict:
+    return {
+        "chatbot_project_id": project.id if project else None,
+        "chatbot_project_name": project.name if project else "",
+        "chatbot_enabled": bool(os.getenv("GEMINI_API_KEY", "").strip()),
+        "chatbot_primary_model": os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
+    }
+
+def chatbot_project_for_user(user: User, db: Session, preferred_id: int | None = None) -> Project | None:
+    if preferred_id is not None:
+        if is_admin(user):
+            return get_project(preferred_id, user, db)
+        if user.role == "teacher":
+            _, project = teacher_for_user(user, db, preferred_id)
+            return project
+        return None
+    if is_admin(user):
+        query = select(Project)
+        if not is_super_admin(user):
+            query = query.where(Project.owner_id == user.id)
+        return db.scalar(query.order_by(Project.id.desc()).limit(1))
+    if user.role == "teacher":
+        _, project = teacher_for_user(user, db)
+        return project
+    return None
+
+def chatbot_project_data_for_user(pid: int, user: User, db: Session) -> tuple[Project, dict]:
+    if is_admin(user):
+        project = get_project(pid, user, db)
+        return project, project_data(db, project)
+    if user.role == "teacher":
+        teacher, project = teacher_for_user(user, db, pid)
+        return project, teacher_project_data(db, project, teacher)
+    raise HTTPException(403, "Tài khoản không có quyền sử dụng chatbot cho bộ thời khóa biểu này")
 
 def get_project_for_update(pid: int, user: User, db: Session) -> Project:
     """Khóa project đến hết transaction để tuần tự hóa mọi thay đổi lịch."""
@@ -2055,6 +2137,7 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
         "project_names": project_names,
         "chatbot_error_logs": chatbot_error_logs,
         "chatbot_error_log_count": chatbot_error_log_count,
+        **chatbot_ui_context(projects[-1] if projects else None),
     })
 
 @app.post("/admin/chatbot-logs/clear")
@@ -2179,6 +2262,7 @@ def approve_teacher_account(
         if account.requested_project_id is not None and project.id != account.requested_project_id:
             raise HTTPException(403, "Tài khoản này được mời vào một bộ thời khóa biểu khác")
         short_name = teacher_name.split()[-1][:30]
+        ensure_unique_teacher_short_name(db, project.id, short_name)
         teacher = Teacher(
             project_id=project.id,
             name=teacher_name,
@@ -2228,7 +2312,10 @@ def projects(request: Request, user: User = Depends(current_user), db: Session =
     if not is_super_admin(user):
         project_query = project_query.where(Project.owner_id == user.id)
     rows = db.scalars(project_query.order_by(Project.id.desc())).all()
-    return templates.TemplateResponse("projects.html", {"request": request, "user": user, "projects": rows})
+    return templates.TemplateResponse("projects.html", {
+        "request": request, "user": user, "projects": rows,
+        **chatbot_ui_context(rows[0] if rows else None),
+    })
 
 @app.post("/projects")
 def create_project(name: str = Form(...), school_name: str = Form(...), days: int = Form(6), sessions: int = Form(2), periods: int = Form(5), user: User = Depends(current_user), db: Session = Depends(db_session)):
@@ -2304,13 +2391,15 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
     db.commit(); return RedirectResponse(f"/projects/{p.id}",303)
 
 @app.get("/schedule-audit", response_class=HTMLResponse)
-def standalone_schedule_audit_page(request:Request, user:User=Depends(current_user)):
+def standalone_schedule_audit_page(request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
+    chatbot_project = chatbot_project_for_user(user, db)
     return templates.TemplateResponse("schedule_audit.html", {
         "request":request,
         "user":user,
         "days":DAYS,
         "ai_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
         "ai_primary_model":os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
+        **chatbot_ui_context(chatbot_project),
     })
 
 @app.get("/projects/{pid}/schedule-audit")
@@ -2328,8 +2417,7 @@ def project_page(pid:int, request:Request, user:User=Depends(current_user), db:S
         "p":p,
         "data":data,
         "days":DAYS,
-        "chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
-        "chatbot_primary_model":os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
+        **chatbot_ui_context(p),
     })
 
 def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
@@ -2342,6 +2430,39 @@ def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
     if len(content) > MAX_SCHEDULE_AUDIT_FILE_BYTES:
         raise HTTPException(413, "File quá lớn. Giới hạn kiểm tra là 15 MB.")
     return filename, content
+
+
+def read_schedule_audit_report_json(report_json: str) -> dict:
+    raw = str(report_json or "").strip()
+    if not raw:
+        raise HTTPException(400, "Thiếu dữ liệu thời khóa biểu đã chỉnh sửa.")
+    if len(raw.encode("utf-8")) > MAX_SCHEDULE_AUDIT_FILE_BYTES:
+        raise HTTPException(413, "Dữ liệu thời khóa biểu đã chỉnh sửa vượt quá giới hạn 15 MB.")
+    try:
+        report = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, "Dữ liệu thời khóa biểu đã chỉnh sửa không hợp lệ.") from exc
+    if not isinstance(report, dict) or report.get("ok") is not True:
+        raise HTTPException(400, "Dữ liệu thời khóa biểu đã chỉnh sửa không hợp lệ.")
+    viewer = report.get("viewer")
+    if not isinstance(viewer, dict) or not isinstance(viewer.get("cells"), list):
+        raise HTTPException(400, "Dữ liệu thời khóa biểu đã chỉnh sửa thiếu bảng lịch.")
+    cells = viewer["cells"]
+    if len(cells) > 50000:
+        raise HTTPException(413, "Thời khóa biểu có quá nhiều ô để phân tích bằng AI.")
+    try:
+        days = int(viewer.get("days") or 0)
+        sessions = int(viewer.get("sessions") or 0)
+        periods = int(viewer.get("periods") or 0)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, "Kích thước thời khóa biểu đã chỉnh sửa không hợp lệ.") from exc
+    if not (1 <= days <= 7 and 1 <= sessions <= 4 and 1 <= periods <= 20):
+        raise HTTPException(400, "Kích thước thời khóa biểu đã chỉnh sửa không hợp lệ.")
+    from app.schedule_audit import recalculate_standalone_edited_report
+    try:
+        return recalculate_standalone_edited_report(report)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, "Dữ liệu thời khóa biểu đã chỉnh sửa không hợp lệ.") from exc
 
 @app.post("/api/schedule-audit")
 def standalone_audit_schedule_file(
@@ -2367,28 +2488,64 @@ def standalone_audit_schedule_file(
 
 @app.post("/api/schedule-audit/ai")
 def standalone_ai_audit_schedule_file(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    report_json: str = Form(""),
     user: User = Depends(current_user),
 ):
-    filename, content = read_schedule_upload(file)
     from app.chatbot import ChatbotError
     from app.schedule_ai import analyze_schedule_with_gemini
-    from app.schedule_audit import ScheduleAuditParseError, analyze_standalone_schedule_file
+    from app.schedule_audit import (
+        ScheduleAuditParseError,
+        analyze_standalone_schedule_file,
+        apply_standalone_viewer_edits,
+    )
 
-    try:
-        report = analyze_standalone_schedule_file(
-            filename=filename,
-            content=content,
-            include_editable=False,
-        )
-    except ScheduleAuditParseError as exc:
-        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
-    except Exception:
-        logger.exception("standalone AI schedule audit parse failed")
-        return JSONResponse(
-            {"ok": False, "message": "Không thể đọc file thời khóa biểu trước khi gửi sang AI."},
-            status_code=500,
-        )
+    if report_json.strip():
+        edited_report = read_schedule_audit_report_json(report_json)
+        if file is not None:
+            filename, content = read_schedule_upload(file)
+            try:
+                base_report = analyze_standalone_schedule_file(
+                    filename=filename,
+                    content=content,
+                    include_editable=False,
+                )
+                report = apply_standalone_viewer_edits(base_report, edited_report)
+            except ScheduleAuditParseError as exc:
+                return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+            except ValueError:
+                return JSONResponse(
+                    {"ok": False, "message": "Dữ liệu chỉnh sửa không khớp với file thời khóa biểu gốc."},
+                    status_code=400,
+                )
+            except Exception:
+                logger.exception("standalone AI edited schedule rebuild failed")
+                return JSONResponse(
+                    {"ok": False, "message": "Không thể đối chiếu dữ liệu chỉnh sửa với file thời khóa biểu gốc."},
+                    status_code=500,
+                )
+        else:
+            # Backward-compatible fallback for older clients. Derived fields are
+            # still recomputed by read_schedule_audit_report_json().
+            report = edited_report
+    else:
+        if file is None:
+            return JSONResponse({"ok": False, "message": "Hãy chọn file thời khóa biểu cần phân tích."}, status_code=400)
+        filename, content = read_schedule_upload(file)
+        try:
+            report = analyze_standalone_schedule_file(
+                filename=filename,
+                content=content,
+                include_editable=False,
+            )
+        except ScheduleAuditParseError as exc:
+            return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+        except Exception:
+            logger.exception("standalone AI schedule audit parse failed")
+            return JSONResponse(
+                {"ok": False, "message": "Không thể đọc file thời khóa biểu trước khi gửi sang AI."},
+                status_code=500,
+            )
 
     try:
         ai_result, model_used, fallback_failures = analyze_schedule_with_gemini(report)
@@ -2419,13 +2576,12 @@ def standalone_ai_audit_schedule_file(
 
 @app.get("/projects/{pid}/chatbot", response_class=HTMLResponse)
 def chatbot_page(pid:int, request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
-    p=get_project(pid,user,db)
+    p,_=chatbot_project_data_for_user(pid,user,db)
     return templates.TemplateResponse("chatbot.html", {
         "request":request,
         "user":user,
         "p":p,
-        "chatbot_enabled":bool(os.getenv("GEMINI_API_KEY", "").strip()),
-        "chatbot_primary_model":os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash",
+        **chatbot_ui_context(p),
     })
 
 @app.post("/api/projects/{pid}/chatbot")
@@ -2448,7 +2604,7 @@ def chatbot_reply(
         parse_uploaded_table,
     )
 
-    p=get_project(pid,user,db)
+    p,chatbot_data=chatbot_project_data_for_user(pid,user,db)
     clean_message=message.strip()
     if not clean_message:
         raise HTTPException(400,"Hãy nhập nội dung cần tư vấn")
@@ -2533,7 +2689,7 @@ def chatbot_reply(
         answer, model_used, fallback_failures = ask_gemini(
             clean_message,
             history,
-            project_data(db,p),
+            chatbot_data,
             document_context or None,
             preferred_model=preferred_model.strip() or None,
         )
@@ -2611,6 +2767,37 @@ def ensure_unique_project_name(
         stmt = stmt.where(model.id != exclude_id)
     if db.scalar(stmt) is not None:
         raise HTTPException(409, f"{label} ‘{name}’ đã tồn tại trong bộ thời khóa biểu")
+
+def ensure_unique_teacher_short_name(
+    db: Session,
+    project_id: int,
+    short_name: str,
+    exclude_id: int | None = None,
+) -> None:
+    normalized = short_name.strip()
+    stmt = select(Teacher.id).where(
+        Teacher.project_id == project_id,
+        func.lower(func.trim(Teacher.short_name)) == normalized.lower(),
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(Teacher.id != exclude_id)
+    if db.scalar(stmt) is not None:
+        raise HTTPException(
+            409,
+            f"Tên ngắn giáo viên ‘{normalized}’ đã được sử dụng trong bộ thời khóa biểu",
+        )
+
+def sync_teacher_account_name(db: Session, teacher_id: int, name: str) -> None:
+    account_ids = set(db.scalars(
+        select(TeacherAccountLink.user_id).where(TeacherAccountLink.teacher_id == teacher_id)
+    ).all())
+    account_ids.update(db.scalars(
+        select(User.id).where(User.role == "teacher", User.teacher_id == teacher_id)
+    ).all())
+    if not account_ids:
+        return
+    for account in db.scalars(select(User).where(User.id.in_(account_ids))).all():
+        account.name = name
 
 def validated_subject_ids(db: Session, project_id: int, values) -> list[int]:
     if values is None:
@@ -2888,6 +3075,65 @@ def schedule_class_capacity_issues(
             })
     return sorted(issues, key=lambda item: (-item["excess"], item["class_name"]))
 
+
+def grade_requirement_assignment_issues(
+    db: Session,
+    project: Project,
+    assignments: list[Assignment] | None = None,
+    classes: list[SchoolClass] | None = None,
+) -> list[dict]:
+    """Return missing/mismatched class-subject assignments for configured grade curricula."""
+    requirements = db.scalars(select(GradeSubjectRequirement).where(
+        GradeSubjectRequirement.project_id == project.id,
+    )).all()
+    if not requirements:
+        return []
+    if assignments is None:
+        assignments = db.scalars(select(Assignment).where(Assignment.project_id == project.id)).all()
+    if classes is None:
+        classes = db.scalars(select(SchoolClass).where(SchoolClass.project_id == project.id)).all()
+
+    requirement_by_grade = defaultdict(list)
+    for requirement in requirements:
+        requirement_by_grade[requirement.grade_id].append(requirement)
+    assignment_by_pair = {(row.class_id, row.subject_id): row for row in assignments}
+    subject_ids = {row.subject_id for row in requirements}
+    subjects = {row.id: row for row in db.scalars(select(Subject).where(
+        Subject.project_id == project.id, Subject.id.in_(subject_ids),
+    )).all()} if subject_ids else {}
+    grade_ids = {row.grade_id for row in requirements}
+    grades = {row.id: row for row in db.scalars(select(Grade).where(
+        Grade.project_id == project.id, Grade.id.in_(grade_ids),
+    )).all()} if grade_ids else {}
+
+    issues: list[dict] = []
+    for school_class in classes:
+        if school_class.grade_id is None:
+            continue
+        for requirement in requirement_by_grade.get(school_class.grade_id, []):
+            assignment = assignment_by_pair.get((school_class.id, requirement.subject_id))
+            subject = subjects.get(requirement.subject_id)
+            grade = grades.get(school_class.grade_id)
+            base = {
+                "class_id": school_class.id, "class_name": school_class.name,
+                "grade_id": school_class.grade_id, "grade_name": grade.name if grade else "?",
+                "subject_id": requirement.subject_id, "subject_name": subject.name if subject else "?",
+                "required_periods": int(requirement.periods_per_week),
+                "required_mode": requirement.block_mode or "free",
+            }
+            if assignment is None:
+                issues.append({**base, "issue_type": "missing"})
+                continue
+            actual_periods = int(assignment.periods_per_week)
+            actual_mode = assignment.block_mode or "free"
+            if actual_periods != int(requirement.periods_per_week) or actual_mode != (requirement.block_mode or "free"):
+                issues.append({
+                    **base, "issue_type": "mismatch", "assignment_id": assignment.id,
+                    "assigned_periods": actual_periods, "assigned_mode": actual_mode,
+                })
+    issues.sort(key=lambda item: (item["class_name"], item["subject_name"]))
+    return issues
+
 def required_text(data: dict, key: str, label: str, max_length: int) -> str:
     return bounded_text(data.get(key, ""), label, max_length)
 
@@ -2923,6 +3169,7 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
             if not department or department.project_id!=pid: raise HTTPException(400,"Tổ chuyên môn không hợp lệ")
         max_periods_day=bounded_int(d.get("max_periods_day"),5,1,10,"Số tiết tối đa mỗi ngày")
         short_name=(str(d.get("short_name") or "").strip() or name)[:30]
+        ensure_unique_teacher_short_name(db, pid, short_name)
         teacher_subject_ids=validated_subject_ids(db,pid,d.get("subject_ids",[]))
         obj=Teacher(project_id=pid,name=name,short_name=short_name,department_id=department_id,max_periods_day=max_periods_day,unavailable_json=json.dumps(valid_slots(project,d.get("unavailable",[]))))
     elif payload.type=="grade":
@@ -3207,6 +3454,7 @@ def update_entity(
         obj.max_consecutive = new_max_consecutive
     elif typ == "teacher":
         short_name = bounded_text(d.get("short_name", ""), "Tên ngắn", 30)
+        ensure_unique_teacher_short_name(db, pid, short_name, exclude_id=obj.id)
         department_id = d.get("department_id") or None
         if department_id is not None:
             try:
@@ -3258,6 +3506,7 @@ def update_entity(
         obj.short_name = short_name
         obj.department_id = department_id
         obj.max_periods_day = new_max_periods_day
+        sync_teacher_account_name(db, obj.id, name)
     elif typ == "grade":
         obj.name = name
         replace_grade_requirements(db, project, obj.id, d.get("subject_requirements", []))
@@ -3775,6 +4024,39 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
                 "chỉ còn một giáo viên rồi xếp lại."
             ),
         },409)
+    classes=db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)).all()
+    curriculum_issues=grade_requirement_assignment_issues(db,p,assignments,classes)
+    if curriculum_issues:
+        details=[]
+        for item in curriculum_issues[:5]:
+            if item["issue_type"]=="missing":
+                details.append(
+                    f"{item['class_name']} – {item['subject_name']}: thiếu phân công "
+                    f"{item['required_periods']} tiết/tuần"
+                )
+            else:
+                mode_labels = {
+                    "free": "Tự do",
+                    "preferred_double": "Ưu tiên tiết đôi",
+                    "required_double": "Bắt buộc tiết đôi",
+                }
+                current_mode = mode_labels.get(item["assigned_mode"], item["assigned_mode"])
+                required_mode = mode_labels.get(item["required_mode"], item["required_mode"])
+                details.append(
+                    f"{item['class_name']} – {item['subject_name']}: đang {item['assigned_periods']} tiết/tuần · {current_mode}, "
+                    f"chương trình khối yêu cầu {item['required_periods']} tiết/tuần · {required_mode}"
+                )
+        suffix=f"; và {len(curriculum_issues)-5} mục khác" if len(curriculum_issues)>5 else ""
+        return JSONResponse({
+            "ok":False,
+            "reason":"grade_requirements_mismatch",
+            "grade_requirement_issues":curriculum_issues,
+            "message":(
+                "Không thể xếp lịch vì phân công chưa khớp chương trình chuẩn theo khối: "
+                + "; ".join(details) + suffix
+                + ". Hãy bổ sung hoặc chỉnh phân công trước khi xếp tự động."
+            ),
+        },409)
     capacity_issues=schedule_teacher_capacity_issues(db,p,assignments)
     if capacity_issues:
         details="; ".join(
@@ -3796,7 +4078,6 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
                 "tiết/ngày hoặc bỏ bớt tiết tránh rồi xếp lại."
             ),
         },409)
-    classes=db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)).all()
     class_capacity_issues=schedule_class_capacity_issues(p,classes,assignments)
     if class_capacity_issues:
         details="; ".join(
@@ -4336,6 +4617,7 @@ def teacher_portal(request:Request,project_id:Optional[int]=None,user:User=Depen
         "request":request,"user":user,"teacher":teacher,"p":project,
         "data":teacher_project_data(db,project,teacher),"preferences":preferences,"days":DAYS,
         "teacher_projects":[{"teacher":item_teacher,"project":item_project} for item_teacher,item_project in profiles],
+        **chatbot_ui_context(project),
     })
 
 @app.get("/api/teacher/data")
@@ -4348,6 +4630,7 @@ def teacher_account_page(request:Request,project_id:Optional[int]=None,user:User
     teacher,project=teacher_for_user(user,db,project_id)
     return templates.TemplateResponse("teacher_account.html",{
         "request":request,"user":user,"teacher":teacher,"p":project,"error":None,"success":None,
+        **chatbot_ui_context(project),
     })
 
 @app.post("/teacher/account",response_class=HTMLResponse)
@@ -4362,7 +4645,7 @@ def update_teacher_account(
     db:Session=Depends(db_session),
 ):
     teacher,project=teacher_for_user(user,db,project_id)
-    context={"request":request,"user":user,"teacher":teacher,"p":project,"error":None,"success":None}
+    context={"request":request,"user":user,"teacher":teacher,"p":project,"error":None,"success":None,**chatbot_ui_context(project)}
     if not pwd.verify(current_password,user.password_hash):
         context["error"]="Mật khẩu hiện tại không đúng."
         return templates.TemplateResponse("teacher_account.html",context,status_code=400)
@@ -4425,7 +4708,7 @@ def teacher_preferences_page(token:str,request:Request,user:User=Depends(current
         }
     return templates.TemplateResponse(
         "teacher_preferences.html",
-        {"request":request,"p":p,"teacher":teacher,"days":DAYS,"latest_preference":latest_payload},
+        {"request":request,"user":user,"p":p,"teacher":teacher,"days":DAYS,"latest_preference":latest_payload,**chatbot_ui_context(p)},
     )
 
 class TeacherPreferenceIn(BaseModel):

@@ -323,22 +323,23 @@ function renderManualTray(){
   if(vt&&ve&&vt.value==='teacher')rows=rows.filter(item=>item.teacher_id===Number(ve.value));
   if(!data.assignments.length){scheduledBox.innerHTML='';tray.innerHTML='<div class="empty-state">Chưa có phân công để xếp. Hãy tạo phân công lớp – môn – giáo viên – số tiết/tuần.</div>';return}
   const scheduled=rows.filter(item=>item.scheduled>0),pending=rows.filter(item=>item.remaining>0);
-  scheduledBox.innerHTML=scheduled.length?`<div class="scheduled-label">Đang có trên lịch · kéo cả thẻ xuống khay để thu hồi toàn bộ phân công</div><div class="scheduled-cards">${scheduled.map(item=>`<div class="scheduled-assignment" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','scheduled-assignment:${item.id}')"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>${item.scheduled}/${item.periods_per_week} tiết</span></div>`).join('')}</div>`:'';
+  scheduledBox.innerHTML=scheduled.length?`<div class="scheduled-label">Đang có trên lịch · kéo cả thẻ xuống khay để thu hồi toàn bộ phân công</div><div class="scheduled-cards">${scheduled.map(item=>`<div class="scheduled-assignment" draggable="false" data-drag-payload="scheduled-assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>${item.scheduled}/${item.periods_per_week} tiết</span></div>`).join('')}</div>`:'';
   const hint='<div class="tray-drop-hint">Thả tiết trên thời khóa biểu hoặc thẻ “đang có trên lịch” vào đây để đưa về khay</div>';
-  tray.innerHTML=hint+pending.map(item=>`<div class="tray-lesson" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','assignment:${item.id}')"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>Còn ${item.remaining}</span></div>`).join('');
+  tray.innerHTML=hint+pending.map(item=>`<div class="tray-lesson" draggable="false" data-drag-payload="assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>Còn ${item.remaining}</span></div>`).join('');
 }
 function renderScheduleSelectors(){const vt=$('#viewType'),ve=$('#viewEntity');if(!vt||!ve)return;if(vt.value==='overview'){ve.innerHTML='<option value="all">Toàn trường</option>';ve.disabled=true;ve.style.display='none'}else{ve.disabled=false;ve.style.display='';const rows=vt.value==='teacher'?data.teachers:data.classes;const old=ve.value;ve.innerHTML=opts(rows);if([...ve.options].some(x=>x.value===old))ve.value=old}vt.onchange=()=>{renderScheduleSelectors();renderSchedule()};ve.onchange=()=>{renderSchedule();renderManualTray()};renderSchedule();renderManualTray()}
 function clusteredLessonIds(){const marked=new Set(),eligible=new Set(data.assignments.filter(item=>item.block_mode==='preferred_double'||item.block_mode==='required_double').map(item=>item.id)),groups=new Map(),pps=data.project.periods,ppd=data.project.sessions*pps;for(const lesson of data.lessons){if(!eligible.has(lesson.assignment_id))continue;const day=Math.floor(lesson.slot/ppd),inside=lesson.slot%ppd,session=Math.floor(inside/pps),key=`${lesson.assignment_id}:${day}:${session}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(lesson)}for(const lessons of groups.values()){lessons.sort((left,right)=>left.slot-right.slot);let run=[];const markRun=()=>{if(run.length>1)run.forEach(lesson=>marked.add(lesson.id));run=[]};for(const lesson of lessons){if(run.length&&lesson.slot!==run[run.length-1].slot+1)markRun();run.push(lesson)}markRun()}return marked}
 function renderSchedule(){const box=$('#scheduleGrid'),vt=$('#viewType'),ve=$('#viewEntity');if(!box||!vt||!ve)return;if(vt.value!=='overview'&&!ve.value){box.innerHTML='<div class="empty-state">Hãy thêm lớp hoặc giáo viên.</div>';return}const days=data.project.days,pps=data.project.periods,sessions=data.project.sessions,clustered=clusteredLessonIds(),legend='<div class="schedule-color-legend"><b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Tiết đang được ghép đôi</span></div>';let html=`<div class="timetable ${vt.value==='overview'?'overview-timetable':''}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;for(let d=0;d<days;d++)html+=`<div class="cell head">${['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'][d]}</div>`;for(let s=0;s<sessions;s++){for(let p=0;p<pps;p++){html+=`<div class="cell period">${sessions>1?(s===0?'S':'C')+' ':''}${p+1}</div>`;for(let d=0;d<days;d++){const slot=d*(sessions*pps)+s*pps+p;const lessons=data.lessons.filter(l=>l.slot===slot).filter(l=>{const a=data.assignments.find(x=>x.id===l.assignment_id);if(!a)return false;if(vt.value==='overview')return true;return vt.value==='class'?a.class_id===Number(ve.value):a.teacher_id===Number(ve.value)}).sort((left,right)=>{const a=data.assignments.find(x=>x.id===left.assignment_id),b=data.assignments.find(x=>x.id===right.assignment_id);return (a?.class_name||'').localeCompare(b?.class_name||'','vi')});html+=`<div class="cell available" data-slot="${slot}" ondragover="event.preventDefault()" ondrop="dropLesson(event,${slot})">${lessons.map(l=>lessonHtml(l,vt.value,clustered.has(l.id))).join('')}</div>`}}}html+='</div>';box.innerHTML=legend+html}
-function lessonHtml(l,view,inCluster=false){const a=data.assignments.find(x=>x.id===l.assignment_id);if(!a)return'';const detail=`${a.class_name} · ${a.teacher_short}`;const actions=window.READ_ONLY?'':l.locked?`<button class="lesson-remove" title="Bỏ cố định tiết/cặp này" onclick="event.stopPropagation();unfixGroup(${a.id},${l.slot},this)">🔓</button>`:`<button class="lesson-pin" title="Cố định tiết/cặp này" onclick="event.stopPropagation();setFixed(${a.id},${l.slot},this)">📌</button><button class="lesson-remove" title="Gỡ tiết" onclick="event.stopPropagation();removeLesson(${l.id})">×</button>`;return `<div class="lesson ${view==='overview'?'lesson-overview':''} ${inCluster?'lesson-cluster':''}" draggable="${!window.READ_ONLY&&!l.locked}" ondragstart="event.dataTransfer.setData('text/plain','${l.id}')"><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked?' <span title="Tiết cố định">🔒</span>':''}${actions}</div>`}
-async function dropLesson(e,slot){
-  if(window.READ_ONLY)return;const raw=e.dataTransfer.getData('text/plain');const isNew=raw.startsWith('assignment:');const rawId=isNew?raw.slice('assignment:'.length):raw;if(!/^\d+$/.test(rawId))return;
+function lessonHtml(l,view,inCluster=false){const a=data.assignments.find(x=>x.id===l.assignment_id);if(!a)return'';const detail=`${a.class_name} · ${a.teacher_short}`;const actions=window.READ_ONLY?'':l.locked?`<button class="lesson-remove" title="Bỏ cố định tiết/cặp này" onclick="event.stopPropagation();unfixGroup(${a.id},${l.slot},this)">🔓</button>`:`<button class="lesson-pin" title="Cố định tiết/cặp này" onclick="event.stopPropagation();setFixed(${a.id},${l.slot},this)">📌</button><button class="lesson-remove" title="Gỡ tiết" onclick="event.stopPropagation();removeLesson(${l.id})">×</button>`;const dragPayload=!window.READ_ONLY&&!l.locked?` data-drag-payload="${l.id}"`:'';return `<div class="lesson ${view==='overview'?'lesson-overview':''} ${inCluster?'lesson-cluster':''}" draggable="false"${dragPayload}><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked?' <span title="Tiết cố định">🔒</span>':''}${actions}</div>`}
+async function dropLessonPayload(raw,slot){
+  if(window.READ_ONLY||!raw)return;const isNew=raw.startsWith('assignment:');const rawId=isNew?raw.slice('assignment:'.length):raw;if(!/^\d+$/.test(rawId))return;
   const endpoint=isNew?`/api/projects/${PROJECT_ID}/lessons`:`/api/projects/${PROJECT_ID}/move`;const payload=isNew?{assignment_id:Number(rawId),slot}:{lesson_id:Number(rawId),slot};
   try{const r=await fetch(endpoint,{method:'POST',headers:operationHeaders({'Content-Type':'application/json'}),body:JSON.stringify(payload)});const j=await r.json();
     if(r.ok){await refresh(true);renderSchedule()}
     else{const cell=document.querySelector(`.cell.available[data-slot="${slot}"]`);if(cell){cell.title=j.message||j.detail||'Không thể xếp tiết';cell.classList.add('conflict-shake');setTimeout(()=>cell.classList.remove('conflict-shake'),600)}}
   }catch{const cell=document.querySelector(`.cell.available[data-slot="${slot}"]`);if(cell){cell.title='Mất kết nối tới máy chủ';cell.classList.add('conflict-shake');setTimeout(()=>cell.classList.remove('conflict-shake'),600)}}
 }
+async function dropLesson(e,slot){return dropLessonPayload(e?.dataTransfer?.getData('text/plain')||'',slot)}
 async function removeLesson(id){
   setTrayActionStatus('loading','Đang đưa tiết về khay…');
   try{const r=await fetch(`/api/projects/${PROJECT_ID}/lessons/${id}`,{method:'DELETE',headers:operationHeaders()});const j=await r.json();if(r.ok){await refresh(true);setTrayActionStatus('success',j.message||'Đã đưa tiết về khay',1800)}else setTrayActionStatus('error',j.message||'Không thể gỡ tiết',3600)}
@@ -363,7 +364,8 @@ async function returnAllToTray(button){
   try{const r=await fetch(`/api/projects/${PROJECT_ID}/lessons`,{method:'DELETE',headers:operationHeaders()});const j=await r.json();if(r.ok){await refresh(true);setInlineActionState(button,'success',{idle:'Đưa toàn bộ về khay',success:'Đã đưa về khay'},1800);showInlineActionFeedback(button,j.message||'Đã đưa toàn bộ tiết về khay.','success',2600)}else{setInlineActionState(button,'error',{idle:'Đưa toàn bộ về khay',error:'Chưa đưa được'},2200);showInlineActionFeedback(button,j.message||'Không thể đưa lịch về khay.','error',5000)}}
   catch{setInlineActionState(button,'error',{idle:'Đưa toàn bộ về khay',error:'Lỗi kết nối'},2200);showInlineActionFeedback(button,'Mất kết nối tới máy chủ.','error',5000)}
 }
-async function dropToTray(e){if(window.READ_ONLY)return;const raw=e.dataTransfer.getData('text/plain');if(!raw||raw.startsWith('assignment:'))return;if(raw.startsWith('scheduled-assignment:')){await returnAssignmentToTray(Number(raw.split(':')[1]));return}await removeLesson(Number(raw))}
+async function dropToTrayPayload(raw){if(window.READ_ONLY||!raw||raw.startsWith('assignment:'))return;if(raw.startsWith('scheduled-assignment:')){await returnAssignmentToTray(Number(raw.split(':')[1]));return}if(/^\d+$/.test(raw))await removeLesson(Number(raw))}
+async function dropToTray(e){return dropToTrayPayload(e?.dataTransfer?.getData('text/plain')||'')}
 function constraintStateMarkup(blocked,label){
   const icon=blocked?'<svg class="constraint-state-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>':'<svg class="constraint-state-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>';
   return `${icon}<span>${esc(label)}</span>`;
@@ -448,9 +450,154 @@ activateRequestedWorkspaceTab();
 entityModal?.addEventListener('close',()=>{setEntityActionMessage('');const button=$('#entitySubmitButton');if(button)setInlineActionState(button,'idle',{idle:'Lưu'})});
 
 document.addEventListener('pointerdown',event=>{const target=event.target.closest('.btn,.nav');if(!target)return;const rect=target.getBoundingClientRect(),ripple=document.createElement('span');ripple.className='button-ripple';ripple.style.left=`${event.clientX-rect.left}px`;ripple.style.top=`${event.clientY-rect.top}px`;target.appendChild(ripple);setTimeout(()=>ripple.remove(),700)});
-document.addEventListener('dragstart',event=>{const source=event.target.closest('[draggable="true"]');if(!source)return;source.classList.add('dragging');document.body.classList.add('is-dragging');if(event.dataTransfer)event.dataTransfer.effectAllowed='move'});
-document.addEventListener('dragover',event=>{const target=event.target.closest('.cell.available,.unscheduled-tray');if(!target)return;target.classList.add('drag-over');if(event.dataTransfer)event.dataTransfer.dropEffect='move'});
-document.addEventListener('dragleave',event=>{const target=event.target.closest('.cell.available,.unscheduled-tray');if(target&&!target.contains(event.relatedTarget))target.classList.remove('drag-over')});
-function clearDragEffects(){document.body.classList.remove('is-dragging');document.querySelectorAll('.dragging,.drag-over').forEach(item=>item.classList.remove('dragging','drag-over'))}
-document.addEventListener('drop',clearDragEffects);
-document.addEventListener('dragend',clearDragEffects);
+const DRAG_WHEEL_SCROLL_MULTIPLIER = 1.7;
+const DRAG_EDGE_SCROLL_MULTIPLIER = 3.0;
+const dragAutoScroll={frame:0};
+const pointerDrag={active:false,pointerId:null,source:null,payload:'',ghost:null,target:null,lastX:0,lastY:0,startX:0,startY:0,offsetX:0,offsetY:0,didMove:false,oldUserSelect:''};
+function stopDragAutoScroll(){if(dragAutoScroll.frame){cancelAnimationFrame(dragAutoScroll.frame);dragAutoScroll.frame=0}}
+function dragScrollableAncestorAt(clientX=pointerDrag.lastX,clientY=pointerDrag.lastY,axis='y'){
+  let node=document.elementFromPoint(clientX,clientY);
+  while(node&&node!==document.body&&node!==document.documentElement){
+    if(node instanceof HTMLElement){
+      const style=getComputedStyle(node),overflow=axis==='y'?style.overflowY:style.overflowX;
+      const canScroll=/auto|scroll|overlay/.test(overflow)&&(axis==='y'?node.scrollHeight>node.clientHeight+1:node.scrollWidth>node.clientWidth+1);
+      if(canScroll)return node
+    }
+    node=node.parentElement
+  }
+  return null
+}
+function scrollElementBy(target,top=0,left=0){
+  if(!target)return false;
+  const beforeTop=target.scrollTop,beforeLeft=target.scrollLeft;
+  if(top)target.scrollTop=beforeTop+top;
+  if(left)target.scrollLeft=beforeLeft+left;
+  return target.scrollTop!==beforeTop||target.scrollLeft!==beforeLeft
+}
+function scrollDragViewport(top=0,left=0){
+  let moved=false;
+  if(top){
+    const vertical=dragScrollableAncestorAt(pointerDrag.lastX,pointerDrag.lastY,'y');
+    if(vertical)moved=scrollElementBy(vertical,top,0)||moved
+  }
+  if(left){
+    const horizontal=dragScrollableAncestorAt(pointerDrag.lastX,pointerDrag.lastY,'x');
+    if(horizontal)moved=scrollElementBy(horizontal,0,left)||moved
+  }
+  if((top||left)&&!moved){
+    const scroller=document.scrollingElement||document.documentElement;
+    moved=scrollElementBy(scroller,top,left)||moved;
+    if(!moved&&typeof window.scrollBy==='function')window.scrollBy({top,left,behavior:'auto'})
+  }
+  return moved
+}
+function dragEdgeScrollSpeed(){
+  if(!pointerDrag.active||!Number.isFinite(pointerDrag.lastY))return 0;
+  const viewportHeight=window.innerHeight||document.documentElement.clientHeight||0;if(!viewportHeight)return 0;
+  const edge=Math.max(90,Math.min(150,viewportHeight*0.16)),y=pointerDrag.lastY;
+  if(y<edge){const strength=Math.max(0,Math.min(1,(edge-y)/edge));return -(10+60*strength*strength)*DRAG_EDGE_SCROLL_MULTIPLIER}
+  if(y>viewportHeight-edge){const strength=Math.max(0,Math.min(1,(y-(viewportHeight-edge))/edge));return (10+60*strength*strength)*DRAG_EDGE_SCROLL_MULTIPLIER}
+  return 0
+}
+function clearPointerDropTarget(){if(pointerDrag.target)pointerDrag.target.classList.remove('drag-over');pointerDrag.target=null}
+function canDropPointerPayload(payload,target){
+  if(!payload||!target)return false;
+  if(target.classList.contains('unscheduled-tray'))return !payload.startsWith('assignment:');
+  if(target.classList.contains('cell')&&target.classList.contains('available'))return !payload.startsWith('scheduled-assignment:');
+  return false
+}
+function pointerDropTargetAt(clientX,clientY){
+  const hit=document.elementFromPoint(clientX,clientY),target=hit?.closest?.('.cell.available,.unscheduled-tray')||null;
+  return canDropPointerPayload(pointerDrag.payload,target)?target:null
+}
+function updatePointerDropTarget(clientX=pointerDrag.lastX,clientY=pointerDrag.lastY){
+  if(!pointerDrag.active)return;
+  const next=pointerDropTargetAt(clientX,clientY);if(next===pointerDrag.target)return;
+  clearPointerDropTarget();pointerDrag.target=next;if(next)next.classList.add('drag-over')
+}
+function scrollDragPage(top=0){
+  if(!top)return false;
+  const root=document.scrollingElement||document.documentElement;
+  const body=document.body;
+  const current=Math.max(window.scrollY||0,root?.scrollTop||0,body?.scrollTop||0);
+  const docHeight=Math.max(root?.scrollHeight||0,body?.scrollHeight||0,document.documentElement?.scrollHeight||0);
+  const viewportHeight=window.innerHeight||document.documentElement.clientHeight||0;
+  const maxTop=Math.max(0,docHeight-viewportHeight);
+  const next=Math.max(0,Math.min(maxTop,current+top));
+  if(next!==current){
+    if(root)root.scrollTop=next;
+    if(body&&body!==root)body.scrollTop=next;
+    window.scrollTo(window.scrollX||0,next);
+    return true
+  }
+  const content=document.querySelector('.workspace .content');
+  if(content&&content.scrollHeight>content.clientHeight+1&&scrollElementBy(content,top,0))return true;
+  const workspace=document.querySelector('.workspace');
+  if(workspace&&workspace.scrollHeight>workspace.clientHeight+1&&scrollElementBy(workspace,top,0))return true;
+  return false
+}
+function runDragAutoScroll(){
+  if(!pointerDrag.active){dragAutoScroll.frame=0;return}
+  const speed=dragEdgeScrollSpeed();
+  if(speed){scrollDragPage(speed);updatePointerDropTarget(pointerDrag.lastX,pointerDrag.lastY)}
+  dragAutoScroll.frame=requestAnimationFrame(runDragAutoScroll)
+}
+function startDragAutoScroll(){if(pointerDrag.active&&!dragAutoScroll.frame)dragAutoScroll.frame=requestAnimationFrame(runDragAutoScroll)}
+function updateDragAutoScroll(clientY){if(Number.isFinite(clientY))pointerDrag.lastY=clientY;startDragAutoScroll()}
+function normalizedWheelDelta(value,mode){if(mode===1)return value*18;if(mode===2)return value*(window.innerHeight||600);return value}
+function makePointerDragGhost(source,event){
+  const rect=source.getBoundingClientRect(),ghost=source.cloneNode(true);
+  pointerDrag.offsetX=event.clientX-rect.left;pointerDrag.offsetY=event.clientY-rect.top;
+  ghost.removeAttribute('data-drag-payload');ghost.removeAttribute('id');ghost.classList.remove('dragging');ghost.setAttribute('aria-hidden','true');
+  Object.assign(ghost.style,{position:'fixed',left:`${rect.left}px`,top:`${rect.top}px`,width:`${rect.width}px`,height:`${rect.height}px`,boxSizing:'border-box',margin:'0',zIndex:'2147483000',pointerEvents:'none',opacity:'0.94',transform:'rotate(1.5deg) scale(1.02)',boxShadow:'0 18px 42px rgba(15,23,42,.26)',transition:'none'});
+  document.body.appendChild(ghost);pointerDrag.ghost=ghost
+}
+function movePointerDragGhost(clientX,clientY){
+  if(!pointerDrag.ghost)return;
+  pointerDrag.ghost.style.left=`${clientX-pointerDrag.offsetX}px`;pointerDrag.ghost.style.top=`${clientY-pointerDrag.offsetY}px`
+}
+function beginPointerDrag(event,source){
+  pointerDrag.active=true;pointerDrag.pointerId=event.pointerId;pointerDrag.source=source;pointerDrag.payload=source.dataset.dragPayload||'';pointerDrag.lastX=pointerDrag.startX=event.clientX;pointerDrag.lastY=pointerDrag.startY=event.clientY;pointerDrag.didMove=false;
+  pointerDrag.oldUserSelect=document.body.style.userSelect;document.body.style.userSelect='none';source.classList.add('dragging');document.body.classList.add('is-dragging');makePointerDragGhost(source,event);movePointerDragGhost(event.clientX,event.clientY);updateDragAutoScroll(event.clientY);updatePointerDropTarget(event.clientX,event.clientY);
+  try{source.setPointerCapture?.(event.pointerId)}catch{}
+}
+function clearPointerDrag(){
+  stopDragAutoScroll();clearPointerDropTarget();pointerDrag.source?.classList.remove('dragging');pointerDrag.ghost?.remove();document.body.classList.remove('is-dragging');document.body.style.userSelect=pointerDrag.oldUserSelect;
+  pointerDrag.active=false;pointerDrag.pointerId=null;pointerDrag.source=null;pointerDrag.payload='';pointerDrag.ghost=null;pointerDrag.didMove=false;document.querySelectorAll('.drag-over').forEach(item=>item.classList.remove('drag-over'))
+}
+function finishPointerDrag(event,cancel=false){
+  if(!pointerDrag.active||(event?.pointerId!=null&&pointerDrag.pointerId!==event.pointerId))return;
+  if(event?.clientX!=null&&event?.clientY!=null){pointerDrag.lastX=event.clientX;pointerDrag.lastY=event.clientY;updatePointerDropTarget(event.clientX,event.clientY)}
+  const payload=pointerDrag.payload,target=pointerDrag.target,shouldDrop=!cancel&&pointerDrag.didMove&&target;
+  clearPointerDrag();
+  if(!shouldDrop)return;
+  if(target.classList.contains('unscheduled-tray')){dropToTrayPayload(payload);return}
+  const slot=Number(target.dataset.slot);if(Number.isInteger(slot))dropLessonPayload(payload,slot)
+}
+document.addEventListener('pointerdown',event=>{
+  if(window.READ_ONLY||event.button!==0||pointerDrag.active||event.target.closest('button,a,input,select,textarea,label'))return;
+  const source=event.target.closest('[data-drag-payload]');if(!source||!source.dataset.dragPayload)return;
+  event.preventDefault();beginPointerDrag(event,source)
+},{capture:true});
+document.addEventListener('pointermove',event=>{
+  if(!pointerDrag.active||event.pointerId!==pointerDrag.pointerId)return;
+  pointerDrag.lastX=event.clientX;pointerDrag.lastY=event.clientY;
+  if(Math.hypot(event.clientX-pointerDrag.startX,event.clientY-pointerDrag.startY)>3)pointerDrag.didMove=true;
+  movePointerDragGhost(event.clientX,event.clientY);updatePointerDropTarget(event.clientX,event.clientY);updateDragAutoScroll(event.clientY);event.preventDefault()
+},{capture:true});
+document.addEventListener('pointerup',event=>finishPointerDrag(event,false),{capture:true});
+document.addEventListener('pointercancel',event=>finishPointerDrag(event,true),{capture:true});
+window.addEventListener('blur',()=>finishPointerDrag(null,true));
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&pointerDrag.active){event.preventDefault();finishPointerDrag(null,true)}},{capture:true});
+function handlePointerDragWheel(event){
+  if(!pointerDrag.active)return;
+  const top=normalizedWheelDelta(event.deltaY,event.deltaMode)*DRAG_WHEEL_SCROLL_MULTIPLIER,left=normalizedWheelDelta(event.deltaX,event.deltaMode)*DRAG_WHEEL_SCROLL_MULTIPLIER;if(!top&&!left)return;
+  event.preventDefault();event.stopPropagation();pointerDrag.didMove=true;
+  scrollDragViewport(top,left);
+  requestAnimationFrame(()=>{
+    if(!pointerDrag.active)return;
+    updatePointerDropTarget(pointerDrag.lastX,pointerDrag.lastY);
+    updateDragAutoScroll(pointerDrag.lastY)
+  })
+}
+window.addEventListener('wheel',handlePointerDragWheel,{capture:true,passive:false});

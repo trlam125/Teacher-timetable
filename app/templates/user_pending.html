@@ -1,15 +1,17 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tài khoản đang chờ xác nhận</title>
-  <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode');}})();</script>
-  <link rel="stylesheet" href="/static/style.css?v=32">
-  <script src="/static/operation-status.js?v=3" defer></script>
-  <link rel="stylesheet" href="/static/effects.css?v=6">
+  <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })();</script>
+  <link rel="stylesheet" href="/static/style.css?v=1">
+  <script src="/static/operation-status.js?v=1" defer></script>
+  <link rel="stylesheet" href="/static/effects.css?v=1">
   <link rel="stylesheet" href="/static/auth-extra.css?v=1">
 </head>
+
 <body class="auth-page">
   <main class="auth-card">
     <a class="brand" href="/">Smart TKB</a>
@@ -17,12 +19,14 @@
     <h1>Yêu cầu đã được gửi</h1>
     <p>Xin chào <b>{{user.name}}</b>.</p>
     {% if user.requested_teacher_name %}
-      <p class="muted">Tên giáo viên mong muốn: <b>{{user.requested_teacher_name}}</b>.</p>
+    <p class="muted">Tên giáo viên mong muốn: <b>{{user.requested_teacher_name}}</b>.</p>
     {% endif %}
-    <p class="muted">Quản trị viên cần xác nhận và gắn tài khoản với hồ sơ giáo viên trước khi bạn có thể xem lịch dạy.</p>
+    <p class="muted">Quản trị viên cần xác nhận và gắn tài khoản với hồ sơ giáo viên trước khi bạn có thể xem lịch dạy.
+    </p>
     <p class="muted">Sau khi được duyệt, hãy tải lại trang này để tiếp tục.</p>
     <a class="btn wide" href="/account-pending">Kiểm tra lại</a>
     <a class="btn ghost wide pending-logout" href="/logout">Đăng xuất</a>
   </main>
 </body>
+
 </html>

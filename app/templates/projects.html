@@ -6,10 +6,11 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Danh sách thời khóa biểu</title>
     <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })(); function toggleTheme() { const isDark = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', isDark ? 'dark' : 'light'); }</script>
-    <link rel="stylesheet" href="/static/style.css?v=32">
-    <script src="/static/operation-status.js?v=3" defer></script>
-    <link rel="stylesheet" href="/static/effects.css?v=6">
-    <link rel="stylesheet" href="/static/front.css?v=2">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <script src="/static/operation-status.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/effects.css?v=1">
+    <link rel="stylesheet" href="/static/front.css?v=1">
+    <link rel="stylesheet" href="/static/chatbot.css?v=1">
 </head>
 
 <body class="front-surface">
@@ -31,7 +32,8 @@
                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
                 stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg></button><a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import &amp; kiểm tra TKB</a><span>Xin chào, {{user.name}}</span><a href="/admin/users">Quản lý tài khoản</a><a
+            </svg></button><a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import
+            &amp; kiểm tra TKB</a><span>Xin chào, {{user.name}}</span><a href="/admin/users">Quản lý tài khoản</a><a
             href="/logout">Đăng xuất</a>
     </header>
     <main class="container">
@@ -67,6 +69,7 @@
         </form>
     </dialog>
 
+    {% if chatbot_project_id %}{% include "_chatbot_popup.html" %}{% endif %}
 </body>
 
 </html>

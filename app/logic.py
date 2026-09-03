@@ -223,6 +223,8 @@ def fixed_group_validation_error(
     expected = Counter(int(size) for size in expected_group_sizes)
     used: Counter[int] = Counter()
     occupied: set[int] = set()
+    fixed_intervals: list[tuple[int, int]] = []
+    requires_separate_groups = any(size > 1 for size in expected)
     periods_per_day = sessions * periods_per_session
     maximum = days * periods_per_day
 
@@ -243,6 +245,16 @@ def fixed_group_validation_error(
         group_slots = set(range(slot, slot + size))
         if occupied.intersection(group_slots):
             return "Các cụm tiết cố định bị trùng nhau."
+        if requires_separate_groups:
+            group_end = slot + size
+            group_session = slot // periods_per_session
+            for other_start, other_end in fixed_intervals:
+                other_session = other_start // periods_per_session
+                if group_session != other_session:
+                    continue
+                if group_end == other_start or other_end == slot:
+                    return "Các cụm tiết cố định bắt buộc phải cách nhau ít nhất một tiết trong cùng buổi học."
         occupied.update(group_slots)
+        fixed_intervals.append((slot, slot + size))
         used[size] += 1
     return None
