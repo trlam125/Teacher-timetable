@@ -33,8 +33,7 @@
                 stroke-linejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
             </svg></button><a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import
-            &amp; kiểm tra TKB</a><span>Xin chào, {{user.name}}</span><a href="/admin/users">Quản lý tài khoản</a><a
-            href="/logout">Đăng xuất</a>
+            &amp; kiểm tra TKB</a><span>Xin chào, {{user.name}}</span><a href="/admin/users">Quản lý tài khoản</a><a href="/logout">Đăng xuất</a>
     </header>
     <main class="container">
         <div class="page-title">
@@ -58,7 +57,7 @@
         <form method="post" action="/projects" class="modal-form">
             <h2>Tạo bộ thời khóa biểu</h2><label>Tên bộ TKB<input name="name" value="TKB học kỳ I"
                     required></label><label>Tên trường<input name="school_name" required></label>
-            <div class="form-grid"><label>Số ngày học<input type="number" name="days" min="1" max="7"
+            <div class="form-grid"><label>Số ngày học<input type="number" name="days" min="6" max="7"
                         value="6"></label><label>Số buổi/ngày<select name="sessions">
                         <option value="1">1 buổi</option>
                         <option value="2" selected>2 buổi</option>

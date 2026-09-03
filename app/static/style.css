@@ -2776,3 +2776,225 @@ dialog::backdrop {
     padding: 0 10px 10px
   }
 }
+/* Kéo thả dùng cập nhật lạc quan: tiết đổi ô ngay, rồi đồng bộ máy chủ nền. */
+.lesson.lesson-syncing {
+  opacity: .86;
+  cursor: wait;
+}
+
+/* ===== Toast Notification System ===== */
+.app-toast-container {
+  position: fixed;
+  z-index: 10000;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 92vw;
+  width: max-content;
+}
+
+.app-toast {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: appToastIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.dark-mode .app-toast {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f1f5f9;
+}
+
+.app-toast-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.app-toast.is-warning .app-toast-icon {
+  color: #fbbf24;
+}
+
+.app-toast.is-error .app-toast-icon {
+  color: #f87171;
+}
+
+.app-toast.is-success .app-toast-icon {
+  color: #34d399;
+}
+
+.app-toast.is-info .app-toast-icon {
+  color: #60a5fa;
+}
+
+.app-toast.is-hiding {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+}
+
+@keyframes appToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== Sticky Timetable Column & Row for smooth mobile/desktop navigation ===== */
+.timetable {
+  position: relative;
+  max-height: 82vh;
+}
+
+.cell.head {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: var(--table-header-bg);
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.cell.period {
+  position: sticky;
+  left: 0;
+  z-index: 7;
+  background: var(--table-header-bg);
+  box-shadow: 1px 0 0 var(--line);
+  font-weight: 700;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+}
+
+.cell.head:first-child {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  background: var(--table-header-bg);
+  box-shadow: 1px 1px 0 var(--line);
+}
+
+/* ===== Dark Mode Lesson Colors ===== */
+.dark-mode .lesson {
+  background: rgba(30, 58, 138, 0.38);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #e2e8f0;
+}
+
+.dark-mode .lesson b {
+  color: #93c5fd;
+}
+
+.dark-mode .lesson small {
+  color: #94a3b8;
+}
+
+.dark-mode .lesson.lesson-cluster {
+  background: rgba(14, 116, 144, 0.36);
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.dark-mode .lesson.lesson-cluster b {
+  color: #67e8f9;
+}
+
+/* ===== Mobile & WebView Enhancements ===== */
+@media (max-width: 768px) {
+  .appbar {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .appbar .btn {
+    padding: 7px 11px;
+    font-size: 13px;
+  }
+
+  .sidebar {
+    padding: 8px 10px;
+    gap: 6px;
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 56px;
+    z-index: 20;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .timetable {
+    border-radius: 8px;
+    font-size: 13px;
+  }
+
+  .cell {
+    min-height: 72px;
+    padding: 4px;
+  }
+
+  .lesson {
+    padding: 6px 8px;
+    border-radius: 7px;
+  }
+
+  .lesson .lesson-pin,
+  .lesson .lesson-remove {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+
+  .content {
+    padding: 14px 10px;
+  }
+
+  .container {
+    padding: 14px 10px;
+  }
+
+  .schedule-stat-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+

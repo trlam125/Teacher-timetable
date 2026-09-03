@@ -1,36 +1,29 @@
 # Smart TKB Android (WebView)
 
-Project Android này là lớp vỏ riêng cho website Smart TKB. Backend FastAPI và PostgreSQL vẫn chạy trên máy chủ hiện tại; project không sao chép hay thay đổi mã nguồn web.
+Project Android này là lớp vỏ WebView cho website Smart TKB. Backend FastAPI và PostgreSQL vẫn chạy trên server; APK không chứa dữ liệu thời khóa biểu.
 
-## Chạy với ngrok
+## Cấu hình URL
 
-Tại thư mục gốc `Teacher-timetable`, chạy:
+Khi build, APK vẫn cần `APP_BASE_URL` làm **URL bootstrap** để biết nơi lấy cấu hình động. Gradle đọc biến này theo thứ tự:
 
-```bat
-run-ngrok.bat
+1. File `.env` ở thư mục gốc project.
+2. Biến môi trường `APP_BASE_URL`.
+
+Ví dụ trong `.env`:
+
+```env
+APP_BASE_URL=https://your-domain.example.com
 ```
 
-APK hiện được cấu hình để mở trực tiếp URL:
+`APP_BASE_URL` phải là HTTPS. Sau khi APK đã được cài, super admin có thể vào **Quản lý tài khoản → URL cho APK** để đổi URL website mà APK mở. APK lưu URL gần nhất để mở nhanh, đồng thời kiểm tra lại `/api/mobile/config` từ URL bootstrap mỗi lần khởi động. Để trống cấu hình quản lý sẽ đưa APK về `APP_BASE_URL`.
 
-```text
-https://yahoo-speech-radiation.ngrok-free.dev
-```
-
-Nếu URL ngrok thay đổi, sửa hằng số `SERVER_URL` trong file:
-
-```text
-app/src/main/java/vn/smarttkb/app/MainActivity.java
-```
-
-Sau đó build lại APK. Ứng dụng không hiển thị màn hình nhập URL và không lưu URL động trên thiết bị.
-
-Máy tính đang chạy FastAPI, PostgreSQL và ngrok phải luôn bật. Nếu một trong ba thành phần dừng, APK sẽ không kết nối được.
+Chỉ cần build lại APK nếu chính URL bootstrap `APP_BASE_URL` không còn truy cập được nữa.
 
 ## Build APK debug
 
 Yêu cầu JDK 17 trở lên và Android SDK 35. Project đã có Gradle Wrapper nên không cần cài Gradle riêng.
 
-Từ thư mục `android-webview`, chạy Gradle:
+Từ thư mục `android-webview`, chạy:
 
 ```powershell
 .\gradlew.bat assembleDebug
@@ -42,15 +35,13 @@ APK được tạo tại:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-APK debug dùng để cài thử trực tiếp. Khi phát hành chính thức cần tạo keystore và cấu hình bản release có chữ ký.
-
 ## Các chức năng lớp Android
 
-- Mở trực tiếp URL ngrok được khai báo trong mã nguồn.
+- Mở website từ URL quản lý; fallback về `BuildConfig.APP_BASE_URL`.
+- Tự kiểm tra cấu hình URL mới từ endpoint bootstrap khi khởi động.
 - Giữ cookie đăng nhập WebView.
 - JavaScript và local storage cho giao diện hiện tại.
 - Điều hướng Back bằng nút hệ thống Android.
-- Kéo-thả bằng cảm ứng: giữ thẻ tiết học khoảng 0,3 giây, kéo tới ô đích rồi thả. Vuốt ngay không giữ vẫn cuộn trang bình thường.
+- Kéo-thả bằng cảm ứng qua `android-touch-drag.js`.
 - Thông báo khi mất mạng hoặc máy chủ ngừng hoạt động.
 - Tải file xuất từ website vào thư mục Downloads, kèm cookie phiên đăng nhập.
-- Chỉ cho phép kết nối HTTPS; không chấp nhận chứng chỉ lỗi hoặc HTTP thuần.

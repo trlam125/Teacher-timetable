@@ -323,7 +323,7 @@
                     type="submit">Lưu</button></div>
         </form>
     </dialog>
-    <script>window.PROJECT_ID = {{ p.id }}; window.INIT_DATA = {{ data | tojson }}; window.SHARE_URL = location.origin + '/share/{{p.share_token}}';</script>
+    <script>window.PROJECT_ID = {{ p.id }}; window.INIT_DATA = {{ data | tojson }}; window.PUBLIC_BASE_URL = {{ public_base_url | tojson }}; window.SHARE_URL = window.PUBLIC_BASE_URL + '/share/{{p.share_token}}';</script>
     <script src="/static/app.js?v=1"></script>
 </body>
 

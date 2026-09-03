@@ -330,14 +330,63 @@ function renderManualTray(){
 function renderScheduleSelectors(){const vt=$('#viewType'),ve=$('#viewEntity');if(!vt||!ve)return;if(vt.value==='overview'){ve.innerHTML='<option value="all">Toàn trường</option>';ve.disabled=true;ve.style.display='none'}else{ve.disabled=false;ve.style.display='';const rows=vt.value==='teacher'?data.teachers:data.classes;const old=ve.value;ve.innerHTML=opts(rows);if([...ve.options].some(x=>x.value===old))ve.value=old}vt.onchange=()=>{renderScheduleSelectors();renderSchedule()};ve.onchange=()=>{renderSchedule();renderManualTray()};renderSchedule();renderManualTray()}
 function clusteredLessonIds(){const marked=new Set(),eligible=new Set(data.assignments.filter(item=>item.block_mode==='preferred_double'||item.block_mode==='required_double').map(item=>item.id)),groups=new Map(),pps=data.project.periods,ppd=data.project.sessions*pps;for(const lesson of data.lessons){if(!eligible.has(lesson.assignment_id))continue;const day=Math.floor(lesson.slot/ppd),inside=lesson.slot%ppd,session=Math.floor(inside/pps),key=`${lesson.assignment_id}:${day}:${session}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(lesson)}for(const lessons of groups.values()){lessons.sort((left,right)=>left.slot-right.slot);let run=[];const markRun=()=>{if(run.length>1)run.forEach(lesson=>marked.add(lesson.id));run=[]};for(const lesson of lessons){if(run.length&&lesson.slot!==run[run.length-1].slot+1)markRun();run.push(lesson)}markRun()}return marked}
 function renderSchedule(){const box=$('#scheduleGrid'),vt=$('#viewType'),ve=$('#viewEntity');if(!box||!vt||!ve)return;if(vt.value!=='overview'&&!ve.value){box.innerHTML='<div class="empty-state">Hãy thêm lớp hoặc giáo viên.</div>';return}const days=data.project.days,pps=data.project.periods,sessions=data.project.sessions,clustered=clusteredLessonIds(),legend='<div class="schedule-color-legend"><b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Tiết đang được ghép đôi</span></div>';let html=`<div class="timetable ${vt.value==='overview'?'overview-timetable':''}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;for(let d=0;d<days;d++)html+=`<div class="cell head">${['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'][d]}</div>`;for(let s=0;s<sessions;s++){for(let p=0;p<pps;p++){html+=`<div class="cell period">${sessions>1?(s===0?'S':'C')+' ':''}${p+1}</div>`;for(let d=0;d<days;d++){const slot=d*(sessions*pps)+s*pps+p;const lessons=data.lessons.filter(l=>l.slot===slot).filter(l=>{const a=data.assignments.find(x=>x.id===l.assignment_id);if(!a)return false;if(vt.value==='overview')return true;return vt.value==='class'?a.class_id===Number(ve.value):a.teacher_id===Number(ve.value)}).sort((left,right)=>{const a=data.assignments.find(x=>x.id===left.assignment_id),b=data.assignments.find(x=>x.id===right.assignment_id);return (a?.class_name||'').localeCompare(b?.class_name||'','vi')});html+=`<div class="cell available" data-slot="${slot}" ondragover="event.preventDefault()" ondrop="dropLesson(event,${slot})">${lessons.map(l=>lessonHtml(l,vt.value,clustered.has(l.id))).join('')}</div>`}}}html+='</div>';box.innerHTML=legend+html}
-function lessonHtml(l,view,inCluster=false){const a=data.assignments.find(x=>x.id===l.assignment_id);if(!a)return'';const detail=`${a.class_name} · ${a.teacher_short}`;const actions=window.READ_ONLY?'':l.locked?`<button class="lesson-remove" title="Bỏ cố định tiết/cặp này" onclick="event.stopPropagation();unfixGroup(${a.id},${l.slot},this)">🔓</button>`:`<button class="lesson-pin" title="Cố định tiết/cặp này" onclick="event.stopPropagation();setFixed(${a.id},${l.slot},this)">📌</button><button class="lesson-remove" title="Gỡ tiết" onclick="event.stopPropagation();removeLesson(${l.id})">×</button>`;const dragPayload=!window.READ_ONLY&&!l.locked?` data-drag-payload="${l.id}"`:'';return `<div class="lesson ${view==='overview'?'lesson-overview':''} ${inCluster?'lesson-cluster':''}" draggable="false"${dragPayload}><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked?' <span title="Tiết cố định">🔒</span>':''}${actions}</div>`}
+function lessonHtml(l,view,inCluster=false){const a=data.assignments.find(x=>x.id===l.assignment_id);if(!a)return'';const detail=`${a.class_name} · ${a.teacher_short}`;const actions=window.READ_ONLY||l._syncing?'':l.locked?`<button class="lesson-remove" title="Bỏ cố định tiết/cặp này" onclick="event.stopPropagation();unfixGroup(${a.id},${l.slot},this)">🔓</button>`:`<button class="lesson-pin" title="Cố định tiết/cặp này" onclick="event.stopPropagation();setFixed(${a.id},${l.slot},this)">📌</button><button class="lesson-remove" title="Gỡ tiết" onclick="event.stopPropagation();removeLesson(${l.id})">×</button>`;const dragPayload=!window.READ_ONLY&&!l.locked&&!l._syncing?` data-drag-payload="${l.id}"`:'';return `<div class="lesson ${view==='overview'?'lesson-overview':''} ${inCluster?'lesson-cluster':''} ${l._syncing?'lesson-syncing':''}" draggable="false"${dragPayload}><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked?' <span title="Tiết cố định">🔒</span>':''}${actions}</div>`}
+function showToast(message,type='info',duration=3200){
+  if(!message)return;
+  let container=document.getElementById('appToastContainer');
+  if(!container){container=document.createElement('div');container.id='appToastContainer';container.className='app-toast-container';document.body.appendChild(container)}
+  const toast=document.createElement('div');toast.className=`app-toast is-${type}`;
+  const icon=type==='error'||type==='warning'?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>':type==='success'?'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>':'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  toast.innerHTML=`<span class="app-toast-icon">${icon}</span><span class="app-toast-text">${esc(message)}</span>`;
+  container.appendChild(toast);
+  setTimeout(()=>{toast.classList.add('is-hiding');setTimeout(()=>{if(toast.isConnected)toast.remove()},300)},duration);
+}
+let optimisticLessonId=-1;
+const pendingDropPayloads=new Set();
+function renderOptimisticSchedule(){renderSchedule();renderManualTray()}
+function showDropConflict(slot,message){
+  const text=message||'Không thể xếp tiết';
+  const cell=document.querySelector(`.cell.available[data-slot="${slot}"]`);
+  if(cell){cell.title=text;cell.classList.add('conflict-shake');setTimeout(()=>cell.classList.remove('conflict-shake'),600)}
+  showToast(text,'warning',3600);
+}
 async function dropLessonPayload(raw,slot){
-  if(window.READ_ONLY||!raw)return;const isNew=raw.startsWith('assignment:');const rawId=isNew?raw.slice('assignment:'.length):raw;if(!/^\d+$/.test(rawId))return;
-  const endpoint=isNew?`/api/projects/${PROJECT_ID}/lessons`:`/api/projects/${PROJECT_ID}/move`;const payload=isNew?{assignment_id:Number(rawId),slot}:{lesson_id:Number(rawId),slot};
-  try{const r=await fetch(endpoint,{method:'POST',headers:operationHeaders({'Content-Type':'application/json'}),body:JSON.stringify(payload)});const j=await r.json();
-    if(r.ok){await refresh(true);renderSchedule()}
-    else{const cell=document.querySelector(`.cell.available[data-slot="${slot}"]`);if(cell){cell.title=j.message||j.detail||'Không thể xếp tiết';cell.classList.add('conflict-shake');setTimeout(()=>cell.classList.remove('conflict-shake'),600)}}
-  }catch{const cell=document.querySelector(`.cell.available[data-slot="${slot}"]`);if(cell){cell.title='Mất kết nối tới máy chủ';cell.classList.add('conflict-shake');setTimeout(()=>cell.classList.remove('conflict-shake'),600)}}
+  if(window.READ_ONLY||!raw||pendingDropPayloads.has(raw))return;const isNew=raw.startsWith('assignment:');const rawId=isNew?raw.slice('assignment:'.length):raw;if(!/^\d+$/.test(rawId))return;
+  const id=Number(rawId),endpoint=isNew?`/api/projects/${PROJECT_ID}/lessons`:`/api/projects/${PROJECT_ID}/move`;
+  let optimisticLesson=null,oldSlot=null;
+  if(isNew){
+    const assignment=data.assignments.find(item=>item.id===id);if(!assignment)return;
+    optimisticLesson={id:optimisticLessonId--,assignment_id:id,slot,locked:false,_syncing:true};data.lessons.push(optimisticLesson);renderOptimisticSchedule();
+  }else{
+    optimisticLesson=data.lessons.find(item=>item.id===id);if(!optimisticLesson||optimisticLesson.locked||optimisticLesson._syncing)return;if(optimisticLesson.slot===slot)return;
+    oldSlot=optimisticLesson.slot;optimisticLesson.slot=slot;optimisticLesson._syncing=true;renderOptimisticSchedule();
+  }
+  pendingDropPayloads.add(raw);
+  const payload=isNew?{assignment_id:id,slot}:{lesson_id:id,slot};
+  try{
+    const r=await fetch(endpoint,{method:'POST',headers:operationHeaders({'Content-Type':'application/json'}),body:JSON.stringify(payload)});const j=await r.json().catch(()=>({}));
+    if(r.ok){
+      let stateWasReplaced=false;
+      if(isNew){
+        const live=data.lessons.find(item=>item.id===optimisticLesson.id);
+        if(live){live.id=Number(j.id)||live.id;delete live._syncing}else stateWasReplaced=true;
+      }else{
+        const live=data.lessons.find(item=>item.id===id);
+        if(live&&live._syncing){live.slot=slot;delete live._syncing}else stateWasReplaced=true;
+      }
+      if(stateWasReplaced){try{await refresh(true)}catch{renderOptimisticSchedule()}}else renderOptimisticSchedule();
+      return;
+    }
+    if(isNew)data.lessons=data.lessons.filter(item=>item.id!==optimisticLesson.id);
+    else{const live=data.lessons.find(item=>item.id===id);if(live&&live._syncing){live.slot=oldSlot;delete live._syncing}}
+    renderOptimisticSchedule();showDropConflict(slot,j.message||j.detail||'Không thể xếp tiết');
+  }catch{
+    if(isNew)data.lessons=data.lessons.filter(item=>item.id!==optimisticLesson.id);
+    else{const live=data.lessons.find(item=>item.id===id);if(live&&live._syncing){live.slot=oldSlot;delete live._syncing}}
+    renderOptimisticSchedule();showDropConflict(slot,'Mất kết nối tới máy chủ');
+  }finally{
+    pendingDropPayloads.delete(raw);
+  }
 }
 async function dropLesson(e,slot){return dropLessonPayload(e?.dataTransfer?.getData('text/plain')||'',slot)}
 async function removeLesson(id){
@@ -432,7 +481,7 @@ async function revokeTeacherAccount(teacherId,button){
   catch{setInlineActionState(button,'error',{idle:'Thu hồi',error:'Lỗi kết nối'},2200);showInlineActionFeedback(button,'Mất kết nối tới máy chủ.','error',5000)}
 }
 async function copyTeacherInvite(button){
-  try{await navigator.clipboard.writeText(`${location.origin}/register?project=${encodeURIComponent(data.project.share_token)}`);setInlineActionState(button,'success',{idle:'Sao chép liên kết đăng ký',success:'Đã sao chép'},1700)}
+  try{await navigator.clipboard.writeText(`${window.PUBLIC_BASE_URL||location.origin}/register?project=${encodeURIComponent(data.project.share_token)}`);setInlineActionState(button,'success',{idle:'Sao chép liên kết đăng ký',success:'Đã sao chép'},1700)}
   catch{setInlineActionState(button,'error',{idle:'Sao chép liên kết đăng ký',error:'Không sao chép được'},2200)}
 }
 async function copyShare(button){

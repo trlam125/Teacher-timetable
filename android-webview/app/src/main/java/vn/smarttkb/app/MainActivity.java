@@ -7,6 +7,7 @@ import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -39,11 +40,18 @@ import android.widget.Toast;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
+import org.json.JSONObject;
+
 public class MainActivity extends Activity {
-    // Khi URL ngrok thay đổi, chỉ cần sửa hằng số này rồi build lại APK.
-    private static final String SERVER_URL = "https://yahoo-speech-radiation.ngrok-free.dev";
+    private static final String SERVER_URL = BuildConfig.APP_BASE_URL;
+    private static final String PREFS_NAME = "smart_tkb";
+    private static final String PREF_MANAGED_SERVER_URL = "managed_server_url";
+    private static final String PREF_LAST_WORKING_SERVER_URL = "last_working_server_url";
     private static final int STORAGE_PERMISSION_REQUEST = 41;
     private static final int FILE_CHOOSER_REQUEST = 42;
 
@@ -53,6 +61,7 @@ public class MainActivity extends Activity {
     private PendingDownload pendingDownload;
     private ValueCallback<Uri[]> filePathCallback;
     private boolean mainFrameLoadFailed;
+    private volatile String currentServerUrl = SERVER_URL;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -165,6 +174,13 @@ public class MainActivity extends Activity {
                 if (!mainFrameLoadFailed) {
                     errorPanel.setVisibility(View.GONE);
                     webView.setVisibility(View.VISIBLE);
+                    String workingUrl = normalizeHttpsBaseUrl(currentServerUrl);
+                    if (workingUrl != null) {
+                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                                .edit()
+                                .putString(PREF_LAST_WORKING_SERVER_URL, workingUrl)
+                                .apply();
+                    }
                 }
                 CookieManager.getInstance().flush();
             }
@@ -329,7 +345,125 @@ public class MainActivity extends Activity {
         }
         errorPanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-        webView.loadUrl(SERVER_URL);
+
+        SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String cachedUrl = normalizeHttpsBaseUrl(preferences.getString(PREF_MANAGED_SERVER_URL, ""));
+        String lastWorkingUrl = normalizeHttpsBaseUrl(preferences.getString(PREF_LAST_WORKING_SERVER_URL, ""));
+        String buildUrl = normalizeHttpsBaseUrl(SERVER_URL);
+        currentServerUrl = cachedUrl != null ? cachedUrl : (lastWorkingUrl != null ? lastWorkingUrl : SERVER_URL);
+        webView.loadUrl(currentServerUrl);
+        refreshManagedServerUrl(buildUrl, lastWorkingUrl);
+    }
+
+    private void refreshManagedServerUrl(String buildUrl, String lastWorkingUrl) {
+        new Thread(() -> {
+            String resolvedUrl = resolveManagedServerUrl(currentServerUrl, lastWorkingUrl, buildUrl);
+            if (resolvedUrl == null) return;
+
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit()
+                    .putString(PREF_MANAGED_SERVER_URL, resolvedUrl)
+                    .apply();
+
+            runOnUiThread(() -> {
+                if (isFinishing() || resolvedUrl.equals(currentServerUrl)) return;
+                currentServerUrl = resolvedUrl;
+                mainFrameLoadFailed = false;
+                errorPanel.setVisibility(View.GONE);
+                webView.setVisibility(View.VISIBLE);
+                webView.loadUrl(resolvedUrl);
+            });
+        }, "smart-tkb-mobile-config").start();
+    }
+
+    private String resolveManagedServerUrl(String currentUrl, String lastWorkingUrl, String buildUrl) {
+        String[] candidates = new String[]{currentUrl, lastWorkingUrl, buildUrl};
+        for (int index = 0; index < candidates.length; index++) {
+            String candidate = normalizeHttpsBaseUrl(candidates[index]);
+            if (candidate == null) continue;
+            boolean duplicate = false;
+            for (int previous = 0; previous < index; previous++) {
+                String previousCandidate = normalizeHttpsBaseUrl(candidates[previous]);
+                if (candidate.equals(previousCandidate)) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (duplicate) continue;
+
+            String advertisedUrl = fetchManagedServerUrl(candidate);
+            if (advertisedUrl == null) continue;
+            if (candidate.equals(advertisedUrl) || fetchManagedServerUrl(advertisedUrl) != null) {
+                return advertisedUrl;
+            }
+
+            // Server nguồn vẫn hoạt động nhưng URL mới đang lỗi: giữ server
+            // đang dùng được thay vì ghi đè cache bằng một địa chỉ chết.
+            return candidate;
+        }
+        return null;
+    }
+
+    private String fetchManagedServerUrl(String baseUrl) {
+        String normalizedBaseUrl = normalizeHttpsBaseUrl(baseUrl);
+        if (normalizedBaseUrl == null) return null;
+        HttpURLConnection connection = null;
+        try {
+            URL configUrl = new URL(normalizedBaseUrl + "/api/mobile/config");
+            connection = (HttpURLConnection) configUrl.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(2500);
+            connection.setReadTimeout(2500);
+            connection.setUseCaches(false);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Cache-Control", "no-cache");
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return null;
+
+            StringBuilder body = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    connection.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line);
+            }
+            JSONObject response = new JSONObject(body.toString());
+            return normalizeHttpsBaseUrl(response.optString("apk_base_url", ""));
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private String normalizeHttpsBaseUrl(String rawUrl) {
+        if (rawUrl == null) return null;
+        String value = rawUrl.trim();
+        while (value.endsWith("/")) value = value.substring(0, value.length() - 1);
+        if (value.isEmpty()) return null;
+        for (int index = 0; index < value.length(); index++) {
+            if (Character.isWhitespace(value.charAt(index))) return null;
+        }
+        try {
+            URI uri = new URI(value);
+            int port = uri.getPort();
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || uri.getHost() == null
+                    || uri.getUserInfo() != null
+                    || uri.getRawQuery() != null
+                    || uri.getFragment() != null
+                    || port > 65535) {
+                return null;
+            }
+            String path = uri.getPath();
+            if (path != null && !path.isEmpty() && !"/".equals(path)) return null;
+            String host = uri.getHost();
+            String authority = host.contains(":")
+                    ? (host.startsWith("[") ? host : "[" + host + "]")
+                    : host;
+            if (port >= 0) authority += ":" + port;
+            return "https://" + authority;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private boolean hasNetwork() {
