@@ -1411,3 +1411,108 @@ dialog[open] {
   font-size: inherit;
   color: inherit;
 }
+
+/* ===== Drag/drop save feedback =====
+   Giữ cập nhật lạc quan: tiết đổi ô ngay, chỉ báo nhỏ cho biết dữ liệu đang được lưu. */
+.lesson.lesson-syncing {
+  cursor: wait;
+  opacity: 0.94;
+  transform: none !important;
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.14);
+}
+
+.lesson.lesson-syncing:hover {
+  transform: none !important;
+}
+
+.lesson.lesson-syncing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.5) 48%, transparent 66%);
+  transform: translateX(-120%);
+  animation: lesson-sync-shimmer 1.15s ease-in-out infinite;
+}
+
+.lesson-sync-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 3px 7px 3px 5px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 12px rgba(15, 39, 71, 0.12);
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.lesson-sync-spinner {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 2px solid rgba(37, 99, 235, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: lesson-sync-spin 0.72s linear infinite;
+}
+
+.lesson.lesson-syncing > b {
+  padding-right: 72px;
+}
+
+@keyframes lesson-sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes lesson-sync-shimmer {
+  55%, 100% { transform: translateX(120%); }
+}
+
+:root.dark-mode .lesson-sync-indicator {
+  border-color: rgba(96, 165, 250, 0.24);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  color: #93c5fd;
+}
+
+:root.dark-mode .lesson.lesson-syncing::before {
+  background: linear-gradient(105deg, transparent 30%, rgba(147, 197, 253, 0.13) 48%, transparent 66%);
+}
+
+@media (max-width: 768px) {
+  .lesson-sync-indicator {
+    width: 22px;
+    min-width: 22px;
+    padding: 4px;
+    justify-content: center;
+  }
+
+  .lesson-sync-text {
+    display: none;
+  }
+
+  .lesson.lesson-syncing > b {
+    padding-right: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lesson.lesson-syncing::before,
+  .lesson-sync-spinner {
+    animation-duration: 1.8s;
+  }
+}
