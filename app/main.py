@@ -3470,7 +3470,9 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
     project=get_project_for_update(pid,user,db); d=payload.data
     teacher_subject_ids: list[int] | None = None
     if payload.type=="department":
-        obj=Department(project_id=pid,name=required_text(d,"name","Tên tổ chuyên môn",120))
+        name=required_text(d,"name","Tên tổ chuyên môn",120)
+        ensure_unique_project_name(db, Department, pid, name, "Tổ chuyên môn")
+        obj=Department(project_id=pid,name=name)
     elif payload.type=="subject":
         name=required_text(d,"name","Tên môn học",120)
         ensure_unique_project_name(db, Subject, pid, name, "Môn học")
@@ -3491,7 +3493,9 @@ def add_entity(pid:int, payload:EntityIn, user:User=Depends(current_user), db:Se
         teacher_subject_ids=validated_subject_ids(db,pid,d.get("subject_ids",[]))
         obj=Teacher(project_id=pid,name=name,short_name=short_name,department_id=department_id,max_periods_day=max_periods_day,unavailable_json=json.dumps(valid_slots(project,d.get("unavailable",[]))))
     elif payload.type=="grade":
-        obj=Grade(project_id=pid,name=required_text(d,"name","Tên khối lớp",80))
+        name=required_text(d,"name","Tên khối lớp",80)
+        ensure_unique_project_name(db, Grade, pid, name, "Khối lớp")
+        obj=Grade(project_id=pid,name=name)
     elif payload.type=="class":
         name=required_text(d,"name","Tên lớp học",80)
         ensure_unique_project_name(db, SchoolClass, pid, name, "Lớp học")
@@ -3854,6 +3858,7 @@ def update_entity(
         obj.max_periods_day = new_max_periods_day
         sync_teacher_account_name(db, obj.id, name)
     elif typ == "grade":
+        ensure_unique_project_name(db, Grade, pid, name, "Khối lớp", exclude_id=obj.id)
         if "subject_requirements" in d:
             proposed_configs = normalized_grade_requirements(db, project, d.get("subject_requirements", []))
             current_rows = db.scalars(select(GradeSubjectRequirement).where(
@@ -4228,10 +4233,19 @@ def fixed_row_size(project: Project, assignment: Assignment, row: FixedLesson, l
         return 1
     expected = assignment_groups(assignment)
     size = int(getattr(row, "group_size", 1) or 1)
+
+    # group_size > 1 được ghi rõ khi người dùng cố định một cặp. Đây phải là
+    # nguồn dữ liệu ưu tiên để một cặp 2 tiết không bị hạ thành 1 chỉ vì Lesson
+    # đang tạm thiếu một tiết. Giá trị 1 vẫn được phép suy luận từ Lesson để
+    # tương thích các FixedLesson legacy từng được migration với DEFAULT 1.
+    if size > 1 and size in expected:
+        return size
+
     if lessons:
         for run in assignment_run_groups(project, [lesson.slot for lesson in lessons]):
             if run["start"] == row.slot and row.slot in run["slots"] and run["size"] in expected:
                 return run["size"]
+
     if size in expected and not (size == 1 and 1 not in expected):
         return size
     return expected[0] if expected else 1
