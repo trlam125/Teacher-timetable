@@ -144,35 +144,6 @@
     </div>
 
     {% if user.role == 'super_admin' %}
-    <section id="apk-url" class="panel" style="margin-top:28px">
-      <div class="section-head" style="margin-bottom:16px">
-        <div>
-          <h2 style="margin:0 0 6px">URL cho APK</h2>
-          <p>APK kiểm tra cấu hình này khi mở ứng dụng. Dán URL HTTPS mới rồi lưu để đổi máy chủ mà không cần build lại APK.</p>
-        </div>
-      </div>
-      {% if apk_url_status == 'saved' %}
-      <p class="inline-form-message is-success" style="margin-bottom:14px">Đã cập nhật URL cho APK.</p>
-      {% elif apk_url_status == 'cleared' %}
-      <p class="inline-form-message is-success" style="margin-bottom:14px">Đã xóa URL riêng. APK sẽ quay về APP_BASE_URL bootstrap.</p>
-      {% elif apk_url_status == 'invalid' %}
-      <p class="inline-form-message is-error" style="margin-bottom:14px">URL không hợp lệ. Hãy dùng dạng https://ten-mien, không kèm đường dẫn, query hoặc tài khoản đăng nhập.</p>
-      {% endif %}
-      <form method="post" action="/admin/mobile-url" class="account-edit-form">
-        <label>URL APK
-          <input type="url" name="apk_url" value="{{ apk_managed_url or '' }}" placeholder="{{ apk_effective_url or 'https://...' }}" autocomplete="off" spellcheck="false">
-        </label>
-        <p class="muted" style="margin:0">URL đang áp dụng: <b>{{ apk_effective_url or 'Chưa cấu hình' }}</b>{% if apk_managed_url %} · <span style="color:var(--primary);font-weight:600">Đang dùng URL quản lý</span>{% else %} · đang dùng APP_BASE_URL bootstrap{% endif %}</p>
-        <p class="muted" style="margin:0">Nhập URL HTTPS máy chủ mới và bấm Lưu để APK tự chuyển hướng khi khởi động.</p>
-        <div class="row end" style="gap:10px;margin-top:8px">
-          {% if apk_managed_url %}
-          <button class="btn ghost" type="button" onclick="if(confirm('Xóa URL riêng để APK quay về APP_BASE_URL mặc định?')){this.form.apk_url.value='';this.form.submit();}">Quay về URL mặc định</button>
-          {% endif %}
-          <button class="btn" type="submit">Lưu URL APK</button>
-        </div>
-      </form>
-    </section>
-
     <section id="chatbot-logs" class="panel" style="margin-top:28px">
       <div class="section-head" style="margin-bottom:16px">
         <div>

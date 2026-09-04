@@ -7,13 +7,13 @@ import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -22,10 +22,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -40,18 +42,12 @@ import android.widget.Toast;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final String SERVER_URL = BuildConfig.APP_BASE_URL;
-    private static final String PREFS_NAME = "smart_tkb";
-    private static final String PREF_MANAGED_SERVER_URL = "managed_server_url";
-    private static final String PREF_LAST_WORKING_SERVER_URL = "last_working_server_url";
     private static final int STORAGE_PERMISSION_REQUEST = 41;
     private static final int FILE_CHOOSER_REQUEST = 42;
 
@@ -61,7 +57,7 @@ public class MainActivity extends Activity {
     private PendingDownload pendingDownload;
     private ValueCallback<Uri[]> filePathCallback;
     private boolean mainFrameLoadFailed;
-    private volatile String currentServerUrl = SERVER_URL;
+    private volatile String currentServerUrl = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -174,13 +170,6 @@ public class MainActivity extends Activity {
                 if (!mainFrameLoadFailed) {
                     errorPanel.setVisibility(View.GONE);
                     webView.setVisibility(View.VISIBLE);
-                    String workingUrl = normalizeHttpsBaseUrl(currentServerUrl);
-                    if (workingUrl != null) {
-                        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                                .edit()
-                                .putString(PREF_LAST_WORKING_SERVER_URL, workingUrl)
-                                .apply();
-                    }
                 }
                 CookieManager.getInstance().flush();
             }
@@ -188,10 +177,34 @@ public class MainActivity extends Activity {
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(view, request, error);
-                if (request.isForMainFrame()) {
-                    mainFrameLoadFailed = true;
-                    showConnectionError();
+                if (request.isForMainFrame() && isUrlFromCurrentServer(request.getUrl().toString())) {
+                    handleCurrentServerFailure(view);
                 }
+            }
+
+            @Override
+            public void onReceivedHttpError(
+                    WebView view,
+                    WebResourceRequest request,
+                    WebResourceResponse errorResponse
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse);
+                if (request.isForMainFrame()
+                        && errorResponse != null
+                        && errorResponse.getStatusCode() >= 500
+                        && isUrlFromCurrentServer(request.getUrl().toString())) {
+                    handleCurrentServerFailure(view);
+                }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                if (error != null && isUrlFromCurrentServer(error.getUrl())) {
+                    handler.cancel();
+                    handleCurrentServerFailure(view);
+                    return;
+                }
+                super.onReceivedSslError(view, handler, error);
             }
         });
 
@@ -343,95 +356,58 @@ public class MainActivity extends Activity {
             showConnectionError();
             return;
         }
+
+        String serverUrl = normalizeHttpsBaseUrl(SERVER_URL);
+        if (serverUrl == null) {
+            showConnectionError();
+            return;
+        }
+
         errorPanel.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
-
-        SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String cachedUrl = normalizeHttpsBaseUrl(preferences.getString(PREF_MANAGED_SERVER_URL, ""));
-        String lastWorkingUrl = normalizeHttpsBaseUrl(preferences.getString(PREF_LAST_WORKING_SERVER_URL, ""));
-        String buildUrl = normalizeHttpsBaseUrl(SERVER_URL);
-        currentServerUrl = cachedUrl != null ? cachedUrl : (lastWorkingUrl != null ? lastWorkingUrl : SERVER_URL);
-        webView.loadUrl(currentServerUrl);
-        refreshManagedServerUrl(buildUrl, lastWorkingUrl);
+        progressBar.setVisibility(View.VISIBLE);
+        loadServerUrl(serverUrl);
     }
 
-    private void refreshManagedServerUrl(String buildUrl, String lastWorkingUrl) {
-        new Thread(() -> {
-            String resolvedUrl = resolveManagedServerUrl(currentServerUrl, lastWorkingUrl, buildUrl);
-            if (resolvedUrl == null) return;
-
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                    .edit()
-                    .putString(PREF_MANAGED_SERVER_URL, resolvedUrl)
-                    .apply();
-
-            runOnUiThread(() -> {
-                if (isFinishing() || resolvedUrl.equals(currentServerUrl)) return;
-                currentServerUrl = resolvedUrl;
-                mainFrameLoadFailed = false;
-                errorPanel.setVisibility(View.GONE);
-                webView.setVisibility(View.VISIBLE);
-                webView.loadUrl(resolvedUrl);
-            });
-        }, "smart-tkb-mobile-config").start();
-    }
-
-    private String resolveManagedServerUrl(String currentUrl, String lastWorkingUrl, String buildUrl) {
-        String[] candidates = new String[]{currentUrl, lastWorkingUrl, buildUrl};
-        for (int index = 0; index < candidates.length; index++) {
-            String candidate = normalizeHttpsBaseUrl(candidates[index]);
-            if (candidate == null) continue;
-            boolean duplicate = false;
-            for (int previous = 0; previous < index; previous++) {
-                String previousCandidate = normalizeHttpsBaseUrl(candidates[previous]);
-                if (candidate.equals(previousCandidate)) {
-                    duplicate = true;
-                    break;
-                }
-            }
-            if (duplicate) continue;
-
-            String advertisedUrl = fetchManagedServerUrl(candidate);
-            if (advertisedUrl == null) continue;
-            if (candidate.equals(advertisedUrl) || fetchManagedServerUrl(advertisedUrl) != null) {
-                return advertisedUrl;
-            }
-
-            // Server nguồn vẫn hoạt động nhưng URL mới đang lỗi: giữ server
-            // đang dùng được thay vì ghi đè cache bằng một địa chỉ chết.
-            return candidate;
+    private void loadServerUrl(String url) {
+        String normalizedUrl = normalizeHttpsBaseUrl(url);
+        if (normalizedUrl == null) {
+            showConnectionError();
+            return;
         }
-        return null;
+
+        currentServerUrl = normalizedUrl;
+        mainFrameLoadFailed = false;
+        errorPanel.setVisibility(View.GONE);
+        webView.setVisibility(View.VISIBLE);
+        webView.loadUrl(normalizedUrl);
     }
 
-    private String fetchManagedServerUrl(String baseUrl) {
-        String normalizedBaseUrl = normalizeHttpsBaseUrl(baseUrl);
-        if (normalizedBaseUrl == null) return null;
-        HttpURLConnection connection = null;
+    private void handleCurrentServerFailure(WebView view) {
+        if (mainFrameLoadFailed) return;
+        mainFrameLoadFailed = true;
+        if (view != null) view.stopLoading();
+        showConnectionError();
+    }
+
+    private boolean isUrlFromCurrentServer(String rawUrl) {
+        String current = normalizeHttpsBaseUrl(currentServerUrl);
+        if (current == null || rawUrl == null) return false;
+
         try {
-            URL configUrl = new URL(normalizedBaseUrl + "/api/mobile/config");
-            connection = (HttpURLConnection) configUrl.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(2500);
-            connection.setReadTimeout(2500);
-            connection.setUseCaches(false);
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty("Cache-Control", "no-cache");
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return null;
-
-            StringBuilder body = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    connection.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) body.append(line);
-            }
-            JSONObject response = new JSONObject(body.toString());
-            return normalizeHttpsBaseUrl(response.optString("apk_base_url", ""));
+            URI currentUri = new URI(current);
+            URI requestUri = new URI(rawUrl);
+            return currentUri.getScheme().equalsIgnoreCase(requestUri.getScheme())
+                    && currentUri.getHost().equalsIgnoreCase(requestUri.getHost())
+                    && effectivePort(currentUri) == effectivePort(requestUri);
         } catch (Exception ignored) {
-            return null;
-        } finally {
-            if (connection != null) connection.disconnect();
+            return false;
         }
+    }
+
+    private int effectivePort(URI uri) {
+        if (uri.getPort() >= 0) return uri.getPort();
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 
     private String normalizeHttpsBaseUrl(String rawUrl) {

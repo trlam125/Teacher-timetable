@@ -23,7 +23,7 @@ from app.logic import (
     revoke_last_teacher_profile,
     schedule_validation_peers,
 )
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -685,7 +685,6 @@ MIN_PASSWORD_LENGTH = 8
 SESSION_TTL_SECONDS = max(300, int(os.getenv("SESSION_TTL_SECONDS", str(12 * 60 * 60))))
 APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
 APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
-APK_BASE_URL_SETTING_KEY = "apk_base_url"
 BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
 BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
 try:
@@ -805,42 +804,6 @@ def public_base_url(request: Request) -> str | None:
     if development_reset_links_enabled(request):
         return str(request.base_url).rstrip("/")
     return None
-
-def normalize_https_base_url(raw_url: str) -> str | None:
-    value = (raw_url or "").strip().rstrip("/")
-    if not value or any(char.isspace() for char in value):
-        return None
-    try:
-        parsed = urlsplit(value)
-        port = parsed.port
-    except ValueError:
-        return None
-    if (
-        parsed.scheme.lower() != "https"
-        or not parsed.hostname
-        or parsed.username
-        or parsed.password
-        or parsed.query
-        or parsed.fragment
-        or parsed.path not in {"", "/"}
-    ):
-        return None
-
-    host = parsed.hostname
-    authority = f"[{host}]" if ":" in host else host
-    if port is not None:
-        authority += f":{port}"
-    return f"https://{authority}"
-
-def system_setting(db: Session, key: str) -> str:
-    row = db.get(SystemSetting, key)
-    return (row.value if row else "").strip()
-
-def managed_apk_base_url(db: Session) -> str:
-    return system_setting(db, APK_BASE_URL_SETTING_KEY).rstrip("/")
-
-def effective_apk_base_url(db: Session) -> str:
-    return managed_apk_base_url(db) or APP_BASE_URL
 
 def db_session():
     db = SessionLocal()
@@ -2182,9 +2145,11 @@ def logout():
     res = RedirectResponse("/", 303); res.delete_cookie("session"); return res
 
 @app.get("/api/mobile/config")
-def mobile_config(db: Session = Depends(db_session)):
+def mobile_config():
+    # Legacy endpoint for APK <= 1.0.4. New APK versions discover the backend
+    # through Firebase Hosting config.json and do not depend on this endpoint.
     return JSONResponse(
-        {"apk_base_url": effective_apk_base_url(db)},
+        {"apk_base_url": APP_BASE_URL},
         headers={"Cache-Control": "no-store, max-age=0"},
     )
 
@@ -2242,9 +2207,6 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
         "request": request,
         "user": user,
         "users": users,
-        "apk_managed_url": managed_apk_base_url(db),
-        "apk_effective_url": effective_apk_base_url(db),
-        "apk_url_status": request.query_params.get("apk_url_status", ""),
         "available_teachers": available_teachers,
         "managed_projects": projects,
         "managed_teacher_ids": managed_teacher_ids,
@@ -2254,37 +2216,6 @@ def admin_users(request: Request, user: User = Depends(current_user), db: Sessio
         "chatbot_error_log_count": chatbot_error_log_count,
         **chatbot_ui_context(projects[-1] if projects else None),
     })
-
-@app.post("/admin/mobile-url")
-def update_mobile_url(
-    apk_url: str = Form(""),
-    user: User = Depends(current_user),
-    db: Session = Depends(db_session),
-):
-    if not is_super_admin(user):
-        raise HTTPException(403, "Chỉ super admin được thay đổi URL của APK")
-
-    raw_url = (apk_url or "").strip()
-    if raw_url:
-        normalized = normalize_https_base_url(raw_url)
-        if not normalized:
-            return RedirectResponse("/admin/users?apk_url_status=invalid#apk-url", 303)
-        setting = db.get(SystemSetting, APK_BASE_URL_SETTING_KEY)
-        if setting is None:
-            setting = SystemSetting(key=APK_BASE_URL_SETTING_KEY, value=normalized)
-            db.add(setting)
-        else:
-            setting.value = normalized
-            setting.updated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        status = "saved"
-    else:
-        setting = db.get(SystemSetting, APK_BASE_URL_SETTING_KEY)
-        if setting is not None:
-            db.delete(setting)
-        status = "cleared"
-
-    db.commit()
-    return RedirectResponse(f"/admin/users?apk_url_status={status}#apk-url", 303)
 
 @app.post("/admin/chatbot-logs/clear")
 def clear_chatbot_error_logs(
