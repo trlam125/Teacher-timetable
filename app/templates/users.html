@@ -45,10 +45,19 @@
           <summary>Chỉnh sửa thông tin</summary>
           <form method="post" action="/admin/users/{{account.id}}/update" class="account-edit-form">
             <label>Họ tên<input name="name" value="{{account.name}}" required></label>
-            <label>Email<input type="email" name="email" value="{{account.email}}" required></label>
             <label>Mật khẩu mới<input type="password" name="password" minlength="8"
                 placeholder="Để trống nếu không đổi"></label>
-            <div class="row end"><button class="btn">Lưu thay đổi</button></div>
+            <div class="row end"><button class="btn">Lưu tên / mật khẩu</button></div>
+          </form>
+          <form method="post" action="/account/email-change/prepare" class="account-edit-form" style="margin-top:16px">
+            <input type="hidden" name="account_id" value="{{account.id}}">
+            <label>Email hiện tại<input type="email" value="{{account.email}}" disabled></label>
+            <label>Email mới<input type="email" name="email" required placeholder="Nhập email mới"></label>
+            {% if account.id == user.id %}
+            <label>Mật khẩu hiện tại<input type="password" name="current_password" required autocomplete="current-password"></label>
+            {% endif %}
+            <p class="muted">Sau bước này hệ thống sẽ hỏi xác nhận, rồi mới gửi OTP tới email mới.</p>
+            <div class="row end"><button class="btn ghost" type="submit">Tiếp tục đổi email</button></div>
           </form>
         </details>
         {% if account.role == 'teacher' and account.id in managed_account_ids %}

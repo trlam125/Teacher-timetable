@@ -112,6 +112,18 @@ class RegistrationVerification(Base):
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String(40), default=lambda: datetime.now(timezone.utc).isoformat())
 
+class EmailChangeVerification(Base):
+    __tablename__ = "email_change_verifications"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    requested_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    new_email: Mapped[str] = mapped_column(String(255), index=True)
+    otp_hash: Mapped[str] = mapped_column(String(64))
+    token_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[str] = mapped_column(String(40))
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[str] = mapped_column(String(40), default=lambda: datetime.now(timezone.utc).isoformat())
+
 class Project(Base):
     __tablename__ = "projects"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -237,7 +249,12 @@ class TeacherPreference(Base):
     __tablename__ = "teacher_preferences"
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
+    # teacher_id chỉ còn phục vụ dữ liệu legacy. Nguyện vọng mới gắn với tài
+    # khoản đã xác minh email, tránh khôi phục cơ chế gán account -> Teacher.
+    teacher_id: Mapped[Optional[int]] = mapped_column(ForeignKey("teachers.id"), nullable=True, index=True)
+    submitted_by_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    submitted_name: Mapped[str] = mapped_column(String(120), default="")
+    submitted_email: Mapped[str] = mapped_column(String(255), default="")
     preferred_json: Mapped[str] = mapped_column(Text, default="[]")
     unavailable_json: Mapped[str] = mapped_column(Text, default="[]")
     note: Mapped[str] = mapped_column(Text, default="")
@@ -328,8 +345,14 @@ def migrate_schema():
                     configured_super_admin_id,
                 )
 
+        existing_super_admin_id = connection.exec_driver_sql(
+            "SELECT id FROM users WHERE role='super_admin' ORDER BY id ASC LIMIT 1"
+        ).scalar()
         bootstrap_super_admin_exists = False
-        if configured_super_admin_id <= 0 and bootstrap_email:
+        # BOOTSTRAP_ADMIN_EMAIL chỉ dùng để khởi tạo/khôi phục khi database chưa
+        # có super_admin. Sau khi super admin đổi email, không được tạo lại tài
+        # khoản email bootstrap cũ rồi hạ quyền tài khoản hiện tại.
+        if configured_super_admin_id <= 0 and existing_super_admin_id is None and bootstrap_email:
             bootstrap_super_admin_exists = connection.exec_driver_sql(
                 "SELECT 1 FROM users WHERE lower(email)=lower(%s)",
                 (bootstrap_email,),
@@ -379,10 +402,32 @@ def migrate_schema():
             )
         if "teacher_account_links" in inspector.get_table_names():
             connection.exec_driver_sql("DROP TABLE teacher_account_links")
-        # teacher_preferences được giữ lại có chủ đích như dữ liệu lịch sử/tham khảo.
-        # Không migrate chúng thành teacher.unavailable_json và không dùng chúng làm
-        # ràng buộc xếp lịch; các liên kết tài khoản giáo viên legacy ở trên mới là
-        # phần cần loại bỏ khỏi schema.
+        # teacher_preferences được giữ lại có chủ đích như dữ liệu tham khảo.
+        # Từ phiên bản này, nguyện vọng mới gắn với tài khoản đã xác minh email
+        # thay vì hồ sơ Teacher, để không khôi phục cơ chế gán account -> Teacher.
+        if "teacher_preferences" in inspector.get_table_names():
+            preference_columns = {column["name"] for column in inspector.get_columns("teacher_preferences")}
+            if "submitted_by_user_id" not in preference_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE teacher_preferences ADD COLUMN submitted_by_user_id INTEGER"
+                )
+            if "submitted_name" not in preference_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE teacher_preferences ADD COLUMN submitted_name VARCHAR(120) NOT NULL DEFAULT ''"
+                )
+            if "submitted_email" not in preference_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE teacher_preferences ADD COLUMN submitted_email VARCHAR(255) NOT NULL DEFAULT ''"
+                )
+            connection.exec_driver_sql(
+                "ALTER TABLE teacher_preferences ALTER COLUMN teacher_id DROP NOT NULL"
+            )
+            connection.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_teacher_preferences_submitted_by_user_id "
+                "ON teacher_preferences (submitted_by_user_id)"
+            )
+        # Không migrate nguyện vọng thành teacher.unavailable_json và không dùng
+        # chúng làm ràng buộc xếp lịch.
         connection.exec_driver_sql(
             "ALTER TABLE users ALTER COLUMN role SET DEFAULT 'teacher'"
         )
@@ -680,6 +725,8 @@ signer = URLSafeTimedSerializer(SECRET_KEY, salt="session")
 reset_signer = URLSafeTimedSerializer(SECRET_KEY, salt="password-reset")
 captcha_signer = URLSafeTimedSerializer(SECRET_KEY, salt="forgot-password-captcha")
 registration_signer = URLSafeTimedSerializer(SECRET_KEY, salt="registration-verification")
+email_change_signer = URLSafeTimedSerializer(SECRET_KEY, salt="email-change-confirmation")
+email_change_otp_signer = URLSafeTimedSerializer(SECRET_KEY, salt="email-change-verification")
 
 app = FastAPI(title="Teacher Timetable")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -690,6 +737,9 @@ RESET_TOKEN_TTL_SECONDS = 30 * 60
 REGISTRATION_OTP_TTL_SECONDS = 10 * 60
 REGISTRATION_OTP_RESEND_SECONDS = 60
 REGISTRATION_OTP_MAX_ATTEMPTS = 5
+EMAIL_CHANGE_CONFIRM_TTL_SECONDS = 10 * 60
+EMAIL_CHANGE_OTP_TTL_SECONDS = 10 * 60
+EMAIL_CHANGE_OTP_MAX_ATTEMPTS = 5
 MIN_PASSWORD_LENGTH = 8
 SESSION_TTL_SECONDS = max(300, int(os.getenv("SESSION_TTL_SECONDS", str(12 * 60 * 60))))
 APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
@@ -936,6 +986,28 @@ def rate_limit_exceeded(scope: str, identity: str, *, limit: int, window_seconds
             )
     return int(row) > limit
 
+def rate_limit_blocked(scope: str, identity: str, *, limit: int, window_seconds: int) -> bool:
+    """Kiểm tra bucket hiện tại mà không tăng bộ đếm."""
+    now_epoch = int(datetime.now(timezone.utc).timestamp())
+    cutoff = now_epoch - window_seconds
+    bucket_key = f"{scope}:{_rate_limit_identity(identity.strip().lower())}"
+    with engine.begin() as connection:
+        row = connection.exec_driver_sql(
+            "SELECT window_started_at, count FROM rate_limit_buckets WHERE bucket_key=%s",
+            (bucket_key,),
+        ).mappings().first()
+    if not row or int(row["window_started_at"]) < cutoff:
+        return False
+    return int(row["count"]) >= limit
+
+def clear_rate_limit_bucket(scope: str, identity: str) -> None:
+    bucket_key = f"{scope}:{_rate_limit_identity(identity.strip().lower())}"
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "DELETE FROM rate_limit_buckets WHERE bucket_key=%s",
+            (bucket_key,),
+        )
+
 def send_email_message(recipient: str, subject: str, body: str) -> bool:
     smtp_host = os.getenv("SMTP_HOST", "").strip()
     if not smtp_host:
@@ -995,6 +1067,19 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
 
 def registration_otp_hash(email: str, otp: str) -> str:
     return hmac.new(SECRET_KEY.encode(), f"{email}:{otp}".encode(), hashlib.sha256).hexdigest()
+
+def send_email_change_otp_email(recipient: str, otp: str) -> bool:
+    return send_email_message(
+        recipient,
+        "Mã xác nhận đổi email Smart TKB",
+        f"Mã OTP xác nhận email mới của bạn là: {otp}\n\n"
+        "Mã có hiệu lực trong 10 phút và chỉ dùng được một lần.\n\n"
+        "Nếu bạn không yêu cầu thay đổi email, hãy bỏ qua thư này.",
+    )
+
+def email_change_otp_hash(user_id: int, email: str, otp: str) -> str:
+    value = f"email-change:{user_id}:{email.lower().strip()}:{otp}"
+    return hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
 
 def public_base_url(request: Request) -> str | None:
     if APP_BASE_URL:
@@ -1775,17 +1860,28 @@ def login_page(request: Request):
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(db_session)):
     normalized_email = email.lower().strip()
+    ip_key = client_rate_limit_key(request)
     if (
-        rate_limit_exceeded("login_ip", client_rate_limit_key(request), limit=20, window_seconds=10 * 60)
-        or rate_limit_exceeded("login_email", normalized_email, limit=8, window_seconds=10 * 60)
+        rate_limit_blocked("login_ip", ip_key, limit=20, window_seconds=10 * 60)
+        or rate_limit_blocked("login_email", normalized_email, limit=8, window_seconds=10 * 60)
     ):
         return templates.TemplateResponse("auth.html", {
             "request": request, "mode": "login",
-            "error": "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.",
+            "error": "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.",
         }, status_code=429)
     user = db.scalar(select(User).where(User.email == normalized_email))
     if not user or not pwd.verify(password, user.password_hash):
+        ip_limited = rate_limit_exceeded("login_ip", ip_key, limit=20, window_seconds=10 * 60)
+        email_limited = rate_limit_exceeded("login_email", normalized_email, limit=8, window_seconds=10 * 60)
+        if ip_limited or email_limited:
+            return templates.TemplateResponse("auth.html", {
+                "request": request, "mode": "login",
+                "error": "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.",
+            }, status_code=429)
         return templates.TemplateResponse("auth.html", {"request": request, "mode": "login", "error": "Email hoặc mật khẩu không đúng"}, status_code=400)
+    # Chỉ lỗi đăng nhập mới được tính vào rate-limit. Đăng nhập đúng xóa bucket
+    # theo email để các lần đăng nhập hợp lệ không tự khóa tài khoản.
+    clear_rate_limit_bucket("login_email", normalized_email)
     destination = "/teacher" if user.role == "teacher" else ("/projects" if is_admin(user) else "/logout")
     res = RedirectResponse(destination, 303)
     set_session_cookie(res, user)
@@ -2286,7 +2382,6 @@ def clear_chatbot_error_logs(
 def update_account(
     account_id: int,
     name: str = Form(...),
-    email: str = Form(...),
     password: str = Form(""),
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
@@ -2296,15 +2391,7 @@ def update_account(
     account = db.get(User, account_id)
     if not account or not admin_can_manage_account(user, account):
         raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
-    name = bounded_text(name, "Họ tên", 120)
-    email = bounded_text(email.lower(), "Email", 255)
-    if "@" not in email:
-        raise HTTPException(400, "Email không hợp lệ")
-    conflict = db.scalar(select(User).where(User.email == email, User.id != account.id))
-    if conflict:
-        raise HTTPException(409, "Email đã được dùng cho tài khoản khác")
-    account.name = name
-    account.email = email
+    account.name = bounded_text(name, "Họ tên", 120)
     password_changed = bool(password.strip())
     if password_changed:
         if len(password.strip()) < MIN_PASSWORD_LENGTH:
@@ -2332,6 +2419,10 @@ def delete_account(
         raise HTTPException(400, "Không thể xóa chính tài khoản đang đăng nhập")
     if db.scalar(select(Project.id).where(Project.owner_id == account.id)) is not None:
         raise HTTPException(400, "Không thể xóa tài khoản đang sở hữu bộ thời khóa biểu")
+    db.execute(delete(EmailChangeVerification).where(
+        (EmailChangeVerification.user_id == account.id) |
+        (EmailChangeVerification.requested_by_user_id == account.id)
+    ))
     db.delete(account)
     db.commit()
     return RedirectResponse("/admin/users", 303)
@@ -4410,8 +4501,9 @@ def generate(pid:int,payload:Optional[GenerateScheduleIn]=None,user:User=Depends
         db.flush()
         existing=db.scalars(select(Lesson).where(Lesson.project_id==pid)).all()
 
-    # Rà lại lịch cũ trước mỗi lần xếp. Ràng buộc hoặc nguyện vọng có thể đã
-    # thay đổi sau khi lịch được tạo, vì vậy không được coi "đủ tiết" là hợp lệ.
+    # Rà lại lịch cũ trước mỗi lần xếp vì các ràng buộc chính thức có thể đã
+    # thay đổi sau khi lịch được tạo. Nguyện vọng giáo viên chỉ để tham khảo
+    # và tuyệt đối không được đọc ở đây hoặc ở solver.
     invalid_lessons=[]
     rebuild_assignment_ids=set()
     for lesson in existing:
@@ -4749,10 +4841,13 @@ def teacher_portal(request:Request,project_id:Optional[int]=None,user:User=Depen
             "request":request,"user":user,
         })
     project=teacher_view_project(user,db,project_id)
+    preference_history = teacher_own_preference_payload(db, project, user.id)
     return templates.TemplateResponse("teacher_portal.html",{
         "request":request,"user":user,"p":project,
         "data":public_project_data(db,project),"days":DAYS,
         "teacher_projects":projects,
+        "preference_history":preference_history,
+        "preference_saved":request.query_params.get("preference_saved") == "1",
         **chatbot_ui_context(project),
     })
 
@@ -4763,62 +4858,230 @@ def api_teacher_data(project_id:Optional[int]=None,user:User=Depends(current_use
         raise HTTPException(404,"Chưa có bộ thời khóa biểu nào")
     return public_project_data(db,project)
 
-@app.get("/teacher/account",response_class=HTMLResponse)
-def teacher_account_page(request:Request,project_id:Optional[int]=None,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    if user.role!="teacher":
-        raise HTTPException(403,"Tài khoản giáo viên không hợp lệ")
-    project=db.get(Project,project_id) if project_id is not None else None
-    return templates.TemplateResponse("teacher_account.html",{
-        "request":request,"user":user,"p":project,"error":None,"success":None,
-        **chatbot_ui_context(project),
+def email_change_target(account_id: str, actor: User, db: Session) -> User:
+    raw = str(account_id or "").strip()
+    if not raw:
+        return actor
+    try:
+        target_id = int(raw)
+    except ValueError as exc:
+        raise HTTPException(400, "Tài khoản cần đổi email không hợp lệ") from exc
+    target = db.get(User, target_id)
+    if not target or not admin_can_manage_account(actor, target):
+        raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
+    return target
+
+def email_change_back_path(actor: User, project_id: Optional[int] = None) -> str:
+    if actor.role == "teacher":
+        return f"/teacher?project_id={project_id}" if project_id is not None else "/teacher"
+    return "/admin/users"
+
+def email_change_confirmation_data(token: str, actor: User, db: Session) -> tuple[User, str, Optional[int]]:
+    try:
+        data = email_change_signer.loads(token, max_age=EMAIL_CHANGE_CONFIRM_TTL_SECONDS)
+        if int(data["actor_id"]) != actor.id:
+            raise HTTPException(403, "Phiên xác nhận đổi email không thuộc tài khoản này")
+        target = db.get(User, int(data["account_id"]))
+        if not target:
+            raise HTTPException(404, "Tài khoản không còn tồn tại")
+        if target.id != actor.id and not admin_can_manage_account(actor, target):
+            raise HTTPException(403, "Bạn không còn quyền đổi email tài khoản này")
+        new_email = str(data["new_email"]).lower().strip()
+        project_id = data.get("project_id")
+        return target, new_email, int(project_id) if project_id is not None else None
+    except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(400, "Phiên xác nhận đổi email không hợp lệ hoặc đã hết hạn") from exc
+
+def email_change_verification_for_token(token: str, actor: User, db: Session) -> EmailChangeVerification | None:
+    try:
+        data = email_change_otp_signer.loads(token, max_age=EMAIL_CHANGE_OTP_TTL_SECONDS)
+        row = db.scalar(select(EmailChangeVerification).where(
+            EmailChangeVerification.id == int(data["id"])
+        ).with_for_update())
+        if not row or row.requested_by_user_id != actor.id:
+            return None
+        nonce_hash = hashlib.sha256(str(data["nonce"]).encode()).hexdigest()
+        if not hmac.compare_digest(row.token_hash, nonce_hash):
+            return None
+        return row
+    except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
+        return None
+
+@app.get("/account/email-change", response_class=HTMLResponse)
+def email_change_page(
+    request: Request,
+    project_id: Optional[int] = None,
+    user: User = Depends(current_user),
+):
+    return templates.TemplateResponse("email_change.html", {
+        "request": request, "mode": "start", "user": user, "target": user,
+        "project_id": project_id, "error": None,
+        "back_path": email_change_back_path(user, project_id),
     })
 
-@app.post("/teacher/account",response_class=HTMLResponse)
-def update_teacher_account(
-    request:Request,
-    email:str=Form(...),
-    current_password:str=Form(...),
-    new_password:str=Form(""),
-    confirm_password:str=Form(""),
-    project_id:Optional[int]=None,
-    user:User=Depends(current_user),
-    db:Session=Depends(db_session),
+@app.post("/account/email-change/prepare", response_class=HTMLResponse)
+def prepare_email_change(
+    request: Request,
+    email: str = Form(...),
+    current_password: str = Form(""),
+    account_id: str = Form(""),
+    project_id: Optional[int] = Form(None),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
 ):
-    if user.role!="teacher":
-        raise HTTPException(403,"Tài khoản giáo viên không hợp lệ")
-    project=db.get(Project,project_id) if project_id is not None else None
-    context={"request":request,"user":user,"p":project,"error":None,"success":None,**chatbot_ui_context(project)}
-    if not pwd.verify(current_password,user.password_hash):
-        context["error"]="Mật khẩu hiện tại không đúng."
-        return templates.TemplateResponse("teacher_account.html",context,status_code=400)
-    normalized_email=email.lower().strip()
-    if not normalized_email or "@" not in normalized_email:
-        context["error"]="Email không hợp lệ."
-        return templates.TemplateResponse("teacher_account.html",context,status_code=400)
-    if len(normalized_email)>255:
-        context["error"]="Email không được vượt quá 255 ký tự."
-        return templates.TemplateResponse("teacher_account.html",context,status_code=400)
-    email_owner=db.scalar(select(User).where(User.email==normalized_email,User.id!=user.id))
-    if email_owner:
-        context["error"]="Email đã được sử dụng bởi tài khoản khác."
-        return templates.TemplateResponse("teacher_account.html",context,status_code=409)
-    password_changed=bool(new_password)
-    if password_changed:
-        if len(new_password)<MIN_PASSWORD_LENGTH:
-            context["error"]=f"Mật khẩu mới phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự."
-            return templates.TemplateResponse("teacher_account.html",context,status_code=400)
-        if new_password!=confirm_password:
-            context["error"]="Xác nhận mật khẩu mới không khớp."
-            return templates.TemplateResponse("teacher_account.html",context,status_code=400)
-        user.password_hash=pwd.hash(new_password)
-        user.session_version+=1
-    user.email=normalized_email
+    target = email_change_target(account_id, user, db)
+    new_email = bounded_text(email.lower(), "Email mới", 255)
+    back_path = email_change_back_path(user, project_id)
+    context = {
+        "request": request, "mode": "start", "user": user, "target": target,
+        "project_id": project_id, "error": None, "back_path": back_path,
+    }
+    if "@" not in new_email:
+        context["error"] = "Email mới không hợp lệ."
+        return templates.TemplateResponse("email_change.html", context, status_code=400)
+    if new_email == target.email.lower().strip():
+        context["error"] = "Email mới phải khác email hiện tại."
+        return templates.TemplateResponse("email_change.html", context, status_code=400)
+    if target.id == user.id and (not current_password or not pwd.verify(current_password, target.password_hash)):
+        context["error"] = "Vui lòng nhập đúng mật khẩu hiện tại trước khi đổi email."
+        return templates.TemplateResponse("email_change.html", context, status_code=400)
+    if db.scalar(select(User.id).where(func.lower(User.email) == new_email, User.id != target.id)) is not None:
+        context["error"] = "Email mới đã được sử dụng bởi tài khoản khác."
+        return templates.TemplateResponse("email_change.html", context, status_code=409)
+    confirmation_token = email_change_signer.dumps({
+        "actor_id": user.id,
+        "account_id": target.id,
+        "new_email": new_email,
+        "project_id": project_id,
+    })
+    return templates.TemplateResponse("email_change.html", {
+        "request": request, "mode": "confirm", "user": user, "target": target,
+        "new_email": new_email, "confirmation_token": confirmation_token,
+        "back_path": back_path, "error": None,
+    })
+
+@app.post("/account/email-change/confirm", response_class=HTMLResponse)
+def confirm_email_change(
+    request: Request,
+    confirmation_token: str = Form(...),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    target, new_email, project_id = email_change_confirmation_data(confirmation_token, user, db)
+    back_path = email_change_back_path(user, project_id)
+    if db.scalar(select(User.id).where(func.lower(User.email) == new_email, User.id != target.id)) is not None:
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "confirm", "user": user, "target": target,
+            "new_email": new_email, "confirmation_token": confirmation_token,
+            "back_path": back_path, "error": "Email mới vừa được tài khoản khác sử dụng.",
+        }, status_code=409)
+    if (
+        rate_limit_exceeded("email_change_actor", str(user.id), limit=5, window_seconds=15 * 60)
+        or rate_limit_exceeded("email_change_target", new_email, limit=5, window_seconds=15 * 60)
+    ):
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "confirm", "user": user, "target": target,
+            "new_email": new_email, "confirmation_token": confirmation_token,
+            "back_path": back_path, "error": "Bạn đã yêu cầu đổi email quá nhiều lần. Vui lòng thử lại sau.",
+        }, status_code=429)
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    try:
+        if not send_email_change_otp_email(new_email, otp):
+            raise RuntimeError("SMTP chưa được cấu hình")
+    except (OSError, smtplib.SMTPException, RuntimeError, ValueError) as exc:
+        logger.exception("Could not send email-change OTP to %s: %s", new_email, exc)
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "confirm", "user": user, "target": target,
+            "new_email": new_email, "confirmation_token": confirmation_token,
+            "back_path": back_path, "error": "Chưa thể gửi OTP tới email mới. Vui lòng thử lại sau.",
+        }, status_code=503)
+    old = db.scalar(select(EmailChangeVerification).where(EmailChangeVerification.user_id == target.id).with_for_update())
+    if old:
+        db.delete(old)
+        db.flush()
+    nonce = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    verification = EmailChangeVerification(
+        user_id=target.id,
+        requested_by_user_id=user.id,
+        new_email=new_email,
+        otp_hash=email_change_otp_hash(target.id, new_email, otp),
+        token_hash=hashlib.sha256(nonce.encode()).hexdigest(),
+        expires_at=(now + timedelta(seconds=EMAIL_CHANGE_OTP_TTL_SECONDS)).isoformat(),
+        attempt_count=0,
+    )
+    db.add(verification)
     db.commit()
-    context["user"]=user
-    context["success"]="Thông tin tài khoản đã được cập nhật."
-    response=templates.TemplateResponse("teacher_account.html",context)
-    if password_changed:
-        set_session_cookie(response,user)
+    verification_token = email_change_otp_signer.dumps({"id": verification.id, "nonce": nonce})
+    return templates.TemplateResponse("email_change.html", {
+        "request": request, "mode": "otp", "user": user, "target": target,
+        "masked_email": mask_email(new_email), "verification_token": verification_token,
+        "back_path": back_path, "error": None,
+    })
+
+@app.post("/account/email-change/verify", response_class=HTMLResponse)
+def verify_email_change(
+    request: Request,
+    verification_token: str = Form(...),
+    otp: str = Form(...),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    verification = email_change_verification_for_token(verification_token, user, db)
+    if not verification:
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "expired", "user": user,
+            "back_path": email_change_back_path(user),
+            "error": "Phiên xác minh email không hợp lệ hoặc đã hết hạn.",
+        }, status_code=400)
+    target = db.get(User, verification.user_id)
+    if not target or (target.id != user.id and not admin_can_manage_account(user, target)):
+        raise HTTPException(403, "Bạn không còn quyền đổi email tài khoản này")
+    now = datetime.now(timezone.utc)
+    if datetime.fromisoformat(verification.expires_at) <= now:
+        db.delete(verification)
+        db.commit()
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "expired", "user": user,
+            "back_path": email_change_back_path(user),
+            "error": "Mã OTP đã hết hạn. Hãy bắt đầu lại thao tác đổi email.",
+        }, status_code=400)
+    if verification.attempt_count >= EMAIL_CHANGE_OTP_MAX_ATTEMPTS:
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "expired", "user": user,
+            "back_path": email_change_back_path(user),
+            "error": "Bạn đã nhập sai quá số lần cho phép. Hãy bắt đầu lại thao tác đổi email.",
+        }, status_code=429)
+    normalized_otp = otp.strip()
+    if not normalized_otp.isdigit() or len(normalized_otp) != 6 or not hmac.compare_digest(
+        verification.otp_hash,
+        email_change_otp_hash(target.id, verification.new_email, normalized_otp),
+    ):
+        verification.attempt_count += 1
+        remaining = max(0, EMAIL_CHANGE_OTP_MAX_ATTEMPTS - verification.attempt_count)
+        db.commit()
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "otp", "user": user, "target": target,
+            "masked_email": mask_email(verification.new_email), "verification_token": verification_token,
+            "back_path": email_change_back_path(user),
+            "error": f"Mã OTP không đúng. Bạn còn {remaining} lần thử.",
+        }, status_code=400)
+    if db.scalar(select(User.id).where(func.lower(User.email) == verification.new_email, User.id != target.id)) is not None:
+        return templates.TemplateResponse("email_change.html", {
+            "request": request, "mode": "expired", "user": user,
+            "back_path": email_change_back_path(user),
+            "error": "Email mới vừa được tài khoản khác sử dụng. Hãy chọn email khác.",
+        }, status_code=409)
+    target.email = verification.new_email
+    target.session_version += 1
+    db.delete(verification)
+    db.commit()
+    response = templates.TemplateResponse("email_change.html", {
+        "request": request, "mode": "success", "user": target if target.id == user.id else user,
+        "target": target, "back_path": email_change_back_path(user), "error": None,
+    })
+    if target.id == user.id:
+        set_session_cookie(response, target)
     return response
 
 @app.get("/share/{token}",response_class=HTMLResponse)
@@ -4827,6 +5090,84 @@ def shared(token:str,request:Request,db:Session=Depends(db_session)):
     if not p: raise HTTPException(404)
     return templates.TemplateResponse("share.html",{"request":request,"p":p,"data":public_project_data(db,p),"days":DAYS})
 
+
+def teacher_own_preference_payload(db: Session, project: Project, user_id: int) -> list[dict]:
+    rows = db.scalars(
+        select(TeacherPreference).where(
+            TeacherPreference.project_id == project.id,
+            TeacherPreference.submitted_by_user_id == user_id,
+        ).order_by(TeacherPreference.id.desc()).limit(10)
+    ).all()
+    def label(slot: int) -> str:
+        day, session, period = slot_meta(project, slot)
+        session_text = f"{'Sáng' if session == 0 else 'Chiều'} · " if project.sessions > 1 else ""
+        return f"{DAYS[day]} · {session_text}Tiết {period + 1}"
+    items = []
+    for row in rows:
+        preferred = valid_slots(project, parse_slots(row.preferred_json), strict=False)
+        unavailable = valid_slots(project, parse_slots(row.unavailable_json), strict=False)
+        items.append({
+            "id": row.id,
+            "preferred_labels": [label(slot) for slot in preferred],
+            "unavailable_labels": [label(slot) for slot in unavailable],
+            "note": row.note,
+            "status": row.status,
+            "created_at": row.created_at,
+        })
+    return items
+
+@app.post("/teacher/preferences")
+def submit_teacher_preference(
+    project_id: int = Form(...),
+    preferred_slots: str = Form("[]"),
+    unavailable_slots: str = Form("[]"),
+    note: str = Form(""),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "teacher":
+        raise HTTPException(403, "Chỉ tài khoản giáo viên được gửi nguyện vọng")
+    project = teacher_view_project(user, db, project_id)
+    if not project:
+        raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+    try:
+        preferred_raw = json.loads(preferred_slots)
+        unavailable_raw = json.loads(unavailable_slots)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(400, "Danh sách tiết nguyện vọng không hợp lệ") from exc
+    preferred = valid_slots(project, preferred_raw, strict=True)
+    unavailable = valid_slots(project, unavailable_raw, strict=True)
+    overlap = sorted(set(preferred) & set(unavailable))
+    if overlap:
+        raise HTTPException(400, "Một tiết không thể vừa là mong muốn vừa là cần tránh")
+    note = bounded_text(note, "Ghi chú", 2000, required=False)
+    if not preferred and not unavailable and not note:
+        raise HTTPException(400, "Hãy chọn ít nhất một tiết hoặc nhập ghi chú nguyện vọng")
+    # Mỗi lần gửi mới chỉ thay thế nguyện vọng đang chờ trước đó của chính tài
+    # khoản này. Không ghi sang Teacher.unavailable_json, không tạo constraint
+    # và không gọi bất kỳ hàm xếp lịch nào.
+    pending_rows = db.scalars(select(TeacherPreference).where(
+        TeacherPreference.project_id == project.id,
+        TeacherPreference.submitted_by_user_id == user.id,
+        TeacherPreference.status == "pending",
+    )).all()
+    now_text = datetime.now().isoformat(timespec="seconds")
+    for old in pending_rows:
+        old.status = "superseded"
+        old.reviewed_at = now_text
+    db.add(TeacherPreference(
+        project_id=project.id,
+        teacher_id=None,
+        submitted_by_user_id=user.id,
+        submitted_name=user.name,
+        submitted_email=user.email,
+        preferred_json=json.dumps(preferred),
+        unavailable_json=json.dumps(unavailable),
+        note=note,
+        status="pending",
+    ))
+    db.commit()
+    return RedirectResponse(f"/teacher?project_id={project.id}&preference_saved=1#teacher-preferences", 303)
 
 def preference_payload(db:Session,p:Project):
     rows=db.scalars(
@@ -4844,7 +5185,8 @@ def preference_payload(db:Session,p:Project):
         items.append({
             "id":row.id,
             "teacher_id":row.teacher_id,
-            "teacher_name":teachers[row.teacher_id].name if row.teacher_id in teachers else "?",
+            "teacher_name":row.submitted_name or (teachers[row.teacher_id].name if row.teacher_id in teachers else "?"),
+            "teacher_email":row.submitted_email or "",
             "preferred_slots":preferred_slots,
             "unavailable_slots":unavailable_slots,
             "preferred_labels":[label(slot) for slot in preferred_slots],
@@ -4866,7 +5208,7 @@ class PreferenceReviewIn(BaseModel):
 
 @app.post("/api/projects/{pid}/preferences/{preference_id}/review")
 def review_teacher_preference(pid:int,preference_id:int,payload:PreferenceReviewIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
-    get_project_for_update(pid,user,db)
+    get_project(pid,user,db)
     preference=db.get(TeacherPreference,preference_id)
     if not preference or preference.project_id!=pid:
         raise HTTPException(404)
@@ -5609,7 +5951,7 @@ def ensure_demo():
         email_target = db.scalar(
             select(User).where(func.lower(User.email) == BOOTSTRAP_ADMIN_EMAIL).limit(1)
         ) if BOOTSTRAP_ADMIN_EMAIL else None
-        target = configured_target if configured_target is not None else email_target
+        target = configured_target if configured_target is not None else (existing_super_admin or email_target)
 
         if target is not None and target.role == "super_admin":
             changed = not bool(target.is_superadmin)
