@@ -84,15 +84,18 @@
         <div>
           <span class="eyebrow">THAM KHẢO</span>
           <h2>Gửi nguyện vọng thời khóa biểu</h2>
-          <p>Nguyện vọng chỉ để quản trị viên tham khảo. Các ô bạn chọn <b>không trở thành ràng buộc</b> và <b>không được dùng trong logic xếp lịch</b>.</p>
+          <p>Nguyện vọng chỉ để quản trị viên tham khảo. Các ô bạn chọn <b>không trở thành ràng buộc</b> và <b>không
+              được dùng trong logic xếp lịch</b>.</p>
         </div>
       </div>
-      {% if preference_saved %}<div class="alert success">Đã gửi nguyện vọng. Lịch hiện tại không bị thay đổi.</div>{% endif %}
+      {% if preference_saved %}<div class="alert success">Đã gửi nguyện vọng. Lịch hiện tại không bị thay đổi.</div>{%
+      endif %}
       <div class="preference-edit-note">
         <b>Người gửi: {{user.name}} · {{user.email}}</b>
         <span>Bấm một ô để chuyển lần lượt: Không chọn → Mong muốn → Muốn tránh → Không chọn.</span>
       </div>
-      <form class="preference-form" method="post" action="/teacher/preferences" onsubmit="return prepareTeacherPreferenceSubmit()">
+      <form class="preference-form" method="post" action="/teacher/preferences"
+        onsubmit="return prepareTeacherPreferenceSubmit()">
         <input type="hidden" name="project_id" value="{{p.id}}">
         <input type="hidden" id="preferredSlotsInput" name="preferred_slots" value="[]">
         <input type="hidden" id="unavailableSlotsInput" name="unavailable_slots" value="[]">
@@ -102,7 +105,8 @@
         </div>
         <div id="teacherPreferenceGrid" class="teacher-preference-grid"></div>
         <label>Ghi chú
-          <textarea name="note" rows="4" maxlength="2000" placeholder="Ví dụ: ưu tiên dạy buổi sáng vì có lịch công tác buổi chiều..."></textarea>
+          <textarea name="note" rows="4" maxlength="2000"
+            placeholder="Ví dụ: ưu tiên dạy buổi sáng vì có lịch công tác buổi chiều..."></textarea>
         </label>
         <div class="row end"><button class="btn" type="submit">Gửi nguyện vọng</button></div>
       </form>
@@ -115,10 +119,20 @@
           <article class="preference-card compact">
             <div class="preference-card-head">
               <small>{{item.created_at.replace('T',' ')}}</small>
-              <span class="status status-{{item.status}}">{% if item.status=='pending' %}Chờ xem{% elif item.status=='accepted' %}Đã ghi nhận{% elif item.status=='rejected' %}Đã từ chối{% else %}Đã thay thế{% endif %}</span>
+              <span class="status status-{{item.status}}">{% if item.status=='pending' %}Chờ xem{% elif
+                item.status=='accepted' %}Đã ghi nhận{% elif item.status=='rejected' %}Đã từ chối{% else %}Đã thay thế{%
+                endif %}</span>
             </div>
-            <div class="preference-detail"><b>Tiết mong muốn</b><div class="slot-chips">{% if item.preferred_labels %}{% for label in item.preferred_labels %}<span class="slot-chip preferred">{{label}}</span>{% endfor %}{% else %}<span class="muted">Không chọn</span>{% endif %}</div></div>
-            <div class="preference-detail"><b>Tiết muốn tránh</b><div class="slot-chips">{% if item.unavailable_labels %}{% for label in item.unavailable_labels %}<span class="slot-chip blocked">{{label}}</span>{% endfor %}{% else %}<span class="muted">Không chọn</span>{% endif %}</div></div>
+            <div class="preference-detail"><b>Tiết mong muốn</b>
+              <div class="slot-chips">{% if item.preferred_labels %}{% for label in item.preferred_labels %}<span
+                  class="slot-chip preferred">{{label}}</span>{% endfor %}{% else %}<span class="muted">Không
+                  chọn</span>{% endif %}</div>
+            </div>
+            <div class="preference-detail"><b>Tiết muốn tránh</b>
+              <div class="slot-chips">{% if item.unavailable_labels %}{% for label in item.unavailable_labels %}<span
+                  class="slot-chip blocked">{{label}}</span>{% endfor %}{% else %}<span class="muted">Không
+                  chọn</span>{% endif %}</div>
+            </div>
             {% if item.note %}<p class="preference-note">{{item.note}}</p>{% endif %}
           </article>
           {% endfor %}
@@ -133,7 +147,7 @@
       const grid = document.getElementById('teacherPreferenceGrid');
       if (!grid) return;
       const states = new Map();
-      const days = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'];
+      const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
       const p = window.INIT_DATA.project;
       const periodsPerDay = p.sessions * p.periods;
       for (let day = 0; day < p.days; day++) {
@@ -177,7 +191,7 @@
           if (state === 1) preferred.push(slot);
           if (state === 2) unavailable.push(slot);
         }
-        preferred.sort((a,b)=>a-b); unavailable.sort((a,b)=>a-b);
+        preferred.sort((a, b) => a - b); unavailable.sort((a, b) => a - b);
         document.getElementById('preferredSlotsInput').value = JSON.stringify(preferred);
         document.getElementById('unavailableSlotsInput').value = JSON.stringify(unavailable);
         return true;

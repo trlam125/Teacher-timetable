@@ -54,7 +54,8 @@
             <label>Email hiện tại<input type="email" value="{{account.email}}" disabled></label>
             <label>Email mới<input type="email" name="email" required placeholder="Nhập email mới"></label>
             {% if account.id == user.id %}
-            <label>Mật khẩu hiện tại<input type="password" name="current_password" required autocomplete="current-password"></label>
+            <label>Mật khẩu hiện tại<input type="password" name="current_password" required
+                autocomplete="current-password"></label>
             {% endif %}
             <p class="muted">Sau bước này hệ thống sẽ hỏi xác nhận, rồi mới gửi OTP tới email mới.</p>
             <div class="row end"><button class="btn ghost" type="submit">Tiếp tục đổi email</button></div>
