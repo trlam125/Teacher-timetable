@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="vi">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -12,10 +11,9 @@
   {% endif %}
   <link rel="stylesheet" href="/static/auth-extra.css?v=2">
   <link rel="stylesheet" href="/static/auth-panda.css?v=1">
-  <script src="/static/auth-panda.js?v=1" defer></script>
+  <script src="/static/auth-panda.js?v=2" defer></script>
   <script src="/static/visual-captcha.js?v=1" defer></script>
 </head>
-
 <body class="auth-page auth-scene auth-{{mode}}">
   <div class="auth-grid" aria-hidden="true"></div>
   <div class="auth-glow auth-glow-one" aria-hidden="true"></div>
@@ -73,7 +71,7 @@
               autocomplete="{{'current-password' if mode=='login' else 'new-password'}}"
               placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" {% if mode=='register'
               %}minlength="8" {% endif %} required><button class="password-toggle" type="button"
-              aria-label="Giữ để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
+              aria-label="Bấm để hiện mật khẩu" aria-pressed="false"><i></i></button></span></label>
         {% if mode=='register' %}<label class="auth-field">Nhập lại mật khẩu<span class="auth-input-wrap"><i
               class="field-icon lock-icon" aria-hidden="true"></i><input type="password" name="password_confirm"
               autocomplete="new-password" minlength="8" required></span></label>{% endif %}
@@ -112,5 +110,4 @@
     </form>
   </main>
 </body>
-
 </html>

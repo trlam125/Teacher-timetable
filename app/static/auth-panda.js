@@ -22,38 +22,19 @@
   email.addEventListener('blur', () => setEyes(0, 0));
 
   if (toggle) {
-    const revealPassword = () => {
-      password.type = 'text';
-      card.classList.add('panda-shy');
-      toggle.classList.add('is-holding');
-      toggle.setAttribute('aria-pressed', 'true');
-      toggle.setAttribute('aria-label', 'Thả để ẩn mật khẩu');
-    };
-    const hidePassword = () => {
-      password.type = 'password';
-      card.classList.remove('panda-shy');
-      toggle.classList.remove('is-holding');
-      toggle.setAttribute('aria-pressed', 'false');
-      toggle.setAttribute('aria-label', 'Giữ để hiện mật khẩu');
+    const setPasswordVisible = visible => {
+      password.type = visible ? 'text' : 'password';
+      card.classList.toggle('panda-shy', visible);
+      toggle.classList.toggle('is-holding', visible);
+      toggle.setAttribute('aria-pressed', String(visible));
+      toggle.setAttribute('aria-label', visible ? 'Bấm để ẩn mật khẩu' : 'Bấm để hiện mật khẩu');
     };
 
-    toggle.addEventListener('pointerdown', event => {
-      revealPassword();
-      toggle.setPointerCapture?.(event.pointerId);
+    setPasswordVisible(false);
+
+    toggle.addEventListener('click', () => {
+      setPasswordVisible(password.type === 'password');
     });
-    toggle.addEventListener('pointerup', hidePassword);
-    toggle.addEventListener('pointercancel', hidePassword);
-    toggle.addEventListener('lostpointercapture', hidePassword);
-    toggle.addEventListener('mouseleave', hidePassword);
-    toggle.addEventListener('keydown', event => {
-      if (event.key === ' ' || event.key === 'Enter') {
-        event.preventDefault();
-        revealPassword();
-      }
-    });
-    toggle.addEventListener('keyup', hidePassword);
-    toggle.addEventListener('blur', hidePassword);
-    toggle.addEventListener('click', event => event.preventDefault());
   }
 
   card.addEventListener('submit', () => {

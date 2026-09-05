@@ -1,71 +1,78 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Đổi email · Smart TKB</title>
-  <script>(function(){const t=localStorage.getItem('theme');if(t==='dark')document.documentElement.classList.add('dark-mode')})();</script>
+  <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') document.documentElement.classList.add('dark-mode') })();</script>
   <link rel="stylesheet" href="/static/style.css?v=1">
   <link rel="stylesheet" href="/static/auth-extra.css?v=1">
 </head>
+
 <body>
   <main class="container" style="max-width:680px;padding-top:48px;padding-bottom:48px">
     <section class="panel">
       <span class="eyebrow">BẢO MẬT TÀI KHOẢN</span>
       {% if mode == 'start' %}
-        <h1>Đổi email</h1>
-        <p>Email hiện tại của <b>{{target.name}}</b>: <b>{{target.email}}</b></p>
-        {% if error %}<div class="alert" style="margin:16px 0">{{error}}</div>{% endif %}
-        <form method="post" action="/account/email-change/prepare" class="account-edit-form">
-          {% if target.id != user.id %}<input type="hidden" name="account_id" value="{{target.id}}">{% endif %}
-          {% if project_id is not none %}<input type="hidden" name="project_id" value="{{project_id}}">{% endif %}
-          <label>Email mới<input type="email" name="email" required autofocus autocomplete="email"></label>
-          {% if target.id == user.id %}
-          <label>Mật khẩu hiện tại<input type="password" name="current_password" required autocomplete="current-password"></label>
-          {% endif %}
-          <div class="row" style="justify-content:space-between;margin-top:18px">
-            <a class="btn ghost" href="{{back_path}}">Quay lại</a>
-            <button class="btn" type="submit">Tiếp tục</button>
-          </div>
-        </form>
-      {% elif mode == 'confirm' %}
-        <h1>Xác nhận email mới</h1>
-        <p>Bạn đang yêu cầu đổi email của <b>{{target.name}}</b>:</p>
-        <div class="panel" style="margin:18px 0">
-          <div class="muted">Email hiện tại</div><b>{{target.email}}</b>
-          <div class="muted" style="margin-top:12px">Email mới</div><b>{{new_email}}</b>
+      <h1>Đổi email</h1>
+      <p>Email hiện tại của <b>{{target.name}}</b>: <b>{{target.email}}</b></p>
+      {% if error %}<div class="alert" style="margin:16px 0">{{error}}</div>{% endif %}
+      <form method="post" action="/account/email-change/prepare" class="account-edit-form">
+        {% if target.id != user.id %}<input type="hidden" name="account_id" value="{{target.id}}">{% endif %}
+        {% if project_id is not none %}<input type="hidden" name="project_id" value="{{project_id}}">{% endif %}
+        <label>Email mới<input type="email" name="email" required autofocus autocomplete="email"></label>
+        {% if target.id == user.id %}
+        <label>Mật khẩu hiện tại<input type="password" name="current_password" required
+            autocomplete="current-password"></label>
+        {% endif %}
+        <div class="row" style="justify-content:space-between;margin-top:18px">
+          <a class="btn ghost" href="{{back_path}}">Quay lại</a>
+          <button class="btn" type="submit">Tiếp tục</button>
         </div>
-        <p>Hãy kiểm tra kỹ địa chỉ trên. Chỉ sau khi bạn bấm xác nhận, hệ thống mới gửi OTP tới email mới.</p>
-        {% if error %}<div class="alert" style="margin:16px 0">{{error}}</div>{% endif %}
-        <form method="post" action="/account/email-change/confirm">
-          <input type="hidden" name="confirmation_token" value="{{confirmation_token}}">
-          <div class="row" style="justify-content:space-between;margin-top:18px">
-            <a class="btn ghost" href="{{back_path}}">Hủy</a>
-            <button class="btn" type="submit">Xác nhận và gửi OTP</button>
-          </div>
-        </form>
+      </form>
+      {% elif mode == 'confirm' %}
+      <h1>Xác nhận email mới</h1>
+      <p>Bạn đang yêu cầu đổi email của <b>{{target.name}}</b>:</p>
+      <div class="panel" style="margin:18px 0">
+        <div class="muted">Email hiện tại</div><b>{{target.email}}</b>
+        <div class="muted" style="margin-top:12px">Email mới</div><b>{{new_email}}</b>
+      </div>
+      <p>Hãy kiểm tra kỹ địa chỉ trên. Chỉ sau khi bạn bấm xác nhận, hệ thống mới gửi OTP tới email mới.</p>
+      {% if error %}<div class="alert" style="margin:16px 0">{{error}}</div>{% endif %}
+      <form method="post" action="/account/email-change/confirm">
+        <input type="hidden" name="confirmation_token" value="{{confirmation_token}}">
+        <div class="row" style="justify-content:space-between;margin-top:18px">
+          <a class="btn ghost" href="{{back_path}}">Hủy</a>
+          <button class="btn" type="submit">Xác nhận và gửi OTP</button>
+        </div>
+      </form>
       {% elif mode == 'otp' %}
-        <h1>Xác minh email mới</h1>
-        <p>Mã OTP 6 số đã được gửi tới <b>{{masked_email}}</b>. Email chỉ được thay đổi sau khi mã này hợp lệ.</p>
-        {% if error %}<div class="alert" style="margin:16px 0">{{error}}</div>{% endif %}
-        <form method="post" action="/account/email-change/verify" class="account-edit-form">
-          <input type="hidden" name="verification_token" value="{{verification_token}}">
-          <label>Mã OTP<input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code" placeholder="000000"></label>
-          <div class="row" style="justify-content:space-between;margin-top:18px">
-            <a class="btn ghost" href="{{back_path}}">Hủy</a>
-            <button class="btn" type="submit">Xác minh và đổi email</button>
-          </div>
-        </form>
+      <h1>Xác minh email mới</h1>
+      <p>Mã OTP 6 số đã được gửi tới <b>{{masked_email}}</b>. Email chỉ được thay đổi sau khi mã này hợp lệ.</p>
+      {% if error %}<div class="alert" style="margin:16px 0">{{error}}</div>{% endif %}
+      <form method="post" action="/account/email-change/verify" class="account-edit-form">
+        <input type="hidden" name="verification_token" value="{{verification_token}}">
+        <label>Mã OTP<input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus
+            autocomplete="one-time-code" placeholder="000000"></label>
+        <div class="row" style="justify-content:space-between;margin-top:18px">
+          <a class="btn ghost" href="{{back_path}}">Hủy</a>
+          <button class="btn" type="submit">Xác minh và đổi email</button>
+        </div>
+      </form>
       {% elif mode == 'success' %}
-        <h1>Đã đổi email</h1>
-        <div class="alert success" style="margin:16px 0">Email của <b>{{target.name}}</b> đã được cập nhật thành <b>{{target.email}}</b>.</div>
-        <a class="btn" href="{{back_path}}">Quay lại</a>
+      <h1>Đã đổi email</h1>
+      <div class="alert success" style="margin:16px 0">Email của <b>{{target.name}}</b> đã được cập nhật thành
+        <b>{{target.email}}</b>.
+      </div>
+      <a class="btn" href="{{back_path}}">Quay lại</a>
       {% else %}
-        <h1>Không thể tiếp tục</h1>
-        <div class="alert" style="margin:16px 0">{{error}}</div>
-        <a class="btn" href="{{back_path}}">Quay lại</a>
+      <h1>Không thể tiếp tục</h1>
+      <div class="alert" style="margin:16px 0">{{error}}</div>
+      <a class="btn" href="{{back_path}}">Quay lại</a>
       {% endif %}
     </section>
   </main>
 </body>
+
 </html>
