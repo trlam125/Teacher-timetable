@@ -120,7 +120,7 @@ function scheduleAuditRebuildDataFromViewer(report) {
     const clean = String(name || '').trim(), key = scheduleAuditIdentityKey(clean);
     if (subjectsByKey.has(key)) return subjectsByKey.get(key);
     const previous = existingSubjectByKey.get(key) || {};
-    let id; [id, nextSubjectId] = reserveId(previous.id, usedSubjectIds, nextSubjectId);
+    let id;[id, nextSubjectId] = reserveId(previous.id, usedSubjectIds, nextSubjectId);
     const row = { ...previous, id, name: clean, short_name: previous.short_name || scheduleAuditShortName(clean, `M${id}`), is_placeholder: scheduleAuditIsUnknownSubject(clean) };
     subjectsByKey.set(key, row); return row;
   };
@@ -128,7 +128,7 @@ function scheduleAuditRebuildDataFromViewer(report) {
     const clean = String(name || '').trim(), key = scheduleAuditIdentityKey(clean);
     if (teachersByKey.has(key)) return teachersByKey.get(key);
     const previous = existingTeacherByKey.get(key) || {};
-    let id; [id, nextTeacherId] = reserveId(previous.id, usedTeacherIds, nextTeacherId);
+    let id;[id, nextTeacherId] = reserveId(previous.id, usedTeacherIds, nextTeacherId);
     const row = { ...previous, id, name: clean, short_name: previous.short_name || scheduleAuditShortName(clean, `GV${id}`), is_placeholder: scheduleAuditIsUnknownTeacher(clean), subject_ids: [] };
     teachersByKey.set(key, row); return row;
   };

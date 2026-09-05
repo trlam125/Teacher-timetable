@@ -1470,16 +1470,22 @@ dialog[open] {
   animation: lesson-sync-spin 0.72s linear infinite;
 }
 
-.lesson.lesson-syncing > b {
+.lesson.lesson-syncing>b {
   padding-right: 72px;
 }
 
 @keyframes lesson-sync-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes lesson-sync-shimmer {
-  55%, 100% { transform: translateX(120%); }
+
+  55%,
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 :root.dark-mode .lesson-sync-indicator {
@@ -1505,12 +1511,13 @@ dialog[open] {
     display: none;
   }
 
-  .lesson.lesson-syncing > b {
+  .lesson.lesson-syncing>b {
     padding-right: 28px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .lesson.lesson-syncing::before,
   .lesson-sync-spinner {
     animation-duration: 1.8s;

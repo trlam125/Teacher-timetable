@@ -1,24 +1,34 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Quản lý tài khoản</title>
-  <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode')}})();function toggleTheme(){const d=document.documentElement.classList.toggle('dark-mode');localStorage.setItem('theme',d?'dark':'light')}</script>
+  <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode') } })(); function toggleTheme() { const d = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', d ? 'dark' : 'light') }</script>
   <link rel="stylesheet" href="/static/style.css?v=1">
   <script src="/static/operation-status.js?v=1" defer></script>
   <link rel="stylesheet" href="/static/effects.css?v=1">
   <link rel="stylesheet" href="/static/auth-extra.css?v=1">
   <link rel="stylesheet" href="/static/chatbot.css?v=1">
 </head>
+
 <body>
   <header class="appbar">
-    <b>Smart TKB</b><div class="spacer"></div>
-    <button class="theme-toggle-btn" style="margin-right:10px" onclick="toggleTheme()" title="Đổi giao diện Sáng/Tối">◐</button>
+    <b>Smart TKB</b>
+    <div class="spacer"></div>
+    <button class="theme-toggle-btn" style="margin-right:10px" onclick="toggleTheme()"
+      title="Đổi giao diện Sáng/Tối">◐</button>
     <a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{user.name}}</span><a href="/logout">Đăng xuất</a>
   </header>
   <main class="container">
-    <div class="page-title"><div><h1>Quản lý tài khoản</h1><p>Tài khoản giáo viên tự đăng ký và được kích hoạt bằng OTP. Không còn bước gán giáo viên hoặc chờ quản trị viên duyệt.</p></div></div>
+    <div class="page-title">
+      <div>
+        <h1>Quản lý tài khoản</h1>
+        <p>Tài khoản giáo viên tự đăng ký và được kích hoạt bằng OTP. Không còn bước gán giáo viên hoặc chờ quản trị
+          viên duyệt.</p>
+      </div>
+    </div>
     <div class="project-grid">
       {% for account in users %}
       <article class="project-card account-card">
@@ -26,23 +36,30 @@
           {% if account.role == 'teacher' %}<span class="pill">Giáo viên</span>
           {% elif account.role == 'super_admin' %}<span class="pill approved-pill">Super admin</span>
           {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
-          <h3>{{account.name}}</h3><p>{{account.email}}</p>
-          {% if account.role == 'teacher' %}<p class="muted">Quyền: xem toàn bộ thời khóa biểu ở chế độ chỉ đọc.</p>{% endif %}
+          <h3>{{account.name}}</h3>
+          <p>{{account.email}}</p>
+          {% if account.role == 'teacher' %}<p class="muted">Quyền: xem toàn bộ thời khóa biểu ở chế độ chỉ đọc.</p>{%
+          endif %}
         </div>
         <details class="account-edit">
           <summary>Chỉnh sửa thông tin</summary>
           <form method="post" action="/admin/users/{{account.id}}/update" class="account-edit-form">
             <label>Họ tên<input name="name" value="{{account.name}}" required></label>
             <label>Email<input type="email" name="email" value="{{account.email}}" required></label>
-            <label>Mật khẩu mới<input type="password" name="password" minlength="8" placeholder="Để trống nếu không đổi"></label>
+            <label>Mật khẩu mới<input type="password" name="password" minlength="8"
+                placeholder="Để trống nếu không đổi"></label>
             <div class="row end"><button class="btn">Lưu thay đổi</button></div>
           </form>
         </details>
         {% if account.role == 'teacher' and account.id in managed_account_ids %}
-        <form method="post" action="/admin/users/{{account.id}}/promote-admin"><button class="btn ghost wide">Nâng lên quản trị viên</button></form>
+        <form method="post" action="/admin/users/{{account.id}}/promote-admin"><button class="btn ghost wide">Nâng lên
+            quản trị viên</button></form>
         {% elif account.role != 'teacher' %}<p class="muted">Tài khoản quản trị.</p>{% endif %}
         {% if account.id != user.id %}
-        <form method="post" action="/admin/users/{{account.id}}/delete" onsubmit="event.preventDefault();window.OperationStatus.confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.',{title:'Xóa tài khoản',confirmText:'Xóa'}).then(ok=>{if(ok)this.submit();});"><button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button></form>
+        <form method="post" action="/admin/users/{{account.id}}/delete"
+          onsubmit="event.preventDefault();window.OperationStatus.confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.',{title:'Xóa tài khoản',confirmText:'Xóa'}).then(ok=>{if(ok)this.submit();});">
+          <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
+        </form>
         {% else %}<p class="muted">Tài khoản này không thể xóa từ giao diện.</p>{% endif %}
       </article>
       {% else %}<div class="empty-state">Không có tài khoản nào trong phạm vi quản lý.</div>{% endfor %}

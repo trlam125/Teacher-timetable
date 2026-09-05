@@ -1,16 +1,18 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tài khoản của tôi</title>
-  <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode')}})();</script>
+  <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode') } })();</script>
   <link rel="stylesheet" href="/static/style.css?v=1">
   <script src="/static/operation-status.js?v=1" defer></script>
   <link rel="stylesheet" href="/static/effects.css?v=1">
   <link rel="stylesheet" href="/static/preferences.css?v=1">
   <link rel="stylesheet" href="/static/chatbot.css?v=1">
 </head>
+
 <body>
   <header class="appbar">
     <b>Smart TKB · Cổng giáo viên</b>
@@ -19,7 +21,12 @@
     <a class="btn ghost" href="/logout">Đăng xuất</a>
   </header>
   <main class="container account-page">
-    <div class="section-head"><div><h1>Tài khoản của tôi</h1><p>{{user.name}} · quyền xem thời khóa biểu</p></div></div>
+    <div class="section-head">
+      <div>
+        <h1>Tài khoản của tôi</h1>
+        <p>{{user.name}} · quyền xem thời khóa biểu</p>
+      </div>
+    </div>
     <form class="panel account-form" method="post" action="/teacher/account{% if p %}?project_id={{p.id}}{% endif %}">
       {% if error %}<div class="alert error">{{error}}</div>{% endif %}
       {% if success %}<div class="alert success">{{success}}</div>{% endif %}
@@ -28,12 +35,16 @@
       <h2>Đổi mật khẩu</h2>
       <p class="muted">Để trống hai ô mật khẩu mới nếu bạn chỉ muốn đổi email.</p>
       <label>Mật khẩu mới<input type="password" name="new_password" minlength="8" autocomplete="new-password"></label>
-      <label>Xác nhận mật khẩu mới<input type="password" name="confirm_password" minlength="8" autocomplete="new-password"></label>
+      <label>Xác nhận mật khẩu mới<input type="password" name="confirm_password" minlength="8"
+          autocomplete="new-password"></label>
       <h2>Xác nhận thay đổi</h2>
-      <label>Mật khẩu hiện tại<input type="password" name="current_password" autocomplete="current-password" required></label>
-      <div class="row end"><a class="btn ghost" href="/teacher{% if p %}?project_id={{p.id}}{% endif %}">Hủy</a><button class="btn" type="submit">Lưu thay đổi</button></div>
+      <label>Mật khẩu hiện tại<input type="password" name="current_password" autocomplete="current-password"
+          required></label>
+      <div class="row end"><a class="btn ghost" href="/teacher{% if p %}?project_id={{p.id}}{% endif %}">Hủy</a><button
+          class="btn" type="submit">Lưu thay đổi</button></div>
     </form>
   </main>
   {% if chatbot_project_id %}{% include "_chatbot_popup.html" %}{% endif %}
 </body>
+
 </html>

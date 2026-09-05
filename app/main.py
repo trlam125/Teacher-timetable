@@ -7,6 +7,7 @@ import logging
 import random
 import secrets
 import smtplib
+import time
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -69,9 +70,16 @@ if DATABASE_URL.startswith("postgresql://"):
         "postgresql://", "postgresql+psycopg://", 1
     )
 
+DATABASE_CONNECT_TIMEOUT_SECONDS = 10
+DATABASE_BOOTSTRAP_LOCK_TIMEOUT_SECONDS = 15
+DATABASE_DDL_LOCK_TIMEOUT_SECONDS = 8
+DATABASE_STATEMENT_TIMEOUT_SECONDS = 30
+
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
+    pool_timeout=DATABASE_CONNECT_TIMEOUT_SECONDS,
+    connect_args={"connect_timeout": DATABASE_CONNECT_TIMEOUT_SECONDS},
 )
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 DATABASE_BOOTSTRAP_LOCK_KEY = 73120260903
@@ -265,13 +273,19 @@ class SystemSetting(Base):
 
 def migrate_schema():
     """Nâng cấp schema PostgreSQL và loại bỏ cấu trúc liên kết tài khoản giáo viên cũ."""
-    inspector = inspect(engine)
-    if "users" not in inspector.get_table_names():
-        return
-
-    columns = {column["name"] for column in inspector.get_columns("users")}
-    role_was_added = "role" not in columns
     with engine.begin() as connection:
+        connection.exec_driver_sql(
+            f"SET LOCAL lock_timeout = '{DATABASE_DDL_LOCK_TIMEOUT_SECONDS}s'"
+        )
+        connection.exec_driver_sql(
+            f"SET LOCAL statement_timeout = '{DATABASE_STATEMENT_TIMEOUT_SECONDS}s'"
+        )
+        inspector = inspect(connection)
+        if "users" not in inspector.get_table_names():
+            return
+
+        columns = {column["name"] for column in inspector.get_columns("users")}
+        role_was_added = "role" not in columns
         if role_was_added:
             connection.exec_driver_sql(
                 "ALTER TABLE users "
@@ -602,26 +616,50 @@ def migrate_schema():
                     (migration_key, datetime.now(timezone.utc).isoformat()),
                 )
 
+def acquire_database_bootstrap_lock(lock_connection):
+    deadline = time.monotonic() + DATABASE_BOOTSTRAP_LOCK_TIMEOUT_SECONDS
+    while True:
+        acquired = bool(
+            lock_connection.exec_driver_sql(
+                "SELECT pg_try_advisory_lock(%s)",
+                (DATABASE_BOOTSTRAP_LOCK_KEY,),
+            ).scalar()
+        )
+        if acquired:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError(
+                "Không thể lấy khóa khởi tạo database trong thời gian cho phép."
+            )
+        time.sleep(min(0.25, remaining))
+
 def run_database_bootstrap_step(callback):
     """Tuần tự hóa các bước DDL/bootstrap giữa nhiều process cùng dùng một PostgreSQL."""
     with engine.connect() as lock_connection:
-        lock_connection.exec_driver_sql(
-            "SELECT pg_advisory_lock(%s)",
-            (DATABASE_BOOTSTRAP_LOCK_KEY,),
-        )
+        acquire_database_bootstrap_lock(lock_connection)
         try:
             return callback()
         finally:
-            lock_connection.exec_driver_sql(
-                "SELECT pg_advisory_unlock(%s)",
-                (DATABASE_BOOTSTRAP_LOCK_KEY,),
-            )
+            try:
+                lock_connection.exec_driver_sql(
+                    "SELECT pg_advisory_unlock(%s)",
+                    (DATABASE_BOOTSTRAP_LOCK_KEY,),
+                )
+            except Exception:
+                pass
 
 def initialize_schema():
-    Base.metadata.create_all(engine)
+    with engine.begin() as schema_connection:
+        schema_connection.exec_driver_sql(
+            f"SET LOCAL lock_timeout = '{DATABASE_DDL_LOCK_TIMEOUT_SECONDS}s'"
+        )
+        schema_connection.exec_driver_sql(
+            f"SET LOCAL statement_timeout = '{DATABASE_STATEMENT_TIMEOUT_SECONDS}s'"
+        )
+        Base.metadata.create_all(schema_connection)
     migrate_schema()
 
-run_database_bootstrap_step(initialize_schema)
 class Passwords:
     @staticmethod
     def hash(password: str) -> str:
@@ -5630,4 +5668,8 @@ def ensure_demo():
     finally:
         db.close()
 
-run_database_bootstrap_step(ensure_demo)
+def initialize_database():
+    initialize_schema()
+    ensure_demo()
+
+run_database_bootstrap_step(initialize_database)

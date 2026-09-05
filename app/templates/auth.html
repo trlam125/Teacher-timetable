@@ -52,14 +52,16 @@
         {% if mode=='login' %}
         <p class="muted">Hệ thống tự chuyển đến cổng quản trị hoặc cổng giáo viên theo quyền tài khoản.</p>
         {% elif mode=='register' %}
-        <p class="muted">Đăng ký tự do, không cần link mời và không cần quản trị viên duyệt. Chỉ cần nhập tên giáo viên, xác nhận email bằng OTP và tài khoản sẽ được kích hoạt ngay.</p>
+        <p class="muted">Đăng ký tự do, không cần link mời và không cần quản trị viên duyệt. Chỉ cần nhập tên giáo viên,
+          xác nhận email bằng OTP và tài khoản sẽ được kích hoạt ngay.</p>
         {% else %}
         <p class="muted">Mã OTP 6 số đã được gửi tới <b>{{masked_email}}</b> và có hiệu lực trong 10 phút.</p>
         {% if target_teacher_name %}<div class="alert"><b>Giáo viên:</b> {{target_teacher_name}}</div>{% endif %}
         {% endif %}
         {% if error %}<div class="alert error">{{error}}</div>{% endif %}
         {% if mode=='register' %}
-        <label>Tên giáo viên<input name="name" value="{{form_values.name or ''}}" maxlength="120" placeholder="Ví dụ: Nguyễn Văn An" required></label>
+        <label>Tên giáo viên<input name="name" value="{{form_values.name or ''}}" maxlength="120"
+            placeholder="Ví dụ: Nguyễn Văn An" required></label>
         {% endif %}
         {% if mode in ['login','register'] %}
         <label class="auth-field">Email<span class="auth-input-wrap"><i class="field-icon mail-icon"
@@ -80,7 +82,8 @@
         <input type="hidden" name="human_confirm" value="yes">
         {% set captcha_enforce = 'always' %}
         {% include '_visual_captcha.html' %}
-        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1"
+            autocomplete="off"></label>
         {% elif mode=='register_otp' %}
         <input type="hidden" name="verification_token" value="{{verification_token}}">
         <label class="auth-field">Mã OTP 6 số<span class="auth-input-wrap"><input name="otp" inputmode="numeric"
@@ -90,7 +93,8 @@
         <input type="hidden" name="human_confirm" value="yes">
         {% set captcha_enforce = 'resend' %}
         {% include '_visual_captcha.html' %}
-        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1"
+            autocomplete="off"></label>
         {% endif %}
         {% if mode=='login' %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif %}
         {% if mode in ['login','register','register_otp'] %}

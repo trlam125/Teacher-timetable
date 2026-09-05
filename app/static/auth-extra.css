@@ -157,6 +157,7 @@
 :root.dark-mode .danger-btn:hover {
   background: #7f1d1d;
 }
+
 /* --- VISUAL CAPTCHA --- */
 .visual-captcha {
   position: relative;
@@ -383,6 +384,11 @@
 }
 
 @media (max-width: 520px) {
-  .captcha-image-grid { gap: 5px; }
-  .visual-captcha { padding: 12px; }
+  .captcha-image-grid {
+    gap: 5px;
+  }
+
+  .visual-captcha {
+    padding: 12px;
+  }
 }

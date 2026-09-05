@@ -1694,15 +1694,15 @@ dialog::backdrop {
   transition: transform .15s ease
 }
 
-.schedule-view-bulk-toggle input:checked + .schedule-view-switch {
+.schedule-view-bulk-toggle input:checked+.schedule-view-switch {
   background: #16a34a
 }
 
-.schedule-view-bulk-toggle input:checked + .schedule-view-switch i {
+.schedule-view-bulk-toggle input:checked+.schedule-view-switch i {
   transform: translateX(16px)
 }
 
-.schedule-view-bulk-toggle input:focus-visible + .schedule-view-switch {
+.schedule-view-bulk-toggle input:focus-visible+.schedule-view-switch {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, .2)
 }
 
@@ -1797,7 +1797,7 @@ dialog::backdrop {
   background: #475569
 }
 
-:root.dark-mode .schedule-view-bulk-toggle input:checked + .schedule-view-switch {
+:root.dark-mode .schedule-view-bulk-toggle input:checked+.schedule-view-switch {
   background: #22c55e
 }
 
@@ -2776,6 +2776,7 @@ dialog::backdrop {
     padding: 0 10px 10px
   }
 }
+
 /* Kéo thả dùng cập nhật lạc quan: tiết đổi ô ngay, rồi đồng bộ máy chủ nền. */
 .lesson.lesson-syncing {
   opacity: .86;
@@ -2855,6 +2856,7 @@ dialog::backdrop {
     opacity: 0;
     transform: translateY(-12px) scale(0.94);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -2997,4 +2999,3 @@ dialog::backdrop {
     gap: 8px;
   }
 }
-

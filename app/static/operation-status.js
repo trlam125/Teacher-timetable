@@ -72,7 +72,7 @@
   }
 
   function showPending(message) {
-    state.current = {type: 'pending'};
+    state.current = { type: 'pending' };
     setPanel('pending', message, 'Vui lòng chờ, không đóng trang hoặc thao tác lặp lại.');
   }
 
@@ -117,7 +117,7 @@
 
   function notify(message, kind) {
     if (!message) return;
-    enqueue({type: 'notice', message: String(message), kind: notificationKind(message, kind)});
+    enqueue({ type: 'notice', message: String(message), kind: notificationKind(message, kind) });
   }
 
   function clearConnectionAlert() {
@@ -139,7 +139,7 @@
           method: 'HEAD',
           cache: 'no-store',
           credentials: 'same-origin',
-          headers: {'X-Skip-Operation-Status': '1'},
+          headers: { 'X-Skip-Operation-Status': '1' },
         });
         clearConnectionAlert();
       } catch (error) {
@@ -175,7 +175,7 @@
       return;
     }
 
-    const titles = {success: 'Hoàn tất', error: 'Chưa hoàn tất', info: 'Thông báo'};
+    const titles = { success: 'Hoàn tất', error: 'Chưa hoàn tất', info: 'Thông báo' };
     setPanel(item.kind, titles[item.kind], item.message);
     const duration = item.kind === 'error' ? 3200 : 1900;
     state.hideTimer = setTimeout(() => {
@@ -186,7 +186,7 @@
 
   function resolveConfirmation(accepted) {
     if (state.current?.type !== 'confirm') return;
-    const {resolve} = state.current;
+    const { resolve } = state.current;
     hidePanel();
     resolve(accepted);
     drainQueue();
@@ -236,8 +236,8 @@
     if (event.key === 'Escape' && state.current?.type === 'confirm') resolveConfirmation(false);
   });
 
-  window.OperationStatus = {begin, finish, notify, confirm: confirmAction, reset};
+  window.OperationStatus = { begin, finish, notify, confirm: confirmAction, reset };
   window.addEventListener('pageshow', event => {
-    if (event.persisted) reset({clearQueue: true});
+    if (event.persisted) reset({ clearQueue: true });
   });
 })();

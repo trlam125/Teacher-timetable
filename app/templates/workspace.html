@@ -90,9 +90,10 @@
                     <div>
                         <h1>{{p.name}}</h1>
                         <p>{{p.school_name}} · {{p.days}} ngày · {{p.sessions}} buổi/ngày</p>
-                    </div><div class="action-feedback-stack"><button class="btn schedule-action-btn" data-schedule-action
-                        onclick="generateSchedule()"><span class="schedule-action-stage"><span
-                                class="schedule-action-content">Xếp tự động</span></span></button></div>
+                    </div>
+                    <div class="action-feedback-stack"><button class="btn schedule-action-btn" data-schedule-action
+                            onclick="generateSchedule()"><span class="schedule-action-stage"><span
+                                    class="schedule-action-content">Xếp tự động</span></span></button></div>
                 </div>
                 <div class="stats">
                     <article><strong id="statTeachers">{{data.teachers|length}}</strong><span>Giáo viên</span></article>
@@ -265,7 +266,9 @@
                 <div class="section-head">
                     <div>
                         <h1>Nguyện vọng lịch sử</h1>
-                        <p>Xem các nguyện vọng đã lưu từ phiên bản trước để tham khảo. Nguyện vọng không tạo ràng buộc và không ảnh hưởng việc xếp thời khóa biểu. Cổng giáo viên hiện chỉ xem thời khóa biểu và không gửi nguyện vọng mới.</p>
+                        <p>Xem các nguyện vọng đã lưu từ phiên bản trước để tham khảo. Nguyện vọng không tạo ràng buộc
+                            và không ảnh hưởng việc xếp thời khóa biểu. Cổng giáo viên hiện chỉ xem thời khóa biểu và
+                            không gửi nguyện vọng mới.</p>
                     </div><a class="btn" href="/register" target="_blank" rel="noopener">Mở trang đăng ký giáo viên</a>
                 </div>
                 <div id="preferenceInbox">
@@ -282,9 +285,11 @@
                             <option value="overview" selected>Xem tổng quát</option>
                             <option value="class">Xem theo lớp</option>
                             <option value="teacher">Xem theo giáo viên</option>
-                        </select><select id="viewEntity"></select><div class="action-feedback-stack"><button class="btn schedule-action-btn"
-                            data-schedule-action onclick="generateSchedule()"><span class="schedule-action-stage"><span
-                                    class="schedule-action-content">Xếp tự động</span></span></button></div></div>
+                        </select><select id="viewEntity"></select>
+                        <div class="action-feedback-stack"><button class="btn schedule-action-btn" data-schedule-action
+                                onclick="generateSchedule()"><span class="schedule-action-stage"><span
+                                        class="schedule-action-content">Xếp tự động</span></span></button></div>
+                    </div>
                 </div>
                 <div id="assignmentCoverage"></div>
                 <div class="manual-tray-panel">
@@ -292,7 +297,9 @@
                         <div>
                             <h2>Kho tiết chưa xếp</h2>
                             <p>Phân công mới nằm ở đây. Kéo tiết vào lịch hoặc kéo tiết từ lịch ngược về khay.</p>
-                        </div><div class="action-feedback-stack"><button class="btn ghost" onclick="returnAllToTray(this)">Đưa tiết chưa cố định về khay</button></div>
+                        </div>
+                        <div class="action-feedback-stack"><button class="btn ghost" onclick="returnAllToTray(this)">Đưa
+                                tiết chưa cố định về khay</button></div>
                     </div>
                     <div id="scheduledAssignmentTray" class="scheduled-assignment-tray"></div>
                     <div id="unscheduledTray" class="unscheduled-tray" ondragover="event.preventDefault()"
