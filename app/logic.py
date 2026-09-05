@@ -108,21 +108,6 @@ def required_double_removal_slots(
     )
 
 
-def revoke_last_teacher_profile(account) -> None:
-    """Keep the login account but remove all teacher privileges and sessions."""
-    account.teacher_id = None
-    account.role = "pending"
-    account.requested_teacher_name = None
-    account.requested_project_id = None
-    account.session_version = int(account.session_version or 0) + 1
-
-
-def clear_teacher_identity(account) -> None:
-    """Remove teacher-only identity fields before an account becomes admin."""
-    account.teacher_id = None
-    account.requested_teacher_name = None
-    account.requested_project_id = None
-
 
 def parse_integer_set(text: str | None) -> set[int]:
     """Parse a JSON array while preserving valid integers around bad items.

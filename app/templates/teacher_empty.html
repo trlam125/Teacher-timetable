@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chưa có thời khóa biểu · Smart TKB</title>
+  <script>(function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark-mode')}})();</script>
+  <link rel="stylesheet" href="/static/style.css?v=1">
+</head>
+<body>
+  <main class="container" style="max-width:760px;padding-top:56px">
+    <section class="card">
+      <span class="eyebrow">CỔNG GIÁO VIÊN</span>
+      <h1>{{user.name}}</h1>
+      <p class="muted">Tài khoản <b>{{user.email}}</b> đã được kích hoạt và có quyền xem các bộ thời khóa biểu.</p>
+      <div class="alert" style="margin-top:18px">Hiện hệ thống chưa có bộ thời khóa biểu nào. Khi quản trị viên tạo hoặc clone một bộ mới, nó sẽ tự xuất hiện tại cổng giáo viên.</div>
+      <div class="row" style="margin-top:20px;gap:10px">
+        <a class="btn" href="/teacher/account">Tài khoản của tôi</a>
+        <a class="btn ghost" href="/logout">Đăng xuất</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

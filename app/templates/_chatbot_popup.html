@@ -21,21 +21,17 @@
     <div id="chatMessages" class="chat-messages chatbot-popup-messages" aria-live="polite">
         <article class="chat-message assistant">
             <div class="message-avatar">AI</div>
-            <div class="message-body">{% if is_teacher_chat %}Xin chào! Bạn có thể hỏi mình về lịch dạy, phân công, số
-                tiết hoặc các nguyện vọng của chính bạn trong bộ thời khóa biểu này.{% else %}Xin chào! Bạn có thể yêu
+            <div class="message-body">{% if is_teacher_chat %}Xin chào! Bạn có thể hỏi mình về thời khóa biểu, giáo viên, lớp, môn học hoặc phân công trong bộ đang xem. Hãy nêu tên giáo viên/lớp/môn nếu muốn lọc cụ thể.{% else %}Xin chào! Bạn có thể yêu
                 cầu mình kiểm tra tải giáo viên, tìm phân công thiếu, xem lịch học hoặc đề xuất phân công lại. Nếu có
                 bảng yêu cầu riêng, hãy đính kèm bên dưới.{% endif %}</div>
         </article>
         <div class="suggestion-list">
             {% if is_teacher_chat %}
-            <button type="button" data-prompt="Tóm tắt lịch dạy hiện tại của tôi theo từng ngày, lớp và môn.">Tóm tắt
-                lịch dạy</button>
+            <button type="button" data-prompt="Tóm tắt thời khóa biểu hiện tại theo từng ngày, lớp và môn.">Tóm tắt thời khóa biểu</button>
             <button type="button"
-                data-prompt="Kiểm tra phân công hiện tại của tôi: tổng số tiết, các lớp và môn đang phụ trách.">Kiểm tra
-                phân công</button>
+                data-prompt="Liệt kê phân công theo từng giáo viên, gồm tổng số tiết, các lớp và môn đang phụ trách.">Phân công giáo viên</button>
             <button type="button"
-                data-prompt="Từ lịch dạy hiện tại của tôi, hãy chỉ ra các ngày hoặc buổi có lịch dạy dày nhất.">Xem tải
-                theo ngày</button>
+                data-prompt="Cho biết các lớp hoặc giáo viên có lịch dày nhất trong bộ thời khóa biểu này.">Xem tải theo lịch</button>
             {% else %}
             <button type="button"
                 data-prompt="Kiểm tra phân công hiện tại: lớp/môn nào còn thiếu, giáo viên nào quá tải hoặc dạy chưa đúng chuyên môn?">Kiểm

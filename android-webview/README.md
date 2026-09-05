@@ -2,20 +2,26 @@
 
 Project Android này là lớp vỏ WebView cho website Smart TKB. Backend FastAPI và PostgreSQL vẫn chạy trên server; APK không chứa dữ liệu thời khóa biểu.
 
-## URL backend của APK hiện tại
+## URL backend của APK
 
-APK 1.0.7 đang dùng trực tiếp URL cố định:
+APK lấy `APP_BASE_URL` tại thời điểm build theo thứ tự ưu tiên:
 
-```text
-https://teacher-timetable-three.vercel.app
-```
+1. Gradle property `-PAPP_BASE_URL=https://...`
+2. Biến môi trường `APP_BASE_URL`
+3. `APP_BASE_URL` trong file `.env` ở thư mục gốc repository
 
-URL này được khai báo trong `app/build.gradle.kts` và đóng vào `BuildConfig.APP_BASE_URL` khi build. APK hiện không dùng Google Apps Script, Firebase Hosting, `APK_CONFIG_URL` hoặc cơ chế URL động.
+Không còn URL server hard-code trong `app/build.gradle.kts`. URL phải dùng HTTPS và không cần dấu `/` ở cuối.
 
-Build debug:
+Build debug thông thường (nếu `.env` đã có `APP_BASE_URL`):
 
 ```powershell
 .\gradlew.bat assembleDebug
+```
+
+Hoặc override trực tiếp:
+
+```powershell
+.\gradlew.bat assembleDebug -PAPP_BASE_URL=https://your-domain.example
 ```
 
 APK tạo tại:

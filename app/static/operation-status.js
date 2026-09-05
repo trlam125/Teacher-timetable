@@ -49,8 +49,6 @@
     if (path.includes('/session-locks')) return 'Đang lưu khóa lịch…';
     if (path.includes('/constraints')) return 'Đang lưu tiết tránh…';
     if (path.includes('/preferences/') && path.includes('/review')) return 'Đang duyệt nguyện vọng…';
-    if (path.includes('/preferences/')) return 'Đang gửi nguyện vọng…';
-    if (path.includes('/teacher-accounts')) return method === 'DELETE' ? 'Đang thu hồi tài khoản…' : 'Đang lưu tài khoản…';
     if (path.includes('/fixed')) return method === 'DELETE' ? 'Đang bỏ cố định…' : 'Đang cố định tiết…';
     if (path.includes('/move')) return 'Đang di chuyển tiết học…';
     if (path.includes('/lessons')) return method === 'DELETE' ? 'Đang đưa tiết về khay…' : 'Đang xếp tiết học…';

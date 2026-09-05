@@ -10,9 +10,10 @@
   {% if mode != 'login' %}
   <script src="/static/operation-status.js?v=1" defer></script>
   {% endif %}
-  <link rel="stylesheet" href="/static/auth-extra.css?v=1">
+  <link rel="stylesheet" href="/static/auth-extra.css?v=2">
   <link rel="stylesheet" href="/static/auth-panda.css?v=1">
   <script src="/static/auth-panda.js?v=1" defer></script>
+  <script src="/static/visual-captcha.js?v=1" defer></script>
 </head>
 
 <body class="auth-page auth-scene auth-{{mode}}">
@@ -51,34 +52,16 @@
         {% if mode=='login' %}
         <p class="muted">Hệ thống tự chuyển đến cổng quản trị hoặc cổng giáo viên theo quyền tài khoản.</p>
         {% elif mode=='register' %}
-        <p class="muted">Chọn đúng hồ sơ giáo viên và xác nhận email bằng OTP để kích hoạt tài khoản ngay.</p>
-        {% if target_project %}<div class="alert"><b>Đăng ký vào:</b> {{target_project.name}} ·
-          {{target_project.school_name}}</div>{% endif %}
+        <p class="muted">Đăng ký tự do, không cần link mời và không cần quản trị viên duyệt. Chỉ cần nhập tên giáo viên, xác nhận email bằng OTP và tài khoản sẽ được kích hoạt ngay.</p>
         {% else %}
         <p class="muted">Mã OTP 6 số đã được gửi tới <b>{{masked_email}}</b> và có hiệu lực trong 10 phút.</p>
-        {% if target_project %}<div class="alert"><b>Bộ thời khóa biểu:</b> {{target_project.name}} ·
-          {{target_project.school_name}}</div>{% endif %}
+        {% if target_teacher_name %}<div class="alert"><b>Giáo viên:</b> {{target_teacher_name}}</div>{% endif %}
         {% endif %}
         {% if error %}<div class="alert error">{{error}}</div>{% endif %}
         {% if mode=='register' %}
-        {% if target_project %}
-        <input type="hidden" name="project_token" value="{{project_token or ''}}">
-        <label>Họ và tên đầy đủ<input name="name" value="{{form_values.name or ''}}" maxlength="120" required></label>
-        <label>Hồ sơ giáo viên
-          <select name="teacher_id" required>
-            <option value="">Chọn đúng hồ sơ của bạn</option>
-            {% for teacher in available_teachers %}<option value="{{teacher.id}}" {% if
-              form_values.teacher_id==teacher.id %}selected{% endif %}>{{teacher.name}}</option>{% endfor %}
-          </select>
-        </label>
-        {% if not available_teachers %}<div class="alert error">Project hiện không còn hồ sơ giáo viên nào chưa có tài
-          khoản.</div>{% endif %}
-        {% else %}
-        <div class="alert error">Đăng ký chỉ mở qua link mời của quản trị viên. Hãy yêu cầu quản trị viên gửi link đăng
-          ký từ project.</div>
+        <label>Tên giáo viên<input name="name" value="{{form_values.name or ''}}" maxlength="120" placeholder="Ví dụ: Nguyễn Văn An" required></label>
         {% endif %}
-        {% endif %}
-        {% if mode in ['login','register'] and (mode=='login' or target_project) %}
+        {% if mode in ['login','register'] %}
         <label class="auth-field">Email<span class="auth-input-wrap"><i class="field-icon mail-icon"
               aria-hidden="true"></i><input id="authEmail" type="email" name="email"
               value="{{form_values.email or '' if mode=='register' else ''}}" autocomplete="email"
@@ -93,33 +76,24 @@
               class="field-icon lock-icon" aria-hidden="true"></i><input type="password" name="password_confirm"
               autocomplete="new-password" minlength="8" required></span></label>{% endif %}
         {% endif %}
-        {% if mode=='register' and target_project %}
-        <div class="captcha-box">
-          <label class="check-label"><input type="checkbox" name="human_confirm" value="yes" required> Tôi đang tự thực
-            hiện đăng ký này</label>
-          <label>Xác minh: <b>{{captcha_question}}</b><input name="captcha_answer" inputmode="numeric"
-              autocomplete="off" required></label>
-          <input type="hidden" name="captcha_token" value="{{captcha_token}}">
-          <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1"
-              autocomplete="off"></label>
-        </div>
+        {% if mode=='register' %}
+        <input type="hidden" name="human_confirm" value="yes">
+        {% set captcha_enforce = 'always' %}
+        {% include '_visual_captcha.html' %}
+        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         {% elif mode=='register_otp' %}
         <input type="hidden" name="verification_token" value="{{verification_token}}">
         <label class="auth-field">Mã OTP 6 số<span class="auth-input-wrap"><input name="otp" inputmode="numeric"
               pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required
               autofocus></span></label>
-        <div class="captcha-box otp-resend-captcha">
-          <p class="muted">Khi cần gửi lại mã, hãy xác minh:</p>
-          <label class="check-label"><input type="checkbox" name="human_confirm" value="yes"> Tôi đang tự yêu cầu mã
-            mới</label>
-          <label><b>{{captcha_question}}</b><input name="captcha_answer" inputmode="numeric" autocomplete="off"></label>
-          <input type="hidden" name="captcha_token" value="{{captcha_token}}">
-          <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1"
-              autocomplete="off"></label>
-        </div>
+        <p class="muted otp-captcha-intro">Chỉ cần xác minh bên dưới khi bạn muốn gửi lại mã OTP.</p>
+        <input type="hidden" name="human_confirm" value="yes">
+        {% set captcha_enforce = 'resend' %}
+        {% include '_visual_captcha.html' %}
+        <label class="bot-trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         {% endif %}
         {% if mode=='login' %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif %}
-        {% if mode=='login' or (mode=='register' and target_project and available_teachers) or mode=='register_otp' %}
+        {% if mode in ['login','register','register_otp'] %}
         <button class="auth-submit" type="submit"><span>{{'Đăng nhập' if mode=='login' else ('Xác nhận và kích hoạt' if
             mode=='register_otp' else 'Gửi mã OTP')}}</span><i aria-hidden="true">→</i></button>
         {% endif %}

@@ -77,7 +77,7 @@
                     <path
                         d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z">
                     </path>
-                </svg>Hòm thư nguyện vọng</button><button class="nav" data-tab="schedule"><svg class="nav-icon"
+                </svg>Nguyện vọng lịch sử</button><button class="nav" data-tab="schedule"><svg class="nav-icon"
                     viewBox="0 0 24 24">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                     <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -124,19 +124,10 @@
                 <div class="section-head">
                     <div>
                         <h1>Giáo viên</h1>
-                        <p>Quản lý tải dạy, tổ chuyên môn và quyền đăng nhập.</p>
+                        <p>Quản lý tải dạy và tổ chuyên môn.</p>
                     </div><button class="btn" onclick="openEntity('teacher')">+ Thêm giáo viên</button>
                 </div>
                 <div id="teacherTable"></div>
-                <div class="section-head account-heading">
-                    <div>
-                        <h2>Tài khoản giáo viên</h2>
-                        <p>Mỗi tài khoản chỉ được xem lịch và gửi nguyện vọng cho đúng giáo viên được liên kết.</p>
-                    </div><button class="btn" onclick="openTeacherAccount(undefined,this)">+ Cấp tài khoản</button>
-                </div>
-                <div id="teacherAccountTable">
-                    <div class="empty-state">Đang tải tài khoản…</div>
-                </div>
             </section>
             <section id="grades" class="tab">
                 <div class="section-head">
@@ -273,12 +264,12 @@
             <section id="preferences" class="tab">
                 <div class="section-head">
                     <div>
-                        <h1>Hòm thư nguyện vọng</h1>
-                        <p>Duyệt đề xuất tiết mong muốn và tiết cần tránh của giáo viên bộ môn.</p>
-                    </div><button class="btn" onclick="copyTeacherInvite(this)">Sao chép liên kết đăng ký</button>
+                        <h1>Nguyện vọng lịch sử</h1>
+                        <p>Xem các nguyện vọng đã lưu từ phiên bản trước để tham khảo. Nguyện vọng không tạo ràng buộc và không ảnh hưởng việc xếp thời khóa biểu. Cổng giáo viên hiện chỉ xem thời khóa biểu và không gửi nguyện vọng mới.</p>
+                    </div><a class="btn" href="/register" target="_blank" rel="noopener">Mở trang đăng ký giáo viên</a>
                 </div>
                 <div id="preferenceInbox">
-                    <div class="empty-state">Đang tải hòm thư…</div>
+                    <div class="empty-state">Đang tải dữ liệu nguyện vọng lịch sử…</div>
                 </div>
             </section>
             <section id="schedule" class="tab">

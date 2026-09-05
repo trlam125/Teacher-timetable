@@ -5,7 +5,26 @@ plugins {
 fun asBuildConfigString(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-val appBaseUrl = "https://teacher-timetable-three.vercel.app"
+fun dotenvValue(name: String): String? {
+    val envFile = rootProject.file("../.env")
+    if (!envFile.isFile) return null
+    return envFile.readLines()
+        .asSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("=") }
+        .map { it.substringBefore("=").trim() to it.substringAfter("=").trim().trim('"', '\'') }
+        .firstOrNull { it.first == name }
+        ?.second
+}
+
+val appBaseUrl = sequenceOf(
+    providers.gradleProperty("APP_BASE_URL").orNull,
+    System.getenv("APP_BASE_URL"),
+    dotenvValue("APP_BASE_URL"),
+)
+    .mapNotNull { value -> value?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() } }
+    .firstOrNull()
+    ?: error("Missing APP_BASE_URL. Set it in ../.env, environment, or -PAPP_BASE_URL=https://...")
 
 require(appBaseUrl.startsWith("https://")) {
     "APP_BASE_URL must use HTTPS: $appBaseUrl"
