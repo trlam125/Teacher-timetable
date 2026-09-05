@@ -108,6 +108,38 @@
   color: #475467
 }
 
+
+.account-page {
+  max-width: 760px
+}
+
+.account-form {
+  display: grid;
+  gap: 14px
+}
+
+.account-form h2 {
+  margin: 12px 0 0
+}
+
+.account-form>label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700
+}
+
+.account-form input {
+  font: inherit;
+  padding: 11px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px
+}
+
+.account-form input[readonly] {
+  background: var(--soft, #f8fafc);
+  color: inherit
+}
+
 .overview-timetable .cell.available {
   display: flex;
   flex-direction: column;

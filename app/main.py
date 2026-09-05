@@ -4858,6 +4858,72 @@ def api_teacher_data(project_id:Optional[int]=None,user:User=Depends(current_use
         raise HTTPException(404,"Chưa có bộ thời khóa biểu nào")
     return public_project_data(db,project)
 
+@app.get("/teacher/account", response_class=HTMLResponse)
+def teacher_account_page(
+    request: Request,
+    project_id: Optional[int] = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "teacher":
+        raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
+    project = db.get(Project, project_id) if project_id is not None else None
+    if project_id is not None and not project:
+        raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+    return templates.TemplateResponse("teacher_account.html", {
+        "request": request,
+        "user": user,
+        "p": project,
+        "error": None,
+        "success": None,
+        **chatbot_ui_context(project),
+    })
+
+@app.post("/teacher/account/password", response_class=HTMLResponse)
+def update_teacher_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    project_id: Optional[int] = Form(None),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "teacher":
+        raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
+    project = db.get(Project, project_id) if project_id is not None else None
+    if project_id is not None and not project:
+        raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+    context = {
+        "request": request,
+        "user": user,
+        "p": project,
+        "error": None,
+        "success": None,
+        **chatbot_ui_context(project),
+    }
+    if not pwd.verify(current_password, user.password_hash):
+        context["error"] = "Mật khẩu hiện tại không đúng."
+        return templates.TemplateResponse("teacher_account.html", context, status_code=400)
+    if len(new_password) < MIN_PASSWORD_LENGTH:
+        context["error"] = f"Mật khẩu mới phải có ít nhất {MIN_PASSWORD_LENGTH} ký tự."
+        return templates.TemplateResponse("teacher_account.html", context, status_code=400)
+    if new_password != confirm_password:
+        context["error"] = "Xác nhận mật khẩu mới không khớp."
+        return templates.TemplateResponse("teacher_account.html", context, status_code=400)
+    if pwd.verify(new_password, user.password_hash):
+        context["error"] = "Mật khẩu mới phải khác mật khẩu hiện tại."
+        return templates.TemplateResponse("teacher_account.html", context, status_code=400)
+
+    user.password_hash = pwd.hash(new_password)
+    user.session_version += 1
+    db.commit()
+    context["user"] = user
+    context["success"] = "Mật khẩu đã được thay đổi thành công."
+    response = templates.TemplateResponse("teacher_account.html", context)
+    set_session_cookie(response, user)
+    return response
+
 def email_change_target(account_id: str, actor: User, db: Session) -> User:
     raw = str(account_id or "").strip()
     if not raw:
@@ -4873,7 +4939,7 @@ def email_change_target(account_id: str, actor: User, db: Session) -> User:
 
 def email_change_back_path(actor: User, project_id: Optional[int] = None) -> str:
     if actor.role == "teacher":
-        return f"/teacher?project_id={project_id}" if project_id is not None else "/teacher"
+        return f"/teacher/account?project_id={project_id}" if project_id is not None else "/teacher/account"
     return "/admin/users"
 
 def email_change_confirmation_data(token: str, actor: User, db: Session) -> tuple[User, str, Optional[int]]:

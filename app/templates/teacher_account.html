@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tài khoản của tôi · Smart TKB</title>
+  <script>
+    (function () {
+      const t = localStorage.getItem('theme');
+      if (t === 'dark') document.documentElement.classList.add('dark-mode');
+    })();
+    function toggleTheme() {
+      const dark = document.documentElement.classList.toggle('dark-mode');
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+  </script>
+  <link rel="stylesheet" href="/static/style.css?v=1">
+  <link rel="stylesheet" href="/static/effects.css?v=1">
+  <link rel="stylesheet" href="/static/preferences.css?v=3">
+  <link rel="stylesheet" href="/static/chatbot.css?v=1">
+</head>
+
+<body class="teacher-surface">
+  <header class="appbar">
+    <b>Smart TKB · Cổng giáo viên</b>
+    <div><strong>{{user.name}}</strong><small>Tài khoản của tôi</small></div>
+    <div class="spacer"></div>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Đổi giao diện Sáng/Tối"
+      aria-label="Đổi giao diện Sáng/Tối">
+      <svg class="theme-toggle-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <svg class="theme-toggle-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+    <a class="btn ghost" href="/teacher{% if p %}?project_id={{p.id}}{% endif %}">Quay lại thời khóa biểu</a>
+    <a class="btn ghost" href="/logout">Đăng xuất</a>
+  </header>
+
+  <main class="container account-page">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">BẢO MẬT TÀI KHOẢN</span>
+        <h1>Tài khoản của tôi</h1>
+        <p>{{user.name}} · quyền xem thời khóa biểu</p>
+      </div>
+    </div>
+
+    {% if error %}<div class="alert error" style="margin-bottom:16px">{{error}}</div>{% endif %}
+    {% if success %}<div class="alert success" style="margin-bottom:16px">{{success}}</div>{% endif %}
+
+    <section class="panel account-form" style="margin-bottom:18px">
+      <h2>Thông tin đăng nhập</h2>
+      <label>Email
+        <input type="email" value="{{user.email}}" readonly>
+      </label>
+      <div class="row end">
+        <a class="btn ghost" href="/account/email-change{% if p %}?project_id={{p.id}}{% endif %}">Đổi email</a>
+      </div>
+    </section>
+
+    <form class="panel account-form" method="post" action="/teacher/account/password">
+      {% if p %}<input type="hidden" name="project_id" value="{{p.id}}">{% endif %}
+      <h2>Đổi mật khẩu</h2>
+      <p class="muted">Nhập mật khẩu hiện tại để xác nhận trước khi đặt mật khẩu mới.</p>
+      <label>Mật khẩu hiện tại
+        <input type="password" name="current_password" autocomplete="current-password" required>
+      </label>
+      <label>Mật khẩu mới
+        <input type="password" name="new_password" minlength="8" autocomplete="new-password" required>
+      </label>
+      <label>Xác nhận mật khẩu mới
+        <input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+      </label>
+      <div class="row end">
+        <a class="btn ghost" href="/teacher{% if p %}?project_id={{p.id}}{% endif %}">Hủy</a>
+        <button class="btn" type="submit">Đổi mật khẩu</button>
+      </div>
+    </form>
+  </main>
+  {% if chatbot_project_id %}{% include "_chatbot_popup.html" %}{% endif %}
+</body>
+
+</html>
