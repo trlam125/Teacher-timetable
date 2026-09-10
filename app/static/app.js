@@ -25,15 +25,6 @@ function confirmAction(message, options) {
     window.OperationStatus?.confirm(message, options) ?? Promise.resolve(false)
   );
 }
-function beginTrackedOperation(message) {
-  window.OperationStatus?.begin(message);
-  let finished = false;
-  return () => {
-    if (finished) return;
-    finished = true;
-    window.OperationStatus?.finish();
-  };
-}
 function operationHeaders(headers = {}) {
   return { ...headers, "X-Skip-Operation-Status": "1" };
 }
@@ -771,7 +762,9 @@ function renderScheduleSelectors() {
       rows = rows.filter((item) =>
         [item.name, item.short_name]
           .filter(Boolean)
-          .some((value) => String(value).toLocaleLowerCase("vi").includes(query)),
+          .some((value) =>
+            String(value).toLocaleLowerCase("vi").includes(query),
+          ),
       );
     }
 
@@ -782,7 +775,11 @@ function renderScheduleSelectors() {
     if (entityLabel) entityLabel.hidden = !needsEntity;
 
     entity.innerHTML = needsEntity ? opts(rows) : "";
-    if (needsEntity && previousValue && [...entity.options].some((o) => o.value === previousValue)) {
+    if (
+      needsEntity &&
+      previousValue &&
+      [...entity.options].some((o) => o.value === previousValue)
+    ) {
       entity.value = previousValue;
     }
   };
@@ -1487,39 +1484,6 @@ function handleExportExcel(event, link) {
 }
 window.handleExportExcel = handleExportExcel;
 
-window.CURRENT_SCHEDULE_LAYOUT = "matrix";
-window.CURRENT_SELECTED_DAY = 0;
-
-function toggleScheduleLayout() {
-  window.CURRENT_SCHEDULE_LAYOUT =
-    window.CURRENT_SCHEDULE_LAYOUT === "day_card" ? "matrix" : "day_card";
-  updateScheduleLayoutButtonState();
-  renderSchedule(true);
-}
-window.toggleScheduleLayout = toggleScheduleLayout;
-
-function selectScheduleDay(dayIndex) {
-  window.CURRENT_SELECTED_DAY = dayIndex;
-  renderSchedule(true);
-}
-window.selectScheduleDay = selectScheduleDay;
-
-function updateScheduleLayoutButtonState() {
-  const btn = $("#toggleScheduleLayoutBtn");
-  const icon = $("#toggleLayoutIcon");
-  const text = $("#toggleLayoutText");
-  if (!btn || !icon || !text) return;
-  if (window.CURRENT_SCHEDULE_LAYOUT === "day_card") {
-    icon.textContent = "💻";
-    text.textContent = "Xem ma trận";
-    btn.title = "Chuyển sang giao diện Ma trận đa cột";
-  } else {
-    icon.textContent = "📱";
-    text.textContent = "Xem theo ngày";
-    btn.title = "Chuyển sang giao diện Thẻ theo ngày (Mobile)";
-  }
-}
-
 function computeScheduleConflicts() {
   const conflictsByLessonId = new Map();
   const conflictsBySlot = new Map();
@@ -1605,16 +1569,10 @@ async function generateSchedule(allowRebuild = false) {
   const modal = $("#aiProgressModal");
   const bar = $("#aiProgressBar");
   const subtitle = $("#aiProgressSubtitle");
-  const steps = modal ? modal.querySelectorAll(".ai-step") : [];
 
-  function setStep(stepNum, percent, statusText) {
+  function setProgress(percent, statusText) {
     if (bar) bar.style.width = `${percent}%`;
     if (subtitle && statusText) subtitle.textContent = statusText;
-    steps.forEach((el, idx) => {
-      const s = idx + 1;
-      el.classList.toggle("is-done", s < stepNum);
-      el.classList.toggle("is-active", s === stepNum);
-    });
   }
 
   setScheduleActionState("loading");
@@ -1622,15 +1580,15 @@ async function generateSchedule(allowRebuild = false) {
 
   if (modal && typeof modal.showModal === "function") {
     modal.showModal();
-    setStep(1, 20, "Đang đọc phân công và kiểm tra tiết tránh...");
+    setProgress(20, "Đang đọc phân công và kiểm tra tiết tránh...");
   }
 
   const stepTimer1 = setTimeout(() => {
-    setStep(2, 45, "Khởi tạo ma trận và ưu tiên xếp các tiết cố định...");
+    setProgress(45, "Khởi tạo ma trận và ưu tiên xếp các tiết cố định...");
   }, 350);
 
   const stepTimer2 = setTimeout(() => {
-    setStep(3, 75, "Đang chạy thuật toán tối ưu phân bổ thời khóa biểu...");
+    setProgress(75, "Đang chạy thuật toán tối ưu phân bổ thời khóa biểu...");
   }, 750);
 
   try {
@@ -1645,7 +1603,7 @@ async function generateSchedule(allowRebuild = false) {
     clearTimeout(stepTimer2);
 
     if (r.ok) {
-      setStep(4, 100, "Kiểm tra xung đột và hoàn tất thời khóa biểu...");
+      setProgress(100, "Kiểm tra xung đột và hoàn tất thời khóa biểu...");
       setTimeout(async () => {
         if (modal) modal.close();
         try {
@@ -1828,8 +1786,7 @@ function renderSchedule(preserveScroll = false) {
     vt = $("#viewType"),
     ve = $("#viewEntity");
   if (!box || !vt || !ve) return;
-  updateScheduleLayoutButtonState();
-  const currentTable = box.querySelector(".timetable, .day-cards-view");
+  const currentTable = box.querySelector(".timetable");
   const scrollState =
     preserveScroll && currentTable
       ? { top: currentTable.scrollTop, left: currentTable.scrollLeft }
@@ -1866,35 +1823,14 @@ function renderSchedule(preserveScroll = false) {
     return (a?.class_name || "").localeCompare(b?.class_name || "", "vi");
   };
 
-  const isDayCardMode = window.CURRENT_SCHEDULE_LAYOUT === "day_card";
-
-  if (isDayCardMode) {
-    const dayNames = [
-      "Thứ 2",
-      "Thứ 3",
-      "Thứ 4",
-      "Thứ 5",
-      "Thứ 6",
-      "Thứ 7",
-      "CN",
-    ];
-    let dayTabsHtml = '<div class="mobile-day-nav" role="tablist">';
-    const activeDay = Math.max(
-      0,
-      Math.min(window.CURRENT_SELECTED_DAY || 0, days - 1),
-    );
-    for (let d = 0; d < days; d++) {
-      const isActive = d === activeDay;
-      dayTabsHtml += `<button type="button" role="tab" aria-selected="${isActive}" class="day-tab-btn ${isActive ? "is-active" : ""}" onclick="selectScheduleDay(${d})">${dayNames[d]}</button>`;
-    }
-    dayTabsHtml += "</div>";
-
-    let cardsHtml = '<div class="day-cards-view">';
-    for (let s = 0; s < sessions; s++) {
-      for (let p = 0; p < pps; p++) {
-        const slot = activeDay * (sessions * pps) + s * pps + p;
-        const sessionLabel =
-          sessions > 1 ? (s === 0 ? "Buổi sáng" : "Buổi chiều") : "Cả ngày";
+  let html = `<div class="timetable ${vt.value === "overview" ? "overview-timetable" : ""}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;
+  for (let d = 0; d < days; d++)
+    html += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
+  for (let s = 0; s < sessions; s++) {
+    for (let p = 0; p < pps; p++) {
+      html += `<div class="cell period">${sessions > 1 ? (s === 0 ? "S" : "C") + " " : ""}${p + 1}</div>`;
+      for (let d = 0; d < days; d++) {
+        const slot = d * (sessions * pps) + s * pps + p;
         const slotConflicts = conflicts.conflictsBySlot.get(slot) || [];
         const hasConflict = slotConflicts.length > 0;
         const slotConflictText = hasConflict ? slotConflicts.join("; ") : "";
@@ -1902,47 +1838,15 @@ function renderSchedule(preserveScroll = false) {
           .filter((l) => l.slot === slot)
           .filter(filterLesson)
           .sort(sortLessons);
-
-        cardsHtml += `
-          <div class="day-slot-card">
-            <div class="day-slot-header">
-              <span>Tiết ${p + 1} (${sessionLabel})</span>
-              ${hasConflict ? `<span class="conflict-badge" title="${esc(slotConflictText)}" onclick="showToast('${esc(slotConflictText)}', 'warning')">! Xung đột</span>` : ""}
-            </div>
-            <div class="day-slot-dropzone available cell ${hasConflict ? "has-conflict" : ""}" data-slot="${slot}" ondragover="event.preventDefault()" ondrop="dropLesson(event,${slot})" title="${esc(slotConflictText)}">
-              ${lessons.map((l) => lessonHtml(l, vt.value, clustered.has(l.id), conflicts.conflictsByLessonId.get(l.id))).join("")}
-            </div>
-          </div>`;
+        html += `<div class="cell available ${hasConflict ? "has-conflict" : ""}" data-slot="${slot}" ondragover="event.preventDefault()" ondrop="dropLesson(event,${slot})" title="${esc(slotConflictText)}">${lessons.map((l) => lessonHtml(l, vt.value, clustered.has(l.id), conflicts.conflictsByLessonId.get(l.id))).join("")}</div>`;
       }
     }
-    cardsHtml += "</div>";
-    box.innerHTML = legend + dayTabsHtml + cardsHtml;
-  } else {
-    let html = `<div class="timetable ${vt.value === "overview" ? "overview-timetable" : ""}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;
-    for (let d = 0; d < days; d++)
-      html += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
-    for (let s = 0; s < sessions; s++) {
-      for (let p = 0; p < pps; p++) {
-        html += `<div class="cell period">${sessions > 1 ? (s === 0 ? "S" : "C") + " " : ""}${p + 1}</div>`;
-        for (let d = 0; d < days; d++) {
-          const slot = d * (sessions * pps) + s * pps + p;
-          const slotConflicts = conflicts.conflictsBySlot.get(slot) || [];
-          const hasConflict = slotConflicts.length > 0;
-          const slotConflictText = hasConflict ? slotConflicts.join("; ") : "";
-          const lessons = data.lessons
-            .filter((l) => l.slot === slot)
-            .filter(filterLesson)
-            .sort(sortLessons);
-          html += `<div class="cell available ${hasConflict ? "has-conflict" : ""}" data-slot="${slot}" ondragover="event.preventDefault()" ondrop="dropLesson(event,${slot})" title="${esc(slotConflictText)}">${lessons.map((l) => lessonHtml(l, vt.value, clustered.has(l.id), conflicts.conflictsByLessonId.get(l.id))).join("")}</div>`;
-        }
-      }
-    }
-    html += "</div>";
-    box.innerHTML = legend + html;
   }
+  html += "</div>";
+  box.innerHTML = legend + html;
 
   if (scrollState) {
-    const nextTable = box.querySelector(".timetable, .day-cards-view");
+    const nextTable = box.querySelector(".timetable");
     if (nextTable) {
       nextTable.scrollTop = scrollState.top;
       nextTable.scrollLeft = scrollState.left;
@@ -2911,46 +2815,6 @@ function updatePointerDropTarget(
   clearPointerDropTarget();
   pointerDrag.target = next;
   if (next) next.classList.add("drag-over");
-}
-function scrollDragPage(top = 0) {
-  if (!top) return false;
-  const root = document.scrollingElement || document.documentElement;
-  const body = document.body;
-  const current = Math.max(
-    window.scrollY || 0,
-    root?.scrollTop || 0,
-    body?.scrollTop || 0,
-  );
-  const docHeight = Math.max(
-    root?.scrollHeight || 0,
-    body?.scrollHeight || 0,
-    document.documentElement?.scrollHeight || 0,
-  );
-  const viewportHeight =
-    window.innerHeight || document.documentElement.clientHeight || 0;
-  const maxTop = Math.max(0, docHeight - viewportHeight);
-  const next = Math.max(0, Math.min(maxTop, current + top));
-  if (next !== current) {
-    if (root) root.scrollTop = next;
-    if (body && body !== root) body.scrollTop = next;
-    window.scrollTo(window.scrollX || 0, next);
-    return true;
-  }
-  const content = document.querySelector(".workspace .content");
-  if (
-    content &&
-    content.scrollHeight > content.clientHeight + 1 &&
-    scrollElementBy(content, top, 0)
-  )
-    return true;
-  const workspace = document.querySelector(".workspace");
-  if (
-    workspace &&
-    workspace.scrollHeight > workspace.clientHeight + 1 &&
-    scrollElementBy(workspace, top, 0)
-  )
-    return true;
-  return false;
 }
 function runDragAutoScroll() {
   if (!pointerDrag.active) {

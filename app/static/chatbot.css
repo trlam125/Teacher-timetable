@@ -456,6 +456,36 @@
 }
 
 .chatbot-popup {
+  --chat-panel-bg: rgba(255, 255, 255, 0.94);
+  --chat-header-bg: linear-gradient(
+    135deg,
+    rgba(239, 246, 255, 0.98),
+    rgba(250, 245, 255, 0.97) 52%,
+    rgba(255, 247, 250, 0.98)
+  );
+  --chat-messages-bg:
+    radial-gradient(
+      circle at 14% 10%,
+      rgba(96, 165, 250, 0.14),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% 18%,
+      rgba(192, 132, 252, 0.12),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 72% 88%,
+      rgba(244, 114, 182, 0.09),
+      transparent 32%
+    ),
+    linear-gradient(160deg, #f8fbff 0%, #f7f5ff 52%, #fff8fb 100%);
+  --chat-composer-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(247, 250, 255, 0.98)
+  );
+  --chat-assistant-bubble: rgba(255, 255, 255, 0.82);
   position: fixed;
   right: 24px;
   bottom: 24px;
@@ -467,7 +497,7 @@
   border: 2px solid transparent;
   border-radius: 20px;
   background:
-    linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+    linear-gradient(var(--chat-panel-bg), var(--chat-panel-bg)) padding-box,
     linear-gradient(
         115deg,
         #60a5fa 0%,
@@ -568,7 +598,8 @@
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--line);
-  background: var(--card-bg);
+  background: var(--chat-header-bg);
+  backdrop-filter: blur(16px);
 }
 
 .chatbot-popup-avatar {
@@ -637,7 +668,7 @@
   min-width: 0;
   min-height: 0;
   padding: 18px 14px 12px;
-  background: color-mix(in srgb, var(--bg) 60%, var(--card-bg));
+  background: var(--chat-messages-bg);
 }
 
 .chatbot-popup .chat-message {
@@ -665,7 +696,11 @@
   min-width: 0;
   max-width: 100%;
   padding: 10px 12px;
+  border-color: rgba(148, 163, 184, 0.26);
   border-radius: 5px 14px 14px;
+  background: var(--chat-assistant-bubble);
+  box-shadow: 0 6px 18px rgba(51, 65, 85, 0.07);
+  backdrop-filter: blur(8px);
   font-size: 14px;
   line-height: 1.55;
   white-space: normal;
@@ -675,6 +710,8 @@
 
 .chatbot-popup .chat-message.user .message-body {
   border-radius: 14px 5px 14px 14px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5 58%, #7c3aed);
+  box-shadow: 0 7px 20px rgba(79, 70, 229, 0.2);
 }
 
 .chatbot-popup .suggestion-list {
@@ -693,19 +730,33 @@
   flex: 0 0 auto;
   padding: 7px 10px;
   font-size: 12px;
-  background: var(--card-bg);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 3px 12px rgba(51, 65, 85, 0.05);
+  backdrop-filter: blur(8px);
 }
 
 .chatbot-popup-composer {
   min-width: 0;
   padding: 12px;
+  background: var(--chat-composer-bg);
+  backdrop-filter: blur(14px);
 }
 
 .chatbot-popup-composer textarea {
   min-height: 48px;
   max-height: 130px;
   padding: 11px 12px;
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   font-size: 14px;
+}
+
+.chatbot-popup-composer textarea:focus {
+  border-color: #6366f1;
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.14),
+    0 8px 24px rgba(79, 70, 229, 0.08);
 }
 
 .chatbot-popup .composer-actions {
@@ -729,6 +780,96 @@
 
 .chatbot-popup .file-preview {
   max-width: 100%;
+}
+
+/* Small cat that continuously walks around the inside edge of the popup. */
+.chatbot-border-cat {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  user-select: none;
+  font-size: 20px;
+  line-height: 1;
+  filter: drop-shadow(0 3px 4px rgba(15, 23, 42, 0.2));
+  offset-path: inset(14px round 10px);
+  offset-distance: 0%;
+  offset-rotate: 0deg;
+  offset-anchor: 50% 50%;
+  animation: chatbot-cat-lap 11s linear infinite;
+  will-change: offset-distance, transform;
+}
+
+@keyframes chatbot-cat-lap {
+  0% {
+    offset-distance: 0%;
+    transform: translateY(0) rotate(-3deg);
+  }
+  6%,
+  18%,
+  31%,
+  44%,
+  57%,
+  69%,
+  82%,
+  94% {
+    transform: translateY(-2px) rotate(3deg);
+  }
+  12%,
+  25%,
+  38%,
+  50%,
+  63%,
+  76%,
+  88% {
+    transform: translateY(1px) rotate(-3deg);
+  }
+  100% {
+    offset-distance: 100%;
+    transform: translateY(0) rotate(-3deg);
+  }
+}
+
+:root.dark-mode .chatbot-popup {
+  --chat-panel-bg: rgba(15, 23, 42, 0.96);
+  --chat-header-bg: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.98),
+    rgba(49, 46, 129, 0.5) 56%,
+    rgba(76, 29, 149, 0.36)
+  );
+  --chat-messages-bg:
+    radial-gradient(
+      circle at 14% 10%,
+      rgba(59, 130, 246, 0.16),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% 18%,
+      rgba(168, 85, 247, 0.15),
+      transparent 31%
+    ),
+    radial-gradient(
+      circle at 72% 88%,
+      rgba(236, 72, 153, 0.1),
+      transparent 32%
+    ),
+    linear-gradient(160deg, #0f172a 0%, #15152b 52%, #1b1323 100%);
+  --chat-composer-bg: linear-gradient(
+    180deg,
+    rgba(30, 41, 59, 0.98),
+    rgba(15, 23, 42, 0.99)
+  );
+  --chat-assistant-bubble: rgba(30, 41, 59, 0.86);
+}
+
+:root.dark-mode .chatbot-popup .suggestion-list button,
+:root.dark-mode .chatbot-popup-composer textarea {
+  background: rgba(30, 41, 59, 0.86);
 }
 
 /* Rendered AI answer */
@@ -913,7 +1054,9 @@
     border-radius: 24px 24px 0 0;
     border-bottom: 0;
     box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.28);
-    background: var(--card-bg);
+    background:
+      linear-gradient(var(--chat-panel-bg), var(--chat-panel-bg)) padding-box,
+      linear-gradient(115deg, #60a5fa, #7c3aed 48%, #ec4899) border-box;
     transform: translateY(100%);
     transform-origin: bottom center;
     transition:
@@ -925,6 +1068,14 @@
   .chatbot-popup.is-open {
     transform: translateY(0);
     animation: none;
+  }
+
+  .chatbot-border-cat {
+    font-size: 18px;
+    width: 24px;
+    height: 24px;
+    offset-path: inset(12px round 12px);
+    animation-duration: 13s;
   }
 
   .chatbot-popup-header {
@@ -972,6 +1123,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .chatbot-border-cat {
+    animation: none;
+    offset-distance: 8%;
+  }
+
   .chatbot-popup.is-open {
     animation: none;
     background-position:

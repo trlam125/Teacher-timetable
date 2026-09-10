@@ -373,12 +373,6 @@ function scheduleAuditDisplayLessonParts(item) {
   }
   return { subject, teacher, raw };
 }
-function scheduleAuditDisplayLesson(item) {
-  const parts = scheduleAuditDisplayLessonParts(item);
-  return (
-    [parts.subject, parts.teacher].filter(Boolean).join(" - ") || parts.raw
-  );
-}
 function scheduleAuditEditableLessonHtml(item) {
   const parts = scheduleAuditDisplayLessonParts(item),
     draftId = Number(item.draft_id);

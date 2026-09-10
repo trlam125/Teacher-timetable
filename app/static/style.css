@@ -3296,134 +3296,7 @@ html.dark-mode .cell.available.has-conflict {
 }
 
 /* ==========================================================================
-   ADAPTIVE TIMETABLE: MOBILE DAY CARD VIEW
-   ========================================================================== */
-.toggle-layout-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  padding: 7px 12px;
-  border-radius: var(--radius-md, 10px);
-}
-
-.mobile-day-nav {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 6px 2px 12px;
-  margin-bottom: 12px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
-.mobile-day-nav::-webkit-scrollbar {
-  height: 4px;
-}
-
-.mobile-day-nav::-webkit-scrollbar-thumb {
-  background: var(--line-strong, #cbd5e1);
-  border-radius: 4px;
-}
-
-.day-tab-btn {
-  flex: 1;
-  min-width: 72px;
-  padding: 10px 8px;
-  background: var(--panel, #ffffff);
-  border: 1px solid var(--line, #e2e8f0);
-  border-radius: var(--radius-md, 10px);
-  color: var(--ink, #0f172a);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  scroll-snap-align: start;
-  transition: all 0.18s ease;
-}
-
-.day-tab-btn:hover {
-  border-color: var(--primary, #2563eb);
-  background: var(--primary-subtle, #eff6ff);
-}
-
-.day-tab-btn.is-active {
-  background: var(--primary, #2563eb);
-  color: #ffffff;
-  border-color: var(--primary, #2563eb);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
-}
-
-.day-cards-view {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.day-slot-card {
-  background: var(--panel, #ffffff);
-  border: 1px solid var(--line, #e2e8f0);
-  border-radius: var(--radius-lg, 14px);
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.05));
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
-}
-
-.day-slot-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted, #64748b);
-  border-bottom: 1px dashed var(--line, #e2e8f0);
-  padding-bottom: 6px;
-}
-
-.day-slot-dropzone {
-  min-height: 64px;
-  border-radius: var(--radius-md, 10px);
-  padding: 6px;
-  background: var(--bg, #f8fafc);
-  border: 1.5px dashed var(--line, #cbd5e1);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  transition: all 0.2s ease;
-}
-
-.day-slot-dropzone.android-touch-drop-target,
-.day-slot-dropzone.android-touch-snap-active {
-  border-color: #06b6d4 !important;
-  background-color: #cffafe !important;
-  box-shadow:
-    inset 0 0 0 3px #06b6d4,
-    0 4px 14px rgba(6, 182, 212, 0.25) !important;
-  transform: scale(1.01);
-}
-
-html.dark-mode .day-slot-dropzone.android-touch-drop-target {
-  background-color: rgba(6, 182, 212, 0.2) !important;
-}
-
-.day-slot-dropzone:empty::before {
-  content: "Chạm hoặc kéo thả tiết vào đây";
-  display: block;
-  width: 100%;
-  text-align: center;
-  font-size: 12px;
-  color: var(--ink-subtle, #94a3b8);
-  font-style: italic;
-}
-
-/* ==========================================================================
-   AI MULTI-STEP PROGRESS MODAL
+   AI PROGRESS MODAL
    ========================================================================== */
 .ai-progress-dialog {
   border: none;
@@ -3506,69 +3379,6 @@ html.dark-mode .day-slot-dropzone.android-touch-drop-target {
   background: linear-gradient(90deg, #2563eb, #38bdf8);
   border-radius: var(--radius-full, 9999px);
   transition: width 0.35s ease;
-}
-
-.ai-progress-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ai-step {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13.5px;
-  color: var(--muted, #64748b);
-  transition: all 0.2s ease;
-}
-
-.ai-step-icon {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--line, #f1f5f9);
-  color: var(--muted, #94a3b8);
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-}
-
-.ai-step.is-active {
-  color: var(--primary, #2563eb);
-  font-weight: 600;
-}
-
-.ai-step.is-active .ai-step-icon {
-  background: var(--primary, #2563eb);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
-  animation: step-spin 1.2s linear infinite;
-}
-
-@keyframes step-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.ai-step.is-done {
-  color: var(--ink, #0f172a);
-}
-
-.ai-step.is-done .ai-step-icon {
-  background: var(--success-bg, #ecfdf5);
-  color: var(--success, #10b981);
-}
-
-.ai-step.is-done .ai-step-icon::before {
-  content: "✓";
 }
 
 /* Spinner for excel export button */
@@ -4101,10 +3911,9 @@ html.dark-mode .day-slot-dropzone.android-touch-drop-target {
 
 .assignment-filter-panel {
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(170px, 1fr) minmax(
-      190px,
-      1.2fr
-    ) minmax(210px, 1.25fr) auto;
+  grid-template-columns:
+    minmax(170px, 1fr) minmax(170px, 1fr) minmax(190px, 1.2fr)
+    minmax(210px, 1.25fr) auto;
   gap: 10px;
   align-items: end;
   margin: 16px 0 12px;

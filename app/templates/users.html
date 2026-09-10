@@ -150,16 +150,12 @@
                                 </td>
                                 <td style="white-space:nowrap">
                                     <span class="pill">{{ log.error_code }}</span>
-                                    {% if log.provider_status %}<div class="muted"
-     style="margin-top:6px">HTTP {{ log.provider_status }}</div>
+                                    {% if log.provider_status %}
+                                        <div class="muted" style="margin-top:6px">HTTP {{ log.provider_status }}</div>
                                     {% endif %}
                                 </td>
-                                <td style="min-width:320px;
-                                           max-width:520px;
-                                           white-space:normal;
-                                           word-break:break-word">
-                                    {{ log.error_message
-                                    }}
+                                <td style="min-width:320px; max-width:520px; white-space:normal; word-break:break-word">
+                                    {{ log.error_message }}
                                 </td>
                             </tr>
                         {% endfor %}
