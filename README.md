@@ -11,7 +11,7 @@
 * Kéo-thả để điều chỉnh thời khóa biểu thủ công.
 * Xem thời khóa biểu theo lớp hoặc giáo viên.
 * Cổng riêng cho giáo viên xem lịch và gửi nguyện vọng.
-* Đăng ký tài khoản giáo viên qua link mời và xác thực OTP email.
+* Giáo viên có thể tự đăng ký tài khoản và xác thực bằng OTP email.
 * Chia sẻ thời khóa biểu bằng liên kết và xuất CSV.
 * Nhân bản bộ thời khóa biểu cho học kỳ mới.
 * Trợ lý AI riêng để kiểm tra, đối chiếu file Word/Excel/CSV và đề xuất phân công.
@@ -162,8 +162,8 @@ http://127.0.0.1:8000
 
 ### Giáo viên
 
-1. Mở link đăng ký do Admin cung cấp.
-2. Chọn đúng hồ sơ giáo viên và tạo tài khoản.
+1. Truy cập trang đăng ký tài khoản giáo viên.
+2. Nhập họ tên, email và mật khẩu để đăng ký.
 3. Nhập OTP được gửi qua email để kích hoạt.
 4. Đăng nhập và xem thời khóa biểu cá nhân.
 5. Gửi nguyện vọng hoặc các tiết cần tránh.

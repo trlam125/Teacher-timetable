@@ -49,8 +49,8 @@
                     <p>{{p.days}} ngày · {{p.sessions}} buổi · {{p.periods_per_session}} tiết/buổi</p>
                 </div>
                 <div class="row"><a class="btn" href="/projects/{{p.id}}">Mở</a>
-                    <form method="post" action="/projects/{{p.id}}/clone"><button class="btn ghost">Nhân bản</button>
-                    </form>
+                    <button class="btn ghost" type="button" data-project-id="{{p.id}}"
+                        data-project-name="{{p.name|e}}" onclick="openCloneDialog(this)">Nhân bản</button>
                     <form method="post" action="/projects/{{p.id}}/delete"
                         onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa bộ thời khóa biểu này? Toàn bộ dữ liệu, phân công và lịch đã xếp trong bộ sẽ bị xóa vĩnh viễn.', {title: 'Xóa thời khóa biểu', confirmText: 'Xóa'}).then(ok => { if (ok) this.submit(); });">
                         <button class="btn ghost project-delete-btn" type="submit">Xóa</button>
@@ -72,6 +72,38 @@
                     onclick="this.closest('dialog').close()">Hủy</button><button class="btn">Tạo</button></div>
         </form>
     </dialog>
+    <dialog id="cloneProject">
+        <form method="post" class="modal-form" id="cloneProjectForm">
+            <h2>Nhân bản bộ thời khóa biểu</h2>
+            <label>Tên bộ TKB mới
+                <input id="cloneProjectName" name="name" maxlength="200" required>
+            </label>
+            <p>Bản sao sẽ độc lập với bộ thời khóa biểu gốc và giữ lại dữ liệu cấu hình, phân công và lịch hiện tại.</p>
+            <div class="row end">
+                <button type="button" class="btn ghost" onclick="this.closest('dialog').close()">Hủy</button>
+                <button class="btn" type="submit">Nhân bản</button>
+            </div>
+        </form>
+    </dialog>
+    <script>
+        function openCloneDialog(button) {
+            const dialog = document.getElementById('cloneProject');
+            const form = document.getElementById('cloneProjectForm');
+            const nameInput = document.getElementById('cloneProjectName');
+            const projectId = button.dataset.projectId;
+            const projectName = button.dataset.projectName || '';
+            const suffix = ' (bản sao)';
+            const maxBaseLength = Math.max(0, 200 - suffix.length);
+
+            form.action = `/projects/${encodeURIComponent(projectId)}/clone`;
+            nameInput.value = projectName.slice(0, maxBaseLength) + suffix;
+            dialog.showModal();
+            requestAnimationFrame(() => {
+                nameInput.focus();
+                nameInput.select();
+            });
+        }
+    </script>
 
     {% if chatbot_project_id %}{% include "_chatbot_popup.html" %}{% endif %}
 </body>

@@ -1184,11 +1184,11 @@ def admin_can_manage_account(admin: User, account: User) -> bool:
         return False
     if account.id == admin.id:
         return True
-    # Teacher accounts are now global read-only viewers, not project-owned resources.
-    # Only the super admin may edit/delete/promote another user's login account.
     if is_super_admin(admin):
         return account.role != "super_admin"
-    return False
+    # Admin thường được quản lý các tài khoản giáo viên, nhưng không được
+    # sửa/xóa tài khoản quản trị viên khác hoặc super admin.
+    return account.role == "teacher"
 
 def development_reset_links_enabled(request: Request) -> bool:
     host = (request.url.hostname or "").lower()
@@ -2478,47 +2478,200 @@ def create_project(name: str = Form(...), school_name: str = Form(...), days: in
     db.add(p); db.commit()
     return RedirectResponse(f"/projects/{p.id}", 303)
 
+def validate_clone_source(db: Session, pid: int) -> dict[str, list]:
+    """Kiểm tra các tham chiếu nội bộ trước khi nhân bản project.
+
+    Clone phải là thao tác all-or-nothing: nếu dữ liệu nguồn có tham chiếu chéo
+    project hoặc dữ liệu legacy bị mồ côi thì dừng bằng HTTP 409, thay vì tạo
+    một bản sao thiếu dữ liệu hoặc phát sinh KeyError/500 giữa transaction.
+    """
+    rows = {
+        "departments": db.scalars(select(Department).where(Department.project_id == pid)).all(),
+        "subjects": db.scalars(select(Subject).where(Subject.project_id == pid)).all(),
+        "teachers": db.scalars(select(Teacher).where(Teacher.project_id == pid)).all(),
+        "teacher_subjects": db.scalars(select(TeacherSubject).where(TeacherSubject.project_id == pid)).all(),
+        "grades": db.scalars(select(Grade).where(Grade.project_id == pid)).all(),
+        "grade_requirements": db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.project_id == pid)).all(),
+        "classes": db.scalars(select(SchoolClass).where(SchoolClass.project_id == pid)).all(),
+        "assignments": db.scalars(select(Assignment).where(Assignment.project_id == pid)).all(),
+        "fixed_lessons": db.scalars(select(FixedLesson).where(FixedLesson.project_id == pid)).all(),
+        "lessons": db.scalars(select(Lesson).where(Lesson.project_id == pid)).all(),
+    }
+
+    department_ids = {row.id for row in rows["departments"]}
+    subject_ids = {row.id for row in rows["subjects"]}
+    teacher_ids = {row.id for row in rows["teachers"]}
+    grade_ids = {row.id for row in rows["grades"]}
+    class_ids = {row.id for row in rows["classes"]}
+    assignment_ids = {row.id for row in rows["assignments"]}
+    errors = []
+
+    invalid_teacher_ids = [
+        row.id for row in rows["teachers"]
+        if row.department_id is not None and row.department_id not in department_ids
+    ]
+    if invalid_teacher_ids:
+        errors.append(f"giáo viên có tổ chuyên môn không hợp lệ: {invalid_teacher_ids}")
+
+    invalid_teacher_subject_ids = [
+        row.id for row in rows["teacher_subjects"]
+        if row.teacher_id not in teacher_ids or row.subject_id not in subject_ids
+    ]
+    if invalid_teacher_subject_ids:
+        errors.append(f"quan hệ giáo viên-môn học không hợp lệ: {invalid_teacher_subject_ids}")
+
+    invalid_requirement_ids = [
+        row.id for row in rows["grade_requirements"]
+        if row.grade_id not in grade_ids or row.subject_id not in subject_ids
+    ]
+    if invalid_requirement_ids:
+        errors.append(f"chương trình khối không hợp lệ: {invalid_requirement_ids}")
+
+    invalid_class_ids = [
+        row.id for row in rows["classes"]
+        if row.grade_id is not None and row.grade_id not in grade_ids
+    ]
+    if invalid_class_ids:
+        errors.append(f"lớp có khối không hợp lệ: {invalid_class_ids}")
+
+    invalid_assignment_ids = [
+        row.id for row in rows["assignments"]
+        if row.class_id not in class_ids
+        or row.subject_id not in subject_ids
+        or row.teacher_id not in teacher_ids
+    ]
+    if invalid_assignment_ids:
+        errors.append(f"phân công không hợp lệ: {invalid_assignment_ids}")
+
+    invalid_fixed_lesson_ids = [
+        row.id for row in rows["fixed_lessons"]
+        if row.assignment_id not in assignment_ids
+    ]
+    if invalid_fixed_lesson_ids:
+        errors.append(f"tiết cố định không hợp lệ: {invalid_fixed_lesson_ids}")
+
+    invalid_lesson_ids = [
+        row.id for row in rows["lessons"]
+        if row.assignment_id not in assignment_ids
+    ]
+    if invalid_lesson_ids:
+        errors.append(f"tiết học không hợp lệ: {invalid_lesson_ids}")
+
+    if errors:
+        raise HTTPException(
+            409,
+            "Không thể nhân bản vì project nguồn có dữ liệu không hợp lệ: "
+            + " | ".join(errors),
+        )
+    return rows
+
+
 @app.post("/projects/{pid}/clone")
-def clone_project(pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)):
+def clone_project(
+    pid: int,
+    name: str | None = Form(None),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
     # Dùng cùng khóa với mọi API chỉnh sửa để bản sao luôn được đọc từ một
     # trạng thái nhất quán, không trộn dữ liệu trước và sau một thay đổi đồng thời.
-    src = get_project_for_update(pid,user,db)
+    src = get_project_for_update(pid, user, db)
+    rows = validate_clone_source(db, pid)
+
     suffix = " (bản sao)"
-    clone_name = src.name[: 200 - len(suffix)] + suffix
-    p = Project(owner_id=user.id,name=clone_name,school_name=src.school_name,days=src.days,sessions=src.sessions,periods_per_session=src.periods_per_session,blocked_slots_json=src.blocked_slots_json)
-    db.add(p); db.flush()
-    maps = {"dep":{},"sub":{},"tea":{},"grade":{},"cls":{},"ass":{}}
-    for x in db.scalars(select(Department).where(Department.project_id==pid)):
-        n=Department(project_id=p.id,name=x.name);db.add(n);db.flush();maps["dep"][x.id]=n.id
-    for x in db.scalars(select(Subject).where(Subject.project_id==pid)):
-        n=Subject(project_id=p.id,name=x.name,short_name=x.short_name,max_consecutive=x.max_consecutive);db.add(n);db.flush();maps["sub"][x.id]=n.id
-    for x in db.scalars(select(Teacher).where(Teacher.project_id==pid)):
-        n=Teacher(project_id=p.id,department_id=maps["dep"].get(x.department_id),name=x.name,short_name=x.short_name,max_periods_day=x.max_periods_day,unavailable_json=x.unavailable_json);db.add(n);db.flush();maps["tea"][x.id]=n.id
+    if name is None:
+        clone_name = src.name[: 200 - len(suffix)] + suffix
+    else:
+        clone_name = name.strip()
+        if not clone_name:
+            raise HTTPException(400, "Tên bộ thời khóa biểu không được để trống")
+        if len(clone_name) > 200:
+            raise HTTPException(400, "Tên bộ thời khóa biểu không được vượt quá 200 ký tự")
+
+    p = Project(
+        owner_id=user.id,
+        name=clone_name,
+        school_name=src.school_name,
+        days=src.days,
+        sessions=src.sessions,
+        periods_per_session=src.periods_per_session,
+        blocked_slots_json=src.blocked_slots_json,
+    )
+    db.add(p)
+    db.flush()
+
+    maps = {"dep": {}, "sub": {}, "tea": {}, "grade": {}, "cls": {}, "ass": {}}
+    for x in rows["departments"]:
+        n = Department(project_id=p.id, name=x.name)
+        db.add(n); db.flush(); maps["dep"][x.id] = n.id
+    for x in rows["subjects"]:
+        n = Subject(project_id=p.id, name=x.name, short_name=x.short_name, max_consecutive=x.max_consecutive)
+        db.add(n); db.flush(); maps["sub"][x.id] = n.id
+    for x in rows["teachers"]:
+        n = Teacher(
+            project_id=p.id,
+            department_id=maps["dep"].get(x.department_id),
+            name=x.name,
+            short_name=x.short_name,
+            max_periods_day=x.max_periods_day,
+            unavailable_json=x.unavailable_json,
+        )
+        db.add(n); db.flush(); maps["tea"][x.id] = n.id
     # Tài khoản giáo viên là người xem toàn cục nên project bản sao tự động
     # xuất hiện trong cổng giáo viên; không còn khái niệm sao chép quyền liên kết.
-    for x in db.scalars(select(TeacherSubject).where(TeacherSubject.project_id==pid)):
-        if x.teacher_id in maps["tea"] and x.subject_id in maps["sub"]:
-            db.add(TeacherSubject(project_id=p.id,teacher_id=maps["tea"][x.teacher_id],subject_id=maps["sub"][x.subject_id]))
+    for x in rows["teacher_subjects"]:
+        db.add(TeacherSubject(
+            project_id=p.id,
+            teacher_id=maps["tea"][x.teacher_id],
+            subject_id=maps["sub"][x.subject_id],
+        ))
     # Nguyện vọng là lịch sử tham khảo nên không sao chép sang project mới.
-    for x in db.scalars(select(Grade).where(Grade.project_id==pid)):
-        n=Grade(project_id=p.id,name=x.name);db.add(n);db.flush();maps["grade"][x.id]=n.id
-    for x in db.scalars(select(GradeSubjectRequirement).where(GradeSubjectRequirement.project_id==pid)):
-        if x.grade_id in maps["grade"] and x.subject_id in maps["sub"]:
-            db.add(GradeSubjectRequirement(
-                project_id=p.id, grade_id=maps["grade"][x.grade_id],
-                subject_id=maps["sub"][x.subject_id], periods_per_week=x.periods_per_week,
-                block_mode=x.block_mode,
-            ))
-    for x in db.scalars(select(SchoolClass).where(SchoolClass.project_id==pid)):
-        n=SchoolClass(project_id=p.id,grade_id=maps["grade"].get(x.grade_id),name=x.name,unavailable_json=x.unavailable_json);db.add(n);db.flush();maps["cls"][x.id]=n.id
-    for x in db.scalars(select(Assignment).where(Assignment.project_id==pid)):
-        n=Assignment(project_id=p.id,class_id=maps["cls"][x.class_id],subject_id=maps["sub"][x.subject_id],teacher_id=maps["tea"][x.teacher_id],periods_per_week=x.periods_per_week,block_mode=x.block_mode,consecutive_pattern="");db.add(n);db.flush();maps["ass"][x.id]=n.id
-    for x in db.scalars(select(FixedLesson).where(FixedLesson.project_id==pid)):
-        if x.assignment_id in maps["ass"]:
-            db.add(FixedLesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot,group_size=x.group_size))
-    for x in db.scalars(select(Lesson).where(Lesson.project_id==pid)):
-        db.add(Lesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot,locked=x.locked))
-    db.commit(); return RedirectResponse(f"/projects/{p.id}",303)
+    for x in rows["grades"]:
+        n = Grade(project_id=p.id, name=x.name)
+        db.add(n); db.flush(); maps["grade"][x.id] = n.id
+    for x in rows["grade_requirements"]:
+        db.add(GradeSubjectRequirement(
+            project_id=p.id,
+            grade_id=maps["grade"][x.grade_id],
+            subject_id=maps["sub"][x.subject_id],
+            periods_per_week=x.periods_per_week,
+            block_mode=x.block_mode,
+        ))
+    for x in rows["classes"]:
+        n = SchoolClass(
+            project_id=p.id,
+            grade_id=maps["grade"].get(x.grade_id),
+            name=x.name,
+            unavailable_json=x.unavailable_json,
+        )
+        db.add(n); db.flush(); maps["cls"][x.id] = n.id
+    for x in rows["assignments"]:
+        n = Assignment(
+            project_id=p.id,
+            class_id=maps["cls"][x.class_id],
+            subject_id=maps["sub"][x.subject_id],
+            teacher_id=maps["tea"][x.teacher_id],
+            periods_per_week=x.periods_per_week,
+            block_mode=x.block_mode,
+            consecutive_pattern="",
+        )
+        db.add(n); db.flush(); maps["ass"][x.id] = n.id
+    for x in rows["fixed_lessons"]:
+        db.add(FixedLesson(
+            project_id=p.id,
+            assignment_id=maps["ass"][x.assignment_id],
+            slot=x.slot,
+            group_size=x.group_size,
+        ))
+    for x in rows["lessons"]:
+        db.add(Lesson(
+            project_id=p.id,
+            assignment_id=maps["ass"][x.assignment_id],
+            slot=x.slot,
+            locked=x.locked,
+        ))
+    db.commit()
+    return RedirectResponse(f"/projects/{p.id}", 303)
 
 @app.post("/projects/{pid}/delete")
 def delete_project(pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)):
@@ -3704,7 +3857,7 @@ def update_entity(
         ensure_unique_project_name(db, Subject, pid, name, "Môn học", exclude_id=obj.id)
         short_name = bounded_text(d.get("short_name", ""), "Tên rút gọn", 20)
         new_max_consecutive = bounded_int(
-            d.get("max_consecutive"), 1, 1, 4, "Số tiết liên tiếp tối đa"
+            d.get("max_consecutive"), obj.max_consecutive, 1, 4, "Số tiết liên tiếp tối đa"
         )
         assignments = db.scalars(select(Assignment).where(
             Assignment.project_id == pid,
@@ -3768,17 +3921,20 @@ def update_entity(
     elif typ == "teacher":
         short_name = bounded_text(d.get("short_name", ""), "Tên ngắn", 30)
         ensure_unique_teacher_short_name(db, pid, short_name, exclude_id=obj.id)
-        department_id = d.get("department_id") or None
-        if department_id is not None:
-            try:
-                department_id = int(department_id)
-            except (TypeError, ValueError) as exc:
-                raise HTTPException(400, "Tổ chuyên môn không hợp lệ") from exc
-            department = db.get(Department, department_id)
-            if not department or department.project_id != pid:
-                raise HTTPException(400, "Tổ chuyên môn không hợp lệ")
+        if "department_id" in d:
+            department_id = d.get("department_id") or None
+            if department_id is not None:
+                try:
+                    department_id = int(department_id)
+                except (TypeError, ValueError) as exc:
+                    raise HTTPException(400, "Tổ chuyên môn không hợp lệ") from exc
+                department = db.get(Department, department_id)
+                if not department or department.project_id != pid:
+                    raise HTTPException(400, "Tổ chuyên môn không hợp lệ")
+        else:
+            department_id = obj.department_id
         new_max_periods_day = bounded_int(
-            d.get("max_periods_day"), 5, 1, 10, "Số tiết tối đa mỗi ngày"
+            d.get("max_periods_day"), obj.max_periods_day, 1, 10, "Số tiết tối đa mỗi ngày"
         )
         assignment_ids = set(db.scalars(select(Assignment.id).where(
             Assignment.project_id == pid,
@@ -3845,15 +4001,18 @@ def update_entity(
         obj.name = name
     else:
         ensure_unique_project_name(db, SchoolClass, pid, name, "Lớp học", exclude_id=obj.id)
-        grade_id = d.get("grade_id") or None
-        if grade_id is not None:
-            try:
-                grade_id = int(grade_id)
-            except (TypeError, ValueError) as exc:
-                raise HTTPException(400, "Khối lớp không hợp lệ") from exc
-            grade = db.get(Grade, grade_id)
-            if not grade or grade.project_id != pid:
-                raise HTTPException(400, "Khối lớp không hợp lệ")
+        if "grade_id" in d:
+            grade_id = d.get("grade_id") or None
+            if grade_id is not None:
+                try:
+                    grade_id = int(grade_id)
+                except (TypeError, ValueError) as exc:
+                    raise HTTPException(400, "Khối lớp không hợp lệ") from exc
+                grade = db.get(Grade, grade_id)
+                if not grade or grade.project_id != pid:
+                    raise HTTPException(400, "Khối lớp không hợp lệ")
+        else:
+            grade_id = obj.grade_id
         if grade_id != obj.grade_id and grade_id is not None:
             proposed_rows = db.scalars(select(GradeSubjectRequirement).where(
                 GradeSubjectRequirement.project_id == pid,
@@ -5556,6 +5715,264 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
 
     if not task_rows:
         return {"lessons":[],"unscheduled":0,"score":0}
+
+    def cp_sat_primary():
+        """Solve the prepared scheduling tasks with OR-Tools CP-SAT.
+
+        Hard constraints stay authoritative here.  If OR-Tools is not installed,
+        no feasible solution is found within the bounded search time, or the
+        model is infeasible, the caller falls back to the legacy GA solver.
+        """
+        try:
+            from ortools.sat.python import cp_model
+        except ImportError:
+            logger.warning("OR-Tools is not installed; falling back to GA scheduler")
+            return None
+
+        model=cp_model.CpModel()
+        teacher_unavailable={teacher_id:parse_slots(teacher.unavailable_json) for teacher_id,teacher in teachers.items()}
+        class_unavailable={class_id:parse_slots(row.unavailable_json) for class_id,row in classes.items()}
+
+        existing_teacher_slot=defaultdict(int)
+        existing_class_slot=defaultdict(int)
+        existing_teacher_day=Counter()
+        existing_class_subject_day=Counter()
+        existing_assignment_slots=defaultdict(set)
+        for lesson in existing:
+            assignment=next((row for row in assignments if row.id==lesson.assignment_id),None)
+            if not assignment:
+                continue
+            day=lesson.slot//ppd
+            existing_teacher_slot[(assignment.teacher_id,lesson.slot)]+=1
+            existing_class_slot[(assignment.class_id,lesson.slot)]+=1
+            existing_teacher_day[(assignment.teacher_id,day)]+=1
+            existing_class_subject_day[(assignment.class_id,assignment.subject_id,day)]+=1
+            existing_assignment_slots[assignment.id].add(lesson.slot)
+
+        task_options=[]
+        option_vars=[]
+        slot_var_by_teacher=defaultdict(list)
+        slot_var_by_class=defaultdict(list)
+        day_var_by_teacher=defaultdict(list)
+        day_var_by_class_subject=defaultdict(list)
+        assignment_option_rows=defaultdict(list)
+        assignment_slot_vars=defaultdict(list)
+        objective_terms=[]
+
+        for index,task in enumerate(task_rows):
+            assignment,group_index,size,explicit,forced,anchor_slots,planned_starts=task
+            anchor=set(anchor_slots)
+            missing_size=size-len(anchor)
+            if forced is not None:
+                candidate_pool=[forced]
+            elif planned_starts is not None:
+                candidate_pool=list(planned_starts)
+            else:
+                candidate_pool=[slot for slot in slots if (slot%ppd)%p.periods_per_session+size<=p.periods_per_session]
+
+            rows=[]
+            for slot in sorted(set(candidate_pool)):
+                if slot not in slots:
+                    continue
+                day=slot//ppd
+                position=slot%ppd
+                session=position//p.periods_per_session
+                period=position%p.periods_per_session
+                if period+size>p.periods_per_session:
+                    continue
+                group_slots=tuple(range(slot,slot+size))
+                group_set=set(group_slots)
+                if anchor and not anchor.issubset(group_set):
+                    continue
+                new_slots=tuple(candidate for candidate in group_slots if candidate not in anchor)
+                if len(new_slots)!=missing_size:
+                    continue
+                if any(candidate//ppd!=day or (candidate%ppd)//p.periods_per_session!=session for candidate in group_slots):
+                    continue
+                if any(candidate in global_blocked or candidate in teacher_unavailable[assignment.teacher_id] or candidate in class_unavailable[assignment.class_id] for candidate in new_slots):
+                    continue
+                if any(existing_teacher_slot[(assignment.teacher_id,candidate)] or existing_class_slot[(assignment.class_id,candidate)] for candidate in new_slots):
+                    continue
+                if existing_teacher_day[(assignment.teacher_id,day)]+missing_size>teachers[assignment.teacher_id].max_periods_day:
+                    continue
+                if explicit:
+                    left=slot-1 if period>0 else None
+                    right=slot+size if period+size<p.periods_per_session else None
+                    if (left is not None and left in existing_assignment_slots[assignment.id]) or (right is not None and right in existing_assignment_slots[assignment.id]):
+                        continue
+                var=model.NewBoolVar(f"task_{index}_start_{slot}")
+                row=(slot,new_slots,group_slots,day,var)
+                rows.append(row)
+                for candidate in new_slots:
+                    slot_var_by_teacher[(assignment.teacher_id,candidate)].append(var)
+                    slot_var_by_class[(assignment.class_id,candidate)].append(var)
+                day_var_by_teacher[(assignment.teacher_id,day)].append((var,missing_size))
+                day_var_by_class_subject[(assignment.class_id,assignment.subject_id,day)].append((var,missing_size))
+                assignment_option_rows[assignment.id].append((index,slot,size,var))
+                for candidate in new_slots:
+                    assignment_slot_vars[(assignment.id,candidate)].append(var)
+                # A small deterministic preference for earlier periods.  Main
+                # distribution penalties are modeled below.
+                objective_terms.append((period+1)*var)
+            if not rows:
+                return None
+            model.Add(sum(row[4] for row in rows)==1)
+            task_options.append(rows)
+            option_vars.extend(row[4] for row in rows)
+
+        # Teacher/class collisions for every concrete timetable slot.
+        for (teacher_id,slot),vars_for_slot in slot_var_by_teacher.items():
+            model.Add(sum(vars_for_slot)+existing_teacher_slot[(teacher_id,slot)]<=1)
+        for (class_id,slot),vars_for_slot in slot_var_by_class.items():
+            model.Add(sum(vars_for_slot)+existing_class_slot[(class_id,slot)]<=1)
+
+        # Teacher daily workload.
+        for (teacher_id,day),weighted in day_var_by_teacher.items():
+            model.Add(sum(var*weight for var,weight in weighted)+existing_teacher_day[(teacher_id,day)]<=teachers[teacher_id].max_periods_day)
+
+        # Subject max-consecutive constraint, checked with sliding windows inside
+        # each class/day/session.
+        occupancy_by_class_subject_slot=defaultdict(list)
+        for index,rows in enumerate(task_options):
+            assignment=task_rows[index][0]
+            for _start,new_slots,_group_slots,_day,var in rows:
+                for candidate in new_slots:
+                    occupancy_by_class_subject_slot[(assignment.class_id,assignment.subject_id,candidate)].append(var)
+        existing_css=defaultdict(int)
+        for lesson in existing:
+            assignment=next((row for row in assignments if row.id==lesson.assignment_id),None)
+            if assignment:
+                existing_css[(assignment.class_id,assignment.subject_id,lesson.slot)]+=1
+        for assignment in assignments:
+            subject=subjects.get(assignment.subject_id)
+            if not subject:
+                continue
+            max_run=max(1,int(subject.max_consecutive or 1))
+            window=max_run+1
+            if window>p.periods_per_session:
+                continue
+            for day in range(p.days):
+                for session in range(p.sessions):
+                    base=day*ppd+session*p.periods_per_session
+                    for start_period in range(p.periods_per_session-window+1):
+                        window_slots=[base+start_period+offset for offset in range(window)]
+                        expr=[]
+                        fixed_count=0
+                        for candidate in window_slots:
+                            expr.extend(occupancy_by_class_subject_slot[(assignment.class_id,assignment.subject_id,candidate)])
+                            fixed_count+=existing_css[(assignment.class_id,assignment.subject_id,candidate)]
+                        if expr or fixed_count:
+                            model.Add(sum(expr)+fixed_count<=max_run)
+
+        # Required-double groups must remain distinct; two double blocks may not
+        # touch and silently become one malformed 4-period run.
+        for assignment_id,rows in assignment_option_rows.items():
+            assignment=next((row for row in assignments if row.id==assignment_id),None)
+            if not assignment or not assignment_requires_double(assignment):
+                continue
+            for i,left in enumerate(rows):
+                li,lstart,lsize,lvar=left
+                for right in rows[i+1:]:
+                    ri,rstart,rsize,rvar=right
+                    if li==ri:
+                        continue
+                    same_session=(lstart//p.periods_per_session)==(rstart//p.periods_per_session)
+                    touching=(lstart+lsize==rstart) or (rstart+rsize==lstart)
+                    if same_session and touching:
+                        model.Add(lvar+rvar<=1)
+
+        # Soft objective for preferred_double: reward disjoint adjacent pairs
+        # inside the same day/session.  The reward deliberately matches the
+        # post-solve soft score (14 points per missing pair), so CP-SAT optimizes
+        # the preference instead of merely reporting it after a solution exists.
+        # Pair variables are optional and therefore never turn preferred_double
+        # into a hard constraint.  A slot may belong to at most one rewarded
+        # pair, which makes a run of 3 count as one pair and a run of 4 as two.
+        for assignment in assignments:
+            if not assignment_prefers_double(assignment):
+                continue
+            pair_vars_by_slot=defaultdict(list)
+            for day in range(p.days):
+                for session in range(p.sessions):
+                    base=day*ppd+session*p.periods_per_session
+                    for period in range(p.periods_per_session-1):
+                        left=base+period
+                        right=left+1
+                        left_vars=assignment_slot_vars[(assignment.id,left)]
+                        right_vars=assignment_slot_vars[(assignment.id,right)]
+                        left_fixed=1 if left in existing_assignment_slots[assignment.id] else 0
+                        right_fixed=1 if right in existing_assignment_slots[assignment.id] else 0
+                        if not (left_fixed or left_vars) or not (right_fixed or right_vars):
+                            continue
+                        pair=model.NewBoolVar(f"preferred_pair_{assignment.id}_{left}_{right}")
+                        left_occupancy=sum(left_vars)+left_fixed
+                        right_occupancy=sum(right_vars)+right_fixed
+                        model.Add(pair<=left_occupancy)
+                        model.Add(pair<=right_occupancy)
+                        pair_vars_by_slot[left].append(pair)
+                        pair_vars_by_slot[right].append(pair)
+                        objective_terms.append(-14*pair)
+            for vars_for_slot in pair_vars_by_slot.values():
+                if len(vars_for_slot)>1:
+                    model.Add(sum(vars_for_slot)<=1)
+
+        # Soft objective: spread the same class/subject across days.  Penalize
+        # every period beyond the first one on a day.  For preferred_double, the
+        # 14-point adjacency reward above outweighs this 8-point spread penalty,
+        # so a feasible double period is preferred while separated periods remain
+        # allowed when other constraints require them.
+        for (class_id,subject_id,day),weighted in day_var_by_class_subject.items():
+            existing_count=existing_class_subject_day[(class_id,subject_id,day)]
+            total=sum(var*weight for var,weight in weighted)+existing_count
+            overflow=model.NewIntVar(0,p.periods_per_session*p.sessions,f"spread_{class_id}_{subject_id}_{day}")
+            model.Add(overflow>=total-1)
+            model.Add(overflow>=0)
+            objective_terms.append(8*overflow)
+
+        model.Minimize(sum(objective_terms))
+        solver=cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds=max(3.0,min(20.0,float(tries)/12.0))
+        solver.parameters.num_search_workers=max(1,min(8,os.cpu_count() or 1))
+        solver.parameters.random_seed=42
+        status=solver.Solve(model)
+        if status not in (cp_model.OPTIMAL,cp_model.FEASIBLE):
+            logger.info("CP-SAT did not produce a feasible timetable (status=%s); using GA fallback",status)
+            return None
+
+        lessons=[]
+        final_slots=defaultdict(set)
+        for lesson in existing:
+            final_slots[lesson.assignment_id].add(lesson.slot)
+        for index,rows in enumerate(task_options):
+            assignment=task_rows[index][0]
+            forced=task_rows[index][4]
+            for _start,new_slots,_group_slots,_day,var in rows:
+                if solver.Value(var):
+                    for candidate in new_slots:
+                        lessons.append((assignment.id,candidate,forced is not None))
+                        final_slots[assignment.id].add(candidate)
+                    break
+
+        soft_score=0.0
+        for assignment in assignments:
+            slots_for_assignment=final_slots[assignment.id]
+            if assignment_prefers_double(assignment):
+                formed_pairs=sum(run["size"]//2 for run in assignment_run_groups(p,slots_for_assignment))
+                soft_score+=max(0,assignment.periods_per_week//2-formed_pairs)*14
+            day_counts=Counter(slot//ppd for slot in slots_for_assignment)
+            soft_score+=sum(max(0,count-1)*8 for count in day_counts.values())
+        return {
+            "lessons":lessons,
+            "unscheduled":0,
+            "score":round(soft_score,2),
+            "solver":"cp_sat",
+            "optimal":status==cp_model.OPTIMAL,
+            "wall_time":round(solver.WallTime(),3),
+        }
+
+    cp_result=cp_sat_primary()
+    if cp_result is not None:
+        return cp_result
 
     random.shuffle(task_rows)
     task_rows.sort(key=lambda task:(
