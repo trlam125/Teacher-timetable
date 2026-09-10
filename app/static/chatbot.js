@@ -630,3 +630,95 @@
     }
   });
 })();
+
+/* ==========================================================================
+   3D LIVING PET CONTROLLER
+   Interactive petting, happy emotional bubbles, and gentle head tracking.
+   ========================================================================== */
+function initLivingPet3D() {
+  const pet =
+    document.querySelector("#chatbotPet") ||
+    document.querySelector(".chatbot-border-pet");
+  if (!pet || pet.dataset.livingPetInitialized) return;
+  pet.dataset.livingPetInitialized = "true";
+
+  const bubble =
+    pet.querySelector("#petBubble") || pet.querySelector(".pet-bubble");
+  const bubbleText = bubble ? bubble.querySelector(".pet-bubble-text") : null;
+  const bubbleIcon = bubble ? bubble.querySelector(".pet-bubble-icon") : null;
+  const petHead = pet.querySelector(".pet-head");
+
+  const cuteQuotes = [
+    { icon: "✨", text: "Purr~" },
+    { icon: "🐾", text: "Meow!" },
+    { icon: "💖", text: "Thích bạn quá!" },
+    { icon: "🌟", text: "Học vui vẻ nha!" },
+    { icon: "✦", text: "AI sẵn sàng!" },
+    { icon: "😸", text: "Ngoan ngoan~" },
+    { icon: "🐟", text: "Cho cá đi mờ!" },
+  ];
+
+  let bubbleTimeout = null;
+  let quoteIndex = 0;
+
+  function petThePet(e) {
+    if (e) {
+      e.stopPropagation();
+    }
+    // Trigger petting animation
+    pet.classList.remove("is-petting");
+    void pet.offsetWidth;
+    pet.classList.add("is-petting");
+
+    setTimeout(() => {
+      pet.classList.remove("is-petting");
+    }, 650);
+
+    // Show emotional reaction bubble
+    if (bubble && bubbleText && bubbleIcon) {
+      const q = cuteQuotes[quoteIndex % cuteQuotes.length];
+      quoteIndex++;
+      bubbleIcon.textContent = q.icon;
+      bubbleText.textContent = q.text;
+      bubble.classList.add("is-active");
+
+      clearTimeout(bubbleTimeout);
+      bubbleTimeout = setTimeout(() => {
+        bubble.classList.remove("is-active");
+      }, 2200);
+    }
+  }
+
+  pet.addEventListener("click", petThePet);
+  pet.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      petThePet(e);
+    }
+  });
+
+  // Dynamic 3D gaze tracking on pointer move over the pet
+  pet.addEventListener("pointermove", (e) => {
+    if (!petHead || pet.classList.contains("is-petting")) return;
+    const rect = pet.getBoundingClientRect();
+    const relX = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+    const relY = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
+
+    const clampX = Math.max(-1, Math.min(1, relX));
+    const clampY = Math.max(-1, Math.min(1, relY));
+
+    petHead.style.transform = `rotateY(${clampX * 18}deg) rotateX(${-clampY * 12}deg)`;
+  });
+
+  pet.addEventListener("pointerleave", () => {
+    if (petHead) {
+      petHead.style.transform = "";
+    }
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initLivingPet3D);
+} else {
+  initLivingPet3D();
+}

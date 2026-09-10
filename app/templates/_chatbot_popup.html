@@ -11,30 +11,117 @@
          class="chatbot-popup"
          aria-label="Trợ lý AI"
          aria-hidden="true">
-    <span class="chatbot-border-cat" aria-hidden="true">
-        <svg class="chatbot-pixel-pet" viewBox="0 0 42 28" focusable="false">
-            <g class="pet-tail">
-            <rect x="2" y="10" width="4" height="4" rx="1"></rect>
-            <rect x="5" y="6" width="4" height="4" rx="1"></rect>
-            <rect x="8" y="4" width="4" height="4" rx="1"></rect>
-            </g>
-            <g class="pet-body">
-            <rect x="10" y="10" width="20" height="11" rx="3"></rect>
-            <rect x="27" y="7" width="11" height="12" rx="3"></rect>
-            <path d="M28 8 30 3 33 8ZM34 8l3-5 1 6Z"></path>
-            <rect class="pet-muzzle" x="33" y="13" width="6" height="3" rx="1"></rect>
-            <rect class="pet-eye" x="33" y="10" width="2" height="2" rx="0.5"></rect>
-            </g>
-            <g class="pet-leg pet-leg-a">
-            <rect x="13" y="19" width="4" height="6" rx="1"></rect>
-            <rect x="27" y="18" width="4" height="7" rx="1"></rect>
-            </g>
-            <g class="pet-leg pet-leg-b">
-            <rect x="19" y="19" width="4" height="6" rx="1"></rect>
-            <rect x="32" y="18" width="4" height="7" rx="1"></rect>
-            </g>
-        </svg>
-    </span>
+    <div class="chatbot-border-pet chatbot-border-cat"
+         id="chatbotPet"
+         role="button"
+         tabindex="0"
+         aria-label="Thú cưng 3D của Trợ lý AI"
+         title="Bấm để vuốt ve thú cưng!">
+        <!-- Bong bóng cảm xúc / tương tác -->
+        <div class="pet-bubble" aria-hidden="true" id="petBubble">
+            <span class="pet-bubble-icon">✨</span>
+            <span class="pet-bubble-text">Meow~</span>
+        </div>
+        <!-- Không gian 3D Perspective -->
+        <div class="pet-3d-scene" aria-hidden="true">
+            <!-- Bóng tiếp xúc mặt đất động theo bước chân -->
+            <div class="pet-3d-shadow"></div>
+            <!-- Bộ khung chuyển động 3D -->
+            <div class="pet-3d-rig">
+                <!-- Thân mình 3D (Khối lập phương đa diện có đổ bóng) -->
+                <div class="pet-part pet-torso">
+                    <div class="cube-side side-front"></div>
+                    <div class="cube-side side-back"></div>
+                    <div class="cube-side side-left"></div>
+                    <div class="cube-side side-right"></div>
+                    <div class="cube-side side-top">
+                        <span class="stripe-bar bar-1"></span>
+                        <span class="stripe-bar bar-2"></span>
+                    </div>
+                    <div class="cube-side side-bottom"></div>
+                </div>
+                <!-- Cổ và Đầu 3D -->
+                <div class="pet-part pet-neck">
+                    <div class="pet-head">
+                        <div class="cube-side side-front">
+                            <!-- Mõm và mũi 3D nhô ra -->
+                            <div class="pet-snout">
+                                <span class="pet-nose"></span>
+                                <span class="pet-mouth"></span>
+                                <span class="whisker whisker-l1"></span>
+                                <span class="whisker whisker-l2"></span>
+                                <span class="whisker whisker-r1"></span>
+                                <span class="whisker whisker-r2"></span>
+                            </div>
+                            <!-- Đôi mắt ngọc 3D lấp lánh chớp tự nhiên -->
+                            <div class="pet-eye eye-left">
+                                <span class="eye-pupil"></span>
+                                <span class="eye-glint"></span>
+                            </div>
+                            <div class="pet-eye eye-right">
+                                <span class="eye-pupil"></span>
+                                <span class="eye-glint"></span>
+                            </div>
+                        </div>
+                        <div class="cube-side side-back"></div>
+                        <div class="cube-side side-left"></div>
+                        <div class="cube-side side-right"></div>
+                        <div class="cube-side side-top">
+                            <!-- Đôi tai 3D vểnh tự nhiên -->
+                            <div class="pet-ear ear-left">
+                                <div class="ear-shell"></div>
+                                <div class="ear-inner"></div>
+                            </div>
+                            <div class="pet-ear ear-right">
+                                <div class="ear-shell"></div>
+                                <div class="ear-inner"></div>
+                            </div>
+                        </div>
+                        <div class="cube-side side-bottom"></div>
+                        <!-- Vòng cổ và chuông vàng lắc lư -->
+                        <div class="pet-collar">
+                            <span class="collar-bell"></span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 4 Chân 3D bước nhịp đối xứng sinh học (Quadruped Trot) -->
+                <!-- Chân trước trái (bên xa) -->
+                <div class="pet-part pet-leg leg-fl">
+                    <div class="leg-limb">
+                        <div class="paw-pad"></div>
+                    </div>
+                </div>
+                <!-- Chân trước phải (bên gần) -->
+                <div class="pet-part pet-leg leg-fr">
+                    <div class="leg-limb">
+                        <div class="paw-pad"></div>
+                    </div>
+                </div>
+                <!-- Chân sau trái (bên xa) -->
+                <div class="pet-part pet-leg leg-bl">
+                    <div class="leg-limb">
+                        <div class="paw-pad"></div>
+                    </div>
+                </div>
+                <!-- Chân sau phải (bên gần) -->
+                <div class="pet-part pet-leg leg-br">
+                    <div class="leg-limb">
+                        <div class="paw-pad"></div>
+                    </div>
+                </div>
+                <!-- Đuôi 3 đốt lượn sóng động lực học -->
+                <div class="pet-part pet-tail">
+                    <div class="tail-joint joint-1">
+                        <div class="tail-joint joint-2">
+                            <div class="tail-joint joint-3">
+                                <div class="tail-brush"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="chatbot-sheet-handle"
          aria-hidden="true"
          id="chatbotSheetHandle"

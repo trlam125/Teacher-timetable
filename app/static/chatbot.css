@@ -784,114 +784,879 @@
   max-width: 100%;
 }
 
-/* Pixel pet runs only along the popup's top edge, then turns back. */
+/* ==========================================================================
+   3D LIVING PET COMPONENT (Chatbot Mascot)
+   High-fidelity CSS 3D quadruped with realistic trot biomechanics,
+   smooth 180-deg 3D turns, organic pausing, and interactive petting.
+   ========================================================================== */
+
+:root {
+  --pet-fur-primary: #e28743;
+  --pet-fur-shade: #b85d24;
+  --pet-fur-deep: #8f3e12;
+  --pet-fur-light: #f7b785;
+  --pet-fur-cream: #fff2e2;
+  --pet-fur-dark: #6e2e0a;
+  --pet-stripe: #a34816;
+  --pet-ear-pink: #f472b6;
+  --pet-nose: #fb7185;
+  --pet-eye-iris: #10b981;
+  --pet-collar: #ef4444;
+  --pet-bell: #f59e0b;
+  --pet-shadow-color: rgba(15, 23, 42, 0.28);
+}
+
+:root.dark-mode {
+  --pet-fur-primary: #ea8f4b;
+  --pet-fur-shade: #ad5723;
+  --pet-fur-deep: #78350f;
+  --pet-fur-light: #fbb784;
+  --pet-fur-cream: #ffeedb;
+  --pet-stripe: #92400e;
+  --pet-shadow-color: rgba(0, 0, 0, 0.55);
+}
+
+/* Base Mascot Anchor on top border of chatbot card */
+.chatbot-border-pet,
 .chatbot-border-cat {
   position: absolute;
-  top: -14px;
-  left: 10px;
-  z-index: 12;
-  width: 42px;
-  height: 28px;
-  --chatbot-pet-start: 10px;
-  --chatbot-pet-end: calc(100% - 52px);
-  pointer-events: none;
+  top: -34px;
+  left: 12px;
+  z-index: 25;
+  width: 52px;
+  height: 40px;
+  --chatbot-pet-start: 12px;
+  --chatbot-pet-end: calc(100% - 94px);
+  pointer-events: auto;
   user-select: none;
-  filter: drop-shadow(0 4px 5px rgba(15, 23, 42, 0.22));
-  animation: chatbot-cat-top-run 14s linear infinite;
+  cursor: pointer;
+  outline: none;
+  animation: chatbot-pet-patrol 18s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+    infinite;
   will-change: left, transform;
 }
 
-.chatbot-pixel-pet {
+.chatbot-border-pet:focus-visible,
+.chatbot-border-cat:focus-visible {
+  outline: 2px dashed rgba(59, 130, 246, 0.7);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* Pause patrol and perk up on hover or when petting */
+.chatbot-border-pet:hover,
+.chatbot-border-pet.is-petting,
+.chatbot-border-cat:hover,
+.chatbot-border-cat.is-petting {
+  animation-play-state: paused;
+}
+
+.chatbot-border-pet:hover .pet-3d-rig,
+.chatbot-border-cat:hover .pet-3d-rig {
+  transform: translate3d(-50%, -2px, 0) rotateX(6deg) rotateY(4deg) scale(1.04);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chatbot-border-pet:hover .pet-head,
+.chatbot-border-cat:hover .pet-head {
+  transform: rotateY(8deg) rotateX(-6deg);
+  transition: transform 0.25s ease;
+}
+
+/* Floating Emotion / Reaction Bubble */
+.pet-bubble {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) scale(0.85);
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 12px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.22s ease,
+    transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 30;
+  backdrop-filter: blur(8px);
+}
+
+:root.dark-mode .pet-bubble {
+  background: rgba(30, 41, 59, 0.95);
+  color: #f1f5f9;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.pet-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid rgba(255, 255, 255, 0.95);
+}
+
+:root.dark-mode .pet-bubble::after {
+  border-top-color: rgba(30, 41, 59, 0.95);
+}
+
+.pet-bubble.is-active {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-6px) scale(1);
+}
+
+/* 3D Scene Viewport */
+.pet-3d-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  perspective: 480px;
+  perspective-origin: 50% 32%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+/* Dynamic Ground Contact Shadow on top border */
+.pet-3d-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 36px;
+  height: 8px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    var(--pet-shadow-color) 0%,
+    rgba(15, 23, 42, 0.08) 50%,
+    transparent 72%
+  );
+  filter: blur(1.2px);
+  animation: chatbot-pet-shadow 0.54s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+/* Master 3D Articulated Rig */
+.pet-3d-rig {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 24px;
+  height: 16px;
+  transform-style: preserve-3d;
+  transform: translate3d(-50%, 0, 0) rotateX(10deg) rotateY(16deg);
+  animation: chatbot-pet-bob 0.54s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  will-change: transform;
+}
+
+/* Generic 3D Cuboid Sides */
+.pet-part {
+  transform-style: preserve-3d;
+}
+
+.cube-side {
+  position: absolute;
+  backface-visibility: hidden;
+  box-sizing: border-box;
+}
+
+/* ===== 3D TORSO (Thân Mình) ===== */
+.pet-torso {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 13px;
+  transform-style: preserve-3d;
+}
+
+/* Near Flank (+Z facing viewer) */
+.pet-torso .side-front {
+  width: 22px;
+  height: 13px;
+  transform: translateZ(7px);
+  background: linear-gradient(
+    145deg,
+    var(--pet-fur-light) 0%,
+    var(--pet-fur-primary) 55%,
+    var(--pet-fur-shade) 100%
+  );
+  border-radius: 4px;
+}
+
+/* Far Flank (-Z facing away, deeper shade for 3D depth) */
+.pet-torso .side-back {
+  width: 22px;
+  height: 13px;
+  transform: rotateY(180deg) translateZ(7px);
+  background: linear-gradient(
+    145deg,
+    var(--pet-fur-shade) 0%,
+    var(--pet-fur-deep) 100%
+  );
+  border-radius: 4px;
+}
+
+/* Rear / Rump (-X) */
+.pet-torso .side-left {
+  width: 14px;
+  height: 13px;
+  transform: rotateY(-90deg) translateZ(0px);
+  background: linear-gradient(
+    to bottom,
+    var(--pet-fur-shade),
+    var(--pet-fur-deep)
+  );
+  border-radius: 3px;
+}
+
+/* Chest / Front (+X) */
+.pet-torso .side-right {
+  width: 14px;
+  height: 13px;
+  transform: rotateY(90deg) translateZ(22px);
+  background: linear-gradient(
+    135deg,
+    var(--pet-fur-cream) 0%,
+    var(--pet-fur-light) 65%,
+    var(--pet-fur-primary) 100%
+  );
+  border-radius: 4px;
+}
+
+/* Top / Spine (-Y, with highlights & tabby stripes) */
+.pet-torso .side-top {
+  width: 22px;
+  height: 14px;
+  transform: rotateX(90deg) translateZ(7px);
+  background: linear-gradient(
+    to right,
+    var(--pet-fur-shade),
+    var(--pet-fur-light) 50%,
+    var(--pet-fur-primary)
+  );
+  border-radius: 3px;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  padding: 0 3px;
+}
+
+.pet-torso .side-top .stripe-bar {
   display: block;
-  width: 42px;
-  height: 28px;
-  overflow: visible;
-  shape-rendering: crispEdges;
+  width: 3px;
+  height: 10px;
+  background: var(--pet-stripe);
+  border-radius: 2px;
+  opacity: 0.85;
 }
 
-.chatbot-pixel-pet .pet-body,
-.chatbot-pixel-pet .pet-tail,
-.chatbot-pixel-pet .pet-leg {
-  fill: #c7793f;
+/* Bottom / Belly (+Y) */
+.pet-torso .side-bottom {
+  width: 22px;
+  height: 14px;
+  transform: rotateX(-90deg) translateZ(6px);
+  background: var(--pet-fur-cream);
+  border-radius: 3px;
 }
 
-.chatbot-pixel-pet .pet-muzzle {
-  fill: #f3c9a8;
+/* ===== 3D HEAD & NECK (Cổ & Đầu) ===== */
+.pet-neck {
+  position: absolute;
+  right: -6px;
+  top: -7px;
+  transform-style: preserve-3d;
+  transform-origin: 0% 100%;
+  animation: chatbot-head-nod 0.54s ease-in-out infinite alternate;
 }
 
-.chatbot-pixel-pet .pet-eye {
-  fill: #172033;
+.pet-head {
+  position: relative;
+  width: 15px;
+  height: 14px;
+  transform-style: preserve-3d;
 }
 
-.chatbot-pixel-pet .pet-tail {
-  transform-box: fill-box;
-  transform-origin: 100% 80%;
-  animation: chatbot-pet-tail 0.52s steps(2, end) infinite;
+/* Front Face (+X gaze direction) */
+.pet-head .side-front {
+  width: 14px;
+  height: 14px;
+  transform: rotateY(90deg) translateZ(15px);
+  background: linear-gradient(
+    145deg,
+    var(--pet-fur-light) 0%,
+    var(--pet-fur-primary) 60%,
+    var(--pet-fur-cream) 100%
+  );
+  border-radius: 3px;
 }
 
-.chatbot-pixel-pet .pet-leg {
-  transform-box: fill-box;
-  transform-origin: 50% 0;
+/* Near Cheek (+Z) */
+.pet-head .side-right {
+  width: 15px;
+  height: 14px;
+  transform: translateZ(7px);
+  background: linear-gradient(
+    135deg,
+    var(--pet-fur-light) 0%,
+    var(--pet-fur-primary) 100%
+  );
+  border-radius: 3px;
 }
 
-.chatbot-pixel-pet .pet-leg-a {
-  animation: chatbot-pet-leg-a 0.34s steps(2, end) infinite;
+/* Far Cheek (-Z) */
+.pet-head .side-left {
+  width: 15px;
+  height: 14px;
+  transform: rotateY(180deg) translateZ(7px);
+  background: linear-gradient(
+    135deg,
+    var(--pet-fur-shade) 0%,
+    var(--pet-fur-deep) 100%
+  );
+  border-radius: 3px;
 }
 
-.chatbot-pixel-pet .pet-leg-b {
-  animation: chatbot-pet-leg-b 0.34s steps(2, end) infinite;
+/* Skull Top (-Y) */
+.pet-head .side-top {
+  width: 15px;
+  height: 14px;
+  transform: rotateX(90deg) translateZ(7px);
+  background: var(--pet-fur-primary);
+  border-radius: 3px;
 }
 
-@keyframes chatbot-cat-top-run {
+/* Skull Back (-X) */
+.pet-head .side-back {
+  width: 14px;
+  height: 14px;
+  transform: rotateY(-90deg) translateZ(0px);
+  background: var(--pet-fur-shade);
+}
+
+/* Head Bottom (-Y) */
+.pet-head .side-bottom {
+  width: 15px;
+  height: 14px;
+  transform: rotateX(-90deg) translateZ(7px);
+  background: var(--pet-fur-cream);
+}
+
+/* 3D Snout & Muzzle */
+.pet-snout {
+  position: absolute;
+  right: -2px;
+  bottom: 1px;
+  width: 8px;
+  height: 6px;
+  background: var(--pet-fur-cream);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+  transform: translateZ(1px);
+}
+
+.pet-nose {
+  position: absolute;
+  top: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 2px;
+  background: var(--pet-nose);
+  border-radius: 1px;
+}
+
+.pet-mouth {
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 1.5px;
+  border-bottom: 1px solid var(--pet-fur-dark);
+  border-radius: 0 0 2px 2px;
+}
+
+/* Whiskers */
+.whisker {
+  position: absolute;
+  height: 0.8px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 1px;
+  transform-origin: 0% 50%;
+}
+
+.whisker-l1 {
+  width: 5px;
+  top: 2px;
+  left: -4px;
+  transform: rotate(-8deg);
+}
+.whisker-l2 {
+  width: 4.5px;
+  top: 4px;
+  left: -3.5px;
+  transform: rotate(7deg);
+}
+.whisker-r1 {
+  width: 5px;
+  top: 2px;
+  right: -4px;
+  transform: rotate(8deg);
+}
+.whisker-r2 {
+  width: 4.5px;
+  top: 4px;
+  right: -3.5px;
+  transform: rotate(-7deg);
+}
+
+/* Expressive 3D Eyes with Catchlight */
+.pet-eye {
+  position: absolute;
+  top: 3px;
+  width: 3.5px;
+  height: 4.5px;
+  background: var(--pet-eye-iris);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.8px var(--pet-fur-dark);
+  overflow: hidden;
+  animation: chatbot-eye-blink 4.2s ease-in-out infinite;
+  transform: translateZ(1px);
+}
+
+.eye-left {
+  left: 2px;
+}
+.eye-right {
+  right: 2px;
+}
+
+.eye-pupil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 3px;
+  background: #0f172a;
+  border-radius: 50%;
+}
+
+.eye-glint {
+  position: absolute;
+  top: 0.8px;
+  left: 0.8px;
+  width: 1.2px;
+  height: 1.2px;
+  background: #ffffff;
+  border-radius: 50%;
+}
+
+/* 3D Ears with Inner Pink Lining */
+.pet-ear {
+  position: absolute;
+  top: -6px;
+  width: 5px;
+  height: 6px;
+  transform-origin: 50% 100%;
+  animation: chatbot-ear-twitch 3.6s ease-in-out infinite;
+}
+
+.ear-left {
+  left: 1px;
+  transform: rotateZ(-8deg);
+}
+
+.ear-right {
+  right: 1px;
+  transform: rotateZ(8deg);
+}
+
+.ear-shell {
+  position: absolute;
+  inset: 0;
+  background: var(--pet-fur-primary);
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  border-radius: 1px;
+}
+
+.ear-inner {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 4px;
+  background: var(--pet-ear-pink);
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+/* Collar & Golden Jingle Bell */
+.pet-collar {
+  position: absolute;
+  bottom: -2px;
+  left: -1px;
+  right: -1px;
+  height: 2.5px;
+  background: var(--pet-collar);
+  border-radius: 2px;
+  transform: translateZ(7.5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.collar-bell {
+  display: block;
+  width: 3.5px;
+  height: 3.5px;
+  background: radial-gradient(circle at 35% 35%, #fef08a, var(--pet-bell));
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.4);
+  animation: chatbot-bell-swing 0.54s ease-in-out infinite alternate;
+}
+
+/* ===== 4 ARTICULATED LEGS (Quadruped Trot Gait) ===== */
+.pet-leg {
+  position: absolute;
+  top: 9px;
+  width: 5px;
+  height: 10px;
+  transform-style: preserve-3d;
+  transform-origin: 50% 0%;
+}
+
+.leg-limb {
+  position: absolute;
+  inset: 0;
+  background: var(--pet-fur-primary);
+  border-radius: 2.5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.paw-pad {
+  height: 3px;
+  background: var(--pet-fur-cream);
+  border-radius: 0 0 2.5px 2.5px;
+}
+
+/* Reciprocal Diagonal Pairs: FL + BR (Pair A), FR + BL (Pair B) */
+.leg-fl {
+  left: 15px;
+  transform: translateZ(-5px);
+  filter: brightness(0.85);
+  animation: chatbot-trot-pair-a 0.54s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.leg-br {
+  left: 2px;
+  transform: translateZ(5px);
+  animation: chatbot-trot-pair-a 0.54s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.leg-fr {
+  left: 15px;
+  transform: translateZ(5px);
+  animation: chatbot-trot-pair-b 0.54s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.leg-bl {
+  left: 2px;
+  transform: translateZ(-5px);
+  filter: brightness(0.85);
+  animation: chatbot-trot-pair-b 0.54s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* ===== ARTICULATED 3-SEGMENT TAIL ===== */
+.pet-tail {
+  position: absolute;
+  left: -2px;
+  top: 2px;
+  transform-style: preserve-3d;
+  transform-origin: 100% 50%;
+}
+
+.tail-joint {
+  position: relative;
+  background: var(--pet-fur-shade);
+  border-radius: 2px;
+  transform-origin: 100% 50%;
+  animation: chatbot-tail-swish 0.9s ease-in-out infinite alternate;
+}
+
+.joint-1 {
+  width: 7px;
+  height: 3px;
+  transform: rotateZ(35deg) rotateY(-8deg);
+}
+
+.joint-2 {
+  position: absolute;
+  left: -6px;
+  top: -0.5px;
+  width: 7px;
+  height: 2.8px;
+  background: var(--pet-fur-primary);
+  animation-delay: -0.15s;
+}
+
+.joint-3 {
+  position: absolute;
+  left: -5px;
+  top: -0.5px;
+  width: 6px;
+  height: 2.5px;
+  background: var(--pet-fur-primary);
+  animation-delay: -0.3s;
+}
+
+.tail-brush {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  width: 4px;
+  height: 2.5px;
+  background: var(--pet-fur-cream);
+  border-radius: 2px 0 0 2px;
+}
+
+/* ===== KEYFRAME ANIMATIONS ===== */
+
+/* Realistic Top-Rim Patrol: Deceleration, Pausing, Smooth 180-deg 3D Yaw Turn, Acceleration */
+@keyframes chatbot-pet-patrol {
+  /* 0% to 37%: Trotting steadily to the right edge */
   0% {
     left: var(--chatbot-pet-start);
-    transform: scaleX(1);
+    transform: rotateY(16deg);
   }
-  49.5% {
+  37% {
     left: var(--chatbot-pet-end);
-    transform: scaleX(1);
+    transform: rotateY(16deg);
   }
-  50% {
+
+  /* 37% to 41%: Smooth deceleration to a stop */
+  41% {
     left: var(--chatbot-pet-end);
-    transform: scaleX(-1);
+    transform: rotateY(16deg);
   }
-  99.5% {
+
+  /* 41% to 44%: Paused at right edge, looking around */
+  44% {
+    left: var(--chatbot-pet-end);
+    transform: rotateY(16deg);
+  }
+
+  /* 44% to 48%: Smooth 180-deg 3D TURN (Front rotates towards viewer!) */
+  48% {
+    left: var(--chatbot-pet-end);
+    transform: rotateY(196deg);
+  }
+
+  /* 48% to 51%: Acceleration into stride */
+  51% {
+    left: calc(var(--chatbot-pet-end) - 12px);
+    transform: rotateY(196deg);
+  }
+
+  /* 51% to 88%: Trotting steadily to the left edge */
+  88% {
     left: var(--chatbot-pet-start);
-    transform: scaleX(-1);
+    transform: rotateY(196deg);
+  }
+
+  /* 88% to 92%: Smooth deceleration to a stop */
+  92% {
+    left: var(--chatbot-pet-start);
+    transform: rotateY(196deg);
+  }
+
+  /* 92% to 95%: Paused at left edge, looking around */
+  95% {
+    left: var(--chatbot-pet-start);
+    transform: rotateY(196deg);
+  }
+
+  /* 95% to 99%: Smooth 180-deg 3D TURN back to start */
+  99% {
+    left: var(--chatbot-pet-start);
+    transform: rotateY(376deg);
   }
   100% {
     left: var(--chatbot-pet-start);
-    transform: scaleX(1);
+    transform: rotateY(376deg);
   }
 }
 
-@keyframes chatbot-pet-leg-a {
-  0%,
-  100% {
-    transform: translateY(0);
+/* Quadruped Trot Gait - Pair A (Front-Left & Back-Right) */
+@keyframes chatbot-trot-pair-a {
+  0% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(-16deg) translateY(0);
+  }
+  25% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(0deg) translateY(-2px);
   }
   50% {
-    transform: translateY(2px);
+    transform: translateZ(var(--leg-z, 5px)) rotateX(18deg) translateY(0);
+  }
+  75% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(0deg) translateY(1px);
+  }
+  100% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(-16deg) translateY(0);
   }
 }
 
-@keyframes chatbot-pet-leg-b {
-  0%,
-  100% {
-    transform: translateY(2px);
+/* Quadruped Trot Gait - Pair B (Front-Right & Back-Left) - 50% Reciprocal Phase */
+@keyframes chatbot-trot-pair-b {
+  0% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(18deg) translateY(0);
+  }
+  25% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(0deg) translateY(1px);
   }
   50% {
-    transform: translateY(0);
+    transform: translateZ(var(--leg-z, 5px)) rotateX(-16deg) translateY(0);
+  }
+  75% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(0deg) translateY(-2px);
+  }
+  100% {
+    transform: translateZ(var(--leg-z, 5px)) rotateX(18deg) translateY(0);
   }
 }
 
-@keyframes chatbot-pet-tail {
+/* Body Bobbing & Weight-Shift Sway */
+@keyframes chatbot-pet-bob {
   0%,
   100% {
-    transform: rotate(-7deg);
+    transform: translate3d(-50%, 0, 0) rotateX(10deg) rotateY(16deg)
+      rotateZ(-1deg);
+  }
+  25% {
+    transform: translate3d(-50%, -2px, 0) rotateX(8deg) rotateY(16deg)
+      rotateZ(0deg);
   }
   50% {
-    transform: rotate(8deg);
+    transform: translate3d(-50%, 0.5px, 0) rotateX(11deg) rotateY(16deg)
+      rotateZ(1deg);
+  }
+  75% {
+    transform: translate3d(-50%, -1.8px, 0) rotateX(9deg) rotateY(16deg)
+      rotateZ(0deg);
+  }
+}
+
+/* Dynamic Ground Contact Shadow Pulse */
+@keyframes chatbot-pet-shadow {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(-50%) scale(0.88);
+    opacity: 0.55;
+  }
+}
+
+/* Head Counter-Balance Nodding */
+@keyframes chatbot-head-nod {
+  0%,
+  100% {
+    transform: rotateX(0deg) translateY(0);
+  }
+  50% {
+    transform: rotateX(-4deg) translateY(1px);
+  }
+}
+
+/* Tail Harmonic Wave Swish */
+@keyframes chatbot-tail-swish {
+  0% {
+    transform: rotateZ(32deg) rotateY(-14deg);
+  }
+  100% {
+    transform: rotateZ(44deg) rotateY(16deg);
+  }
+}
+
+/* Natural Eye Blink */
+@keyframes chatbot-eye-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  96%,
+  98% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* Subtle Inquisitive Ear Twitch */
+@keyframes chatbot-ear-twitch {
+  0%,
+  88%,
+  100% {
+    transform: rotateZ(var(--ear-rot, 0deg));
+  }
+  90% {
+    transform: rotateZ(calc(var(--ear-rot, 0deg) - 12deg));
+  }
+  94% {
+    transform: rotateZ(calc(var(--ear-rot, 0deg) + 8deg));
+  }
+}
+
+/* Collar Bell Micro-Swing */
+@keyframes chatbot-bell-swing {
+  0% {
+    transform: rotateZ(-12deg);
+  }
+  100% {
+    transform: rotateZ(12deg);
+  }
+}
+
+/* Happy Petting Stretch Reaction */
+.chatbot-border-pet.is-petting .pet-3d-rig,
+.chatbot-border-cat.is-petting .pet-3d-rig {
+  animation: chatbot-pet-happy-stretch 0.62s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes chatbot-pet-happy-stretch {
+  0% {
+    transform: translate3d(-50%, 0, 0) scale(1);
+  }
+  40% {
+    transform: translate3d(-50%, -6px, 0) scale(1.12) rotateX(-5deg)
+      rotateY(0deg);
+  }
+  70% {
+    transform: translate3d(-50%, -2px, 0) scale(1.05) rotateZ(3deg);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0) scale(1);
   }
 }
 
@@ -1131,19 +1896,16 @@
     animation: none;
   }
 
+  .chatbot-border-pet,
   .chatbot-border-cat {
-    top: -12px;
+    top: -30px;
     left: 8px;
-    width: 36px;
-    height: 24px;
+    width: 44px;
+    height: 34px;
+    transform: scale(0.85);
+    transform-origin: bottom center;
     --chatbot-pet-start: 8px;
-    --chatbot-pet-end: calc(100% - 44px);
-    animation-duration: 14s;
-  }
-
-  .chatbot-pixel-pet {
-    width: 36px;
-    height: 24px;
+    --chatbot-pet-end: calc(100% - 80px);
   }
 
   .chatbot-popup-header {
@@ -1199,15 +1961,29 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .chatbot-border-pet,
   .chatbot-border-cat {
     left: var(--chatbot-pet-start);
     animation: none;
   }
 
-  .chatbot-pixel-pet .pet-tail,
-  .chatbot-pixel-pet .pet-leg-a,
-  .chatbot-pixel-pet .pet-leg-b {
-    animation: none;
+  .chatbot-border-pet .pet-3d-rig,
+  .chatbot-border-cat .pet-3d-rig,
+  .chatbot-border-pet .pet-neck,
+  .chatbot-border-cat .pet-neck,
+  .chatbot-border-pet .pet-leg,
+  .chatbot-border-cat .pet-leg,
+  .chatbot-border-pet .tail-joint,
+  .chatbot-border-cat .tail-joint,
+  .chatbot-border-pet .pet-3d-shadow,
+  .chatbot-border-cat .pet-3d-shadow,
+  .chatbot-border-pet .pet-eye,
+  .chatbot-border-cat .pet-eye,
+  .chatbot-border-pet .pet-ear,
+  .chatbot-border-cat .pet-ear,
+  .chatbot-border-pet .collar-bell,
+  .chatbot-border-cat .collar-bell {
+    animation: none !important;
   }
 
   .chatbot-popup.is-open {
