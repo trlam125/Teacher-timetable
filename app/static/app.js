@@ -368,10 +368,115 @@ function activateRequestedWorkspaceTab() {
   const tab = new URLSearchParams(window.location.search).get("tab");
   if (tab) activateWorkspaceTab(tab);
 }
+function bulkEntityToolbar(type) {
+  return `<div class="entity-bulk-toolbar" data-bulk-toolbar="${type}"><span class="entity-bulk-count"><b data-bulk-count>0</b> mục được chọn</span><button class="btn ghost entity-bulk-delete" type="button" onclick="deleteSelectedEntities('${type}',this)" disabled>Xóa đã chọn</button></div>`;
+}
+function bulkEntityHeader(type) {
+  return `<th class="entity-select-col"><input class="entity-select-all" type="checkbox" aria-label="Chọn tất cả" onchange="toggleAllEntityRows('${type}',this.checked)"></th>`;
+}
+function bulkEntityCell(type, id) {
+  return `<td class="entity-select-col"><input class="entity-row-select" type="checkbox" data-entity-id="${Number(id)}" aria-label="Chọn mục này" onchange="syncEntityBulkControls('${type}')"></td>`;
+}
+function bulkEntityTableShell(type, tableHtml) {
+  return `<div class="entity-table-shell" data-bulk-table="${type}">${bulkEntityToolbar(type)}${tableHtml}</div>`;
+}
 function table(rows, cols, type) {
   if (!rows.length) return '<div class="empty-state">Chưa có dữ liệu.</div>';
   const canEdit = ["subject", "teacher", "grade", "class"].includes(type);
-  return `<table class="data-table"><thead><tr>${cols.map((c) => `<th>${c[0]}</th>`).join("")}<th></th></tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td>${esc(typeof c[1] === "function" ? c[1](r) : r[c[1]])}</td>`).join("")}<td><div class="row end">${canEdit ? `<button class="danger-link" onclick="openEntityEdit('${type}',${r.id})">Sửa</button>` : ""}<button class="danger-link" onclick="delEntity('${type}',${r.id},this)">Xóa</button></div></td></tr>`).join("")}</tbody></table>`;
+  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader(type)}${cols.map((c) => `<th>${c[0]}</th>`).join("")}<th></th></tr></thead><tbody>${rows.map((r) => `<tr>${bulkEntityCell(type, r.id)}${cols.map((c) => `<td>${esc(typeof c[1] === "function" ? c[1](r) : r[c[1]])}</td>`).join("")}<td><div class="row end">${canEdit ? `<button class="danger-link" onclick="openEntityEdit('${type}',${r.id})">Sửa</button>` : ""}<button class="danger-link" onclick="delEntity('${type}',${r.id},this)">Xóa</button></div></td></tr>`).join("")}</tbody></table>`;
+  return bulkEntityTableShell(type, tableHtml);
+}
+function entityBulkRoot(type) {
+  return document.querySelector(`[data-bulk-table="${type}"]`);
+}
+function selectedEntityIds(type) {
+  const root = entityBulkRoot(type);
+  if (!root) return [];
+  return [...root.querySelectorAll(".entity-row-select:checked")]
+    .map((input) => Number(input.dataset.entityId || 0))
+    .filter((id) => id > 0);
+}
+function syncEntityBulkControls(type) {
+  const root = entityBulkRoot(type);
+  if (!root) return;
+  const boxes = [...root.querySelectorAll(".entity-row-select")];
+  const selected = boxes.filter((input) => input.checked);
+  const master = root.querySelector(".entity-select-all");
+  const count = root.querySelector("[data-bulk-count]");
+  const button = root.querySelector(".entity-bulk-delete");
+  if (master) {
+    master.checked = boxes.length > 0 && selected.length === boxes.length;
+    master.indeterminate = selected.length > 0 && selected.length < boxes.length;
+  }
+  if (count) count.textContent = String(selected.length);
+  if (button) {
+    const label = selected.length ? `Xóa đã chọn (${selected.length})` : "Xóa đã chọn";
+    button.disabled = selected.length === 0;
+    button.dataset.actionIdleLabel = label;
+    if (button.dataset.actionState !== "loading") button.textContent = label;
+  }
+}
+function toggleAllEntityRows(type, checked) {
+  const root = entityBulkRoot(type);
+  if (!root) return;
+  root
+    .querySelectorAll(".entity-row-select")
+    .forEach((input) => (input.checked = Boolean(checked)));
+  syncEntityBulkControls(type);
+}
+async function deleteSelectedEntities(type, button) {
+  const ids = selectedEntityIds(type);
+  if (!ids.length) return;
+  const confirmed = await confirmAction(
+    `Xóa ${ids.length} mục đã chọn? Mục đang được sử dụng sẽ được giữ lại.`,
+    { confirmText: `Xóa ${ids.length} mục` },
+  );
+  if (!confirmed) return;
+  setInlineActionState(button, "loading", {
+    idle: button.dataset.actionIdleLabel || "Xóa đã chọn",
+    loading: "Đang xóa...",
+  });
+  try {
+    const r = await fetch(`/api/projects/${PROJECT_ID}/entities/bulk`, {
+      method: "DELETE",
+      headers: operationHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ type, ids }),
+    });
+    const result = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setInlineActionState(
+        button,
+        "error",
+        { idle: button.dataset.actionIdleLabel || "Xóa đã chọn", error: "Không thể xóa" },
+        2200,
+      );
+      showToast(
+        result.message || result.detail || "Không thể xóa các mục đã chọn.",
+        "error",
+        4800,
+      );
+      return;
+    }
+    setInlineActionState(button, "success", {
+      idle: button.dataset.actionIdleLabel || "Xóa đã chọn",
+      success: `Đã xóa ${Number(result.deleted || ids.length)} mục`,
+    });
+    showToast(
+      result.message || `Đã xóa ${Number(result.deleted || ids.length)} mục.`,
+      Array.isArray(result.skipped) && result.skipped.length ? "warning" : "success",
+      4800,
+    );
+    await wait(500);
+    await refresh(true);
+  } catch {
+    setInlineActionState(
+      button,
+      "error",
+      { idle: button.dataset.actionIdleLabel || "Xóa đã chọn", error: "Lỗi kết nối" },
+      2200,
+    );
+    showToast("Mất kết nối tới máy chủ.", "error", 4800);
+  }
 }
 function describeBlockMode(mode, total) {
   if (mode === "required_double") {
@@ -641,12 +746,13 @@ function assignmentTable() {
     rows = rows.filter((item) => item.teacher_id === state.teacherId);
   if (!rows.length)
     return `<div class="assignment-filter-empty">${data.assignments?.length ? "Không có phân công phù hợp với bộ lọc hiện tại." : "Chưa có phân công. Hãy gắn lớp – môn – giáo viên và số tiết/tuần trước khi xếp lịch."}</div>`;
-  return `<table class="data-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Tiết/tuần</th><th>Tải giáo viên</th><th>Chế độ xếp</th><th></th></tr></thead><tbody>${rows
+  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader("assignment")}<th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Tiết/tuần</th><th>Tải giáo viên</th><th>Chế độ xếp</th><th></th></tr></thead><tbody>${rows
     .map((item) => {
       const teacher = data.teachers.find((row) => row.id === item.teacher_id);
-      return `<tr><td>${esc(item.class_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.teacher_name)}</td><td><b>${item.periods_per_week}</b></td><td>${teacherLoadCellHtml(teacher)}</td><td>${esc(describeBlockMode(item.block_mode, item.periods_per_week))}</td><td><div class="row end"><button class="danger-link" onclick="openAssignmentEdit(${item.id})">Sửa phân công</button><button class="danger-link" onclick="delEntity('assignment',${item.id},this)">Xóa</button></div></td></tr>`;
+      return `<tr>${bulkEntityCell("assignment", item.id)}<td>${esc(item.class_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.teacher_name)}</td><td><b>${item.periods_per_week}</b></td><td>${teacherLoadCellHtml(teacher)}</td><td>${esc(describeBlockMode(item.block_mode, item.periods_per_week))}</td><td><div class="row end"><button class="danger-link" onclick="openAssignmentEdit(${item.id})">Sửa phân công</button><button class="danger-link" onclick="delEntity('assignment',${item.id},this)">Xóa</button></div></td></tr>`;
     })
     .join("")}</tbody></table>`;
+  return bulkEntityTableShell("assignment", tableHtml);
 }
 function renderAssignmentTable() {
   const summary = $("#assignmentCompletenessSummary"),

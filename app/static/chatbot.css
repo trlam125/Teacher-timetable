@@ -784,23 +784,21 @@
   max-width: 100%;
 }
 
-/* Pixel pet that walks slowly around the outside edge of the popup. */
+/* Pixel pet runs only along the popup's top edge, then turns back. */
 .chatbot-border-cat {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: -14px;
+  left: 10px;
   z-index: 12;
   width: 42px;
   height: 28px;
+  --chatbot-pet-start: 10px;
+  --chatbot-pet-end: calc(100% - 52px);
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 4px 5px rgba(15, 23, 42, 0.22));
-  offset-path: inset(-14px -22px -14px -22px round 36px);
-  offset-distance: 0%;
-  offset-rotate: 0deg;
-  offset-anchor: 50% 50%;
-  animation: chatbot-cat-lap 26s linear infinite;
-  will-change: offset-distance, transform;
+  animation: chatbot-cat-top-run 14s linear infinite;
+  will-change: left, transform;
 }
 
 .chatbot-pixel-pet {
@@ -844,29 +842,26 @@
   animation: chatbot-pet-leg-b 0.34s steps(2, end) infinite;
 }
 
-@keyframes chatbot-cat-lap {
+@keyframes chatbot-cat-top-run {
   0% {
-    offset-distance: 0%;
-    transform: translateY(-1px) scaleX(1);
+    left: var(--chatbot-pet-start);
+    transform: scaleX(1);
   }
-  24.5% {
-    transform: translateY(-1px) scaleX(1);
-  }
-  25%,
   49.5% {
-    transform: translateY(-1px) scaleX(1);
+    left: var(--chatbot-pet-end);
+    transform: scaleX(1);
   }
-  50%,
-  74.5% {
-    transform: translateY(-1px) scaleX(-1);
+  50% {
+    left: var(--chatbot-pet-end);
+    transform: scaleX(-1);
   }
-  75%,
   99.5% {
-    transform: translateY(-1px) scaleX(-1);
+    left: var(--chatbot-pet-start);
+    transform: scaleX(-1);
   }
   100% {
-    offset-distance: 100%;
-    transform: translateY(-1px) scaleX(1);
+    left: var(--chatbot-pet-start);
+    transform: scaleX(1);
   }
 }
 
@@ -1137,10 +1132,13 @@
   }
 
   .chatbot-border-cat {
+    top: -12px;
+    left: 8px;
     width: 36px;
     height: 24px;
-    offset-path: inset(-10px 8px 6px 8px round 18px);
-    animation-duration: 30s;
+    --chatbot-pet-start: 8px;
+    --chatbot-pet-end: calc(100% - 44px);
+    animation-duration: 14s;
   }
 
   .chatbot-pixel-pet {
@@ -1202,8 +1200,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .chatbot-border-cat {
+    left: var(--chatbot-pet-start);
     animation: none;
-    offset-distance: 8%;
   }
 
   .chatbot-pixel-pet .pet-tail,

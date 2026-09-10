@@ -4183,3 +4183,60 @@ html.dark-mode .cell.available.has-conflict {
     width: min(94vw, 900px);
   }
 }
+
+/* ===== Bulk row selection for workspace entity tables ===== */
+.entity-table-shell {
+  min-width: 0;
+}
+
+.entity-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 40px;
+  margin: 0 0 10px;
+}
+
+.entity-bulk-count {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.entity-bulk-count b {
+  color: var(--ink);
+}
+
+.entity-bulk-delete:not(:disabled) {
+  color: var(--danger);
+}
+
+.entity-bulk-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.data-table .entity-select-col {
+  width: 44px;
+  min-width: 44px;
+  padding-left: 10px;
+  padding-right: 10px;
+  text-align: center;
+}
+
+.entity-select-all,
+.entity-row-select {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  vertical-align: middle;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .entity-bulk-toolbar {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
