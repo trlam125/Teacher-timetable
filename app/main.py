@@ -559,7 +559,7 @@ def migrate_schema():
                     WHERE id = NEW.assignment_id;
 
                     IF NOT FOUND THEN
-                        RAISE EXCEPTION 'Phân công % không tồn tại.', NEW.assignment_id
+                        RAISE EXCEPTION 'Phân công %% không tồn tại.', NEW.assignment_id
                             USING ERRCODE = '23503';
                     END IF;
 
@@ -579,7 +579,7 @@ def migrate_schema():
                           AND l.id <> COALESCE(NEW.id, -1)
                           AND a.teacher_id = new_teacher_id
                     ) THEN
-                        RAISE EXCEPTION 'Giáo viên đã có tiết khác tại slot %.', NEW.slot
+                        RAISE EXCEPTION 'Giáo viên đã có tiết khác tại slot %%.', NEW.slot
                             USING ERRCODE = '23505';
                     END IF;
 
@@ -592,7 +592,7 @@ def migrate_schema():
                           AND l.id <> COALESCE(NEW.id, -1)
                           AND a.class_id = new_class_id
                     ) THEN
-                        RAISE EXCEPTION 'Lớp đã có tiết khác tại slot %.', NEW.slot
+                        RAISE EXCEPTION 'Lớp đã có tiết khác tại slot %%.', NEW.slot
                             USING ERRCODE = '23505';
                     END IF;
 
