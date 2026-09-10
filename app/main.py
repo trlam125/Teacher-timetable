@@ -538,6 +538,82 @@ def migrate_schema():
                     "AND fixed_lessons.slot=lessons.slot)"
                 )
 
+        # Bảo vệ bất biến ở tầng PostgreSQL: tại một project/slot, một giáo
+        # viên hoặc một lớp chỉ được xuất hiện trong tối đa một Lesson. Lesson
+        # chỉ lưu assignment_id nên không thể diễn đạt hai UNIQUE constraint này
+        # trực tiếp; trigger tra Assignment và dùng advisory lock theo project/slot
+        # để cả import trực tiếp hoặc hai transaction đồng thời cũng không lọt.
+        if "lessons" in inspector.get_table_names() and "assignments" in inspector.get_table_names():
+            connection.exec_driver_sql(
+                """
+                CREATE OR REPLACE FUNCTION enforce_lesson_timetable_conflict()
+                RETURNS trigger AS $$
+                DECLARE
+                    new_teacher_id INTEGER;
+                    new_class_id INTEGER;
+                    assignment_project_id INTEGER;
+                BEGIN
+                    SELECT teacher_id, class_id, project_id
+                    INTO new_teacher_id, new_class_id, assignment_project_id
+                    FROM assignments
+                    WHERE id = NEW.assignment_id;
+
+                    IF NOT FOUND THEN
+                        RAISE EXCEPTION 'Phân công % không tồn tại.', NEW.assignment_id
+                            USING ERRCODE = '23503';
+                    END IF;
+
+                    IF assignment_project_id <> NEW.project_id THEN
+                        RAISE EXCEPTION 'Lesson và phân công không cùng project.'
+                            USING ERRCODE = '23514';
+                    END IF;
+
+                    PERFORM pg_advisory_xact_lock(NEW.project_id, NEW.slot);
+
+                    IF EXISTS (
+                        SELECT 1
+                        FROM lessons l
+                        JOIN assignments a ON a.id = l.assignment_id
+                        WHERE l.project_id = NEW.project_id
+                          AND l.slot = NEW.slot
+                          AND l.id <> COALESCE(NEW.id, -1)
+                          AND a.teacher_id = new_teacher_id
+                    ) THEN
+                        RAISE EXCEPTION 'Giáo viên đã có tiết khác tại slot %.', NEW.slot
+                            USING ERRCODE = '23505';
+                    END IF;
+
+                    IF EXISTS (
+                        SELECT 1
+                        FROM lessons l
+                        JOIN assignments a ON a.id = l.assignment_id
+                        WHERE l.project_id = NEW.project_id
+                          AND l.slot = NEW.slot
+                          AND l.id <> COALESCE(NEW.id, -1)
+                          AND a.class_id = new_class_id
+                    ) THEN
+                        RAISE EXCEPTION 'Lớp đã có tiết khác tại slot %.', NEW.slot
+                            USING ERRCODE = '23505';
+                    END IF;
+
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql
+                """
+            )
+            connection.exec_driver_sql(
+                "DROP TRIGGER IF EXISTS trg_lesson_timetable_conflict ON lessons"
+            )
+            connection.exec_driver_sql(
+                """
+                CREATE TRIGGER trg_lesson_timetable_conflict
+                BEFORE INSERT OR UPDATE OF project_id, assignment_id, slot
+                ON lessons
+                FOR EACH ROW
+                EXECUTE FUNCTION enforce_lesson_timetable_conflict()
+                """
+            )
+
         # Bản demo rất cũ từng được tạo chỉ với một buổi. Đây là migration
         # thay đổi dữ liệu nên tuyệt đối không nhận diện project bằng tên/trường:
         # người dùng có thể tạo project thật trùng các giá trị đó. Chỉ migrate
@@ -1337,6 +1413,14 @@ def assignment_run_groups(project: Project, slots: list[int] | set[int]):
         if current:
             runs.append({"start": current[0][1], "size": len(current), "slots": [x[1] for x in current]})
     return sorted(runs, key=lambda item: item["start"])
+
+def preferred_double_pair_count(project: Project, slots: list[int] | set[int]):
+    """Đếm các cụm đúng 2 tiết cho chế độ ưu tiên tiết đôi.
+
+    Cụm 3 hoặc 4 tiết liên tiếp không được tách ngầm thành các cặp ảo. Điều này
+    giữ cách chấm điểm của solver đồng nhất với cách giao diện đánh dấu tiết đôi.
+    """
+    return sum(1 for run in assignment_run_groups(project, slots) if run["size"] == 2)
 
 def _pack_pattern_groups_into_segments(group_sizes:list[int],segments:list[tuple[int,int]]):
     """Xếp các cụm chưa neo vào những đoạn trống, cách nhau ít nhất một tiết."""
@@ -4264,7 +4348,11 @@ class SessionLocksIn(BaseModel):
 def save_session_locks(pid:int,payload:SessionLocksIn,user:User=Depends(current_user),db:Session=Depends(db_session)):
     project=get_project_for_update(pid,user,db)
     maximum=project.days*project.sessions
-    session_keys=sorted({int(value) for value in payload.sessions if 0<=int(value)<maximum})
+    try:
+        session_keys=normalize_slot_values(payload.sessions,maximum,strict=True)
+    except ValueError as exc:
+        message=str(exc).replace("tiết","buổi")
+        raise HTTPException(400,message) from exc
     blocked=[]
     ppd=project.sessions*project.periods_per_session
     for key in session_keys:
@@ -5881,17 +5969,14 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
                     if same_session and touching:
                         model.Add(lvar+rvar<=1)
 
-        # Soft objective for preferred_double: reward disjoint adjacent pairs
-        # inside the same day/session.  The reward deliberately matches the
-        # post-solve soft score (14 points per missing pair), so CP-SAT optimizes
-        # the preference instead of merely reporting it after a solution exists.
-        # Pair variables are optional and therefore never turn preferred_double
-        # into a hard constraint.  A slot may belong to at most one rewarded
-        # pair, which makes a run of 3 count as one pair and a run of 4 as two.
+        # Soft objective for preferred_double: chỉ thưởng một cụm ĐÚNG 2 tiết
+        # liên tiếp trong cùng ngày/buổi. Cụm 3 hoặc 4 tiết không được tách ngầm
+        # thành các "cặp" ảo; nhờ vậy solver và giao diện có cùng một định nghĩa
+        # về tiết đôi. Đây vẫn chỉ là mục tiêu mềm, không biến preferred_double
+        # thành ràng buộc bắt buộc.
         for assignment in assignments:
             if not assignment_prefers_double(assignment):
                 continue
-            pair_vars_by_slot=defaultdict(list)
             for day in range(p.days):
                 for session in range(p.sessions):
                     base=day*ppd+session*p.periods_per_session
@@ -5904,17 +5989,24 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
                         right_fixed=1 if right in existing_assignment_slots[assignment.id] else 0
                         if not (left_fixed or left_vars) or not (right_fixed or right_vars):
                             continue
+
+                        previous=left-1 if period>0 else None
+                        following=right+1 if period+2<p.periods_per_session else None
+                        previous_vars=assignment_slot_vars[(assignment.id,previous)] if previous is not None else []
+                        following_vars=assignment_slot_vars[(assignment.id,following)] if following is not None else []
+                        previous_fixed=1 if previous is not None and previous in existing_assignment_slots[assignment.id] else 0
+                        following_fixed=1 if following is not None and following in existing_assignment_slots[assignment.id] else 0
+
                         pair=model.NewBoolVar(f"preferred_pair_{assignment.id}_{left}_{right}")
                         left_occupancy=sum(left_vars)+left_fixed
                         right_occupancy=sum(right_vars)+right_fixed
+                        previous_occupancy=sum(previous_vars)+previous_fixed
+                        following_occupancy=sum(following_vars)+following_fixed
                         model.Add(pair<=left_occupancy)
                         model.Add(pair<=right_occupancy)
-                        pair_vars_by_slot[left].append(pair)
-                        pair_vars_by_slot[right].append(pair)
+                        model.Add(pair<=1-previous_occupancy)
+                        model.Add(pair<=1-following_occupancy)
                         objective_terms.append(-14*pair)
-            for vars_for_slot in pair_vars_by_slot.values():
-                if len(vars_for_slot)>1:
-                    model.Add(sum(vars_for_slot)<=1)
 
         # Soft objective: spread the same class/subject across days.  Penalize
         # every period beyond the first one on a day.  For preferred_double, the
@@ -5957,7 +6049,7 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
         for assignment in assignments:
             slots_for_assignment=final_slots[assignment.id]
             if assignment_prefers_double(assignment):
-                formed_pairs=sum(run["size"]//2 for run in assignment_run_groups(p,slots_for_assignment))
+                formed_pairs=preferred_double_pair_count(p,slots_for_assignment)
                 soft_score+=max(0,assignment.periods_per_week//2-formed_pairs)*14
             day_counts=Counter(slot//ppd for slot in slots_for_assignment)
             soft_score+=sum(max(0,count-1)*8 for count in day_counts.values())
@@ -6123,8 +6215,7 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
         for assignment in assignments:
             if not assignment_prefers_double(assignment):
                 continue
-            runs=assignment_run_groups(p,assignment_busy[assignment.id])
-            formed_pairs=sum(run["size"]//2 for run in runs)
+            formed_pairs=preferred_double_pair_count(p,assignment_busy[assignment.id])
             target_pairs=assignment.periods_per_week//2
             score+=max(0,target_pairs-formed_pairs)*14
         return {"lessons":placed,"unscheduled":unscheduled,"score":round(score,2),"genes":chosen_starts}
@@ -6339,7 +6430,7 @@ def ga_schedule(db:Session,p:Project,mode:str,tries:int=120,target_assignment_id
             final_slots[assignment_id].add(slot)
         for assignment in assignments:
             if assignment_prefers_double(assignment):
-                formed_pairs=sum(run["size"]//2 for run in assignment_run_groups(p,final_slots[assignment.id]))
+                formed_pairs=preferred_double_pair_count(p,final_slots[assignment.id])
                 soft_score+=max(0,assignment.periods_per_week//2-formed_pairs)*14
         return {
             "lessons":lessons,

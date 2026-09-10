@@ -14,12 +14,16 @@ def remap_slot_for_session_expansion(
     """Preserve day/session/period coordinates when the day gains sessions."""
     if old_sessions < 1 or new_sessions < old_sessions or periods_per_session < 1:
         raise ValueError("Cấu hình số buổi/tiết không hợp lệ")
-    if isinstance(slot, bool):
-        raise ValueError("Slot phải là số nguyên")
+    if isinstance(slot, bool) or (
+        isinstance(slot, float) and not slot.is_integer()
+    ):
+        raise ValueError("Slot phải là số nguyên không âm")
     try:
         value = int(slot)
     except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError("Slot phải là số nguyên") from exc
+        raise ValueError("Slot phải là số nguyên không âm") from exc
+    if value < 0:
+        raise ValueError("Slot phải là số nguyên không âm")
 
     old_periods_per_day = old_sessions * periods_per_session
     new_periods_per_day = new_sessions * periods_per_session
