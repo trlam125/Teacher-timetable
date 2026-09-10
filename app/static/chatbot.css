@@ -518,7 +518,7 @@
     0 24px 70px rgba(15, 23, 42, 0.24),
     0 0 0 rgba(96, 165, 250, 0),
     0 0 0 rgba(124, 58, 237, 0);
-  overflow: hidden;
+  overflow: visible;
   opacity: 0;
   visibility: hidden;
   transform: translateY(18px) scale(0.97);
@@ -598,6 +598,7 @@
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--line);
+  border-radius: 18px 18px 0 0;
   background: var(--chat-header-bg);
   backdrop-filter: blur(16px);
 }
@@ -738,6 +739,7 @@
 .chatbot-popup-composer {
   min-width: 0;
   padding: 12px;
+  border-radius: 0 0 18px 18px;
   background: var(--chat-composer-bg);
   backdrop-filter: blur(14px);
 }
@@ -782,55 +784,119 @@
   max-width: 100%;
 }
 
-/* Small cat that continuously walks around the inside edge of the popup. */
+/* Pixel pet that walks slowly around the outside edge of the popup. */
 .chatbot-border-cat {
   position: absolute;
-  inset: 0;
-  z-index: 8;
-  width: 28px;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  width: 42px;
   height: 28px;
-  display: grid;
-  place-items: center;
   pointer-events: none;
   user-select: none;
-  font-size: 20px;
-  line-height: 1;
-  filter: drop-shadow(0 3px 4px rgba(15, 23, 42, 0.2));
-  offset-path: inset(14px round 10px);
+  filter: drop-shadow(0 4px 5px rgba(15, 23, 42, 0.22));
+  offset-path: inset(-14px -22px -14px -22px round 36px);
   offset-distance: 0%;
   offset-rotate: 0deg;
   offset-anchor: 50% 50%;
-  animation: chatbot-cat-lap 11s linear infinite;
+  animation: chatbot-cat-lap 26s linear infinite;
   will-change: offset-distance, transform;
+}
+
+.chatbot-pixel-pet {
+  display: block;
+  width: 42px;
+  height: 28px;
+  overflow: visible;
+  shape-rendering: crispEdges;
+}
+
+.chatbot-pixel-pet .pet-body,
+.chatbot-pixel-pet .pet-tail,
+.chatbot-pixel-pet .pet-leg {
+  fill: #c7793f;
+}
+
+.chatbot-pixel-pet .pet-muzzle {
+  fill: #f3c9a8;
+}
+
+.chatbot-pixel-pet .pet-eye {
+  fill: #172033;
+}
+
+.chatbot-pixel-pet .pet-tail {
+  transform-box: fill-box;
+  transform-origin: 100% 80%;
+  animation: chatbot-pet-tail 0.52s steps(2, end) infinite;
+}
+
+.chatbot-pixel-pet .pet-leg {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+.chatbot-pixel-pet .pet-leg-a {
+  animation: chatbot-pet-leg-a 0.34s steps(2, end) infinite;
+}
+
+.chatbot-pixel-pet .pet-leg-b {
+  animation: chatbot-pet-leg-b 0.34s steps(2, end) infinite;
 }
 
 @keyframes chatbot-cat-lap {
   0% {
     offset-distance: 0%;
-    transform: translateY(0) rotate(-3deg);
+    transform: translateY(-1px) scaleX(1);
   }
-  6%,
-  18%,
-  31%,
-  44%,
-  57%,
-  69%,
-  82%,
-  94% {
-    transform: translateY(-2px) rotate(3deg);
+  24.5% {
+    transform: translateY(-1px) scaleX(1);
   }
-  12%,
   25%,
-  38%,
+  49.5% {
+    transform: translateY(-1px) scaleX(1);
+  }
   50%,
-  63%,
-  76%,
-  88% {
-    transform: translateY(1px) rotate(-3deg);
+  74.5% {
+    transform: translateY(-1px) scaleX(-1);
+  }
+  75%,
+  99.5% {
+    transform: translateY(-1px) scaleX(-1);
   }
   100% {
     offset-distance: 100%;
-    transform: translateY(0) rotate(-3deg);
+    transform: translateY(-1px) scaleX(1);
+  }
+}
+
+@keyframes chatbot-pet-leg-a {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes chatbot-pet-leg-b {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes chatbot-pet-tail {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(8deg);
   }
 }
 
@@ -1071,11 +1137,23 @@
   }
 
   .chatbot-border-cat {
-    font-size: 18px;
-    width: 24px;
+    width: 36px;
     height: 24px;
-    offset-path: inset(12px round 12px);
-    animation-duration: 13s;
+    offset-path: inset(-10px 8px 6px 8px round 18px);
+    animation-duration: 30s;
+  }
+
+  .chatbot-pixel-pet {
+    width: 36px;
+    height: 24px;
+  }
+
+  .chatbot-popup-header {
+    border-radius: 22px 22px 0 0;
+  }
+
+  .chatbot-popup-composer {
+    border-radius: 0;
   }
 
   .chatbot-popup-header {
@@ -1126,6 +1204,12 @@
   .chatbot-border-cat {
     animation: none;
     offset-distance: 8%;
+  }
+
+  .chatbot-pixel-pet .pet-tail,
+  .chatbot-pixel-pet .pet-leg-a,
+  .chatbot-pixel-pet .pet-leg-b {
+    animation: none;
   }
 
   .chatbot-popup.is-open {

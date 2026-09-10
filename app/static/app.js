@@ -3015,3 +3015,9 @@ window.addEventListener("wheel", handlePointerDragWheel, {
   capture: true,
   passive: false,
 });
+
+window.addEventListener("beforeprint", () => {
+  const scheduleGrid = document.querySelector("#scheduleGrid");
+  if (scheduleGrid && !scheduleGrid.querySelector(".timetable"))
+    renderSchedule();
+});

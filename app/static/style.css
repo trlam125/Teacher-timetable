@@ -746,29 +746,194 @@ dialog::backdrop {
   }
 }
 
+.print-schedule-header,
+.print-approval {
+  display: none;
+}
+
+@page {
+  size: A4 landscape;
+  margin: 10mm 9mm 12mm;
+}
+
 @media print {
+  html,
+  body {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    color: #111 !important;
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body::before,
   .appbar,
   .sidebar,
-  .section-head .row,
-  .section-head .btn {
+  .section-head,
+  #assignmentCoverage,
+  .manual-tray-panel,
+  .schedule-color-legend,
+  .chatbot-fab,
+  .chatbot-popup,
+  dialog,
+  .operation-status,
+  .toast-stack {
     display: none !important;
   }
 
-  .workspace {
+  .workspace,
+  .content,
+  .container {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .tab,
+  .tab.active {
+    display: none !important;
+  }
+
+  #schedule {
+    display: block !important;
+  }
+
+  .print-schedule-header {
+    display: block !important;
+    margin: 0 0 5mm;
+    text-align: center;
+    break-after: avoid-page;
+  }
+
+  .print-school-name {
+    font-size: 12pt;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .print-schedule-header h1 {
+    margin: 2mm 0 2.5mm;
+    color: #111 !important;
+    font-family: "Times New Roman", serif;
+    font-size: 18pt;
+    line-height: 1.15;
+    letter-spacing: 0.03em;
+  }
+
+  .print-schedule-meta {
+    display: flex;
+    justify-content: center;
+    gap: 18mm;
+    color: #222;
+    font-size: 10pt;
+  }
+
+  #scheduleGrid {
+    width: 100%;
+    margin: 0;
+  }
+
+  #scheduleGrid .timetable {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #555;
+    border-radius: 0;
+    overflow: visible;
+    background: #fff !important;
+    box-shadow: none !important;
+    break-inside: auto;
+  }
+
+  #scheduleGrid .cell {
+    min-height: 9mm;
+    padding: 1.2mm;
+    border-color: #777 !important;
+    color: #111 !important;
+    background: #fff !important;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  #scheduleGrid .cell.head,
+  #scheduleGrid .cell.period {
+    min-height: 7mm;
+    background: #f0f0f0 !important;
+    font-size: 9pt;
+    font-weight: 800;
+  }
+
+  #scheduleGrid .lesson {
+    min-height: 0;
+    height: auto;
+    margin: 0 0 0.8mm;
+    padding: 1mm 1.3mm;
+    border: 1px solid #999 !important;
+    border-radius: 2mm;
+    color: #111 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    font-size: 8pt;
+    line-height: 1.2;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  #scheduleGrid .lesson:last-child {
+    margin-bottom: 0;
+  }
+
+  #scheduleGrid .lesson b,
+  #scheduleGrid .lesson small {
+    color: #111 !important;
+  }
+
+  #scheduleGrid .lesson small {
+    font-size: 7pt;
+  }
+
+  #scheduleGrid .lesson-remove,
+  #scheduleGrid .lesson-pin,
+  #scheduleGrid .lesson-sync-indicator {
+    display: none !important;
+  }
+
+  .print-approval {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 38mm;
+    margin-top: 7mm;
+    padding: 0 12mm;
+    text-align: center;
+    color: #111;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .print-approval > div {
+    min-height: 28mm;
+  }
+
+  .print-approval b,
+  .print-approval span {
     display: block;
   }
 
-  .content,
-  .container {
-    padding: 0;
+  .print-approval b {
+    font-family: "Times New Roman", serif;
+    font-size: 10pt;
   }
 
-  .timetable {
-    border: 1px solid #999;
-  }
-
-  .lesson {
-    break-inside: avoid;
+  .print-approval span {
+    margin-top: 1mm;
+    font-size: 8pt;
+    font-style: italic;
   }
 }
 

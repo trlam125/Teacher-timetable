@@ -1,19 +1,26 @@
 <!DOCTYPE html>
 <html lang="vi">
     <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>Xếp thời khóa biểu tự động</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <meta name="description"
+              content="Smart TKB hỗ trợ nhà trường xếp thời khóa biểu tự động, kiểm tra xung đột, quản lý nguyện vọng giáo viên và xuất Excel." />
+        <title>Smart TKB · Xếp thời khóa biểu tự động</title>
         <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })(); function toggleTheme() { const isDark = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', isDark ? 'dark' : 'light'); }</script>
-        <link rel="stylesheet" href="/static/style.css?v=1">
+        <link rel="stylesheet" href="/static/style.css?v=1" />
         <script src="/static/operation-status.js?v=1" defer></script>
-        <link rel="stylesheet" href="/static/effects.css?v=1">
-        <link rel="stylesheet" href="/static/front.css?v=1">
+        <link rel="stylesheet" href="/static/effects.css?v=1" />
+        <link rel="stylesheet" href="/static/front.css?v=2" />
     </head>
     <body class="landing">
-        <header class="top">
-            <b>Smart TKB</b>
-            <nav>
+        <header class="top landing-top">
+            <a class="landing-brand" href="/" aria-label="Smart TKB - Trang chủ">
+                <span class="landing-brand-mark" aria-hidden="true">S</span>
+                <span>Smart TKB</span>
+            </a>
+            <nav aria-label="Điều hướng chính">
+                <a class="landing-nav-link" href="#quy-trinh">Quy trình</a>
+                <a class="landing-nav-link" href="#tinh-nang">Tính năng</a>
                 <button class="theme-toggle-btn"
                         onclick="toggleTheme()"
                         title="Đổi giao diện Sáng/Tối"
@@ -37,57 +44,286 @@
                         <line x1="21" y1="12" x2="23" y2="12"></line>
                         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
                         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-                    </svg><svg class="theme-toggle-moon"
-     xmlns="http://www.w3.org/2000/svg"
-     width="18"
-     height="18"
-     viewBox="0 0 24 24"
-     fill="none"
-     stroke="currentColor"
-     stroke-width="2.5"
-     stroke-linecap="round"
-     stroke-linejoin="round">
+                    </svg>
+                    <svg class="theme-toggle-moon"
+                         xmlns="http://www.w3.org/2000/svg"
+                         width="18"
+                         height="18"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2.5"
+                         stroke-linecap="round"
+                         stroke-linejoin="round">
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                     </svg>
-                </button><a href="/login">Đăng nhập</a><a class="btn" href="/register">Đăng ký</a>
+                </button>
+                <a class="landing-login" href="/login">Đăng nhập</a>
+                <a class="btn landing-register" href="/register">Đăng ký</a>
             </nav>
         </header>
-        <main class="hero">
-            <section>
-                <span class="pill">Dành cho giáo viên và nhà trường</span>
-                <h1>Xếp thời khóa biểu tự động, trực quan và dễ tinh chỉnh</h1>
-                <p>
-                    Thiết lập môn học, giáo viên, lớp, phân công và các tiết tránh. Hệ thống tự động tìm phương án không
-                    trùng lịch, sau đó cho phép kéo-thả để hoàn thiện.
-                </p>
-                <div class="actions"><a class="btn big" href="/register">Bắt đầu miễn phí</a></div>
-            </section>
-            <aside class="hero-card">
-                <div class="mini-head">Thời khóa biểu 10A1</div>
-                <div class="mini-grid">
-                    <b>Tiết</b><b>T2</b><b>T3</b><b>T4</b><span>1</span><i>TOÁN
-                        <br>
-                        <small>An</small></i><i>VĂN
-                            <br>
-                            <small>Bình</small></i><i>TIN
-                                <br>
-                                <small>Châu</small></i><span>2</span><i>VĂN</i><i>TOÁN</i><i>TOÁN</i><span>3</span><i>TIN</i><i>VĂN</i><i>TOÁN</i>
+        <main>
+            <section class="landing-hero" aria-labelledby="landing-title">
+                <div class="landing-hero-copy">
+                    <span class="pill landing-eyebrow"><span aria-hidden="true">✦</span> Trợ lý xếp lịch cho nhà
+                    trường</span>
+                    <h1 id="landing-title">Xếp thời khóa biểu nhanh hơn, rõ ràng hơn và dễ kiểm soát</h1>
+                    <p>
+                        Từ dữ liệu môn học, giáo viên, lớp và các ràng buộc, Smart TKB hỗ
+                        trợ tạo lịch tự động, phát hiện xung đột và cho phép tinh chỉnh trực
+                        tiếp trước khi xuất file.
+                    </p>
+                    <div class="landing-hero-actions">
+                        <a class="btn big landing-primary-cta" href="/register">Bắt đầu tạo thời khóa biểu</a>
+                        <a class="landing-secondary-cta"
+                           href="#quy-trinh">Xem cách hoạt động <span aria-hidden="true">→</span></a>
+                    </div>
+                    <div class="landing-trust-row" aria-label="Các điểm nổi bật">
+                        <span><b>7 bước</b> nhập dữ liệu rõ ràng</span>
+                        <span><b>AI</b> hỗ trợ kiểm tra và xếp lịch</span>
+                        <span><b>Excel</b> sẵn sàng để chia sẻ</span>
+                    </div>
+                </div>
+                <div class="landing-product-preview"
+                     aria-label="Mô phỏng giao diện Smart TKB">
+                    <div class="preview-window-bar">
+                        <div class="preview-window-dots" aria-hidden="true">
+                            <i></i><i></i><i></i>
                         </div>
-                    </aside>
-                </main>
-                <section class="features">
-                    <article>
-                        <h3>Nhập liệu theo 7 bước</h3>
-                        <p>Cấu hình, môn, tổ, giáo viên, khối, lớp và phân công.</p>
+                        <strong>Smart TKB · THPT Demo</strong>
+                        <span class="preview-live"><i></i> Đang hoạt động</span>
+                    </div>
+                    <div class="preview-app">
+                        <aside class="preview-sidebar" aria-hidden="true">
+                            <b>Smart TKB</b>
+                            <span></span><span></span><span></span><span></span><span></span>
+                            <span class="active"></span>
+                        </aside>
+                        <div class="preview-workspace">
+                            <div class="preview-toolbar">
+                                <div>
+                                    <b>Xếp và tinh chỉnh</b>
+                                    <small>Kéo tiết học để hoàn thiện lịch</small>
+                                </div>
+                                <button type="button" tabindex="-1">Xếp tự động</button>
+                            </div>
+                            <div class="preview-schedule">
+                                <div class="preview-grid-head">Tiết</div>
+                                <div class="preview-grid-head">Thứ 2</div>
+                                <div class="preview-grid-head">Thứ 3</div>
+                                <div class="preview-grid-head">Thứ 4</div>
+                                <div class="preview-grid-head">Thứ 5</div>
+                                <div class="preview-period">1</div>
+                                <div class="preview-lesson blue">
+                                    <b>TOÁN</b><small>10A1 · An</small>
+                                </div>
+                                <div class="preview-lesson cyan">
+                                    <b>VĂN</b><small>10A1 · Bình</small>
+                                </div>
+                                <div class="preview-empty"></div>
+                                <div class="preview-lesson violet">
+                                    <b>TIN</b><small>10A1 · Châu</small>
+                                </div>
+                                <div class="preview-period">2</div>
+                                <div class="preview-empty"></div>
+                                <div class="preview-lesson violet preview-moving">
+                                    <b>TIN</b><small>10A2 · Châu</small>
+                                </div>
+                                <div class="preview-lesson blue">
+                                    <b>TOÁN</b><small>10A2 · An</small>
+                                </div>
+                                <div class="preview-empty"></div>
+                                <div class="preview-period">3</div>
+                                <div class="preview-lesson cyan">
+                                    <b>VĂN</b><small>11A1 · Bình</small>
+                                </div>
+                                <div class="preview-empty"></div>
+                                <div class="preview-lesson blue">
+                                    <b>TOÁN</b><small>11A1 · An</small>
+                                </div>
+                                <div class="preview-lesson green">
+                                    <b>ANH</b><small>11A1 · Dung</small>
+                                </div>
+                            </div>
+                            <div class="preview-ai-card">
+                                <span class="preview-ai-icon" aria-hidden="true">✦</span>
+                                <div>
+                                    <b>AI đang tối ưu lịch</b>
+                                    <small>Kiểm tra trùng giáo viên, lớp và tiết tránh...</small>
+                                    <div class="preview-progress">
+                                        <i></i>
+                                    </div>
+                                </div>
+                                <strong>82%</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section id="quy-trinh"
+                     class="landing-section landing-process"
+                     aria-labelledby="process-title">
+                <div class="landing-section-heading">
+                    <span class="landing-kicker">Quy trình 3 bước</span>
+                    <h2 id="process-title">Từ dữ liệu ban đầu đến thời khóa biểu hoàn chỉnh</h2>
+                    <p>
+                        Mỗi bước bám đúng luồng làm việc của giáo vụ để dễ triển khai trong
+                        thực tế.
+                    </p>
+                </div>
+                <div class="process-grid">
+                    <article class="process-card">
+                        <span class="process-number">01</span>
+                        <div class="process-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 4h16v16H4z"></path>
+                                <path d="M8 8h8M8 12h8M8 16h5"></path>
+                            </svg>
+                        </div>
+                        <h3>Nhập dữ liệu</h3>
+                        <p>
+                            Thiết lập môn, tổ chuyên môn, giáo viên, khối, lớp, phân công và
+                            các ràng buộc cần tránh.
+                        </p>
                     </article>
-                    <article>
-                        <h3>Ràng buộc linh hoạt</h3>
-                        <p>Ngày nghỉ, tiết tránh, tiết cố định và giới hạn tải dạy.</p>
+                    <article class="process-card featured">
+                        <span class="process-number">02</span>
+                        <div class="process-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M18.36 5.64l-2.12 2.12M7.76 16.24l-2.12 2.12">
+                                </path>
+                                <circle cx="12" cy="12" r="4"></circle>
+                            </svg>
+                        </div>
+                        <h3>AI xếp tự động</h3>
+                        <p>
+                            Hệ thống tìm phương án phù hợp và kiểm tra các xung đột quan trọng
+                            trong quá trình xếp.
+                        </p>
                     </article>
-                    <article>
-                        <h3>Tinh chỉnh trực quan</h3>
-                        <p>Kéo-thả tiết học, xem theo lớp hoặc giáo viên và kiểm tra xung đột.</p>
+                    <article class="process-card">
+                        <span class="process-number">03</span>
+                        <div class="process-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 5h16v14H4z"></path>
+                                <path d="M8 2v6M16 2v6M4 10h16"></path>
+                                <path d="m9 15 2 2 4-4"></path>
+                            </svg>
+                        </div>
+                        <h3>Tinh chỉnh &amp; xuất file</h3>
+                        <p>
+                            Kéo-thả các tiết cần đổi, kiểm tra lại lịch và xuất Excel để lưu
+                            trữ, in hoặc chia sẻ.
+                        </p>
                     </article>
-                </section>
-            </body>
-        </html>
+                </div>
+            </section>
+            <section id="tinh-nang"
+                     class="landing-section landing-features"
+                     aria-labelledby="features-title">
+                <div class="landing-section-heading compact">
+                    <span class="landing-kicker">Tính năng nổi bật</span>
+                    <h2 id="features-title">Tập trung vào những việc giáo vụ cần làm mỗi ngày</h2>
+                </div>
+                <div class="feature-grid">
+                    <article class="feature-card feature-conflict">
+                        <div class="feature-visual" aria-hidden="true">
+                            <div class="conflict-mini-grid">
+                                <i></i><i></i><i class="danger"></i><i></i><i></i><i></i>
+                            </div>
+                            <span>!</span>
+                        </div>
+                        <div>
+                            <h3>Kiểm tra xung đột</h3>
+                            <p>
+                                Phát hiện các tình huống trùng giáo viên, trùng lớp hoặc đặt
+                                tiết vào vùng không khả dụng.
+                            </p>
+                        </div>
+                    </article>
+                    <article class="feature-card feature-preference">
+                        <div class="feature-visual" aria-hidden="true">
+                            <div class="preference-note">
+                                <i></i><b>Nguyện vọng</b><small>Ưu tiên tiết 1–3</small>
+                            </div>
+                            <span>✓</span>
+                        </div>
+                        <div>
+                            <h3>Quản lý nguyện vọng giáo viên</h3>
+                            <p>
+                                Tập hợp yêu cầu của giáo viên theo từng dự án để giáo vụ xem xét
+                                trước khi chốt lịch.
+                            </p>
+                        </div>
+                    </article>
+                    <article class="feature-card feature-export">
+                        <div class="feature-visual" aria-hidden="true">
+                            <div class="excel-sheet">
+                                <b>X</b><i></i><i></i><i></i><i></i>
+                            </div>
+                            <span>↓</span>
+                        </div>
+                        <div>
+                            <h3>Xuất Excel rõ ràng</h3>
+                            <p>
+                                Xuất thời khóa biểu ra file Excel có cấu trúc để tiếp tục xử lý,
+                                in ấn hoặc gửi cho các bộ phận liên quan.
+                            </p>
+                        </div>
+                    </article>
+                    <article class="feature-card feature-drag">
+                        <div class="feature-visual" aria-hidden="true">
+                            <div class="drag-slot"></div>
+                            <div class="drag-card">TOÁN</div>
+                            <span>↗</span>
+                        </div>
+                        <div>
+                            <h3>Kéo-thả để tinh chỉnh</h3>
+                            <p>
+                                Điều chỉnh tiết học trực tiếp trên lưới thay vì phải sửa lại
+                                toàn bộ phương án từ đầu.
+                            </p>
+                        </div>
+                    </article>
+                </div>
+            </section>
+            <section class="landing-cta-panel" aria-label="Bắt đầu sử dụng Smart TKB">
+                <div>
+                    <span class="landing-kicker">Sẵn sàng bắt đầu?</span>
+                    <h2>Tạo bộ thời khóa biểu đầu tiên của bạn</h2>
+                    <p>Đăng ký tài khoản, tạo dự án và bắt đầu nhập dữ liệu theo từng bước.</p>
+                </div>
+                <a class="btn big" href="/register">Đăng ký miễn phí</a>
+            </section>
+        </main>
+        <footer class="landing-footer">
+            <div class="landing-footer-main">
+                <div>
+                    <a class="landing-brand footer-brand" href="/">
+                        <span class="landing-brand-mark" aria-hidden="true">S</span>
+                        <span>Smart TKB</span>
+                    </a>
+                    <p>
+                        Hệ thống hỗ trợ xếp và quản lý thời khóa biểu dành cho giáo viên và
+                        nhà trường.
+                    </p>
+                </div>
+                <div class="landing-footer-links">
+                    <div>
+                        <b>Sản phẩm</b><a href="#quy-trinh">Quy trình</a><a href="#tinh-nang">Tính năng</a>
+                    </div>
+                    <div>
+                        <b>Tài khoản</b><a href="/login">Đăng nhập</a><a href="/register">Đăng ký</a>
+                    </div>
+                    <div>
+                        <b>Hỗ trợ</b><span>Liên hệ quản trị hệ thống</span><span>Chính sách bảo mật</span><span>Hướng dẫn sử dụng</span>
+                    </div>
+                </div>
+            </div>
+            <div class="landing-footer-bottom">
+                <span>© 2026 Smart TKB. All rights reserved.</span>
+                <span>Thiết kế cho quy trình xếp thời khóa biểu nhà trường.</span>
+            </div>
+        </footer>
+    </body>
+</html>
