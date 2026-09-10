@@ -2520,6 +2520,34 @@ def clone_project(pid: int, user: User = Depends(current_user), db: Session = De
         db.add(Lesson(project_id=p.id,assignment_id=maps["ass"][x.assignment_id],slot=x.slot,locked=x.locked))
     db.commit(); return RedirectResponse(f"/projects/{p.id}",303)
 
+@app.post("/projects/{pid}/delete")
+def delete_project(pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)):
+    project = get_project_for_update(pid, user, db)
+
+    # Xóa theo thứ tự phụ thuộc khóa ngoại để toàn bộ dữ liệu của bộ TKB
+    # được dọn sạch trong cùng một transaction.
+    for model in (
+        Lesson,
+        FixedLesson,
+        TeacherSubject,
+        GradeSubjectRequirement,
+        Assignment,
+        TeacherPreference,
+        SchoolClass,
+        Teacher,
+        Subject,
+        Grade,
+        Department,
+    ):
+        db.execute(delete(model).where(model.project_id == pid))
+
+    # Log chatbot không có khóa ngoại tới projects, nhưng vẫn dọn theo project
+    # để không giữ lại dữ liệu mồ côi sau khi bộ TKB đã bị xóa.
+    db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.project_id == pid))
+    db.delete(project)
+    db.commit()
+    return RedirectResponse("/projects", 303)
+
 @app.get("/schedule-audit", response_class=HTMLResponse)
 def standalone_schedule_audit_page(request:Request, user:User=Depends(current_user), db:Session=Depends(db_session)):
     chatbot_project = chatbot_project_for_user(user, db)

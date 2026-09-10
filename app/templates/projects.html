@@ -51,6 +51,10 @@
                 <div class="row"><a class="btn" href="/projects/{{p.id}}">Mở</a>
                     <form method="post" action="/projects/{{p.id}}/clone"><button class="btn ghost">Nhân bản</button>
                     </form>
+                    <form method="post" action="/projects/{{p.id}}/delete"
+                        onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa bộ thời khóa biểu này? Toàn bộ dữ liệu, phân công và lịch đã xếp trong bộ sẽ bị xóa vĩnh viễn.', {title: 'Xóa thời khóa biểu', confirmText: 'Xóa'}).then(ok => { if (ok) this.submit(); });">
+                        <button class="btn ghost project-delete-btn" type="submit">Xóa</button>
+                    </form>
                 </div>
             </article>{% endfor %}</div>
     </main>
