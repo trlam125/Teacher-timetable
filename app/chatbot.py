@@ -129,12 +129,16 @@ def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
             try:
                 document_info = archive.getinfo("word/document.xml")
             except KeyError as exc:
-                raise ChatbotError("Tệp Word không có nội dung document.xml hợp lệ.") from exc
+                raise ChatbotError(
+                    "Tệp Word không có nội dung document.xml hợp lệ."
+                ) from exc
             if document_info.file_size > MAX_DOCX_XML_BYTES:
                 raise ChatbotError("Nội dung văn bản trong tệp Word quá lớn.")
             document_xml = archive.read(document_info)
     except zipfile.BadZipFile as exc:
-        raise ChatbotError("Không thể đọc tệp Word. Hãy kiểm tra lại định dạng .docx.") from exc
+        raise ChatbotError(
+            "Không thể đọc tệp Word. Hãy kiểm tra lại định dạng .docx."
+        ) from exc
 
     try:
         root = ElementTree.fromstring(document_xml)
@@ -162,12 +166,14 @@ def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
             table_count += 1
             rows, table_truncated = _word_table_rows(child)
             if rows:
-                blocks.append({
-                    "type": "table",
-                    "name": f"Bảng {table_count}",
-                    "rows": rows,
-                    "truncated": table_truncated,
-                })
+                blocks.append(
+                    {
+                        "type": "table",
+                        "name": f"Bảng {table_count}",
+                        "rows": rows,
+                        "truncated": table_truncated,
+                    }
+                )
     return {
         "filename": filename[:200],
         "type": "docx",
@@ -180,15 +186,21 @@ def _parse_pdf(filename: str, content: bytes) -> dict[str, Any]:
     try:
         reader = PdfReader(io.BytesIO(content), strict=False)
     except (PdfReadError, ValueError, TypeError, OSError) as exc:
-        raise ChatbotError("Không thể đọc tệp PDF. Hãy kiểm tra lại tệp đã tải lên.") from exc
+        raise ChatbotError(
+            "Không thể đọc tệp PDF. Hãy kiểm tra lại tệp đã tải lên."
+        ) from exc
 
     if reader.is_encrypted:
         try:
             unlocked = reader.decrypt("")
         except Exception as exc:
-            raise ChatbotError("PDF đang được bảo vệ bằng mật khẩu nên chatbot không thể đọc.") from exc
+            raise ChatbotError(
+                "PDF đang được bảo vệ bằng mật khẩu nên chatbot không thể đọc."
+            ) from exc
         if not unlocked:
-            raise ChatbotError("PDF đang được bảo vệ bằng mật khẩu nên chatbot không thể đọc.")
+            raise ChatbotError(
+                "PDF đang được bảo vệ bằng mật khẩu nên chatbot không thể đọc."
+            )
 
     pages: list[dict[str, Any]] = []
     total_chars = 0
@@ -235,9 +247,13 @@ def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
     lower_name = filename.lower()
     if lower_name.endswith(".xlsx"):
         try:
-            workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+            workbook = load_workbook(
+                io.BytesIO(content), read_only=True, data_only=True
+            )
         except Exception as exc:
-            raise ChatbotError("Không thể đọc tệp Excel. Hãy kiểm tra lại định dạng .xlsx.") from exc
+            raise ChatbotError(
+                "Không thể đọc tệp Excel. Hãy kiểm tra lại định dạng .xlsx."
+            ) from exc
 
         sheets: list[dict[str, Any]] = []
         try:
@@ -255,11 +271,13 @@ def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
                         values.pop()
                     if values:
                         rows.append(values)
-                sheets.append({
-                    "name": worksheet.title[:100],
-                    "rows": _trim_empty_rows(rows),
-                    "truncated": truncated,
-                })
+                sheets.append(
+                    {
+                        "name": worksheet.title[:100],
+                        "rows": _trim_empty_rows(rows),
+                        "truncated": truncated,
+                    }
+                )
         finally:
             workbook.close()
         return {"filename": filename[:200], "type": "xlsx", "sheets": sheets}
@@ -280,7 +298,9 @@ def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
             dialect = csv.excel
         rows: list[list[str]] = []
         truncated = False
-        for row_index, row in enumerate(csv.reader(io.StringIO(decoded), dialect), start=1):
+        for row_index, row in enumerate(
+            csv.reader(io.StringIO(decoded), dialect), start=1
+        ):
             if row_index > MAX_ROWS_PER_SHEET:
                 truncated = True
                 break
@@ -330,16 +350,23 @@ def _compact_project_data(data: dict[str, Any]) -> dict[str, Any]:
             inside_day = slot % periods_per_day
             session_index = inside_day // periods
             period_index = inside_day % periods
-            row.update({
-                "day": day_names[day_index] if day_index < len(day_names) else f"Ngày {day_index + 1}",
-                "session": (
-                    "Cả buổi" if sessions == 1
-                    else "Buổi sáng" if session_index == 0
-                    else "Buổi chiều" if session_index == 1
-                    else f"Buổi {session_index + 1}"
-                ),
-                "period": period_index + 1,
-            })
+            row.update(
+                {
+                    "day": day_names[day_index]
+                    if day_index < len(day_names)
+                    else f"Ngày {day_index + 1}",
+                    "session": (
+                        "Cả buổi"
+                        if sessions == 1
+                        else "Buổi sáng"
+                        if session_index == 0
+                        else "Buổi chiều"
+                        if session_index == 1
+                        else f"Buổi {session_index + 1}"
+                    ),
+                    "period": period_index + 1,
+                }
+            )
         else:
             row["invalid_slot"] = True
         scheduled_lessons.append(row)
@@ -405,7 +432,9 @@ def _markdown_table_cells(line: str) -> list[str]:
 
 def _is_markdown_table_separator(line: str) -> bool:
     cells = _markdown_table_cells(line)
-    return len(cells) >= 2 and all(re.fullmatch(r":?-{2,}:?", cell or "") for cell in cells)
+    return len(cells) >= 2 and all(
+        re.fullmatch(r":?-{2,}:?", cell or "") for cell in cells
+    )
 
 
 def _normalize_assistant_markdown(answer: str) -> str:
@@ -491,7 +520,9 @@ GEMINI_TRUNCATION_WARNING = (
 
 
 def _configured_model_chain() -> list[str]:
-    primary = os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
+    primary = (
+        os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
+    )
     models: list[str] = []
     for model in [primary, *GEMINI_FALLBACK_MODELS]:
         clean = model.strip()
@@ -513,7 +544,11 @@ def _model_chain_from(preferred_model: str | None) -> list[str]:
     primary = models[0]
     if preferred_model == primary:
         return models
-    return [primary, preferred_model, *[model for model in models[1:] if model != preferred_model]]
+    return [
+        primary,
+        preferred_model,
+        *[model for model in models[1:] if model != preferred_model],
+    ]
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -574,13 +609,16 @@ def _build_gemini_payload(contents: list[dict[str, Any]]) -> bytes:
     # Do not send sampling controls such as temperature/topP/topK. New Gemini
     # Flash models may ignore or reject those legacy parameters; the only output
     # control needed here is the token budget.
-    return json.dumps({
-        "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
-        "contents": contents,
-        "generationConfig": {
-            "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+    return json.dumps(
+        {
+            "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
+            "contents": contents,
+            "generationConfig": {
+                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+            },
         },
-    }, ensure_ascii=False).encode("utf-8")
+        ensure_ascii=False,
+    ).encode("utf-8")
 
 
 def _call_gemini_model(
@@ -710,7 +748,11 @@ def _join_answer_chunks(chunks: list[str], *, truncated: bool = False) -> str:
             answer += "\n" + chunk
     answer = answer.strip()
     if truncated:
-        answer = f"{answer}\n\n{GEMINI_TRUNCATION_WARNING}" if answer else GEMINI_TRUNCATION_WARNING
+        answer = (
+            f"{answer}\n\n{GEMINI_TRUNCATION_WARNING}"
+            if answer
+            else GEMINI_TRUNCATION_WARNING
+        )
     return answer
 
 
@@ -764,10 +806,12 @@ def _generate_complete_answer(
         if continuation_index >= GEMINI_MAX_CONTINUATIONS:
             return _join_answer_chunks(chunks, truncated=True), provider_calls
 
-        contents.extend([
-            {"role": "model", "parts": [{"text": answer}]},
-            {"role": "user", "parts": [{"text": GEMINI_CONTINUE_PROMPT}]},
-        ])
+        contents.extend(
+            [
+                {"role": "model", "parts": [{"text": answer}]},
+                {"role": "user", "parts": [{"text": GEMINI_CONTINUE_PROMPT}]},
+            ]
+        )
 
     return _join_answer_chunks(chunks, truncated=True), provider_calls
 
@@ -803,17 +847,21 @@ def ask_gemini(
         text = str(item.get("content", "")).strip()[:8_000]
         if text:
             contents.append({"role": role, "parts": [{"text": text}]})
-    contents.append({
-        "role": "user",
-        "parts": [{
-            "text": (
-                "DỮ LIỆU HỆ THỐNG (JSON):\n"
-                f"{context_json}\n\n"
-                "YÊU CẦU CỦA NGƯỜI DÙNG:\n"
-                f"{message}"
-            )
-        }],
-    })
+    contents.append(
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "text": (
+                        "DỮ LIỆU HỆ THỐNG (JSON):\n"
+                        f"{context_json}\n\n"
+                        "YÊU CẦU CỦA NGƯỜI DÙNG:\n"
+                        f"{message}"
+                    )
+                }
+            ],
+        }
+    )
 
     attempts: list[dict[str, Any]] = []
     models = _model_chain_from(preferred_model)
@@ -849,13 +897,15 @@ def ask_gemini(
         if last_error is None:
             continue
 
-        attempts.append({
-            "model": model,
-            "code": str(last_error.code),
-            "provider_status": last_error.provider_status,
-            "message": str(last_error),
-            "attempt_count": calls_for_model,
-        })
+        attempts.append(
+            {
+                "model": model,
+                "code": str(last_error.code),
+                "provider_status": last_error.provider_status,
+                "message": str(last_error),
+                "attempt_count": calls_for_model,
+            }
+        )
         has_next = model_index + 1 < len(models)
         if not last_error.retry_with_fallback or not has_next:
             last_error.attempts = attempts

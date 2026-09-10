@@ -15,7 +15,11 @@
   --sidebar-bg: #ffffff;
   --header-bg: #ffffff;
   --table-header-bg: #f8fafc;
-  --table-row-hover: linear-gradient(90deg, rgba(239, 246, 255, 0.9), rgba(236, 254, 255, 0.65));
+  --table-row-hover: linear-gradient(
+    90deg,
+    rgba(239, 246, 255, 0.9),
+    rgba(236, 254, 255, 0.65)
+  );
   --input-bg: #ffffff;
   --input-border: #d0d5dd;
   --input-focus-shadow: rgba(37, 99, 235, 0.12);
@@ -37,7 +41,11 @@
   --sidebar-bg: #111c2e;
   --header-bg: #111c2e;
   --table-header-bg: #0f172a;
-  --table-row-hover: linear-gradient(90deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.65));
+  --table-row-hover: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.9),
+    rgba(15, 23, 42, 0.65)
+  );
   --input-bg: #1e293b;
   --input-border: #475569;
   --input-focus-shadow: rgba(59, 130, 246, 0.25);
@@ -50,7 +58,13 @@
 
 body {
   margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Arial;
   color: var(--ink);
   background: var(--bg);
 }
@@ -140,7 +154,7 @@ textarea {
   margin: auto;
   padding: 80px 28px;
   display: grid;
-  grid-template-columns: 1.15fr .85fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 60px;
   align-items: center;
 }
@@ -204,7 +218,7 @@ textarea {
   gap: 6px;
 }
 
-.mini-grid>* {
+.mini-grid > * {
   padding: 12px 8px;
   border-radius: 8px;
   text-align: center;
@@ -506,7 +520,13 @@ dialog::backdrop {
 }
 
 .cell.blocked {
-  background: repeating-linear-gradient(135deg, var(--bg), var(--bg) 8px, var(--line) 8px, var(--line) 16px);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--bg),
+    var(--bg) 8px,
+    var(--line) 8px,
+    var(--line) 16px
+  );
   cursor: pointer;
 }
 
@@ -549,7 +569,7 @@ dialog::backdrop {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(15, 23, 42, .52);
+  background: rgba(15, 23, 42, 0.52);
   backdrop-filter: blur(3px);
 }
 
@@ -568,7 +588,7 @@ dialog::backdrop {
   background: var(--card-bg);
   border: 1px solid var(--line);
   border-radius: 18px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
 }
 
 .operation-status-content {
@@ -587,10 +607,10 @@ dialog::backdrop {
 .operation-status-spinner {
   width: 22px;
   height: 22px;
-  border: 3px solid rgba(37, 99, 235, .2);
+  border: 3px solid rgba(37, 99, 235, 0.2);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: operation-status-spin .8s linear infinite;
+  animation: operation-status-spin 0.8s linear infinite;
 }
 
 .operation-status-result {
@@ -727,7 +747,6 @@ dialog::backdrop {
 }
 
 @media print {
-
   .appbar,
   .sidebar,
   .section-head .row,
@@ -758,33 +777,33 @@ dialog::backdrop {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   gap: 18px;
-  align-items: start
+  align-items: start;
 }
 
 .schedule-audit-upload-card,
 .schedule-audit-result {
   background: var(--card-bg);
   border: 1px solid var(--line);
-  border-radius: 16px
+  border-radius: 16px;
 }
 
 .schedule-audit-upload-card {
   padding: 22px;
   position: sticky;
-  top: 86px
+  top: 86px;
 }
 
 .schedule-audit-upload-card h2 {
   margin: 12px 0 6px;
   color: var(--ink);
-  font-size: 20px
+  font-size: 20px;
 }
 
 .schedule-audit-upload-card p {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
-  font-size: 14px
+  font-size: 14px;
 }
 
 .schedule-audit-icon {
@@ -796,7 +815,7 @@ dialog::backdrop {
   background: var(--soft);
   color: var(--primary);
   font-size: 25px;
-  font-weight: 900
+  font-weight: 900;
 }
 
 .schedule-audit-dropzone {
@@ -812,25 +831,28 @@ dialog::backdrop {
   border-radius: 14px;
   background: var(--bg);
   cursor: pointer;
-  transition: border-color .18s ease, background .18s ease, transform .18s ease
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
 }
 
 .schedule-audit-dropzone:hover,
 .schedule-audit-dropzone.is-dragging {
   border-color: var(--primary);
   background: var(--soft);
-  transform: translateY(-1px)
+  transform: translateY(-1px);
 }
 
 .schedule-audit-dropzone.has-file {
   border-style: solid;
   border-color: #22c55e;
-  background: rgba(34, 197, 94, .07)
+  background: rgba(34, 197, 94, 0.07);
 }
 
 .schedule-audit-dropzone.is-analyzing {
   cursor: progress;
-  opacity: .82
+  opacity: 0.82;
 }
 
 .schedule-audit-import-icon {
@@ -844,11 +866,11 @@ dialog::backdrop {
   color: var(--primary);
   font-size: 25px;
   font-weight: 900;
-  transition: transform .18s ease
+  transition: transform 0.18s ease;
 }
 
 .schedule-audit-dropzone.is-dragging .schedule-audit-import-icon {
-  transform: translateY(-4px) scale(1.05)
+  transform: translateY(-4px) scale(1.05);
 }
 
 .schedule-audit-drop-hint {
@@ -856,7 +878,7 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: .02em
+  letter-spacing: 0.02em;
 }
 
 .schedule-audit-file-actions {
@@ -868,14 +890,14 @@ dialog::backdrop {
   padding: 9px 11px;
   border: 1px solid #86efac;
   border-radius: 11px;
-  background: rgba(34, 197, 94, .07);
+  background: rgba(34, 197, 94, 0.07);
   color: #166534;
   font-size: 12px;
-  font-weight: 800
+  font-weight: 800;
 }
 
 .schedule-audit-file-actions[hidden] {
-  display: none
+  display: none;
 }
 
 .schedule-audit-clear {
@@ -885,54 +907,54 @@ dialog::backdrop {
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px
+  text-underline-offset: 2px;
 }
 
 :root.dark-mode .schedule-audit-file-actions {
   border-color: #166534;
-  color: #86efac
+  color: #86efac;
 }
 
 .schedule-audit-drop-title {
   color: var(--ink);
   font-weight: 800;
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-file-name {
   margin-top: 8px;
   color: var(--muted);
   font-size: 12px;
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
 }
 
 .schedule-audit-button {
   width: 100%;
-  margin-top: 14px
+  margin-top: 14px;
 }
 
 .schedule-audit-button:disabled {
-  opacity: .7;
-  cursor: wait
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .schedule-audit-note {
   display: block;
   margin-top: 10px;
   color: var(--muted);
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-result {
   min-height: 330px;
-  padding: 18px
+  padding: 18px;
 }
 
-.schedule-audit-result>.empty-state {
+.schedule-audit-result > .empty-state {
   border: 0;
   min-height: 290px;
   display: grid;
-  place-items: center
+  place-items: center;
 }
 
 .schedule-audit-report-head {
@@ -943,28 +965,28 @@ dialog::backdrop {
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--bg)
+  background: var(--bg);
 }
 
 .schedule-audit-report-head h2 {
   margin: 0 0 4px;
   color: var(--ink);
-  font-size: 19px
+  font-size: 19px;
 }
 
 .schedule-audit-report-head p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-report-head .schedule-audit-detection {
   margin-top: 5px;
-  font-size: 12px
+  font-size: 12px;
 }
 
 .schedule-audit-report-head .schedule-audit-detection b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-status-icon {
@@ -976,72 +998,72 @@ dialog::backdrop {
   font-size: 22px;
   font-weight: 900;
   background: var(--soft);
-  color: var(--primary)
+  color: var(--primary);
 }
 
 .schedule-audit-report-head.clean {
   border-color: #86efac;
-  background: rgba(34, 197, 94, .07)
+  background: rgba(34, 197, 94, 0.07);
 }
 
 .schedule-audit-report-head.clean .schedule-audit-status-icon {
   background: #dcfce7;
-  color: #15803d
+  color: #15803d;
 }
 
 .schedule-audit-report-head.has-error {
   border-color: #fecaca;
-  background: rgba(239, 68, 68, .06)
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .schedule-audit-report-head.has-error .schedule-audit-status-icon {
   background: #fee2e2;
-  color: #b91c1c
+  color: #b91c1c;
 }
 
 .schedule-audit-report-head.has-warning {
   border-color: #fde68a;
-  background: rgba(245, 158, 11, .07)
+  background: rgba(245, 158, 11, 0.07);
 }
 
 .schedule-audit-report-head.has-warning .schedule-audit-status-icon {
   background: #fef3c7;
-  color: #b45309
+  color: #b45309;
 }
 
 :root.dark-mode .schedule-audit-report-head.clean {
   border-color: #166534;
-  background: rgba(34, 197, 94, .09)
+  background: rgba(34, 197, 94, 0.09);
 }
 
 :root.dark-mode .schedule-audit-report-head.has-error {
   border-color: #7f1d1d;
-  background: rgba(239, 68, 68, .08)
+  background: rgba(239, 68, 68, 0.08);
 }
 
 :root.dark-mode .schedule-audit-report-head.has-warning {
   border-color: #78350f;
-  background: rgba(245, 158, 11, .08)
+  background: rgba(245, 158, 11, 0.08);
 }
 
 .schedule-audit-stats {
   display: grid;
   grid-template-columns: repeat(5, minmax(90px, 1fr));
   gap: 10px;
-  margin: 14px 0
+  margin: 14px 0;
 }
 
 .schedule-audit-stats article {
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--bg)
+  background: var(--bg);
 }
 
 .schedule-audit-stats strong {
   display: block;
   color: var(--ink);
-  font-size: 24px
+  font-size: 24px;
 }
 
 .schedule-audit-stats span {
@@ -1049,42 +1071,42 @@ dialog::backdrop {
   margin-top: 2px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 700
+  font-weight: 700;
 }
 
 .schedule-audit-clean {
   padding: 18px;
   border: 1px solid #86efac;
   border-radius: 13px;
-  background: rgba(34, 197, 94, .07);
-  color: #166534
+  background: rgba(34, 197, 94, 0.07);
+  color: #166534;
 }
 
 .schedule-audit-clean p {
   margin: 5px 0 0;
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 :root.dark-mode .schedule-audit-clean {
   border-color: #166534;
-  color: #86efac
+  color: #86efac;
 }
 
 .schedule-audit-issue-group {
-  margin-top: 16px
+  margin-top: 16px;
 }
 
 .schedule-audit-group-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px
+  margin-bottom: 8px;
 }
 
 .schedule-audit-group-head h3 {
   margin: 0;
   color: var(--ink);
-  font-size: 16px
+  font-size: 16px;
 }
 
 .schedule-audit-group-head span {
@@ -1098,12 +1120,12 @@ dialog::backdrop {
   border: 1px solid var(--line);
   color: var(--muted);
   font-weight: 800;
-  font-size: 12px
+  font-size: 12px;
 }
 
 .schedule-audit-issue-list {
   display: grid;
-  gap: 8px
+  gap: 8px;
 }
 
 .schedule-audit-issue {
@@ -1113,15 +1135,15 @@ dialog::backdrop {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
 .schedule-audit-issue.error {
-  border-left: 4px solid #ef4444
+  border-left: 4px solid #ef4444;
 }
 
 .schedule-audit-issue.warning {
-  border-left: 4px solid #f59e0b
+  border-left: 4px solid #f59e0b;
 }
 
 .schedule-audit-issue-mark {
@@ -1132,23 +1154,23 @@ dialog::backdrop {
   border-radius: 8px;
   background: #fee2e2;
   color: #b91c1c;
-  font-weight: 900
+  font-weight: 900;
 }
 
 .schedule-audit-issue.warning .schedule-audit-issue-mark {
   background: #fef3c7;
-  color: #b45309
+  color: #b45309;
 }
 
 .schedule-audit-issue-title {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap
+  flex-wrap: wrap;
 }
 
 .schedule-audit-issue-title b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-issue-title span {
@@ -1157,20 +1179,20 @@ dialog::backdrop {
   background: var(--soft);
   color: var(--primary);
   font-size: 11px;
-  font-weight: 800
+  font-weight: 800;
 }
 
 .schedule-audit-issue p {
   margin: 4px 0 0;
   color: var(--muted);
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-issue small {
   display: block;
   margin-top: 5px;
   color: var(--muted);
-  opacity: .88
+  opacity: 0.88;
 }
 
 .schedule-audit-loading {
@@ -1179,16 +1201,16 @@ dialog::backdrop {
   align-items: center;
   justify-content: center;
   gap: 11px;
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-loading span {
   width: 22px;
   height: 22px;
-  border: 3px solid rgba(37, 99, 235, .2);
+  border: 3px solid rgba(37, 99, 235, 0.2);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: operation-status-spin .8s linear infinite
+  animation: operation-status-spin 0.8s linear infinite;
 }
 
 .schedule-audit-convert {
@@ -1200,22 +1222,22 @@ dialog::backdrop {
   padding: 15px 16px;
   border: 1px solid #bfdbfe;
   border-radius: 13px;
-  background: rgba(37, 99, 235, .06)
+  background: rgba(37, 99, 235, 0.06);
 }
 
 .schedule-audit-convert b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-convert p {
   margin: 4px 0 0;
   color: var(--muted);
   line-height: 1.45;
-  font-size: 13px
+  font-size: 13px;
 }
 
 .schedule-audit-convert .btn {
-  flex: 0 0 auto
+  flex: 0 0 auto;
 }
 
 .schedule-import-editor {
@@ -1223,36 +1245,36 @@ dialog::backdrop {
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
 .schedule-import-editor[hidden] {
-  display: none
+  display: none;
 }
 
 .schedule-import-editor-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
   gap: 20px;
-  align-items: start
+  align-items: start;
 }
 
 .schedule-import-editor-head h2 {
   margin: 8px 0 5px;
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-import-editor-head p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.5
+  line-height: 1.5;
 }
 
 .schedule-import-save-panel {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 13px;
-  background: var(--bg)
+  background: var(--bg);
 }
 
 .schedule-import-save-panel label {
@@ -1260,15 +1282,15 @@ dialog::backdrop {
   gap: 6px;
   color: var(--ink);
   font-size: 12px;
-  font-weight: 800
+  font-weight: 800;
 }
 
 .schedule-import-save-panel input {
-  width: 100%
+  width: 100%;
 }
 
 .schedule-import-save-panel .row {
-  margin-top: 10px
+  margin-top: 10px;
 }
 
 .schedule-import-status {
@@ -1277,106 +1299,106 @@ dialog::backdrop {
   padding: 0 2px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 700
+  font-weight: 700;
 }
 
 .schedule-import-status.success {
-  color: #15803d
+  color: #15803d;
 }
 
 .schedule-import-status.error {
-  color: #b91c1c
+  color: #b91c1c;
 }
 
 .schedule-import-status.loading {
-  color: var(--primary)
+  color: var(--primary);
 }
 
 :root.dark-mode .schedule-import-status.success {
-  color: #86efac
+  color: #86efac;
 }
 
 :root.dark-mode .schedule-import-status.error {
-  color: #fca5a5
+  color: #fca5a5;
 }
 
 .schedule-import-toolbar {
-  margin: 10px 0 12px
+  margin: 10px 0 12px;
 }
 
 .schedule-import-tray-panel {
-  margin-bottom: 14px
+  margin-bottom: 14px;
 }
 
 .schedule-import-cell {
-  min-height: 74px
+  min-height: 74px;
 }
 
 .empty-state.compact {
   min-height: auto;
-  padding: 12px
+  padding: 12px;
 }
 
-@media(max-width:1050px) {
+@media (max-width: 1050px) {
   .schedule-audit-layout {
-    grid-template-columns: 1fr
+    grid-template-columns: 1fr;
   }
 
   .schedule-audit-upload-card {
-    position: static
+    position: static;
   }
 
   .schedule-audit-stats {
-    grid-template-columns: repeat(3, minmax(90px, 1fr))
+    grid-template-columns: repeat(3, minmax(90px, 1fr));
   }
 }
 
-@media(max-width:1050px) {
+@media (max-width: 1050px) {
   .schedule-import-editor-head {
-    grid-template-columns: 1fr
+    grid-template-columns: 1fr;
   }
 }
 
-@media(max-width:620px) {
+@media (max-width: 620px) {
   .schedule-audit-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr))
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .schedule-audit-result,
   .schedule-audit-upload-card {
-    padding: 14px
+    padding: 14px;
   }
 
   .schedule-audit-report-head {
     grid-template-columns: 40px minmax(0, 1fr);
-    padding: 13px
+    padding: 13px;
   }
 
   .schedule-audit-status-icon {
     width: 36px;
-    height: 36px
+    height: 36px;
   }
 
   .schedule-audit-issue {
-    grid-template-columns: 30px minmax(0, 1fr)
+    grid-template-columns: 30px minmax(0, 1fr);
   }
 
   .schedule-audit-convert {
     align-items: stretch;
-    flex-direction: column
+    flex-direction: column;
   }
 
   .schedule-import-editor {
-    padding: 14px
+    padding: 14px;
   }
 
   .schedule-import-save-panel .row {
     align-items: stretch;
-    flex-direction: column
+    flex-direction: column;
   }
 
   .schedule-import-save-panel .btn {
-    width: 100%
+    width: 100%;
   }
 }
 
@@ -1384,7 +1406,7 @@ dialog::backdrop {
 .schedule-audit-standalone {
   max-width: 1500px;
   margin: 0 auto;
-  width: 100%
+  width: 100%;
 }
 
 .schedule-audit-context {
@@ -1396,46 +1418,46 @@ dialog::backdrop {
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
-.schedule-audit-context>div {
+.schedule-audit-context > div {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0
+  min-width: 0;
 }
 
 .schedule-audit-context b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-context small {
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis
+  text-overflow: ellipsis;
 }
 
-@media(max-width:720px) {
+@media (max-width: 720px) {
   .schedule-audit-context {
     align-items: flex-start;
-    flex-direction: column
+    flex-direction: column;
   }
 
-  .schedule-audit-context>div {
+  .schedule-audit-context > div {
     align-items: flex-start;
     flex-direction: column;
-    gap: 5px
+    gap: 5px;
   }
 
   .appbar .btn.ghost {
-    display: none
+    display: none;
   }
 }
 
-.schedule-import-save-panel label+label {
-  margin-top: 10px
+.schedule-import-save-panel label + label {
+  margin-top: 10px;
 }
 
 .schedule-import-structure {
@@ -1446,82 +1468,85 @@ dialog::backdrop {
   background: var(--card-bg);
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.45
+  line-height: 1.45;
 }
 
-.schedule-audit-context.standalone>div {
-  flex-wrap: wrap
+.schedule-audit-context.standalone > div {
+  flex-wrap: wrap;
 }
 
 .schedule-audit-context.standalone small {
   white-space: normal;
   overflow: visible;
-  text-overflow: clip
+  text-overflow: clip;
 }
 
 /* Standalone schedule audit viewer: imported file is shown as a timetable, not an editor. */
 .schedule-audit-viewer-layout {
   display: grid;
-  gap: 18px
+  gap: 18px;
 }
 
 .schedule-audit-upload-compact {
   position: static;
   display: grid;
-  grid-template-columns: minmax(260px, 1.1fr) minmax(300px, 1fr) minmax(180px, .55fr);
+  grid-template-columns: minmax(260px, 1.1fr) minmax(300px, 1fr) minmax(
+      180px,
+      0.55fr
+    );
   gap: 18px;
-  align-items: center
+  align-items: center;
 }
 
 .schedule-audit-upload-copy {
   display: flex;
   gap: 14px;
-  align-items: flex-start
+  align-items: flex-start;
 }
 
 .schedule-audit-upload-copy h2 {
-  margin-top: 0
+  margin-top: 0;
 }
 
 .schedule-audit-dropzone.compact {
   min-height: 112px;
   margin-top: 0;
-  padding: 14px
+  padding: 14px;
 }
 
 .schedule-audit-dropzone.compact .schedule-audit-import-icon {
   width: 36px;
   height: 36px;
   margin-bottom: 6px;
-  font-size: 21px
+  font-size: 21px;
 }
 
 .schedule-audit-dropzone.compact .schedule-audit-file-name {
-  max-width: 100%
+  max-width: 100%;
 }
 
 .schedule-audit-upload-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px
+  gap: 8px;
 }
 
 .schedule-audit-upload-actions .schedule-audit-button {
-  margin-top: 0
+  margin-top: 0;
 }
 
 .schedule-audit-upload-actions .schedule-audit-file-actions {
-  margin-top: 0
+  margin-top: 0;
 }
 
 .schedule-audit-viewer-result {
   padding: 0;
   overflow: hidden;
-  min-height: 360px
+  min-height: 360px;
 }
 
-.schedule-audit-viewer-result>.empty-state {
-  min-height: 360px
+.schedule-audit-viewer-result > .empty-state {
+  min-height: 360px;
 }
 
 .schedule-audit-view-head {
@@ -1531,37 +1556,37 @@ dialog::backdrop {
   gap: 18px;
   padding: 16px 18px;
   border-bottom: 1px solid var(--line);
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
 .schedule-audit-view-summary {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 0
+  min-width: 0;
 }
 
 .schedule-audit-view-summary h2 {
   margin: 0 0 4px;
   color: var(--ink);
-  font-size: 18px
+  font-size: 18px;
 }
 
 .schedule-audit-view-summary p {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-view-head.clean .schedule-audit-status-icon {
   background: #dcfce7;
-  color: #15803d
+  color: #15803d;
 }
 
 .schedule-audit-view-head.has-error .schedule-audit-status-icon {
   background: #fee2e2;
-  color: #b91c1c
+  color: #b91c1c;
 }
 
 .schedule-audit-view-legend {
@@ -1570,12 +1595,12 @@ dialog::backdrop {
   gap: 7px;
   flex: 0 0 auto;
   color: var(--ink);
-  font-size: 12px
+  font-size: 12px;
 }
 
 .schedule-audit-view-legend small {
   color: var(--muted);
-  margin-left: 4px
+  margin-left: 4px;
 }
 
 .legend-conflict {
@@ -1583,7 +1608,7 @@ dialog::backdrop {
   height: 18px;
   border-radius: 5px;
   background: #fee2e2;
-  border: 2px solid #ef4444
+  border: 2px solid #ef4444;
 }
 
 .schedule-audit-inline-warning {
@@ -1594,15 +1619,15 @@ dialog::backdrop {
   background: #fffbeb;
   color: #92400e;
   font-size: 13px;
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-inline-issues {
-  margin: 14px 18px 0
+  margin: 14px 18px 0;
 }
 
 .schedule-audit-inline-issues .schedule-audit-issue small {
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
 }
 
 .schedule-view-edit-hint {
@@ -1614,10 +1639,10 @@ dialog::backdrop {
   border: 1px solid #bfdbfe;
   border-radius: 10px;
   background: #eff6ff;
-  color: #1e3a8a
+  color: #1e3a8a;
 }
 
-.schedule-view-edit-hint>span {
+.schedule-view-edit-hint > span {
   display: grid;
   place-items: center;
   width: 28px;
@@ -1627,30 +1652,30 @@ dialog::backdrop {
   background: #dbeafe;
   color: #1d4ed8;
   font-size: 16px;
-  font-weight: 900
+  font-weight: 900;
 }
 
-.schedule-view-edit-hint>div {
+.schedule-view-edit-hint > div {
   display: grid;
-  gap: 2px
+  gap: 2px;
 }
 
 .schedule-view-edit-hint b {
-  font-size: 12px
+  font-size: 12px;
 }
 
 .schedule-view-edit-hint small {
   color: #475569;
-  line-height: 1.4
+  line-height: 1.4;
 }
 
 .schedule-view-edit-hint strong {
-  color: #1e40af
+  color: #1e40af;
 }
 
 .schedule-view-edit-copy {
   min-width: 0;
-  flex: 1 1 auto
+  flex: 1 1 auto;
 }
 
 .schedule-view-bulk-toggle {
@@ -1661,7 +1686,7 @@ dialog::backdrop {
   margin-left: auto;
   padding-left: 10px;
   cursor: pointer;
-  user-select: none
+  user-select: none;
 }
 
 .schedule-view-bulk-toggle input {
@@ -1669,7 +1694,7 @@ dialog::backdrop {
   width: 1px;
   height: 1px;
   opacity: 0;
-  pointer-events: none
+  pointer-events: none;
 }
 
 .schedule-view-switch {
@@ -1679,7 +1704,9 @@ dialog::backdrop {
   flex: 0 0 auto;
   border-radius: 999px;
   background: #cbd5e1;
-  transition: background .15s ease, box-shadow .15s ease
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .schedule-view-switch i {
@@ -1690,44 +1717,44 @@ dialog::backdrop {
   height: 14px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .25);
-  transition: transform .15s ease
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+  transition: transform 0.15s ease;
 }
 
-.schedule-view-bulk-toggle input:checked+.schedule-view-switch {
-  background: #16a34a
+.schedule-view-bulk-toggle input:checked + .schedule-view-switch {
+  background: #16a34a;
 }
 
-.schedule-view-bulk-toggle input:checked+.schedule-view-switch i {
-  transform: translateX(16px)
+.schedule-view-bulk-toggle input:checked + .schedule-view-switch i {
+  transform: translateX(16px);
 }
 
-.schedule-view-bulk-toggle input:focus-visible+.schedule-view-switch {
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, .2)
+.schedule-view-bulk-toggle input:focus-visible + .schedule-view-switch {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 .schedule-view-bulk-toggle-text {
   color: #334155;
   font-size: 12px;
   font-weight: 800;
-  white-space: nowrap
+  white-space: nowrap;
 }
 
 @media (max-width: 820px) {
   .schedule-view-edit-hint {
     align-items: flex-start;
-    flex-wrap: wrap
+    flex-wrap: wrap;
   }
 
   .schedule-view-bulk-toggle {
     width: 100%;
     margin-left: 38px;
-    padding-left: 0
+    padding-left: 0;
   }
 }
 
 .schedule-view-lesson-line {
-  display: block
+  display: block;
 }
 
 .schedule-view-editable {
@@ -1737,24 +1764,26 @@ dialog::backdrop {
   margin: -1px -2px;
   cursor: text;
   outline: none;
-  transition: background .12s ease, box-shadow .12s ease
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .schedule-view-editable:hover,
 .schedule-view-editable:focus {
   background: #dbeafe;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, .14)
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
 }
 
 .schedule-view-editable-teacher:hover,
 .schedule-view-editable-teacher:focus {
   background: #dcfce7;
-  box-shadow: 0 0 0 2px rgba(22, 163, 74, .14)
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.14);
 }
 
 .schedule-view-name-separator {
   white-space: pre;
-  color: inherit
+  color: inherit;
 }
 
 .schedule-view-inline-input {
@@ -1771,48 +1800,51 @@ dialog::backdrop {
   font-weight: 800;
   line-height: 1.35;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, .16)
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16);
 }
 
 :root.dark-mode .schedule-view-edit-hint {
   border-color: #1e3a8a;
-  background: rgba(30, 64, 175, .18);
-  color: #bfdbfe
+  background: rgba(30, 64, 175, 0.18);
+  color: #bfdbfe;
 }
 
-:root.dark-mode .schedule-view-edit-hint>span {
-  background: rgba(37, 99, 235, .24);
-  color: #bfdbfe
+:root.dark-mode .schedule-view-edit-hint > span {
+  background: rgba(37, 99, 235, 0.24);
+  color: #bfdbfe;
 }
 
 :root.dark-mode .schedule-view-edit-hint small {
-  color: #cbd5e1
+  color: #cbd5e1;
 }
 
 :root.dark-mode .schedule-view-edit-hint strong {
-  color: #dbeafe
+  color: #dbeafe;
 }
 
 :root.dark-mode .schedule-view-switch {
-  background: #475569
+  background: #475569;
 }
 
-:root.dark-mode .schedule-view-bulk-toggle input:checked+.schedule-view-switch {
-  background: #22c55e
+:root.dark-mode
+  .schedule-view-bulk-toggle
+  input:checked
+  + .schedule-view-switch {
+  background: #22c55e;
 }
 
 :root.dark-mode .schedule-view-bulk-toggle-text {
-  color: #e2e8f0
+  color: #e2e8f0;
 }
 
 :root.dark-mode .schedule-view-editable:hover,
 :root.dark-mode .schedule-view-editable:focus {
-  background: rgba(37, 99, 235, .28)
+  background: rgba(37, 99, 235, 0.28);
 }
 
 :root.dark-mode .schedule-view-editable-teacher:hover,
 :root.dark-mode .schedule-view-editable-teacher:focus {
-  background: rgba(22, 163, 74, .24)
+  background: rgba(22, 163, 74, 0.24);
 }
 
 .schedule-view-table-wrap {
@@ -1820,7 +1852,7 @@ dialog::backdrop {
   overflow-x: auto;
   overflow-y: visible;
   padding: 14px 18px 20px;
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
 .schedule-view-table {
@@ -1829,14 +1861,14 @@ dialog::backdrop {
   min-width: max-content;
   width: 100%;
   font-size: 12px;
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-view-table th,
 .schedule-view-table td {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  vertical-align: top
+  vertical-align: top;
 }
 
 .schedule-view-table thead th {
@@ -1848,24 +1880,24 @@ dialog::backdrop {
   font-weight: 900;
   text-align: center;
   white-space: nowrap;
-  border-top: 1px solid var(--line)
+  border-top: 1px solid var(--line);
 }
 
-.schedule-view-table tr>*:first-child {
-  border-left: 1px solid var(--line)
+.schedule-view-table tr > *:first-child {
+  border-left: 1px solid var(--line);
 }
 
 .schedule-view-table thead tr:first-child th:first-child {
-  border-top-left-radius: 10px
+  border-top-left-radius: 10px;
 }
 
 .schedule-view-table thead tr:first-child th:last-child {
-  border-top-right-radius: 10px
+  border-top-right-radius: 10px;
 }
 
 .schedule-view-class {
   min-width: 150px;
-  max-width: 190px
+  max-width: 190px;
 }
 
 .schedule-view-meta {
@@ -1874,40 +1906,40 @@ dialog::backdrop {
   background: var(--bg);
   text-align: center;
   font-weight: 800;
-  white-space: nowrap
+  white-space: nowrap;
 }
 
 .schedule-view-meta.day {
   left: 0;
   min-width: 70px;
-  width: 70px
+  width: 70px;
 }
 
 .schedule-view-meta.session {
   left: 70px;
   min-width: 64px;
-  width: 64px
+  width: 64px;
 }
 
 .schedule-view-meta.period {
   left: 134px;
   min-width: 52px;
-  width: 52px
+  width: 52px;
 }
 
 .schedule-view-table thead .schedule-view-meta {
   z-index: 10;
-  background: var(--soft)
+  background: var(--soft);
 }
 
 .schedule-view-table tbody .schedule-view-meta {
   padding: 10px 7px;
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .schedule-view-table tbody .schedule-view-meta.day {
   color: var(--ink);
-  font-weight: 900
+  font-weight: 900;
 }
 
 .schedule-view-cell {
@@ -1916,32 +1948,34 @@ dialog::backdrop {
   height: 64px;
   padding: 8px 9px;
   background: var(--card-bg);
-  transition: background .15s ease, border-color .15s ease
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .schedule-view-cell.empty {
-  background: var(--bg)
+  background: var(--bg);
 }
 
 .schedule-view-lesson {
   display: grid;
-  gap: 3px
+  gap: 3px;
 }
 
-.schedule-view-lesson+.schedule-view-lesson {
+.schedule-view-lesson + .schedule-view-lesson {
   margin-top: 7px;
   padding-top: 7px;
-  border-top: 1px dashed var(--line)
+  border-top: 1px dashed var(--line);
 }
 
 .schedule-view-lesson b {
   font-size: 12px;
   line-height: 1.35;
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
 }
 
 .schedule-view-lesson small {
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .schedule-view-cell.conflict {
@@ -1949,18 +1983,18 @@ dialog::backdrop {
   background: #fff1f2;
   border-right-color: #f87171;
   border-bottom-color: #f87171;
-  box-shadow: inset 3px 0 0 #ef4444
+  box-shadow: inset 3px 0 0 #ef4444;
 }
 
 .schedule-view-cell.conflict .schedule-view-lesson b {
-  color: #991b1b
+  color: #991b1b;
 }
 
 .schedule-view-conflict-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 7px
+  margin-top: 7px;
 }
 
 .schedule-view-conflict-tags span {
@@ -1970,101 +2004,101 @@ dialog::backdrop {
   color: #fff;
   font-size: 10px;
   font-weight: 900;
-  line-height: 1.2
+  line-height: 1.2;
 }
 
-.schedule-view-new-day>* {
-  border-top: 2px solid #94a3b8 !important
+.schedule-view-new-day > * {
+  border-top: 2px solid #94a3b8 !important;
 }
 
-.schedule-view-new-session:not(.schedule-view-new-day)>* {
-  border-top: 1.5px solid #cbd5e1 !important
+.schedule-view-new-session:not(.schedule-view-new-day) > * {
+  border-top: 1.5px solid #cbd5e1 !important;
 }
 
 :root.dark-mode .schedule-audit-inline-warning {
   border-color: #78350f;
-  background: rgba(245, 158, 11, .09);
-  color: #fde68a
+  background: rgba(245, 158, 11, 0.09);
+  color: #fde68a;
 }
 
 :root.dark-mode .legend-conflict {
-  background: rgba(239, 68, 68, .18);
-  border-color: #f87171
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #f87171;
 }
 
 :root.dark-mode .schedule-view-cell.conflict {
-  background: rgba(127, 29, 29, .32);
-  border-color: #b91c1c
+  background: rgba(127, 29, 29, 0.32);
+  border-color: #b91c1c;
 }
 
 :root.dark-mode .schedule-view-cell.conflict .schedule-view-lesson b {
-  color: #fecaca
+  color: #fecaca;
 }
 
-@media(max-width:1000px) {
+@media (max-width: 1000px) {
   .schedule-audit-upload-compact {
-    grid-template-columns: 1fr 1fr
+    grid-template-columns: 1fr 1fr;
   }
 
   .schedule-audit-upload-actions {
     grid-column: 1/-1;
     display: grid;
     grid-template-columns: 1fr auto;
-    align-items: center
+    align-items: center;
   }
 
   .schedule-audit-upload-actions .schedule-audit-note {
-    grid-column: 1/-1
+    grid-column: 1/-1;
   }
 }
 
-@media(max-width:680px) {
+@media (max-width: 680px) {
   .schedule-audit-upload-compact {
-    grid-template-columns: 1fr
+    grid-template-columns: 1fr;
   }
 
   .schedule-audit-upload-actions {
-    display: flex
+    display: flex;
   }
 
   .schedule-audit-view-head {
     align-items: flex-start;
-    flex-direction: column
+    flex-direction: column;
   }
 
   .schedule-audit-view-legend {
-    flex-wrap: wrap
+    flex-wrap: wrap;
   }
 
   .schedule-view-table-wrap {
-    padding: 10px
+    padding: 10px;
   }
 
   .schedule-view-table thead th {
-    top: 58px
+    top: 58px;
   }
 
   .schedule-view-meta.day {
     min-width: 62px;
-    width: 62px
+    width: 62px;
   }
 
   .schedule-view-meta.session {
     left: 62px;
     min-width: 58px;
-    width: 58px
+    width: 58px;
   }
 
   .schedule-view-meta.period {
     left: 120px;
     min-width: 46px;
-    width: 46px
+    width: 46px;
   }
 
   .schedule-view-class,
   .schedule-view-cell {
     min-width: 135px;
-    max-width: 160px
+    max-width: 160px;
   }
 }
 
@@ -2072,29 +2106,37 @@ dialog::backdrop {
 .schedule-audit-action-buttons {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px
+  gap: 8px;
 }
 
 .schedule-audit-action-buttons .btn {
   width: 100%;
   justify-content: center;
-  margin-top: 0
+  margin-top: 0;
 }
 
 .schedule-audit-ai-button {
   border-color: #c4b5fd !important;
-  background: linear-gradient(135deg, rgba(124, 58, 237, .08), rgba(37, 99, 235, .05)) !important;
-  color: #6d28d9 !important
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.08),
+    rgba(37, 99, 235, 0.05)
+  ) !important;
+  color: #6d28d9 !important;
 }
 
 .schedule-audit-ai-button:hover:not(:disabled) {
   border-color: #8b5cf6 !important;
-  background: linear-gradient(135deg, rgba(124, 58, 237, .14), rgba(37, 99, 235, .09)) !important
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.14),
+    rgba(37, 99, 235, 0.09)
+  ) !important;
 }
 
 .schedule-audit-ai-button:disabled {
   cursor: not-allowed;
-  opacity: .55
+  opacity: 0.55;
 }
 
 .schedule-audit-ai-result {
@@ -2102,7 +2144,7 @@ dialog::backdrop {
   border: 1px solid #ddd6fe;
   border-radius: 14px;
   background: var(--card-bg);
-  box-shadow: var(--shadow)
+  box-shadow: var(--shadow);
 }
 
 .schedule-audit-ai-loading {
@@ -2110,27 +2152,31 @@ dialog::backdrop {
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, .06), rgba(37, 99, 235, .04));
-  color: var(--ink)
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.06),
+    rgba(37, 99, 235, 0.04)
+  );
+  color: var(--ink);
 }
 
-.schedule-audit-ai-loading>span {
+.schedule-audit-ai-loading > span {
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
-  border: 3px solid rgba(124, 58, 237, .18);
+  border: 3px solid rgba(124, 58, 237, 0.18);
   border-top-color: #7c3aed;
   border-radius: 50%;
-  animation: operation-status-spin .8s linear infinite
+  animation: operation-status-spin 0.8s linear infinite;
 }
 
 .schedule-audit-ai-loading div {
   display: grid;
-  gap: 3px
+  gap: 3px;
 }
 
 .schedule-audit-ai-loading small {
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .schedule-audit-ai-head {
@@ -2139,18 +2185,22 @@ dialog::backdrop {
   gap: 12px;
   align-items: center;
   padding: 16px 18px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, .07), rgba(37, 99, 235, .04));
-  border-bottom: 1px solid #ede9fe
+  background: linear-gradient(
+    135deg,
+    rgba(124, 58, 237, 0.07),
+    rgba(37, 99, 235, 0.04)
+  );
+  border-bottom: 1px solid #ede9fe;
 }
 
 .schedule-audit-ai-head.clean {
-  background: rgba(34, 197, 94, .055)
+  background: rgba(34, 197, 94, 0.055);
 }
 
 .schedule-audit-ai-head.error {
   grid-template-columns: 44px minmax(0, 1fr);
   border-bottom: 0;
-  background: rgba(239, 68, 68, .055)
+  background: rgba(239, 68, 68, 0.055);
 }
 
 .schedule-audit-ai-icon {
@@ -2162,35 +2212,35 @@ dialog::backdrop {
   background: #ede9fe;
   color: #6d28d9;
   font-size: 20px;
-  font-weight: 900
+  font-weight: 900;
 }
 
 .schedule-audit-ai-head.clean .schedule-audit-ai-icon {
   background: #dcfce7;
-  color: #15803d
+  color: #15803d;
 }
 
 .schedule-audit-ai-head.error .schedule-audit-ai-icon {
   background: #fee2e2;
-  color: #b91c1c
+  color: #b91c1c;
 }
 
 .schedule-audit-ai-copy {
-  min-width: 0
+  min-width: 0;
 }
 
 .schedule-audit-ai-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap
+  flex-wrap: wrap;
 }
 
 .schedule-audit-ai-title-row h2,
 .schedule-audit-ai-head h2 {
   margin: 0;
   color: var(--ink);
-  font-size: 18px
+  font-size: 18px;
 }
 
 .schedule-audit-ai-title-row span {
@@ -2199,47 +2249,47 @@ dialog::backdrop {
   background: #ede9fe;
   color: #6d28d9;
   font-size: 10px;
-  font-weight: 900
+  font-weight: 900;
 }
 
 .schedule-audit-ai-head p {
   margin: 4px 0;
   color: var(--muted);
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-ai-head small {
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .schedule-audit-ai-counts {
   display: grid;
   min-width: 94px;
-  text-align: right
+  text-align: right;
 }
 
 .schedule-audit-ai-counts b {
   font-size: 24px;
   color: var(--ink);
-  line-height: 1
+  line-height: 1;
 }
 
 .schedule-audit-ai-counts span,
 .schedule-audit-ai-counts small {
   color: var(--muted);
-  font-size: 11px
+  font-size: 11px;
 }
 
 .schedule-audit-ai-counts small {
   margin-top: 3px;
   color: #b45309;
-  font-weight: 800
+  font-weight: 800;
 }
 
 .schedule-audit-ai-issues {
   display: grid;
   gap: 9px;
-  padding: 14px 16px 16px
+  padding: 14px 16px 16px;
 }
 
 .schedule-audit-ai-issue {
@@ -2249,15 +2299,15 @@ dialog::backdrop {
   padding: 12px 13px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
 .schedule-audit-ai-issue.warning {
-  border-left: 4px solid #f97316
+  border-left: 4px solid #f97316;
 }
 
 .schedule-audit-ai-issue.suggestion {
-  border-left: 4px solid #eab308
+  border-left: 4px solid #eab308;
 }
 
 .schedule-audit-ai-issue-mark {
@@ -2268,23 +2318,23 @@ dialog::backdrop {
   border-radius: 9px;
   background: #ffedd5;
   color: #c2410c;
-  font-weight: 900
+  font-weight: 900;
 }
 
 .schedule-audit-ai-issue.suggestion .schedule-audit-ai-issue-mark {
   background: #fef9c3;
-  color: #a16207
+  color: #a16207;
 }
 
 .schedule-audit-ai-issue-title {
   display: flex;
   align-items: center;
   gap: 7px;
-  flex-wrap: wrap
+  flex-wrap: wrap;
 }
 
 .schedule-audit-ai-issue-title b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-ai-issue-title span {
@@ -2293,31 +2343,31 @@ dialog::backdrop {
   background: var(--soft);
   color: var(--muted);
   font-size: 10px;
-  font-weight: 800
+  font-weight: 800;
 }
 
 .schedule-audit-ai-issue p {
   margin: 5px 0 0;
   color: var(--muted);
-  line-height: 1.5
+  line-height: 1.5;
 }
 
 .schedule-audit-ai-issue small {
   display: block;
   margin-top: 6px;
   color: var(--muted);
-  line-height: 1.45
+  line-height: 1.45;
 }
 
 .schedule-audit-ai-issue small b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-ai-locations {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-top: 8px
+  margin-top: 8px;
 }
 
 .schedule-audit-ai-locations span,
@@ -2328,19 +2378,19 @@ dialog::backdrop {
   border: 1px solid var(--line);
   color: var(--muted);
   font-size: 10px;
-  font-weight: 700
+  font-weight: 700;
 }
 
 .schedule-audit-ai-global {
   display: inline-block;
-  margin-top: 8px
+  margin-top: 8px;
 }
 
 .schedule-audit-ai-empty {
   padding: 15px 18px;
   color: #15803d;
   font-weight: 800;
-  background: rgba(34, 197, 94, .04)
+  background: rgba(34, 197, 94, 0.04);
 }
 
 .legend-ai-warning {
@@ -2349,7 +2399,7 @@ dialog::backdrop {
   margin-left: 8px;
   border-radius: 5px;
   background: #ffedd5;
-  border: 2px solid #f97316
+  border: 2px solid #f97316;
 }
 
 .schedule-view-cell.ai-warning {
@@ -2357,11 +2407,11 @@ dialog::backdrop {
   background: #fff7ed;
   border-right-color: #fb923c;
   border-bottom-color: #fb923c;
-  box-shadow: inset 3px 0 0 #f97316
+  box-shadow: inset 3px 0 0 #f97316;
 }
 
 .schedule-view-cell.ai-warning .schedule-view-lesson b {
-  color: #9a3412
+  color: #9a3412;
 }
 
 .schedule-view-cell.ai-suggestion {
@@ -2369,18 +2419,18 @@ dialog::backdrop {
   background: #fefce8;
   border-right-color: #eab308;
   border-bottom-color: #eab308;
-  box-shadow: inset 3px 0 0 #eab308
+  box-shadow: inset 3px 0 0 #eab308;
 }
 
 .schedule-view-cell.ai-suggestion .schedule-view-lesson b {
-  color: #854d0e
+  color: #854d0e;
 }
 
 .schedule-view-ai-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 7px
+  margin-top: 7px;
 }
 
 .schedule-view-ai-tags span {
@@ -2388,71 +2438,71 @@ dialog::backdrop {
   border-radius: 999px;
   font-size: 10px;
   font-weight: 900;
-  line-height: 1.2
+  line-height: 1.2;
 }
 
 .schedule-view-ai-tags .warning {
   background: #f97316;
-  color: #fff
+  color: #fff;
 }
 
 .schedule-view-ai-tags .suggestion {
   background: #ca8a04;
-  color: #fff
+  color: #fff;
 }
 
 :root.dark-mode .schedule-audit-ai-button {
   border-color: #6d28d9 !important;
-  background: rgba(109, 40, 217, .14) !important;
-  color: #ddd6fe !important
+  background: rgba(109, 40, 217, 0.14) !important;
+  color: #ddd6fe !important;
 }
 
 :root.dark-mode .schedule-audit-ai-result {
-  border-color: #4c1d95
+  border-color: #4c1d95;
 }
 
 :root.dark-mode .schedule-audit-ai-head,
 :root.dark-mode .schedule-audit-ai-loading {
-  background: rgba(76, 29, 149, .18);
-  border-color: #4c1d95
+  background: rgba(76, 29, 149, 0.18);
+  border-color: #4c1d95;
 }
 
 :root.dark-mode .schedule-audit-ai-title-row span,
 :root.dark-mode .schedule-audit-ai-icon {
-  background: rgba(124, 58, 237, .22);
-  color: #ddd6fe
+  background: rgba(124, 58, 237, 0.22);
+  color: #ddd6fe;
 }
 
 :root.dark-mode .schedule-view-cell.ai-warning {
-  background: rgba(154, 52, 18, .25);
-  border-color: #c2410c
+  background: rgba(154, 52, 18, 0.25);
+  border-color: #c2410c;
 }
 
 :root.dark-mode .schedule-view-cell.ai-warning .schedule-view-lesson b {
-  color: #fed7aa
+  color: #fed7aa;
 }
 
 :root.dark-mode .schedule-view-cell.ai-suggestion {
-  background: rgba(113, 63, 18, .26);
-  border-color: #a16207
+  background: rgba(113, 63, 18, 0.26);
+  border-color: #a16207;
 }
 
 :root.dark-mode .schedule-view-cell.ai-suggestion .schedule-view-lesson b {
-  color: #fef08a
+  color: #fef08a;
 }
 
 :root.dark-mode .legend-ai-warning {
-  background: rgba(154, 52, 18, .32);
-  border-color: #fb923c
+  background: rgba(154, 52, 18, 0.32);
+  border-color: #fb923c;
 }
 
-@media(max-width:760px) {
+@media (max-width: 760px) {
   .schedule-audit-action-buttons {
-    grid-template-columns: 1fr
+    grid-template-columns: 1fr;
   }
 
   .schedule-audit-ai-head {
-    grid-template-columns: 40px minmax(0, 1fr)
+    grid-template-columns: 40px minmax(0, 1fr);
   }
 
   .schedule-audit-ai-counts {
@@ -2461,19 +2511,19 @@ dialog::backdrop {
     grid-template-columns: auto auto;
     gap: 5px;
     align-items: baseline;
-    min-width: 0
+    min-width: 0;
   }
 
   .schedule-audit-ai-counts small {
-    grid-column: 1/-1
+    grid-column: 1/-1;
   }
 
   .schedule-audit-ai-issues {
-    padding: 10px
+    padding: 10px;
   }
 
   .schedule-audit-ai-issue {
-    grid-template-columns: 30px minmax(0, 1fr)
+    grid-template-columns: 30px minmax(0, 1fr);
   }
 }
 
@@ -2487,7 +2537,7 @@ dialog::backdrop {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background: var(--card-bg);
-  scrollbar-width: thin
+  scrollbar-width: thin;
 }
 
 .schedule-audit-tabs button {
@@ -2501,43 +2551,43 @@ dialog::backdrop {
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
-  transition: .15s ease
+  transition: 0.15s ease;
 }
 
 .schedule-audit-tabs button:hover {
   border-color: #94a3b8;
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-audit-tabs button.active {
   border-color: #2563eb;
   background: #2563eb;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, .18)
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
 }
 
 .schedule-audit-view-panel[hidden] {
-  display: none !important
+  display: none !important;
 }
 
 .schedule-stat-cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  padding: 16px
+  padding: 16px;
 }
 
 .schedule-stat-cards article,
 .schedule-stat-highlights article {
   border: 1px solid var(--line);
   border-radius: 13px;
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
 .schedule-stat-cards article {
   display: grid;
   gap: 4px;
-  padding: 15px 16px
+  padding: 15px 16px;
 }
 
 .schedule-stat-cards span {
@@ -2545,42 +2595,42 @@ dialog::backdrop {
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .04em
+  letter-spacing: 0.04em;
 }
 
 .schedule-stat-cards b {
   font-size: 28px;
   line-height: 1.1;
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-stat-highlights {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  padding: 0 16px 16px
+  padding: 0 16px 16px;
 }
 
 .schedule-stat-highlights article {
   display: grid;
   gap: 4px;
-  padding: 14px 15px
+  padding: 14px 15px;
 }
 
 .schedule-stat-highlights small {
   color: var(--muted);
-  font-weight: 700
+  font-weight: 700;
 }
 
 .schedule-stat-highlights b {
   color: var(--ink);
   font-size: 15px;
-  overflow-wrap: anywhere
+  overflow-wrap: anywhere;
 }
 
 .schedule-stat-highlights span {
   color: var(--muted);
-  font-size: 11px
+  font-size: 11px;
 }
 
 .schedule-stat-toolbar {
@@ -2589,20 +2639,20 @@ dialog::backdrop {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--line)
+  border-bottom: 1px solid var(--line);
 }
 
-.schedule-stat-toolbar>div {
+.schedule-stat-toolbar > div {
   display: grid;
-  gap: 2px
+  gap: 2px;
 }
 
 .schedule-stat-toolbar b {
-  color: var(--ink)
+  color: var(--ink);
 }
 
 .schedule-stat-toolbar small {
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .schedule-stat-toolbar input {
@@ -2612,17 +2662,17 @@ dialog::backdrop {
   border-radius: 10px;
   background: var(--bg);
   color: var(--ink);
-  outline: none
+  outline: none;
 }
 
 .schedule-stat-toolbar input:focus {
   border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, .10)
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .schedule-stat-table-wrap {
   overflow: auto;
-  padding: 0 16px 16px
+  padding: 0 16px 16px;
 }
 
 .schedule-stat-table {
@@ -2630,7 +2680,7 @@ dialog::backdrop {
   min-width: 760px;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 12px
+  font-size: 12px;
 }
 
 .schedule-stat-table th,
@@ -2639,12 +2689,12 @@ dialog::backdrop {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   vertical-align: top;
-  text-align: left
+  text-align: left;
 }
 
 .schedule-stat-table th:first-child,
 .schedule-stat-table td:first-child {
-  border-left: 1px solid var(--line)
+  border-left: 1px solid var(--line);
 }
 
 .schedule-stat-table thead th {
@@ -2655,23 +2705,23 @@ dialog::backdrop {
   color: var(--ink);
   font-weight: 900;
   border-top: 1px solid var(--line);
-  white-space: nowrap
+  white-space: nowrap;
 }
 
 .schedule-stat-table thead th:first-child {
-  border-top-left-radius: 10px
+  border-top-left-radius: 10px;
 }
 
 .schedule-stat-table thead th:last-child {
-  border-top-right-radius: 10px
+  border-top-right-radius: 10px;
 }
 
 .schedule-stat-table tbody tr:hover td {
-  background: rgba(148, 163, 184, .07)
+  background: rgba(148, 163, 184, 0.07);
 }
 
 .schedule-stat-table td:first-child {
-  min-width: 160px
+  min-width: 160px;
 }
 
 .schedule-stat-total {
@@ -2679,14 +2729,14 @@ dialog::backdrop {
   text-align: center !important;
   font-size: 17px;
   font-weight: 900;
-  color: #1d4ed8
+  color: #1d4ed8;
 }
 
 .schedule-stat-breakdown {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  min-width: 210px
+  min-width: 210px;
 }
 
 .schedule-stat-breakdown span {
@@ -2698,88 +2748,87 @@ dialog::backdrop {
   border-radius: 999px;
   background: var(--bg);
   color: var(--muted);
-  font-size: 10px
+  font-size: 10px;
 }
 
 .schedule-stat-breakdown b {
   color: var(--ink);
-  font-size: 10px
+  font-size: 10px;
 }
 
 .schedule-stat-empty,
 .schedule-stat-none {
-  color: var(--muted)
+  color: var(--muted);
 }
 
 .schedule-stat-none {
   text-align: center !important;
-  padding: 24px !important
+  padding: 24px !important;
 }
 
 :root.dark-mode .schedule-audit-tabs button.active {
   border-color: #60a5fa;
-  background: #1d4ed8
+  background: #1d4ed8;
 }
 
 :root.dark-mode .schedule-stat-total {
-  color: #93c5fd
+  color: #93c5fd;
 }
 
 :root.dark-mode .schedule-stat-toolbar input {
-  background: var(--card-bg)
+  background: var(--card-bg);
 }
 
-@media(max-width:900px) {
-
+@media (max-width: 900px) {
   .schedule-stat-cards,
   .schedule-stat-highlights {
-    grid-template-columns: repeat(2, minmax(0, 1fr))
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media(max-width:620px) {
+@media (max-width: 620px) {
   .schedule-audit-tabs {
-    padding: 10px
+    padding: 10px;
   }
 
   .schedule-stat-cards,
   .schedule-stat-highlights {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    padding: 10px
+    padding: 10px;
   }
 
   .schedule-stat-highlights {
-    padding-top: 0
+    padding-top: 0;
   }
 
   .schedule-stat-cards article,
   .schedule-stat-highlights article {
-    padding: 11px
+    padding: 11px;
   }
 
   .schedule-stat-cards b {
-    font-size: 23px
+    font-size: 23px;
   }
 
   .schedule-stat-toolbar {
     align-items: stretch;
     flex-direction: column;
-    padding: 12px
+    padding: 12px;
   }
 
   .schedule-stat-toolbar input {
-    width: 100%
+    width: 100%;
   }
 
   .schedule-stat-table-wrap {
-    padding: 0 10px 10px
+    padding: 0 10px 10px;
   }
 }
 
 /* Kéo thả dùng cập nhật lạc quan: tiết đổi ô ngay, rồi đồng bộ máy chủ nền. */
 .lesson.lesson-syncing {
-  opacity: .86;
+  opacity: 0.86;
   cursor: wait;
 }
 
@@ -2810,11 +2859,15 @@ dialog::backdrop {
   color: #f8fafc;
   font-size: 14px;
   font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.22),
+    0 2px 6px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   animation: appToastIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -2997,5 +3050,1162 @@ dialog::backdrop {
   .schedule-stat-cards {
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
+  }
+}
+
+/* ==========================================================================
+   MODERN TOAST NOTIFICATIONS (Non-blocking, Countdown bar, Corner-anchored)
+   ========================================================================== */
+.operation-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+  width: calc(100% - 40px);
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  .operation-toast-container {
+    top: auto;
+    bottom: 20px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+.operation-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card-bg, #ffffff);
+  color: var(--ink, #0f172a);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.15);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: toast-enter 0.28s var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1))
+    forwards;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.operation-toast.is-hiding {
+  animation: toast-exit 0.24s ease forwards;
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+}
+
+.operation-toast-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--primary-subtle, #eff6ff);
+  color: var(--primary, #2563eb);
+}
+
+.operation-toast.is-success .operation-toast-icon {
+  background: var(--success-bg, #ecfdf5);
+  color: var(--success, #10b981);
+}
+
+.operation-toast.is-error .operation-toast-icon {
+  background: var(--danger-bg, #fef2f2);
+  color: var(--danger, #ef4444);
+}
+
+.operation-toast.is-warning .operation-toast-icon {
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning, #f59e0b);
+}
+
+.operation-toast.is-pending .operation-toast-icon {
+  background: var(--primary-subtle, #eff6ff);
+}
+
+.operation-toast.is-pending {
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: var(--radius-full, 9999px);
+  width: fit-content;
+  margin-left: auto;
+}
+
+@media (max-width: 600px) {
+  .operation-toast.is-pending {
+    margin: 0 auto;
+  }
+}
+
+.operation-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.operation-toast-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #0f172a);
+}
+
+.operation-toast-message {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--muted, #64748b);
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+.operation-toast-close {
+  background: transparent;
+  border: none;
+  color: var(--muted, #94a3b8);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.operation-toast-close:hover {
+  color: var(--ink, #0f172a);
+  background: var(--line, #f1f5f9);
+}
+
+.operation-toast-countdown {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--primary, #2563eb);
+  transform-origin: left center;
+  animation: toast-countdown linear forwards;
+}
+
+.operation-toast.is-success .operation-toast-countdown {
+  background: var(--success, #10b981);
+}
+
+.operation-toast.is-error .operation-toast-countdown {
+  background: var(--danger, #ef4444);
+}
+
+.operation-toast.is-warning .operation-toast-countdown {
+  background: var(--warning, #f59e0b);
+}
+
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* ==========================================================================
+   REAL-TIME SCHEDULE CONFLICT HIGHLIGHTING
+   ========================================================================== */
+.cell.available.has-conflict {
+  background-color: var(--danger-bg, #fef2f2) !important;
+  border: 2px dashed var(--danger, #ef4444) !important;
+  position: relative;
+}
+
+html.dark-mode .cell.available.has-conflict {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border-color: #f87171 !important;
+}
+
+.lesson.has-conflict {
+  border: 1.5px solid var(--danger, #ef4444) !important;
+  box-shadow:
+    0 0 0 1px var(--danger, #ef4444),
+    0 4px 12px rgba(239, 68, 68, 0.2) !important;
+  animation: conflict-subtle-pulse 2.5s infinite ease-in-out;
+}
+
+@keyframes conflict-subtle-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px var(--danger, #ef4444),
+      0 2px 6px rgba(239, 68, 68, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2.5px var(--danger, #ef4444),
+      0 4px 14px rgba(239, 68, 68, 0.35);
+  }
+}
+
+.conflict-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: help;
+  vertical-align: middle;
+}
+
+/* ==========================================================================
+   ADAPTIVE TIMETABLE: MOBILE DAY CARD VIEW
+   ========================================================================== */
+.toggle-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: var(--radius-md, 10px);
+}
+
+.mobile-day-nav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 2px 12px;
+  margin-bottom: 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-day-nav::-webkit-scrollbar {
+  height: 4px;
+}
+
+.mobile-day-nav::-webkit-scrollbar-thumb {
+  background: var(--line-strong, #cbd5e1);
+  border-radius: 4px;
+}
+
+.day-tab-btn {
+  flex: 1;
+  min-width: 72px;
+  padding: 10px 8px;
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  color: var(--ink, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: all 0.18s ease;
+}
+
+.day-tab-btn:hover {
+  border-color: var(--primary, #2563eb);
+  background: var(--primary-subtle, #eff6ff);
+}
+
+.day-tab-btn.is-active {
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.day-cards-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.day-slot-card {
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius-lg, 14px);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.05));
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.day-slot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+  border-bottom: 1px dashed var(--line, #e2e8f0);
+  padding-bottom: 6px;
+}
+
+.day-slot-dropzone {
+  min-height: 64px;
+  border-radius: var(--radius-md, 10px);
+  padding: 6px;
+  background: var(--bg, #f8fafc);
+  border: 1.5px dashed var(--line, #cbd5e1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.day-slot-dropzone.android-touch-drop-target,
+.day-slot-dropzone.android-touch-snap-active {
+  border-color: #06b6d4 !important;
+  background-color: #cffafe !important;
+  box-shadow:
+    inset 0 0 0 3px #06b6d4,
+    0 4px 14px rgba(6, 182, 212, 0.25) !important;
+  transform: scale(1.01);
+}
+
+html.dark-mode .day-slot-dropzone.android-touch-drop-target {
+  background-color: rgba(6, 182, 212, 0.2) !important;
+}
+
+.day-slot-dropzone:empty::before {
+  content: "Chạm hoặc kéo thả tiết vào đây";
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-subtle, #94a3b8);
+  font-style: italic;
+}
+
+/* ==========================================================================
+   AI MULTI-STEP PROGRESS MODAL
+   ========================================================================== */
+.ai-progress-dialog {
+  border: none;
+  border-radius: var(--radius-xl, 20px);
+  padding: 0;
+  background: transparent;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  box-shadow: 0 25px 65px rgba(15, 23, 42, 0.35);
+}
+
+.ai-progress-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(5px);
+}
+
+.ai-progress-card {
+  background: var(--card-bg, #ffffff);
+  color: var(--ink, #0f172a);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius-xl, 20px);
+  padding: 24px;
+}
+
+.ai-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.ai-progress-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
+  animation: ai-pulse 2s infinite ease-in-out;
+}
+
+@keyframes ai-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 6px 22px rgba(124, 58, 237, 0.45);
+  }
+}
+
+.ai-progress-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ai-progress-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted, #64748b);
+}
+
+.ai-progress-bar-wrap {
+  height: 8px;
+  background: var(--line, #e2e8f0);
+  border-radius: var(--radius-full, 9999px);
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+
+.ai-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #38bdf8);
+  border-radius: var(--radius-full, 9999px);
+  transition: width 0.35s ease;
+}
+
+.ai-progress-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--muted, #64748b);
+  transition: all 0.2s ease;
+}
+
+.ai-step-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--line, #f1f5f9);
+  color: var(--muted, #94a3b8);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.ai-step.is-active {
+  color: var(--primary, #2563eb);
+  font-weight: 600;
+}
+
+.ai-step.is-active .ai-step-icon {
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  animation: step-spin 1.2s linear infinite;
+}
+
+@keyframes step-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-step.is-done {
+  color: var(--ink, #0f172a);
+}
+
+.ai-step.is-done .ai-step-icon {
+  background: var(--success-bg, #ecfdf5);
+  color: var(--success, #10b981);
+}
+
+.ai-step.is-done .ai-step-icon::before {
+  content: "✓";
+}
+
+/* Spinner for excel export button */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: operation-status-spin 0.7s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ==========================================================================
+   Workspace Session Locks, Bulk Assignment & Filter Styles
+   ========================================================================== */
+
+.global-session-locks {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.global-session-locks h2 {
+  margin: 0 0 5px;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+.global-session-locks p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.session-lock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.session-lock {
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.session-lock b {
+  display: block;
+  color: var(--ink);
+}
+
+.session-lock span {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.session-lock.is-locked {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+:root.dark-mode .session-lock.is-locked {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.session-lock.is-locked span {
+  color: inherit;
+}
+
+:root.dark-mode .session-lock.is-locked span {
+  color: #fca5a5;
+}
+
+.global-slot-lock-title {
+  margin-top: 18px;
+}
+
+.global-slot-lock-title h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.global-slot-lock-title p {
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.global-slot-lock-grid {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: auto;
+  margin-bottom: 14px;
+}
+
+.global-slot-lock-grid .slot-head,
+.global-slot-lock-grid .slot-period {
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.global-slot-lock {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--card-bg);
+  min-height: 48px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.global-slot-lock.is-locked {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 2px #fca5a5;
+}
+
+:root.dark-mode .global-slot-lock.is-locked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  box-shadow: inset 0 0 0 2px #ef4444;
+}
+
+.global-locked-slot {
+  background: repeating-linear-gradient(
+    135deg,
+    #fff7ed,
+    #fff7ed 8px,
+    #ffedd5 8px,
+    #ffedd5 16px
+  ) !important;
+}
+
+:root.dark-mode .global-locked-slot {
+  background: repeating-linear-gradient(
+    135deg,
+    #181c24,
+    #181c24 9px,
+    #1e2430 9px,
+    #1e2430 18px
+  ) !important;
+}
+
+.global-lock-label {
+  display: block;
+  color: #c2410c;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+:root.dark-mode .global-lock-label {
+  color: #f97316;
+}
+
+.block-mode-help {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.block-mode-preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.schedule-color-legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.schedule-color-legend b {
+  color: var(--ink);
+}
+
+.schedule-color-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.schedule-color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid #93c5fd;
+  background: #dbeafe;
+}
+
+:root.dark-mode .schedule-color-swatch {
+  border-color: #2563eb;
+  background: #1e3a8a;
+}
+
+.schedule-color-swatch.cluster {
+  border-color: #4ade80;
+  background: #dcfce7;
+}
+
+:root.dark-mode .schedule-color-swatch.cluster {
+  border-color: #10b981;
+  background: #064e3b;
+}
+
+.lesson.lesson-cluster {
+  border-color: #4ade80;
+  background: #dcfce7;
+}
+
+.lesson.lesson-cluster b {
+  color: #166534;
+}
+
+.lesson.lesson-cluster small {
+  color: #3f6212;
+}
+
+.assignment-bulk-modal {
+  width: min(900px, 88vw);
+  max-height: 78vh;
+  overflow: auto;
+}
+
+.assignment-bulk-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.assignment-bulk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.assignment-pick-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.assignment-pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.assignment-pick-head b {
+  color: var(--ink);
+}
+
+.assignment-pick-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.assignment-pick-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 3px;
+}
+
+.assignment-pick-list {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.assignment-pick-row {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--line);
+  font-weight: 500 !important;
+  cursor: pointer;
+}
+
+.assignment-pick-row:last-child {
+  border-bottom: 0;
+}
+
+.assignment-pick-row:hover {
+  background: var(--bg);
+}
+
+.assignment-pick-row input {
+  width: 17px !important;
+  height: 17px !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
+}
+
+.assignment-pick-row span {
+  flex: 1;
+}
+
+.assignment-pick-row small {
+  font-size: 11px;
+  color: var(--primary);
+  background: var(--soft);
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+
+.assignment-bulk-settings {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(280px, 1.3fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.assignment-bulk-preview {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.assignment-bulk-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.teacher-subject-picker {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.teacher-subject-picker .assignment-pick-list {
+  max-height: 220px;
+}
+
+.teacher-subject-help {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.assignment-subject-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.assignment-subject-item:last-child {
+  border-bottom: 0;
+}
+
+.assignment-subject-item .assignment-pick-row {
+  border-bottom: 0 !important;
+}
+
+.assignment-subject-config {
+  display: grid;
+  grid-template-columns: 130px minmax(180px, 1fr);
+  gap: 10px;
+  padding: 0 12px 12px 38px;
+  background: var(--bg);
+}
+
+.assignment-subject-config[hidden] {
+  display: none !important;
+}
+
+.assignment-subject-config label {
+  margin: 0 !important;
+  font-size: 12px;
+}
+
+.assignment-subject-config input,
+.assignment-subject-config select {
+  margin-top: 4px !important;
+}
+
+.assignment-subject-config .block-mode-preview {
+  grid-column: 1/-1;
+  margin: 0;
+}
+
+.assignment-warning {
+  display: block;
+  margin-top: 6px;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.assignment-ok {
+  display: block;
+  margin-top: 6px;
+  color: #15803d;
+  font-weight: 700;
+}
+
+.assignment-load-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.assignment-load-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+}
+
+.assignment-load-metric small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.assignment-load-metric b {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.assignment-load-metric.over {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.assignment-load-metric.over b {
+  color: #b91c1c;
+}
+
+:root.dark-mode .assignment-load-metric.over {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+:root.dark-mode .assignment-load-metric.over b {
+  color: #fca5a5;
+}
+
+.assignment-load-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 125px;
+}
+
+.assignment-load-cell b {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.assignment-load-cell small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.assignment-load-cell.over b,
+.assignment-load-cell.over small {
+  color: #b91c1c;
+}
+
+:root.dark-mode .assignment-load-cell.over b,
+:root.dark-mode .assignment-load-cell.over small {
+  color: #fca5a5;
+}
+
+@media (max-width: 720px) {
+  .assignment-load-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.assignment-filter-panel {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(170px, 1fr) minmax(
+      190px,
+      1.2fr
+    ) minmax(210px, 1.25fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 16px 0 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-bg);
+}
+
+.assignment-filter-panel label {
+  margin: 0 !important;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.assignment-filter-panel select {
+  margin-top: 6px !important;
+  width: 100%;
+}
+
+.assignment-filter-summary {
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.assignment-filter-summary b {
+  color: var(--ink);
+}
+
+.assignment-filter-summary.has-gap {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+:root.dark-mode .assignment-filter-summary.has-gap {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #b45309;
+  color: #fcd34d;
+}
+
+.assignment-filter-summary.has-gap b {
+  color: inherit;
+}
+
+.assignment-gap-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+:root.dark-mode .assignment-gap-badge {
+  background: rgba(234, 88, 12, 0.16);
+  color: #fdba74;
+}
+
+.assignment-filter-empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+
+@media (max-width: 1050px) {
+  .assignment-filter-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .assignment-filter-panel .assignment-filter-reset {
+    grid-column: 1/-1;
+  }
+}
+
+@media (max-width: 620px) {
+  .assignment-filter-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .assignment-bulk-grid,
+  .assignment-bulk-settings,
+  .assignment-subject-config {
+    grid-template-columns: 1fr;
+  }
+  .assignment-subject-config {
+    padding-left: 12px;
+  }
+  .assignment-bulk-modal {
+    width: min(94vw, 900px);
   }
 }

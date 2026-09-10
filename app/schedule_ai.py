@@ -55,7 +55,13 @@ Quy tắc cell_keys:
 AI_AUDIT_CONTEXT_LIMIT = 350_000
 AI_AUDIT_MAX_ISSUES = 80
 _VALID_SEVERITIES = {"warning", "suggestion"}
-_VALID_CATEGORIES = {"distribution", "teacher_load", "consecutive", "parser_suspicion", "other"}
+_VALID_CATEGORIES = {
+    "distribution",
+    "teacher_load",
+    "consecutive",
+    "parser_suspicion",
+    "other",
+}
 
 
 def _slot_parts(slot: int, viewer: dict[str, Any]) -> tuple[int, int, int]:
@@ -101,28 +107,34 @@ def _compact_audit_context(report: dict[str, Any]) -> tuple[dict[str, Any], set[
         cell_key = f"{slot}:{class_id}"
         allowed_keys.add(cell_key)
         day, session, period = _slot_parts(slot, viewer)
-        compact_cells.append({
-            "cell_key": cell_key,
-            "day": _day_name(day),
-            "session": _session_name(session, sessions),
-            "period": period,
-            "class": str(cell.get("class_name") or "")[:120],
-            "subject": str(cell.get("subject_name") or "")[:160],
-            "teacher": str(cell.get("teacher_name") or "")[:160],
-            "room": str(cell.get("room") or "")[:100],
-            "raw_text": str(cell.get("raw_text") or "")[:260],
-            "rule_conflicts": [str(code)[:80] for code in (cell.get("conflicts") or [])[:8]],
-        })
+        compact_cells.append(
+            {
+                "cell_key": cell_key,
+                "day": _day_name(day),
+                "session": _session_name(session, sessions),
+                "period": period,
+                "class": str(cell.get("class_name") or "")[:120],
+                "subject": str(cell.get("subject_name") or "")[:160],
+                "teacher": str(cell.get("teacher_name") or "")[:160],
+                "room": str(cell.get("room") or "")[:100],
+                "raw_text": str(cell.get("raw_text") or "")[:260],
+                "rule_conflicts": [
+                    str(code)[:80] for code in (cell.get("conflicts") or [])[:8]
+                ],
+            }
+        )
 
     rule_issues = []
     for issue in (report.get("issues") or [])[:120]:
         if not isinstance(issue, dict):
             continue
-        rule_issues.append({
-            "code": str(issue.get("code") or "")[:80],
-            "severity": str(issue.get("severity") or "")[:30],
-            "message": str(issue.get("message") or issue.get("detail") or "")[:500],
-        })
+        rule_issues.append(
+            {
+                "code": str(issue.get("code") or "")[:80],
+                "severity": str(issue.get("severity") or "")[:30],
+                "message": str(issue.get("message") or issue.get("detail") or "")[:500],
+            }
+        )
 
     context = {
         "filename": str(report.get("filename") or "")[:260],
@@ -130,7 +142,10 @@ def _compact_audit_context(report: dict[str, Any]) -> tuple[dict[str, Any], set[
             "days": int(viewer.get("days") or 0),
             "sessions": sessions,
             "periods_per_session": int(viewer.get("periods") or 0),
-            "classes": [{"id": item.get("id"), "name": str(item.get("name") or "")[:120]} for item in classes],
+            "classes": [
+                {"id": item.get("id"), "name": str(item.get("name") or "")[:120]}
+                for item in classes
+            ],
         },
         "summary": report.get("summary") or {},
         "rule_issues": rule_issues,
@@ -141,17 +156,24 @@ def _compact_audit_context(report: dict[str, Any]) -> tuple[dict[str, Any], set[
 
 
 def _build_ai_payload(context_json: str) -> bytes:
-    return json.dumps({
-        "systemInstruction": {"parts": [{"text": AI_AUDIT_SYSTEM_INSTRUCTION}]},
-        "contents": [{
-            "role": "user",
-            "parts": [{"text": "DỮ LIỆU THỜI KHÓA BIỂU (JSON):\n" + context_json}],
-        }],
-        "generationConfig": {
-            "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
-            "responseMimeType": "application/json",
+    return json.dumps(
+        {
+            "systemInstruction": {"parts": [{"text": AI_AUDIT_SYSTEM_INSTRUCTION}]},
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"text": "DỮ LIỆU THỜI KHÓA BIỂU (JSON):\n" + context_json}
+                    ],
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+                "responseMimeType": "application/json",
+            },
         },
-    }, ensure_ascii=False).encode("utf-8")
+        ensure_ascii=False,
+    ).encode("utf-8")
 
 
 def _extract_json_object(answer: str) -> dict[str, Any]:
@@ -171,7 +193,7 @@ def _extract_json_object(answer: str) -> dict[str, Any]:
                 retry_with_fallback=True,
             )
         try:
-            parsed = json.loads(text[start:end + 1])
+            parsed = json.loads(text[start : end + 1])
         except json.JSONDecodeError as exc:
             raise ChatbotError(
                 "AI trả về kết quả không đúng định dạng JSON.",
@@ -195,7 +217,7 @@ def _sanitize_ai_result(raw: dict[str, Any], allowed_keys: set[str]) -> dict[str
     raw_issues = raw.get("issues")
     if not isinstance(raw_issues, list):
         raw_issues = []
-    for item in raw_issues[:AI_AUDIT_MAX_ISSUES * 2]:
+    for item in raw_issues[: AI_AUDIT_MAX_ISSUES * 2]:
         if not isinstance(item, dict):
             continue
         severity = str(item.get("severity") or "suggestion").strip().lower()
@@ -225,14 +247,16 @@ def _sanitize_ai_result(raw: dict[str, Any], allowed_keys: set[str]) -> dict[str
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
-        issues.append({
-            "severity": severity,
-            "category": category,
-            "title": title,
-            "message": message,
-            "suggestion": suggestion,
-            "cell_keys": cell_keys,
-        })
+        issues.append(
+            {
+                "severity": severity,
+                "category": category,
+                "title": title,
+                "message": message,
+                "suggestion": suggestion,
+                "cell_keys": cell_keys,
+            }
+        )
         if len(issues) >= AI_AUDIT_MAX_ISSUES:
             break
 
@@ -278,7 +302,11 @@ def analyze_schedule_with_gemini(
 
     models = _configured_model_chain()
     if preferred_model and preferred_model in models and preferred_model != models[0]:
-        models = [models[0], preferred_model, *[model for model in models[1:] if model != preferred_model]]
+        models = [
+            models[0],
+            preferred_model,
+            *[model for model in models[1:] if model != preferred_model],
+        ]
     retries_per_model = _env_int("GEMINI_ATTEMPTS_PER_MODEL", 2, 1, 4)
     # Keep the same provider deadline budget as the chatbot without coupling the
     # audit endpoint to the chatbot's conversation/history behavior.
@@ -304,7 +332,9 @@ def analyze_schedule_with_gemini(
                 parsed = _extract_json_object(answer)
                 return _sanitize_ai_result(parsed, allowed_keys), model, attempts
             except ChatbotError as exc:
-                calls_for_model += 1 if getattr(exc, "provider_call_count", 0) == 0 else 0
+                calls_for_model += (
+                    1 if getattr(exc, "provider_call_count", 0) == 0 else 0
+                )
                 exc.model_name = exc.model_name or model
                 last_error = exc
                 can_retry_same = (
@@ -319,13 +349,15 @@ def analyze_schedule_with_gemini(
 
         if last_error is None:
             continue
-        attempts.append({
-            "model": model,
-            "code": str(last_error.code),
-            "provider_status": last_error.provider_status,
-            "message": str(last_error),
-            "attempt_count": calls_for_model,
-        })
+        attempts.append(
+            {
+                "model": model,
+                "code": str(last_error.code),
+                "provider_status": last_error.provider_status,
+                "message": str(last_error),
+                "attempt_count": calls_for_model,
+            }
+        )
         has_next = model_index + 1 < len(models)
         if not last_error.retry_with_fallback or not has_next:
             last_error.attempts = attempts

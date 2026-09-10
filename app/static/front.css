@@ -4,10 +4,11 @@
   --front-sky: #27b8d6;
   --front-green: #22c55e;
   --front-gold: #f5b83d;
-  --front-card: rgba(255, 255, 255, .86);
-  --front-line: rgba(130, 151, 178, .24);
-  --front-shadow: 0 24px 70px rgba(30, 63, 112, .13);
-  --front-title-font: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif;
+  --front-card: rgba(255, 255, 255, 0.86);
+  --front-line: rgba(130, 151, 178, 0.24);
+  --front-shadow: 0 24px 70px rgba(30, 63, 112, 0.13);
+  --front-title-font:
+    "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif;
 }
 
 body.landing,
@@ -15,9 +16,21 @@ body.teacher-surface,
 body.front-surface {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 8% 10%, rgba(39, 184, 214, .22), transparent 28rem),
-    radial-gradient(circle at 88% 8%, rgba(245, 184, 61, .18), transparent 24rem),
-    radial-gradient(circle at 72% 82%, rgba(34, 197, 94, .14), transparent 27rem),
+    radial-gradient(
+      circle at 8% 10%,
+      rgba(39, 184, 214, 0.22),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(245, 184, 61, 0.18),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 72% 82%,
+      rgba(34, 197, 94, 0.14),
+      transparent 27rem
+    ),
     linear-gradient(135deg, #f8fcff 0%, #f4f7fb 54%, #f8fbff 100%);
 }
 
@@ -44,10 +57,10 @@ body.front-surface::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: .33;
+  opacity: 0.33;
   background-image:
-    linear-gradient(rgba(29, 99, 237, .045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(29, 99, 237, .045) 1px, transparent 1px);
+    linear-gradient(rgba(29, 99, 237, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 99, 237, 0.045) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: linear-gradient(to bottom, #000, transparent 78%);
 }
@@ -56,9 +69,9 @@ body.front-surface::before {
 .teacher-surface .appbar,
 .front-surface .appbar {
   height: 76px;
-  background: rgba(255, 255, 255, .82);
+  background: rgba(255, 255, 255, 0.82);
   border-bottom-color: var(--front-line);
-  box-shadow: 0 10px 38px rgba(16, 35, 63, .08);
+  box-shadow: 0 10px 38px rgba(16, 35, 63, 0.08);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
@@ -79,8 +92,16 @@ body.front-surface::before {
   width: 14px;
   height: 14px;
   border-radius: 5px;
-  background: conic-gradient(from 180deg, var(--front-blue), var(--front-sky), var(--front-green), var(--front-blue));
-  box-shadow: 0 0 0 6px rgba(39, 184, 214, .12), 0 8px 18px rgba(29, 99, 237, .24);
+  background: conic-gradient(
+    from 180deg,
+    var(--front-blue),
+    var(--front-sky),
+    var(--front-green),
+    var(--front-blue)
+  );
+  box-shadow:
+    0 0 0 6px rgba(39, 184, 214, 0.12),
+    0 8px 18px rgba(29, 99, 237, 0.24);
   transform: rotate(8deg);
 }
 
@@ -89,7 +110,7 @@ body.front-surface::before {
   width: min(1440px, 100%);
   min-height: calc(100vh - 120px);
   padding: 90px 48px 72px;
-  grid-template-columns: minmax(0, 1.05fr) minmax(360px, .82fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.82fr);
 }
 
 .landing .hero::before {
@@ -98,16 +119,21 @@ body.front-surface::before {
   inset: 48px 28px auto auto;
   width: 38%;
   height: 72%;
-  border: 1px solid rgba(39, 184, 214, .18);
+  border: 1px solid rgba(39, 184, 214, 0.18);
   border-radius: 32px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, .34), rgba(39, 184, 214, .08));
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.34),
+    rgba(39, 184, 214, 0.08)
+  );
   transform: rotate(-3deg);
   pointer-events: none;
 }
 
 .landing .hero h1 {
   max-width: 760px;
-  font-family: "Aptos Display", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
+  font-family:
+    "Aptos Display", "Segoe UI Variable Display", "Trebuchet MS", sans-serif;
   font-size: clamp(40px, 4.8vw, 66px);
   line-height: 1.03;
   letter-spacing: 0;
@@ -122,9 +148,9 @@ body.front-surface::before {
 }
 
 .landing .pill {
-  border: 1px solid rgba(39, 184, 214, .18);
+  border: 1px solid rgba(39, 184, 214, 0.18);
   background: linear-gradient(120deg, #ecfeff, #eef6ff);
-  box-shadow: 0 12px 30px rgba(39, 184, 214, .12);
+  box-shadow: 0 12px 30px rgba(39, 184, 214, 0.12);
 }
 
 .landing .hero-card {
@@ -134,8 +160,16 @@ body.front-surface::before {
   border-radius: 28px;
   border-color: var(--front-line);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(239, 247, 255, .88)),
-    radial-gradient(circle at 94% 8%, rgba(245, 184, 61, .16), transparent 12rem);
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.94),
+      rgba(239, 247, 255, 0.88)
+    ),
+    radial-gradient(
+      circle at 94% 8%,
+      rgba(245, 184, 61, 0.16),
+      transparent 12rem
+    );
   box-shadow: var(--front-shadow);
   transform: rotate(0);
   animation: front-float 6s ease-in-out infinite;
@@ -155,7 +189,7 @@ body.front-surface::before {
   color: #0f766e;
   background: #ccfbf1;
   font-size: 11px;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
 }
 
 .landing .mini-grid {
@@ -163,17 +197,17 @@ body.front-surface::before {
   gap: 8px;
 }
 
-.landing .mini-grid>* {
+.landing .mini-grid > * {
   min-height: 54px;
-  border: 1px solid rgba(130, 151, 178, .12);
-  background: rgba(248, 251, 255, .86);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .85);
+  border: 1px solid rgba(130, 151, 178, 0.12);
+  background: rgba(248, 251, 255, 0.86);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .landing .mini-grid i {
   color: #12356b;
   background: linear-gradient(135deg, #dbeafe, #cffafe);
-  box-shadow: 0 10px 24px rgba(29, 99, 237, .13);
+  box-shadow: 0 10px 24px rgba(29, 99, 237, 0.13);
 }
 
 .landing .features {
@@ -204,8 +238,16 @@ body.front-surface::before {
   border: 1px solid var(--front-line);
   border-radius: 30px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, .82), rgba(238, 247, 255, .78)),
-    radial-gradient(circle at 92% 20%, rgba(245, 184, 61, .17), transparent 16rem);
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.82),
+      rgba(238, 247, 255, 0.78)
+    ),
+    radial-gradient(
+      circle at 92% 20%,
+      rgba(245, 184, 61, 0.17),
+      transparent 16rem
+    );
   box-shadow: var(--front-shadow);
   overflow: hidden;
 }
@@ -219,7 +261,7 @@ body.front-surface::before {
   width: 260px;
   height: 260px;
   border-radius: 50%;
-  border: 36px solid rgba(39, 184, 214, .13);
+  border: 36px solid rgba(39, 184, 214, 0.13);
 }
 
 .teacher-surface .section-head h1,
@@ -237,11 +279,11 @@ body.front-surface::before {
 
 .teacher-surface .panel,
 .front-surface .panel,
-.front-surface #scheduleGrid>.timetable,
-.teacher-surface #scheduleGrid>.timetable {
+.front-surface #scheduleGrid > .timetable,
+.teacher-surface #scheduleGrid > .timetable {
   border-color: var(--front-line);
   border-radius: 26px;
-  background: rgba(255, 255, 255, .9);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--front-shadow);
 }
 
@@ -266,13 +308,18 @@ body.front-surface::before {
 .front-surface .lesson {
   border-radius: 12px;
   background: linear-gradient(135deg, #dbeafe, #d8eefc);
-  box-shadow: 0 10px 22px rgba(29, 99, 237, .14);
+  box-shadow: 0 10px 22px rgba(29, 99, 237, 0.14);
 }
 
 .teacher-surface .cell.blocked,
 .front-surface .cell.blocked {
-  background:
-    repeating-linear-gradient(135deg, rgba(255, 247, 237, .95), rgba(255, 247, 237, .95) 9px, rgba(255, 237, 213, .95) 9px, rgba(255, 237, 213, .95) 18px);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 247, 237, 0.95),
+    rgba(255, 247, 237, 0.95) 9px,
+    rgba(255, 237, 213, 0.95) 9px,
+    rgba(255, 237, 213, 0.95) 18px
+  );
 }
 
 .teacher-surface .preference-list,
@@ -282,25 +329,23 @@ body.front-surface::before {
 
 .teacher-surface .empty-state,
 .front-surface .empty-state {
-  border-color: rgba(39, 184, 214, .25);
-  background: rgba(255, 255, 255, .76);
-  box-shadow: 0 16px 42px rgba(16, 35, 63, .08);
+  border-color: rgba(39, 184, 214, 0.25);
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 16px 42px rgba(16, 35, 63, 0.08);
 }
 
 @keyframes front-float {
-
   0%,
   100% {
-    transform: translateY(0) rotate(.5deg);
+    transform: translateY(0) rotate(0.5deg);
   }
 
   50% {
-    transform: translateY(-12px) rotate(-.5deg);
+    transform: translateY(-12px) rotate(-0.5deg);
   }
 }
 
 @media (max-width: 900px) {
-
   .landing .top,
   .teacher-surface .appbar,
   .front-surface .appbar {
@@ -341,7 +386,6 @@ body.front-surface::before {
 }
 
 @media print {
-
   body.teacher-surface,
   body.front-surface {
     background: #fff;
@@ -365,9 +409,21 @@ body.front-surface::before {
 :root.dark-mode body.teacher-surface,
 :root.dark-mode body.front-surface {
   background:
-    radial-gradient(circle at 8% 10%, rgba(39, 184, 214, 0.06), transparent 28rem),
-    radial-gradient(circle at 88% 8%, rgba(245, 184, 61, 0.05), transparent 24rem),
-    radial-gradient(circle at 72% 82%, rgba(34, 197, 94, 0.04), transparent 27rem),
+    radial-gradient(
+      circle at 8% 10%,
+      rgba(39, 184, 214, 0.06),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(245, 184, 61, 0.05),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 72% 82%,
+      rgba(34, 197, 94, 0.04),
+      transparent 27rem
+    ),
     linear-gradient(135deg, #090d16 0%, #0f172a 54%, #090d16 100%);
 }
 
@@ -411,7 +467,11 @@ body.front-surface::before {
 :root.dark-mode .landing .hero-card {
   background:
     linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.85)),
-    radial-gradient(circle at 94% 8%, rgba(245, 184, 61, 0.08), transparent 12rem);
+    radial-gradient(
+      circle at 94% 8%,
+      rgba(245, 184, 61, 0.08),
+      transparent 12rem
+    );
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
 }
 
@@ -424,7 +484,7 @@ body.front-surface::before {
   background: #115e59;
 }
 
-:root.dark-mode .landing .mini-grid>* {
+:root.dark-mode .landing .mini-grid > * {
   background: rgba(30, 41, 59, 0.6);
   border-color: rgba(71, 85, 105, 0.3);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -439,14 +499,22 @@ body.front-surface::before {
 
 :root.dark-mode .landing .hero::before {
   border-color: rgba(39, 184, 214, 0.1);
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.2), rgba(39, 184, 214, 0.04));
+  background: linear-gradient(
+    145deg,
+    rgba(30, 41, 59, 0.2),
+    rgba(39, 184, 214, 0.04)
+  );
 }
 
 :root.dark-mode .teacher-surface .section-head,
 :root.dark-mode .front-surface .section-head {
   background:
     linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.75)),
-    radial-gradient(circle at 92% 20%, rgba(245, 184, 61, 0.08), transparent 16rem);
+    radial-gradient(
+      circle at 92% 20%,
+      rgba(245, 184, 61, 0.08),
+      transparent 16rem
+    );
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
 }
 
@@ -457,8 +525,8 @@ body.front-surface::before {
 
 :root.dark-mode .teacher-surface .panel,
 :root.dark-mode .front-surface .panel,
-:root.dark-mode .front-surface #scheduleGrid>.timetable,
-:root.dark-mode .teacher-surface #scheduleGrid>.timetable {
+:root.dark-mode .front-surface #scheduleGrid > .timetable,
+:root.dark-mode .teacher-surface #scheduleGrid > .timetable {
   background: rgba(30, 41, 59, 0.85);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
 }

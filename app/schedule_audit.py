@@ -67,20 +67,31 @@ def _archive_size_guard(content: bytes) -> None:
     except zipfile.BadZipFile as exc:
         raise ScheduleAuditParseError("File nén không hợp lệ hoặc đã bị hỏng.") from exc
     if total > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
-        raise ScheduleAuditParseError("File có dữ liệu giải nén quá lớn để kiểm tra an toàn.")
+        raise ScheduleAuditParseError(
+            "File có dữ liệu giải nén quá lớn để kiểm tra an toàn."
+        )
 
 
-def _read_excel_tables(content: bytes, suffix: str) -> list[tuple[str, list[list[str]]]]:
+def _read_excel_tables(
+    content: bytes, suffix: str
+) -> list[tuple[str, list[list[str]]]]:
     if suffix in {".xlsx", ".xlsm"}:
         _archive_size_guard(content)
         try:
-            workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+            workbook = load_workbook(
+                io.BytesIO(content), read_only=True, data_only=True
+            )
         except Exception as exc:
-            raise ScheduleAuditParseError("Không đọc được file Excel. Hãy kiểm tra file có bị hỏng không.") from exc
+            raise ScheduleAuditParseError(
+                "Không đọc được file Excel. Hãy kiểm tra file có bị hỏng không."
+            ) from exc
         tables: list[tuple[str, list[list[str]]]] = []
         try:
             for sheet in workbook.worksheets:
-                rows = [[_cell_text(value) for value in row] for row in sheet.iter_rows(values_only=True)]
+                rows = [
+                    [_cell_text(value) for value in row]
+                    for row in sheet.iter_rows(values_only=True)
+                ]
                 tables.append((sheet.title, rows))
         finally:
             workbook.close()
@@ -99,7 +110,10 @@ def _read_excel_tables(content: bytes, suffix: str) -> list[tuple[str, list[list
     tables = []
     try:
         for sheet in book.sheets():
-            rows = [[_cell_text(sheet.cell_value(r, c)) for c in range(sheet.ncols)] for r in range(sheet.nrows)]
+            rows = [
+                [_cell_text(sheet.cell_value(r, c)) for c in range(sheet.ncols)]
+                for r in range(sheet.nrows)
+            ]
             tables.append((sheet.name, rows))
     finally:
         book.release_resources()
@@ -115,7 +129,9 @@ def _decode_delimited(content: bytes) -> str:
     raise ScheduleAuditParseError("Không nhận diện được bảng mã của file CSV/TSV.")
 
 
-def _read_delimited_table(content: bytes, suffix: str) -> list[tuple[str, list[list[str]]]]:
+def _read_delimited_table(
+    content: bytes, suffix: str
+) -> list[tuple[str, list[list[str]]]]:
     text = _decode_delimited(content)
     sample = text[:8192]
     delimiter = "\t" if suffix == ".tsv" else ","
@@ -124,16 +140,25 @@ def _read_delimited_table(content: bytes, suffix: str) -> list[tuple[str, list[l
         delimiter = dialect.delimiter
     except csv.Error:
         pass
-    rows = [[_cell_text(value) for value in row] for row in csv.reader(io.StringIO(text), delimiter=delimiter)]
+    rows = [
+        [_cell_text(value) for value in row]
+        for row in csv.reader(io.StringIO(text), delimiter=delimiter)
+    ]
     return [("Dữ liệu", rows)]
 
 
 def _docx_text(element: ET.Element, namespace: dict[str, str]) -> str:
     paragraph_tag = f"{{{namespace['w']}}}p"
-    paragraphs = [element] if element.tag == paragraph_tag else element.findall(".//w:p", namespace)
+    paragraphs = (
+        [element]
+        if element.tag == paragraph_tag
+        else element.findall(".//w:p", namespace)
+    )
     if paragraphs:
         chunks = [
-            "".join(node.text or "" for node in paragraph.findall(".//w:t", namespace)).strip()
+            "".join(
+                node.text or "" for node in paragraph.findall(".//w:t", namespace)
+            ).strip()
             for paragraph in paragraphs
         ]
         return re.sub(r"\s+", " ", " ".join(chunk for chunk in chunks if chunk)).strip()
@@ -152,7 +177,9 @@ def _read_docx_tables(content: bytes) -> list[tuple[str, list[list[str]]]]:
     try:
         root = ET.fromstring(xml)
     except ET.ParseError as exc:
-        raise ScheduleAuditParseError("Nội dung XML của tài liệu Word không hợp lệ.") from exc
+        raise ScheduleAuditParseError(
+            "Nội dung XML của tài liệu Word không hợp lệ."
+        ) from exc
 
     body = root.find("w:body", namespace)
     if body is None:
@@ -180,11 +207,15 @@ def _read_docx_tables(content: bytes) -> list[tuple[str, list[list[str]]]]:
     return tables
 
 
-def read_tables(filename: str, content: bytes) -> tuple[str, list[tuple[str, list[list[str]]]]]:
+def read_tables(
+    filename: str, content: bytes
+) -> tuple[str, list[tuple[str, list[list[str]]]]]:
     suffix = Path(filename or "").suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         if suffix == ".doc":
-            raise ScheduleAuditParseError("Word .doc đời cũ chưa được hỗ trợ. Hãy lưu lại dưới dạng .docx.")
+            raise ScheduleAuditParseError(
+                "Word .doc đời cũ chưa được hỗ trợ. Hãy lưu lại dưới dạng .docx."
+            )
         raise ScheduleAuditParseError(
             "Định dạng chưa hỗ trợ. Dùng .xlsx, .xlsm, .xls, .csv, .tsv hoặc .docx."
         )
@@ -195,7 +226,9 @@ def read_tables(filename: str, content: bytes) -> tuple[str, list[tuple[str, lis
     return "DOCX", _read_docx_tables(content)
 
 
-def _alias_map(items: Iterable[dict[str, Any]], fields: tuple[str, ...]) -> dict[str, int]:
+def _alias_map(
+    items: Iterable[dict[str, Any]], fields: tuple[str, ...]
+) -> dict[str, int]:
     aliases: dict[str, int] = {}
     ambiguous: set[str] = set()
     for item in items:
@@ -267,8 +300,18 @@ def _day_index(value: str) -> int | None:
     if text in {"cn", "chu nhat", "sunday", "sun"}:
         return 6
     english = {
-        "monday": 0, "mon": 0, "tuesday": 1, "tue": 1, "wednesday": 2, "wed": 2,
-        "thursday": 3, "thu": 3, "friday": 4, "fri": 4, "saturday": 5, "sat": 5,
+        "monday": 0,
+        "mon": 0,
+        "tuesday": 1,
+        "tue": 1,
+        "wednesday": 2,
+        "wed": 2,
+        "thursday": 3,
+        "thu": 3,
+        "friday": 4,
+        "fri": 4,
+        "saturday": 5,
+        "sat": 5,
     }
     if text in english:
         return english[text]
@@ -384,7 +427,9 @@ def _implicit_session_hints(
     return hints if saw_second_session else {}
 
 
-def _resolve_slot(day_text: str, session_text: str, period_text: str, project: dict[str, Any]) -> int | None:
+def _resolve_slot(
+    day_text: str, session_text: str, period_text: str, project: dict[str, Any]
+) -> int | None:
     days = int(project["days"])
     sessions = int(project["sessions"])
     periods = int(project["periods"])
@@ -414,7 +459,9 @@ def slot_label(slot: int, project: dict[str, Any]) -> str:
     day_name = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][day]
     if sessions == 1:
         return f"{day_name}, tiết {period}"
-    session_name = "Sáng" if session == 0 else ("Chiều" if session == 1 else f"Buổi {session + 1}")
+    session_name = (
+        "Sáng" if session == 0 else ("Chiều" if session == 1 else f"Buổi {session + 1}")
+    )
     return f"{day_name}, {session_name.lower()}, tiết {period}"
 
 
@@ -444,8 +491,12 @@ def _parse_long_table(title: str, rows: list[list[str]]) -> list[RawLesson]:
         parsed: list[RawLesson] = []
         last_day = ""
         last_session = ""
-        for row_no, values in enumerate(rows[header_index + 1 :], start=header_index + 2):
-            get = lambda key: values[kinds[key]] if key in kinds and kinds[key] < len(values) else ""
+        for row_no, values in enumerate(
+            rows[header_index + 1 :], start=header_index + 2
+        ):
+            get = lambda key: (
+                values[kinds[key]] if key in kinds and kinds[key] < len(values) else ""
+            )
             day = get("day") or last_day
             session = get("session") or last_session
             period = get("period")
@@ -460,10 +511,20 @@ def _parse_long_table(title: str, rows: list[list[str]]) -> list[RawLesson]:
                 last_session = get("session")
             if not period or not class_text or not (subject or lesson or teacher):
                 continue
-            parsed.append(RawLesson(
-                day, session, period, class_text, lesson, subject, teacher, room,
-                f"{title} · dòng {row_no}", "aggregate",
-            ))
+            parsed.append(
+                RawLesson(
+                    day,
+                    session,
+                    period,
+                    class_text,
+                    lesson,
+                    subject,
+                    teacher,
+                    room,
+                    f"{title} · dòng {row_no}",
+                    "aggregate",
+                )
+            )
         if parsed:
             return parsed
     return []
@@ -471,10 +532,24 @@ def _parse_long_table(title: str, rows: list[list[str]]) -> list[RawLesson]:
 
 _WIDE_TABLE_AUXILIARY_HEADERS = {
     # Columns that describe the row/schedule rather than a class/teacher entity.
-    "gv nghi", "giao vien nghi", "gv vang", "giao vien vang",
-    "ghi chu", "chu thich", "note", "notes", "remark", "remarks",
-    "phong", "phong hoc", "room", "rooms",
-    "stt", "so tt", "so thu tu", "tt",
+    "gv nghi",
+    "giao vien nghi",
+    "gv vang",
+    "giao vien vang",
+    "ghi chu",
+    "chu thich",
+    "note",
+    "notes",
+    "remark",
+    "remarks",
+    "phong",
+    "phong hoc",
+    "room",
+    "rooms",
+    "stt",
+    "so tt",
+    "so thu tu",
+    "tt",
 }
 
 
@@ -489,7 +564,9 @@ def _is_wide_table_auxiliary_header(value: str) -> bool:
     return _header_kind(value) in {"class", "subject", "teacher", "room", "lesson"}
 
 
-def _parse_wide_table(title: str, rows: list[list[str]], class_aliases: dict[str, int]) -> list[RawLesson]:
+def _parse_wide_table(
+    title: str, rows: list[list[str]], class_aliases: dict[str, int]
+) -> list[RawLesson]:
     best: tuple[int, int, dict[str, int], list[tuple[int, str]]] | None = None
     for header_index, row in enumerate(rows[:30]):
         kinds: dict[str, int] = {}
@@ -503,12 +580,19 @@ def _parse_wide_table(title: str, rows: list[list[str]], class_aliases: dict[str
         period_col = kinds["period"]
         for col, value in enumerate(row):
             header = _cell_text(value)
-            if col in kinds.values() or not header or _is_wide_table_auxiliary_header(header):
+            if (
+                col in kinds.values()
+                or not header
+                or _is_wide_table_auxiliary_header(header)
+            ):
                 continue
             recognized = _exact_alias(header, class_aliases) is not None
             if recognized or col > period_col:
                 class_cols.append((col, header))
-        score = sum(3 if _exact_alias(header, class_aliases) is not None else 1 for _col, header in class_cols)
+        score = sum(
+            3 if _exact_alias(header, class_aliases) is not None else 1
+            for _col, header in class_cols
+        )
         if class_cols and (best is None or score > best[0]):
             best = (score, header_index, kinds, class_cols)
     if best is None:
@@ -532,16 +616,32 @@ def _parse_wide_table(title: str, rows: list[list[str]], class_aliases: dict[str
             continue
         for col, class_text in class_cols:
             lesson = get(col)
-            if not lesson or normalize_text(lesson) in {"x", "trong", "nghi", "off", "none", "na"}:
+            if not lesson or normalize_text(lesson) in {
+                "x",
+                "trong",
+                "nghi",
+                "off",
+                "none",
+                "na",
+            }:
                 continue
-            parsed.append(RawLesson(
-                day, session, period, class_text, lesson_text=lesson,
-                source=f"{title} · dòng {row_no}", origin="class",
-            ))
+            parsed.append(
+                RawLesson(
+                    day,
+                    session,
+                    period,
+                    class_text,
+                    lesson_text=lesson,
+                    source=f"{title} · dòng {row_no}",
+                    origin="class",
+                )
+            )
     return parsed
 
 
-def _parse_class_day_grid(title: str, rows: list[list[str]], class_aliases: dict[str, int]) -> list[RawLesson]:
+def _parse_class_day_grid(
+    title: str, rows: list[list[str]], class_aliases: dict[str, int]
+) -> list[RawLesson]:
     class_id = _exact_alias(title, class_aliases)
     if class_id is None:
         for alias in sorted(class_aliases, key=len, reverse=True):
@@ -550,30 +650,62 @@ def _parse_class_day_grid(title: str, rows: list[list[str]], class_aliases: dict
                 break
     if class_id is None:
         return []
-    class_alias = next((alias for alias, item_id in class_aliases.items() if item_id == class_id), title)
+    class_alias = next(
+        (alias for alias, item_id in class_aliases.items() if item_id == class_id),
+        title,
+    )
     for header_index, row in enumerate(rows[:25]):
-        day_cols = [(col, value) for col, value in enumerate(row) if _day_index(value) is not None]
+        day_cols = [
+            (col, value)
+            for col, value in enumerate(row)
+            if _day_index(value) is not None
+        ]
         if len(day_cols) < 2:
             continue
-        period_col = next((col for col, value in enumerate(row) if _header_kind(value) == "period"), 0)
-        session_col = next((col for col, value in enumerate(row) if _header_kind(value) == "session"), None)
+        period_col = next(
+            (col for col, value in enumerate(row) if _header_kind(value) == "period"), 0
+        )
+        session_col = next(
+            (col for col, value in enumerate(row) if _header_kind(value) == "session"),
+            None,
+        )
         parsed: list[RawLesson] = []
         last_session = ""
-        for row_no, values in enumerate(rows[header_index + 1 :], start=header_index + 2):
+        for row_no, values in enumerate(
+            rows[header_index + 1 :], start=header_index + 2
+        ):
             period = values[period_col] if period_col < len(values) else ""
             if not period or _period_number(period) is None:
                 continue
-            session_value = values[session_col] if session_col is not None and session_col < len(values) else ""
+            session_value = (
+                values[session_col]
+                if session_col is not None and session_col < len(values)
+                else ""
+            )
             if session_value:
                 last_session = session_value
             session = session_value or last_session
             for col, day_text in day_cols:
                 lesson = values[col] if col < len(values) else ""
-                if lesson and normalize_text(lesson) not in {"x", "trong", "nghi", "off", "none", "na"}:
-                    parsed.append(RawLesson(
-                        day_text, session, period, class_alias, lesson_text=lesson,
-                        source=f"{title} · dòng {row_no}", origin="class",
-                    ))
+                if lesson and normalize_text(lesson) not in {
+                    "x",
+                    "trong",
+                    "nghi",
+                    "off",
+                    "none",
+                    "na",
+                }:
+                    parsed.append(
+                        RawLesson(
+                            day_text,
+                            session,
+                            period,
+                            class_alias,
+                            lesson_text=lesson,
+                            source=f"{title} · dòng {row_no}",
+                            origin="class",
+                        )
+                    )
         if parsed:
             return parsed
     return []
@@ -602,36 +734,71 @@ def _parse_teacher_day_grid(
     teachers_by_id: dict[int, dict[str, Any]],
 ) -> list[RawLesson]:
     for header_index, row in enumerate(rows[:25]):
-        day_cols = [(col, value) for col, value in enumerate(row) if _day_index(value) is not None]
+        day_cols = [
+            (col, value)
+            for col, value in enumerate(row)
+            if _day_index(value) is not None
+        ]
         if len(day_cols) < 2:
             continue
-        teacher_id = _entity_id_from_heading(title, rows[:header_index], teacher_aliases)
+        teacher_id = _entity_id_from_heading(
+            title, rows[:header_index], teacher_aliases
+        )
         if teacher_id is None:
             continue
         teacher_name = teachers_by_id.get(teacher_id, {}).get("name", title)
-        period_col = next((col for col, value in enumerate(row) if _header_kind(value) == "period"), 0)
-        session_col = next((col for col, value in enumerate(row) if _header_kind(value) == "session"), None)
+        period_col = next(
+            (col for col, value in enumerate(row) if _header_kind(value) == "period"), 0
+        )
+        session_col = next(
+            (col for col, value in enumerate(row) if _header_kind(value) == "session"),
+            None,
+        )
         parsed: list[RawLesson] = []
         last_session = ""
-        for row_no, values in enumerate(rows[header_index + 1 :], start=header_index + 2):
+        for row_no, values in enumerate(
+            rows[header_index + 1 :], start=header_index + 2
+        ):
             period = values[period_col] if period_col < len(values) else ""
             if not period or _period_number(period) is None:
                 continue
-            session_value = values[session_col] if session_col is not None and session_col < len(values) else ""
+            session_value = (
+                values[session_col]
+                if session_col is not None and session_col < len(values)
+                else ""
+            )
             if session_value:
                 last_session = session_value
             session = session_value or last_session
             for col, day_text in day_cols:
                 lesson = values[col] if col < len(values) else ""
-                if not lesson or normalize_text(lesson) in {"x", "trong", "nghi", "off", "none", "na"}:
+                if not lesson or normalize_text(lesson) in {
+                    "x",
+                    "trong",
+                    "nghi",
+                    "off",
+                    "none",
+                    "na",
+                }:
                     continue
                 class_id = _find_alias(lesson, class_aliases)
-                class_text = classes_by_id.get(class_id, {}).get("name", lesson) if class_id is not None else lesson
-                parsed.append(RawLesson(
-                    day_text, session, period, class_text,
-                    lesson_text=lesson, teacher_text=teacher_name,
-                    source=f"{title} · dòng {row_no}", origin="teacher",
-                ))
+                class_text = (
+                    classes_by_id.get(class_id, {}).get("name", lesson)
+                    if class_id is not None
+                    else lesson
+                )
+                parsed.append(
+                    RawLesson(
+                        day_text,
+                        session,
+                        period,
+                        class_text,
+                        lesson_text=lesson,
+                        teacher_text=teacher_name,
+                        source=f"{title} · dòng {row_no}",
+                        origin="teacher",
+                    )
+                )
         if parsed:
             return parsed
     return []
@@ -685,16 +852,36 @@ def _parse_teacher_wide_table(
             continue
         for col, teacher_id in teacher_cols:
             lesson = get(col)
-            if not lesson or normalize_text(lesson) in {"x", "trong", "nghi", "off", "none", "na"}:
+            if not lesson or normalize_text(lesson) in {
+                "x",
+                "trong",
+                "nghi",
+                "off",
+                "none",
+                "na",
+            }:
                 continue
             class_id = _find_alias(lesson, class_aliases)
-            class_text = classes_by_id.get(class_id, {}).get("name", lesson) if class_id is not None else lesson
-            teacher_name = teachers_by_id.get(teacher_id, {}).get("name", _cell_text(rows[header_index][col]))
-            parsed.append(RawLesson(
-                day, session, period, class_text,
-                lesson_text=lesson, teacher_text=teacher_name,
-                source=f"{title} · dòng {row_no}", origin="teacher",
-            ))
+            class_text = (
+                classes_by_id.get(class_id, {}).get("name", lesson)
+                if class_id is not None
+                else lesson
+            )
+            teacher_name = teachers_by_id.get(teacher_id, {}).get(
+                "name", _cell_text(rows[header_index][col])
+            )
+            parsed.append(
+                RawLesson(
+                    day,
+                    session,
+                    period,
+                    class_text,
+                    lesson_text=lesson,
+                    teacher_text=teacher_name,
+                    source=f"{title} · dòng {row_no}",
+                    origin="teacher",
+                )
+            )
     return parsed
 
 
@@ -705,7 +892,8 @@ def _header_entity_ids(rows: list[list[str]], aliases: dict[str, int]) -> set[in
         if not has_axis:
             continue
         ids = {
-            item_id for value in row
+            item_id
+            for value in row
             if (item_id := _exact_alias(_cell_text(value), aliases)) is not None
         }
         if len(ids) > len(best):
@@ -761,7 +949,12 @@ def parse_tables(
 
         if not parsed:
             parsed = _parse_teacher_day_grid(
-                title, rows, class_aliases, teacher_aliases, classes_by_id, teachers_by_id,
+                title,
+                rows,
+                class_aliases,
+                teacher_aliases,
+                classes_by_id,
+                teachers_by_id,
             )
             if parsed:
                 layout = "Theo giáo viên"
@@ -772,7 +965,12 @@ def parse_tables(
 
         if not parsed:
             parsed = _parse_teacher_wide_table(
-                title, rows, class_aliases, teacher_aliases, classes_by_id, teachers_by_id,
+                title,
+                rows,
+                class_aliases,
+                teacher_aliases,
+                classes_by_id,
+                teachers_by_id,
             )
             if parsed:
                 layout = "Bảng tổng hợp theo giáo viên"
@@ -798,7 +996,9 @@ def parse_tables(
                 )
             )
             if looks_like_schedule:
-                warnings.append(f"Không nhận diện được cấu trúc thời khóa biểu trong “{title}”.")
+                warnings.append(
+                    f"Không nhận diện được cấu trúc thời khóa biểu trong “{title}”."
+                )
 
     if class_scope and class_scope == all_class_ids:
         full_project = True
@@ -831,7 +1031,9 @@ def _issue(
         "title": title,
         "detail": detail,
         "slot": slot,
-        "slot_label": slot_label(slot, project) if slot is not None and project is not None else "",
+        "slot_label": slot_label(slot, project)
+        if slot is not None and project is not None
+        else "",
         "source": source,
         "entity": entity,
     }
@@ -860,16 +1062,19 @@ def _consecutive_runs(slots: Iterable[int], project: dict[str, Any]) -> list[lis
     return runs
 
 
-def required_double_pattern_ok(slots: Iterable[int], total_periods: int, project: dict[str, Any]) -> bool:
+def required_double_pattern_ok(
+    slots: Iterable[int], total_periods: int, project: dict[str, Any]
+) -> bool:
     values = sorted(set(int(slot) for slot in slots))
     if len(values) != total_periods:
         return False
-    expected_pairs = total_periods // 2
-    expected_single = total_periods % 2
-    runs = _consecutive_runs(values, project)
-    pair_count = sum(len(run) // 2 for run in runs)
-    leftover = sum(len(run) % 2 for run in runs)
-    return pair_count >= expected_pairs and leftover == expected_single
+
+    expected_run_sizes = [2] * (total_periods // 2)
+    if total_periods % 2:
+        expected_run_sizes.append(1)
+
+    actual_run_sizes = [len(run) for run in _consecutive_runs(values, project)]
+    return sorted(actual_run_sizes) == sorted(expected_run_sizes)
 
 
 def analyze_schedule_file(
@@ -897,10 +1102,16 @@ def analyze_schedule_file(
     subjects_by_id = {int(item["id"]): item for item in subjects}
     teachers_by_id = {int(item["id"]): item for item in teachers}
     assignments_by_id = {int(item["id"]): item for item in assignments}
-    assignment_by_pair = {(int(item["class_id"]), int(item["subject_id"])): item for item in assignments}
-    assignments_by_class_teacher: dict[tuple[int, int], list[dict[str, Any]]] = defaultdict(list)
+    assignment_by_pair = {
+        (int(item["class_id"]), int(item["subject_id"])): item for item in assignments
+    }
+    assignments_by_class_teacher: dict[tuple[int, int], list[dict[str, Any]]] = (
+        defaultdict(list)
+    )
     for assignment in assignments:
-        assignments_by_class_teacher[(int(assignment["class_id"]), int(assignment["teacher_id"]))].append(assignment)
+        assignments_by_class_teacher[
+            (int(assignment["class_id"]), int(assignment["teacher_id"]))
+        ].append(assignment)
 
     issues: list[dict[str, Any]] = []
     recognized: list[dict[str, Any]] = []
@@ -909,72 +1120,121 @@ def analyze_schedule_file(
     for raw in raw_lessons:
         slot = _resolve_slot(raw.day_text, raw.session_text, raw.period_text, project)
         if slot is None:
-            issues.append(_issue(
-                "invalid_slot", "error", "Không xác định được tiết học",
-                f"Không đổi được “{raw.day_text} / {raw.session_text or '—'} / {raw.period_text}” thành một ô hợp lệ của project.",
-                source=raw.source,
-            ))
+            issues.append(
+                _issue(
+                    "invalid_slot",
+                    "error",
+                    "Không xác định được tiết học",
+                    f"Không đổi được “{raw.day_text} / {raw.session_text or '—'} / {raw.period_text}” thành một ô hợp lệ của project.",
+                    source=raw.source,
+                )
+            )
             continue
         class_id = _exact_alias(raw.class_text, class_aliases)
         if class_id is None:
-            issues.append(_issue(
-                "unknown_class", "error", "Không nhận diện được lớp",
-                f"Tên lớp “{raw.class_text}” không khớp với lớp nào trong project.", slot=slot, project=project, source=raw.source,
-            ))
+            issues.append(
+                _issue(
+                    "unknown_class",
+                    "error",
+                    "Không nhận diện được lớp",
+                    f"Tên lớp “{raw.class_text}” không khớp với lớp nào trong project.",
+                    slot=slot,
+                    project=project,
+                    source=raw.source,
+                )
+            )
             continue
 
-        combined = " ".join(part for part in (raw.lesson_text, raw.subject_text, raw.teacher_text) if part)
+        combined = " ".join(
+            part
+            for part in (raw.lesson_text, raw.subject_text, raw.teacher_text)
+            if part
+        )
         subject_id = _find_alias(raw.subject_text or raw.lesson_text, subject_aliases)
-        explicit_teacher_id = _find_alias(raw.teacher_text or raw.lesson_text, teacher_aliases)
+        explicit_teacher_id = _find_alias(
+            raw.teacher_text or raw.lesson_text, teacher_aliases
+        )
         teacher_id = explicit_teacher_id
 
         if subject_id is None and teacher_id is not None:
             candidates = assignments_by_class_teacher.get((class_id, teacher_id), [])
             if len(candidates) == 1:
                 subject_id = int(candidates[0]["subject_id"])
-        assignment = assignment_by_pair.get((class_id, subject_id)) if subject_id is not None else None
+        assignment = (
+            assignment_by_pair.get((class_id, subject_id))
+            if subject_id is not None
+            else None
+        )
         if teacher_id is None and assignment is not None:
             teacher_id = int(assignment["teacher_id"])
 
         if subject_id is None:
-            issues.append(_issue(
-                "unknown_subject", "error", "Không nhận diện được môn học",
-                f"Ô “{combined or raw.lesson_text}” của lớp {classes_by_id[class_id]['name']} không khớp môn học/phân công nào.",
-                slot=slot, project=project, source=raw.source, entity=classes_by_id[class_id]["name"],
-            ))
+            issues.append(
+                _issue(
+                    "unknown_subject",
+                    "error",
+                    "Không nhận diện được môn học",
+                    f"Ô “{combined or raw.lesson_text}” của lớp {classes_by_id[class_id]['name']} không khớp môn học/phân công nào.",
+                    slot=slot,
+                    project=project,
+                    source=raw.source,
+                    entity=classes_by_id[class_id]["name"],
+                )
+            )
             continue
         subject = subjects_by_id.get(subject_id, {"name": raw.subject_text or "?"})
         if assignment is None:
-            issues.append(_issue(
-                "missing_assignment", "error", "Tiết không có trong phân công",
-                f"Lớp {classes_by_id[class_id]['name']} có môn {subject['name']} trong file nhưng project chưa có phân công tương ứng.",
-                slot=slot, project=project, source=raw.source, entity=classes_by_id[class_id]["name"],
-            ))
+            issues.append(
+                _issue(
+                    "missing_assignment",
+                    "error",
+                    "Tiết không có trong phân công",
+                    f"Lớp {classes_by_id[class_id]['name']} có môn {subject['name']} trong file nhưng project chưa có phân công tương ứng.",
+                    slot=slot,
+                    project=project,
+                    source=raw.source,
+                    entity=classes_by_id[class_id]["name"],
+                )
+            )
             continue
 
         expected_teacher_id = int(assignment["teacher_id"])
-        if explicit_teacher_id is not None and explicit_teacher_id != expected_teacher_id:
-            actual = teachers_by_id.get(explicit_teacher_id, {"name": raw.teacher_text or "?"})
+        if (
+            explicit_teacher_id is not None
+            and explicit_teacher_id != expected_teacher_id
+        ):
+            actual = teachers_by_id.get(
+                explicit_teacher_id, {"name": raw.teacher_text or "?"}
+            )
             expected = teachers_by_id.get(expected_teacher_id, {"name": "?"})
-            issues.append(_issue(
-                "wrong_teacher", "error", "Sai giáo viên phân công",
-                f"{classes_by_id[class_id]['name']} · {subject['name']} đang ghi {actual['name']}, trong project phân công cho {expected['name']}.",
-                slot=slot, project=project, source=raw.source, entity=actual["name"],
-            ))
+            issues.append(
+                _issue(
+                    "wrong_teacher",
+                    "error",
+                    "Sai giáo viên phân công",
+                    f"{classes_by_id[class_id]['name']} · {subject['name']} đang ghi {actual['name']}, trong project phân công cho {expected['name']}.",
+                    slot=slot,
+                    project=project,
+                    source=raw.source,
+                    entity=actual["name"],
+                )
+            )
         if teacher_id is None:
             teacher_id = expected_teacher_id
 
-        recognized.append({
-            "slot": slot,
-            "class_id": class_id,
-            "subject_id": subject_id,
-            "teacher_id": teacher_id,
-            "assignment_id": int(assignment["id"]),
-            "room": raw.room_text.strip(),
-            "source": raw.source,
-            "lesson_text": raw.lesson_text or raw.subject_text,
-            "origin": raw.origin,
-        })
+        recognized.append(
+            {
+                "slot": slot,
+                "class_id": class_id,
+                "subject_id": subject_id,
+                "teacher_id": teacher_id,
+                "assignment_id": int(assignment["id"]),
+                "room": raw.room_text.strip(),
+                "source": raw.source,
+                "lesson_text": raw.lesson_text or raw.subject_text,
+                "origin": raw.origin,
+            }
+        )
 
     # Một workbook có thể chứa đồng thời TKB theo lớp và theo giáo viên.
     # Cùng một tiết xuất hiện ở hai góc nhìn chỉ được tính một lần; bản sao
@@ -983,8 +1243,10 @@ def analyze_schedule_file(
     first_by_key: dict[tuple[int, int, int, int], dict[str, Any]] = {}
     for entry in recognized:
         key = (
-            int(entry["slot"]), int(entry["class_id"]),
-            int(entry["subject_id"]), int(entry["teacher_id"]),
+            int(entry["slot"]),
+            int(entry["class_id"]),
+            int(entry["subject_id"]),
+            int(entry["teacher_id"]),
         )
         existing = first_by_key.get(key)
         if existing is not None and entry["origin"] not in existing["_origins"]:
@@ -1025,52 +1287,99 @@ def analyze_schedule_file(
         teacher = teachers_by_id.get(teacher_id)
         school_class = classes_by_id.get(class_id)
         if slot in global_blocked:
-            issues.append(_issue(
-                "global_blocked", "error", "Xếp vào tiết toàn trường đã khóa",
-                f"{school_class['name']} · {subjects_by_id[entry['subject_id']]['name']} nằm trong ô đã khóa toàn trường.",
-                slot=slot, project=project, source=entry["source"],
-            ))
+            issues.append(
+                _issue(
+                    "global_blocked",
+                    "error",
+                    "Xếp vào tiết toàn trường đã khóa",
+                    f"{school_class['name']} · {subjects_by_id[entry['subject_id']]['name']} nằm trong ô đã khóa toàn trường.",
+                    slot=slot,
+                    project=project,
+                    source=entry["source"],
+                )
+            )
         if teacher and slot in {int(value) for value in teacher.get("unavailable", [])}:
-            issues.append(_issue(
-                "teacher_unavailable", "error", "Giáo viên bị xếp vào tiết nghỉ",
-                f"{teacher['name']} đang được xếp dạy {school_class['name']} dù tiết này đã đánh dấu không thể dạy.",
-                slot=slot, project=project, source=entry["source"], entity=teacher["name"],
-            ))
-        if school_class and slot in {int(value) for value in school_class.get("unavailable", [])}:
-            issues.append(_issue(
-                "class_unavailable", "error", "Lớp bị xếp vào tiết nghỉ",
-                f"{school_class['name']} có tiết học trong ô đã đánh dấu lớp không học.",
-                slot=slot, project=project, source=entry["source"], entity=school_class["name"],
-            ))
+            issues.append(
+                _issue(
+                    "teacher_unavailable",
+                    "error",
+                    "Giáo viên bị xếp vào tiết nghỉ",
+                    f"{teacher['name']} đang được xếp dạy {school_class['name']} dù tiết này đã đánh dấu không thể dạy.",
+                    slot=slot,
+                    project=project,
+                    source=entry["source"],
+                    entity=teacher["name"],
+                )
+            )
+        if school_class and slot in {
+            int(value) for value in school_class.get("unavailable", [])
+        }:
+            issues.append(
+                _issue(
+                    "class_unavailable",
+                    "error",
+                    "Lớp bị xếp vào tiết nghỉ",
+                    f"{school_class['name']} có tiết học trong ô đã đánh dấu lớp không học.",
+                    slot=slot,
+                    project=project,
+                    source=entry["source"],
+                    entity=school_class["name"],
+                )
+            )
 
     for (slot, class_id), rows in by_class_slot.items():
         if len(rows) > 1:
             names = ", ".join(subjects_by_id[row["subject_id"]]["name"] for row in rows)
-            issues.append(_issue(
-                "class_collision", "error", "Trùng lịch lớp",
-                f"Lớp {classes_by_id[class_id]['name']} có {len(rows)} tiết cùng lúc: {names}.",
-                slot=slot, project=project, source="; ".join(row["source"] for row in rows), entity=classes_by_id[class_id]["name"],
-            ))
+            issues.append(
+                _issue(
+                    "class_collision",
+                    "error",
+                    "Trùng lịch lớp",
+                    f"Lớp {classes_by_id[class_id]['name']} có {len(rows)} tiết cùng lúc: {names}.",
+                    slot=slot,
+                    project=project,
+                    source="; ".join(row["source"] for row in rows),
+                    entity=classes_by_id[class_id]["name"],
+                )
+            )
 
     for (slot, teacher_id), rows in by_teacher_slot.items():
         if len(rows) > 1:
-            class_names = ", ".join(classes_by_id[row["class_id"]]["name"] for row in rows)
+            class_names = ", ".join(
+                classes_by_id[row["class_id"]]["name"] for row in rows
+            )
             teacher_name = teachers_by_id.get(teacher_id, {"name": "?"})["name"]
-            issues.append(_issue(
-                "teacher_collision", "error", "Trùng lịch giáo viên",
-                f"{teacher_name} bị xếp dạy đồng thời {len(rows)} lớp: {class_names}.",
-                slot=slot, project=project, source="; ".join(row["source"] for row in rows), entity=teacher_name,
-            ))
+            issues.append(
+                _issue(
+                    "teacher_collision",
+                    "error",
+                    "Trùng lịch giáo viên",
+                    f"{teacher_name} bị xếp dạy đồng thời {len(rows)} lớp: {class_names}.",
+                    slot=slot,
+                    project=project,
+                    source="; ".join(row["source"] for row in rows),
+                    entity=teacher_name,
+                )
+            )
 
     for (slot, _room_key), rows in by_room_slot.items():
         if len(rows) > 1:
             room = rows[0]["room"]
-            class_names = ", ".join(classes_by_id[row["class_id"]]["name"] for row in rows)
-            issues.append(_issue(
-                "room_collision", "error", "Trùng phòng học",
-                f"Phòng {room} được dùng đồng thời cho: {class_names}.", slot=slot, project=project,
-                source="; ".join(row["source"] for row in rows), entity=room,
-            ))
+            class_names = ", ".join(
+                classes_by_id[row["class_id"]]["name"] for row in rows
+            )
+            issues.append(
+                _issue(
+                    "room_collision",
+                    "error",
+                    "Trùng phòng học",
+                    f"Phòng {room} được dùng đồng thời cho: {class_names}.",
+                    slot=slot,
+                    project=project,
+                    source="; ".join(row["source"] for row in rows),
+                    entity=room,
+                )
+            )
 
     missing_count = 0
     extra_count = 0
@@ -1080,7 +1389,8 @@ def analyze_schedule_file(
         audited_assignments = assignments
     else:
         audited_assignments = [
-            assignment for assignment in assignments
+            assignment
+            for assignment in assignments
             if int(assignment["class_id"]) in class_scope
             or int(assignment["teacher_id"]) in teacher_scope
         ]
@@ -1093,24 +1403,39 @@ def analyze_schedule_file(
         if actual < expected:
             missing = expected - actual
             missing_count += missing
-            issues.append(_issue(
-                "missing_lessons", "error", "Xếp thiếu tiết",
-                f"{label}: cần {expected} tiết/tuần nhưng file chỉ có {actual}, thiếu {missing} tiết.", entity=label,
-            ))
+            issues.append(
+                _issue(
+                    "missing_lessons",
+                    "error",
+                    "Xếp thiếu tiết",
+                    f"{label}: cần {expected} tiết/tuần nhưng file chỉ có {actual}, thiếu {missing} tiết.",
+                    entity=label,
+                )
+            )
         elif actual > expected:
             extra = actual - expected
             extra_count += extra
-            issues.append(_issue(
-                "extra_lessons", "error", "Xếp thừa tiết",
-                f"{label}: cần {expected} tiết/tuần nhưng file có {actual}, thừa {extra} tiết.", entity=label,
-            ))
+            issues.append(
+                _issue(
+                    "extra_lessons",
+                    "error",
+                    "Xếp thừa tiết",
+                    f"{label}: cần {expected} tiết/tuần nhưng file có {actual}, thừa {extra} tiết.",
+                    entity=label,
+                )
+            )
         elif expected and assignment.get("block_mode") == "required_double":
             slots = [int(row["slot"]) for row in rows]
             if not required_double_pattern_ok(slots, expected, project):
-                issues.append(_issue(
-                    "required_double_mismatch", "warning", "Chưa đúng cấu trúc tiết đôi bắt buộc",
-                    f"{label} đủ {expected} tiết nhưng chưa tạo đúng số cặp tiết đôi theo cấu hình.", entity=label,
-                ))
+                issues.append(
+                    _issue(
+                        "required_double_mismatch",
+                        "warning",
+                        "Chưa đúng cấu trúc tiết đôi bắt buộc",
+                        f"{label} đủ {expected} tiết nhưng chưa tạo đúng số cặp tiết đôi theo cấu hình.",
+                        entity=label,
+                    )
+                )
 
     for (teacher_id, day), rows in by_teacher_day.items():
         teacher = teachers_by_id.get(teacher_id)
@@ -1119,10 +1444,15 @@ def analyze_schedule_file(
         maximum = int(teacher.get("max_periods_day", 0) or 0)
         if maximum > 0 and len(rows) > maximum:
             day_name = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][day]
-            issues.append(_issue(
-                "teacher_daily_overload", "warning", "Giáo viên vượt số tiết tối đa/ngày",
-                f"{teacher['name']} có {len(rows)} tiết vào {day_name}, vượt giới hạn {maximum} tiết/ngày.", entity=teacher["name"],
-            ))
+            issues.append(
+                _issue(
+                    "teacher_daily_overload",
+                    "warning",
+                    "Giáo viên vượt số tiết tối đa/ngày",
+                    f"{teacher['name']} có {len(rows)} tiết vào {day_name}, vượt giới hạn {maximum} tiết/ngày.",
+                    entity=teacher["name"],
+                )
+            )
 
     for (class_id, subject_id), rows in by_class_subject.items():
         subject = subjects_by_id.get(subject_id)
@@ -1134,27 +1464,56 @@ def analyze_schedule_file(
         slots = [int(row["slot"]) for row in rows]
         for run in _consecutive_runs(slots, project):
             if len(run) > maximum:
-                issues.append(_issue(
-                    "subject_consecutive_overload", "warning", "Môn học vượt số tiết liên tiếp",
-                    f"{classes_by_id[class_id]['name']} · {subject['name']} có {len(run)} tiết liên tiếp, vượt giới hạn {maximum}.",
-                    slot=run[0], project=project, entity=f"{classes_by_id[class_id]['name']} · {subject['name']}",
-                ))
+                issues.append(
+                    _issue(
+                        "subject_consecutive_overload",
+                        "warning",
+                        "Môn học vượt số tiết liên tiếp",
+                        f"{classes_by_id[class_id]['name']} · {subject['name']} có {len(run)} tiết liên tiếp, vượt giới hạn {maximum}.",
+                        slot=run[0],
+                        project=project,
+                        entity=f"{classes_by_id[class_id]['name']} · {subject['name']}",
+                    )
+                )
 
     for warning in parse_warnings:
-        issues.append(_issue("unread_table", "warning", "Có bảng/sheet chưa đọc được", warning))
+        issues.append(
+            _issue("unread_table", "warning", "Có bảng/sheet chưa đọc được", warning)
+        )
 
     severity_order = {"error": 0, "warning": 1, "info": 2}
-    issues.sort(key=lambda item: (severity_order.get(item["severity"], 9), item.get("slot") is None, item.get("slot") or -1, item["title"]))
+    issues.sort(
+        key=lambda item: (
+            severity_order.get(item["severity"], 9),
+            item.get("slot") is None,
+            item.get("slot") or -1,
+            item["title"],
+        )
+    )
     errors = sum(1 for item in issues if item["severity"] == "error")
     warnings = sum(1 for item in issues if item["severity"] == "warning")
-    collisions = sum(1 for item in issues if item["code"] in {"teacher_collision", "class_collision", "room_collision"})
+    collisions = sum(
+        1
+        for item in issues
+        if item["code"] in {"teacher_collision", "class_collision", "room_collision"}
+    )
 
-    detection["classes"] = [classes_by_id[item_id]["name"] for item_id in detection.get("class_ids", []) if item_id in classes_by_id]
-    detection["teachers"] = [teachers_by_id[item_id]["name"] for item_id in detection.get("teacher_ids", []) if item_id in teachers_by_id]
+    detection["classes"] = [
+        classes_by_id[item_id]["name"]
+        for item_id in detection.get("class_ids", [])
+        if item_id in classes_by_id
+    ]
+    detection["teachers"] = [
+        teachers_by_id[item_id]["name"]
+        for item_id in detection.get("teacher_ids", [])
+        if item_id in teachers_by_id
+    ]
     if detection.get("full_project"):
         detection["scope_label"] = "Toàn bộ project"
     elif detection["classes"] and detection["teachers"]:
-        detection["scope_label"] = f"{len(detection['classes'])} lớp · {len(detection['teachers'])} giáo viên"
+        detection["scope_label"] = (
+            f"{len(detection['classes'])} lớp · {len(detection['teachers'])} giáo viên"
+        )
     elif detection["classes"]:
         detection["scope_label"] = "Lớp: " + ", ".join(detection["classes"])
     elif detection["teachers"]:
@@ -1167,7 +1526,9 @@ def analyze_schedule_file(
         "filename": filename,
         "format": file_format,
         "detection": detection,
-        "status": "clean" if errors == 0 and warnings == 0 else ("error" if errors else "warning"),
+        "status": "clean"
+        if errors == 0 and warnings == 0
+        else ("error" if errors else "warning"),
         "summary": {
             "read_lessons": len(raw_lessons),
             "recognized_lessons": len(recognized),
@@ -1191,6 +1552,7 @@ def analyze_schedule_file(
             for index, entry in enumerate(recognized, start=1)
         ]
     return result
+
 
 # ===== Standalone import/audit (khong phu thuoc project co san) =====
 
@@ -1285,6 +1647,7 @@ _STANDALONE_SUBJECT_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = t
     )
 )
 
+
 def _standalone_subject_prefix(value: str) -> tuple[str, str]:
     text = unicodedata.normalize("NFC", _cell_text(value))
     if not text:
@@ -1314,9 +1677,8 @@ def _standalone_subject_prefix(value: str) -> tuple[str, str]:
     for pattern, subject in _STANDALONE_SUBJECT_PREFIX_PATTERNS:
         match = pattern.match(text)
         if match:
-            return subject, text[match.end():].strip(" -–—|;/: ")
+            return subject, text[match.end() :].strip(" -–—|;/: ")
     return "", ""
-
 
 
 def _standalone_clean_entity_heading(value: str) -> str:
@@ -1332,7 +1694,9 @@ def _standalone_clean_entity_heading(value: str) -> str:
         text,
         flags=re.IGNORECASE,
     ).strip()
-    text = re.sub(rf"^\s*{entity_label}\s*[:\-]?\s*", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(
+        rf"^\s*{entity_label}\s*[:\-]?\s*", "", text, flags=re.IGNORECASE
+    ).strip()
     return text or original
 
 
@@ -1371,10 +1735,12 @@ def _standalone_without_class_token(value: str, class_name: str = "") -> str:
     )
     for pattern in patterns:
         match = re.search(pattern, text)
-        if not match or normalize_text(re.sub(r"\s+", "", match.group(1))).replace(" ", "") != target.replace(" ", ""):
+        if not match or normalize_text(re.sub(r"\s+", "", match.group(1))).replace(
+            " ", ""
+        ) != target.replace(" ", ""):
             continue
-        left = text[:match.start()].strip(" -–—|;/:,·•")
-        right = text[match.end():].strip(" -–—|;/:,·•")
+        left = text[: match.start()].strip(" -–—|;/:,·•")
+        right = text[match.end() :].strip(" -–—|;/:,·•")
         return " ".join(part for part in (left, right) if part).strip()
     return text
 
@@ -1406,7 +1772,7 @@ def _standalone_subject_from_text(value: str) -> str:
     class_norm = normalize_text(class_name)
     normalized_candidates = [normalize_text(part) for part in candidates]
     if class_norm and full_norm.startswith(f"{class_norm} "):
-        normalized_candidates.append(full_norm[len(class_norm):].strip())
+        normalized_candidates.append(full_norm[len(class_norm) :].strip())
 
     for part in candidates:
         part_subject, _remainder = _standalone_subject_prefix(part)
@@ -1426,7 +1792,11 @@ def _standalone_split_parts(value: str) -> list[str]:
     text = _cell_text(value)
     if not text:
         return []
-    parts = [part.strip() for part in re.split(r"\s*(?:\n|\r|\||;|·|•|\s[-–—]\s|\s/\s)\s*", text) if part.strip()]
+    parts = [
+        part.strip()
+        for part in re.split(r"\s*(?:\n|\r|\||;|·|•|\s[-–—]\s|\s/\s)\s*", text)
+        if part.strip()
+    ]
     return parts or [text]
 
 
@@ -1434,12 +1804,18 @@ def _standalone_teacher_from_text(value: str, *, exclude: Iterable[str] = ()) ->
     text = _cell_text(value)
     if not text:
         return ""
-    explicit = re.search(r"(?i)\b(?:giáo\s*viên|giao\s*vien|gv)\s*[:\-]\s*([^|;/]+)", text)
+    explicit = re.search(
+        r"(?i)\b(?:giáo\s*viên|giao\s*vien|gv)\s*[:\-]\s*([^|;/]+)", text
+    )
     if explicit:
         return explicit.group(1).strip()
     excluded = {normalize_text(item) for item in exclude if item}
     _subject, remainder = _standalone_subject_prefix(text)
-    if remainder and normalize_text(remainder) not in excluded and not _standalone_looks_like_class(remainder):
+    if (
+        remainder
+        and normalize_text(remainder) not in excluded
+        and not _standalone_looks_like_class(remainder)
+    ):
         return remainder
     norm_text = normalize_text(text)
     parts = _standalone_split_parts(text)
@@ -1472,7 +1848,9 @@ def _standalone_parse_cell(
     subject_name = _standalone_subject_from_text(semantic_text)
     teacher_name = fixed_teacher
     if not teacher_name:
-        teacher_name = _standalone_teacher_from_text(semantic_text, exclude=(class_name, subject_name))
+        teacher_name = _standalone_teacher_from_text(
+            semantic_text, exclude=(class_name, subject_name)
+        )
     parts = _standalone_split_parts(semantic_text)
     if not subject_name:
         for part in parts:
@@ -1491,7 +1869,14 @@ def _standalone_parse_cell(
     return class_name.strip(), subject_name.strip(), teacher_name.strip()
 
 
-_STANDALONE_OPTIONAL_TEACHER_SUBJECTS = {"chao co", "sinh hoat", "trai nghiem", "hdtn", "hdtnhn", "tnhn"}
+_STANDALONE_OPTIONAL_TEACHER_SUBJECTS = {
+    "chao co",
+    "sinh hoat",
+    "trai nghiem",
+    "hdtn",
+    "hdtnhn",
+    "tnhn",
+}
 
 
 def _standalone_teacher_is_optional(subject_name: str) -> bool:
@@ -1503,10 +1888,21 @@ def _standalone_day_index(value: str) -> int | None:
     if not text:
         return None
     exact = {
-        "cn": 6, "chu nhat": 6, "sunday": 6, "sun": 6,
-        "monday": 0, "mon": 0, "tuesday": 1, "tue": 1,
-        "wednesday": 2, "wed": 2, "thursday": 3,
-        "friday": 4, "fri": 4, "saturday": 5, "sat": 5,
+        "cn": 6,
+        "chu nhat": 6,
+        "sunday": 6,
+        "sun": 6,
+        "monday": 0,
+        "mon": 0,
+        "tuesday": 1,
+        "tue": 1,
+        "wednesday": 2,
+        "wed": 2,
+        "thursday": 3,
+        "friday": 4,
+        "fri": 4,
+        "saturday": 5,
+        "sat": 5,
     }
     if text in exact:
         return exact[text]
@@ -1516,12 +1912,18 @@ def _standalone_day_index(value: str) -> int | None:
         return 6 if number == 8 else number - 2
     return None
 
-def _standalone_heading_from_context(title: str, rows: list[list[str]], header_index: int) -> str:
+
+def _standalone_heading_from_context(
+    title: str, rows: list[list[str]], header_index: int
+) -> str:
     """Pick the class/teacher heading from a sheet title or rows above the grid header."""
     generic = {"", "du lieu", "data", "thoi khoa bieu", "tkb", "sheet"}
 
     def is_generic_heading(normalized: str) -> bool:
-        return normalized in generic or re.fullmatch(r"sheet\s*\d+", normalized) is not None
+        return (
+            normalized in generic
+            or re.fullmatch(r"sheet\s*\d+", normalized) is not None
+        )
 
     title_heading = _standalone_clean_entity_heading(title)
     title_norm = normalize_text(title_heading)
@@ -1558,13 +1960,26 @@ def _standalone_heading_from_context(title: str, rows: list[list[str]], header_i
     return fallback or title_heading
 
 
-def _standalone_find_grid_header(rows: list[list[str]]) -> tuple[int, list[tuple[int, str]], int, int | None] | None:
+def _standalone_find_grid_header(
+    rows: list[list[str]],
+) -> tuple[int, list[tuple[int, str]], int, int | None] | None:
     for header_index, row in enumerate(rows[:30]):
-        day_cols = [(col, _cell_text(value)) for col, value in enumerate(row) if _standalone_day_index(_cell_text(value)) is not None]
+        day_cols = [
+            (col, _cell_text(value))
+            for col, value in enumerate(row)
+            if _standalone_day_index(_cell_text(value)) is not None
+        ]
         distinct_days = {_standalone_day_index(day_text) for _col, day_text in day_cols}
         if len(day_cols) < 2 or len(distinct_days) < 2:
             continue
-        period_header_col = next((col for col, value in enumerate(row) if _header_kind(_cell_text(value)) == "period"), None)
+        period_header_col = next(
+            (
+                col
+                for col, value in enumerate(row)
+                if _header_kind(_cell_text(value)) == "period"
+            ),
+            None,
+        )
         # Numeric long/wide rows such as "2, 4, ..." must not be mistaken for a
         # grid header merely because both numbers can also mean weekdays.  A
         # two-day grid therefore needs an explicit Tiết/Period header; header
@@ -1573,12 +1988,21 @@ def _standalone_find_grid_header(rows: list[list[str]]) -> tuple[int, list[tuple
         if period_header_col is None and len(distinct_days) < 3:
             continue
         period_col = period_header_col if period_header_col is not None else 0
-        session_col = next((col for col, value in enumerate(row) if _header_kind(_cell_text(value)) == "session"), None)
+        session_col = next(
+            (
+                col
+                for col, value in enumerate(row)
+                if _header_kind(_cell_text(value)) == "session"
+            ),
+            None,
+        )
         return header_index, day_cols, period_col, session_col
     return None
 
 
-def _standalone_parse_grid(title: str, rows: list[list[str]]) -> tuple[list[RawLesson], str]:
+def _standalone_parse_grid(
+    title: str, rows: list[list[str]]
+) -> tuple[list[RawLesson], str]:
     header = _standalone_find_grid_header(rows)
     if header is None:
         return [], ""
@@ -1598,50 +2022,92 @@ def _standalone_parse_grid(title: str, rows: list[list[str]]) -> tuple[list[RawL
     if not is_class_sheet and not is_teacher_sheet:
         # Ten sheet ngan khong giong tieu de chung thuong la ten lop; neu la ten nguoi
         # ma o co lop thi nhanh teacher o tren da bat duoc.
-        is_class_sheet = bool(heading and normalize_text(heading) not in {"du lieu", "thoi khoa bieu", "tkb", "sheet", "sheet1"})
+        is_class_sheet = bool(
+            heading
+            and normalize_text(heading)
+            not in {"du lieu", "thoi khoa bieu", "tkb", "sheet", "sheet1"}
+        )
     if not is_class_sheet and not is_teacher_sheet:
         return [], ""
 
     parsed: list[RawLesson] = []
     last_session = ""
     implicit_sessions = _implicit_session_hints(
-        rows, start_index=header_index + 1, period_col=period_col, session_col=session_col,
+        rows,
+        start_index=header_index + 1,
+        period_col=period_col,
+        session_col=session_col,
     )
-    for row_index, values in enumerate(rows[header_index + 1 :], start=header_index + 1):
+    for row_index, values in enumerate(
+        rows[header_index + 1 :], start=header_index + 1
+    ):
         row_no = row_index + 1
         period = values[period_col] if period_col < len(values) else ""
         if not period or _period_number(period) is None:
             continue
-        session_value = values[session_col] if session_col is not None and session_col < len(values) else ""
+        session_value = (
+            values[session_col]
+            if session_col is not None and session_col < len(values)
+            else ""
+        )
         if session_value:
             last_session = session_value
         session = session_value or implicit_sessions.get(row_index, "") or last_session
         for col, day_text in day_cols:
             lesson = values[col] if col < len(values) else ""
-            if not lesson or normalize_text(lesson) in {"x", "trong", "nghi", "off", "none", "na"}:
+            if not lesson or normalize_text(lesson) in {
+                "x",
+                "trong",
+                "nghi",
+                "off",
+                "none",
+                "na",
+            }:
                 continue
             if is_teacher_sheet:
-                class_name, subject_name, teacher_name = _standalone_parse_cell(lesson, fixed_teacher=heading)
+                class_name, subject_name, teacher_name = _standalone_parse_cell(
+                    lesson, fixed_teacher=heading
+                )
                 if not class_name:
                     continue
-                parsed.append(RawLesson(
-                    day_text, session, period, class_name,
-                    lesson_text=lesson, subject_text=subject_name, teacher_text=teacher_name,
-                    source=f"{title} · dong {row_no}", origin="teacher",
-                ))
+                parsed.append(
+                    RawLesson(
+                        day_text,
+                        session,
+                        period,
+                        class_name,
+                        lesson_text=lesson,
+                        subject_text=subject_name,
+                        teacher_text=teacher_name,
+                        source=f"{title} · dong {row_no}",
+                        origin="teacher",
+                    )
+                )
             else:
-                class_name, subject_name, teacher_name = _standalone_parse_cell(lesson, fixed_class=heading)
-                parsed.append(RawLesson(
-                    day_text, session, period, class_name or heading,
-                    lesson_text=lesson, subject_text=subject_name, teacher_text=teacher_name,
-                    source=f"{title} · dong {row_no}", origin="class",
-                ))
+                class_name, subject_name, teacher_name = _standalone_parse_cell(
+                    lesson, fixed_class=heading
+                )
+                parsed.append(
+                    RawLesson(
+                        day_text,
+                        session,
+                        period,
+                        class_name or heading,
+                        lesson_text=lesson,
+                        subject_text=subject_name,
+                        teacher_text=teacher_name,
+                        source=f"{title} · dong {row_no}",
+                        origin="class",
+                    )
+                )
     if not parsed:
         return [], ""
     return parsed, "Theo giao vien" if is_teacher_sheet else "Theo lop/hoc sinh"
 
 
-def _standalone_parse_wide(title: str, rows: list[list[str]]) -> tuple[list[RawLesson], str]:
+def _standalone_parse_wide(
+    title: str, rows: list[list[str]]
+) -> tuple[list[RawLesson], str]:
     best = None
     for header_index, row in enumerate(rows[:30]):
         kinds: dict[str, int] = {}
@@ -1666,24 +2132,35 @@ def _standalone_parse_wide(title: str, rows: list[list[str]]) -> tuple[list[RawL
     if best is None:
         return [], ""
     _score, header_index, kinds, entity_cols = best
-    class_header_hits = sum(1 for _col, header in entity_cols if _standalone_looks_like_class(header))
+    class_header_hits = sum(
+        1 for _col, header in entity_cols if _standalone_looks_like_class(header)
+    )
     sampled = []
     for values in rows[header_index + 1 : header_index + 18]:
         for col, _header in entity_cols:
             if col < len(values) and _cell_text(values[col]):
                 sampled.append(_cell_text(values[col]))
     cell_class_hits = sum(1 for cell in sampled if _standalone_class_token(cell))
-    teacher_wide = class_header_hits == 0 and cell_class_hits >= max(1, len(sampled) // 3) if sampled else False
+    teacher_wide = (
+        class_header_hits == 0 and cell_class_hits >= max(1, len(sampled) // 3)
+        if sampled
+        else False
+    )
     class_wide = not teacher_wide
 
     parsed: list[RawLesson] = []
     last_day = ""
     last_session = ""
     implicit_sessions = _implicit_session_hints(
-        rows, start_index=header_index + 1, period_col=kinds["period"],
-        session_col=kinds.get("session"), day_col=kinds["day"],
+        rows,
+        start_index=header_index + 1,
+        period_col=kinds["period"],
+        session_col=kinds.get("session"),
+        day_col=kinds["day"],
     )
-    for row_index, values in enumerate(rows[header_index + 1 :], start=header_index + 1):
+    for row_index, values in enumerate(
+        rows[header_index + 1 :], start=header_index + 1
+    ):
         row_no = row_index + 1
         get = lambda col: values[col] if col is not None and col < len(values) else ""
         day_value = get(kinds.get("day"))
@@ -1699,29 +2176,58 @@ def _standalone_parse_wide(title: str, rows: list[list[str]]) -> tuple[list[RawL
             continue
         for col, header in entity_cols:
             lesson = get(col)
-            if not lesson or normalize_text(lesson) in {"x", "trong", "nghi", "off", "none", "na"}:
+            if not lesson or normalize_text(lesson) in {
+                "x",
+                "trong",
+                "nghi",
+                "off",
+                "none",
+                "na",
+            }:
                 continue
             if teacher_wide:
                 class_name, subject_name, teacher_name = _standalone_parse_cell(
-                    lesson, fixed_teacher=_standalone_clean_entity_heading(header),
+                    lesson,
+                    fixed_teacher=_standalone_clean_entity_heading(header),
                 )
                 if not class_name:
                     continue
-                parsed.append(RawLesson(
-                    day, session, period, class_name,
-                    lesson_text=lesson, subject_text=subject_name, teacher_text=teacher_name,
-                    source=f"{title} · dong {row_no}", origin="teacher",
-                ))
+                parsed.append(
+                    RawLesson(
+                        day,
+                        session,
+                        period,
+                        class_name,
+                        lesson_text=lesson,
+                        subject_text=subject_name,
+                        teacher_text=teacher_name,
+                        source=f"{title} · dong {row_no}",
+                        origin="teacher",
+                    )
+                )
             else:
-                class_name, subject_name, teacher_name = _standalone_parse_cell(lesson, fixed_class=header)
-                parsed.append(RawLesson(
-                    day, session, period, class_name or header,
-                    lesson_text=lesson, subject_text=subject_name, teacher_text=teacher_name,
-                    source=f"{title} · dong {row_no}", origin="class",
-                ))
+                class_name, subject_name, teacher_name = _standalone_parse_cell(
+                    lesson, fixed_class=header
+                )
+                parsed.append(
+                    RawLesson(
+                        day,
+                        session,
+                        period,
+                        class_name or header,
+                        lesson_text=lesson,
+                        subject_text=subject_name,
+                        teacher_text=teacher_name,
+                        source=f"{title} · dong {row_no}",
+                        origin="class",
+                    )
+                )
     if not parsed:
         return [], ""
-    return parsed, "Bang tong hop theo giao vien" if teacher_wide else "Bang tong hop theo lop"
+    return (
+        parsed,
+        "Bang tong hop theo giao vien" if teacher_wide else "Bang tong hop theo lop",
+    )
 
 
 def parse_tables_standalone(
@@ -1756,8 +2262,14 @@ def parse_tables_standalone(
         if parsed:
             all_rows.extend(parsed)
             layouts.add(layout)
-        elif any(_header_kind(value) in {"day", "period"} for row in rows[:30] for value in row):
-            warnings.append(f"Khong nhan dien duoc cau truc thoi khoa bieu trong \"{title}\".")
+        elif any(
+            _header_kind(value) in {"day", "period"}
+            for row in rows[:30]
+            for value in row
+        ):
+            warnings.append(
+                f'Khong nhan dien duoc cau truc thoi khoa bieu trong "{title}".'
+            )
     return all_rows, warnings, {"layouts": sorted(layouts)}
 
 
@@ -1788,7 +2300,11 @@ def infer_standalone_project(
                         explicit_sessions.add(session)
         else:
             for header_index, row in enumerate(rows[:30]):
-                kinds = {_header_kind(_cell_text(value)): col for col, value in enumerate(row) if _header_kind(_cell_text(value))}
+                kinds = {
+                    _header_kind(_cell_text(value)): col
+                    for col, value in enumerate(row)
+                    if _header_kind(_cell_text(value))
+                }
                 if "period" not in kinds or "day" not in kinds:
                     continue
                 for values in rows[header_index + 1 :]:
@@ -1801,7 +2317,9 @@ def infer_standalone_project(
                         if number is not None:
                             period_numbers.append(number)
                     if "session" in kinds and kinds["session"] < len(values):
-                        session = _session_index(_cell_text(values[kinds["session"]]), 2)
+                        session = _session_index(
+                            _cell_text(values[kinds["session"]]), 2
+                        )
                         if session is not None:
                             explicit_sessions.add(session)
                 break
@@ -1882,38 +2400,47 @@ def _standalone_statistics(
         known_teacher = not _standalone_is_unknown_teacher(teacher_name)
 
         if known_teacher:
-            teacher = teacher_rows.setdefault(teacher_id, {
-                "id": teacher_id,
-                "name": teacher_name,
-                "total_lessons": 0,
-                "subjects": {},
-                "classes": {},
-            })
+            teacher = teacher_rows.setdefault(
+                teacher_id,
+                {
+                    "id": teacher_id,
+                    "name": teacher_name,
+                    "total_lessons": 0,
+                    "subjects": {},
+                    "classes": {},
+                },
+            )
             teacher["total_lessons"] += 1
             if known_subject:
                 bump(teacher["subjects"], subject_name)
             bump(teacher["classes"], class_name)
 
         if known_subject:
-            subject = subject_rows.setdefault(subject_id, {
-                "id": subject_id,
-                "name": subject_name,
-                "total_lessons": 0,
-                "teachers": {},
-                "classes": {},
-            })
+            subject = subject_rows.setdefault(
+                subject_id,
+                {
+                    "id": subject_id,
+                    "name": subject_name,
+                    "total_lessons": 0,
+                    "teachers": {},
+                    "classes": {},
+                },
+            )
             subject["total_lessons"] += 1
             if known_teacher:
                 bump(subject["teachers"], teacher_name)
             bump(subject["classes"], class_name)
 
-        class_row = class_rows.setdefault(class_id, {
-            "id": class_id,
-            "name": class_name,
-            "total_lessons": 0,
-            "subjects": {},
-            "teachers": {},
-        })
+        class_row = class_rows.setdefault(
+            class_id,
+            {
+                "id": class_id,
+                "name": class_name,
+                "total_lessons": 0,
+                "subjects": {},
+                "teachers": {},
+            },
+        )
         class_row["total_lessons"] += 1
         if known_subject:
             bump(class_row["subjects"], subject_name)
@@ -1923,17 +2450,32 @@ def _standalone_statistics(
     def breakdown(mapping: dict[str, int]) -> list[dict[str, Any]]:
         return [
             {"name": name, "lessons": count}
-            for name, count in sorted(mapping.items(), key=lambda item: (-item[1], normalize_text(item[0]), _identity_text(item[0])))
+            for name, count in sorted(
+                mapping.items(),
+                key=lambda item: (
+                    -item[1],
+                    normalize_text(item[0]),
+                    _identity_text(item[0]),
+                ),
+            )
         ]
 
-    def finalize(rows: dict[int, dict[str, Any]], detail_fields: tuple[str, ...]) -> list[dict[str, Any]]:
+    def finalize(
+        rows: dict[int, dict[str, Any]], detail_fields: tuple[str, ...]
+    ) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
         for row in rows.values():
             item = dict(row)
             for field in detail_fields:
                 item[field] = breakdown(item[field])
             result.append(item)
-        result.sort(key=lambda item: (-int(item["total_lessons"]), normalize_text(item["name"]), _identity_text(item["name"])))
+        result.sort(
+            key=lambda item: (
+                -int(item["total_lessons"]),
+                normalize_text(item["name"]),
+                _identity_text(item["name"]),
+            )
+        )
         return result
 
     teachers = finalize(teacher_rows, ("subjects", "classes"))
@@ -1953,8 +2495,12 @@ def _standalone_statistics(
             "total_teachers": len(teachers),
             "total_subjects": len(subjects),
             "total_classes": len(classes),
-            "avg_lessons_per_teacher": round(known_teacher_lessons / len(teachers), 2) if teachers else 0,
-            "avg_lessons_per_class": round(total_lessons / len(classes), 2) if classes else 0,
+            "avg_lessons_per_teacher": round(known_teacher_lessons / len(teachers), 2)
+            if teachers
+            else 0,
+            "avg_lessons_per_class": round(total_lessons / len(classes), 2)
+            if classes
+            else 0,
             "busiest_teacher": leader(teachers),
             "largest_subject": leader(subjects),
             "busiest_class": leader(classes),
@@ -1993,7 +2539,11 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         "sessions": sessions,
         "periods": periods,
     }
-    existing_project = (report.get("data") or {}).get("project") if isinstance(report.get("data"), dict) else None
+    existing_project = (
+        (report.get("data") or {}).get("project")
+        if isinstance(report.get("data"), dict)
+        else None
+    )
     if isinstance(existing_project, dict):
         project = {**existing_project, **project}
 
@@ -2043,33 +2593,55 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
             subject_name = f"Mon chua xac dinh - {class_name}"
         if not teacher_name:
             teacher_name = f"GV chua xac dinh - {class_name} - {subject_name}"
-        normalized_rows.append({
-            "draft_id": draft_id,
-            "slot": slot,
-            "class_id": class_id,
-            "class_name": class_name,
-            "subject_name": subject_name,
-            "teacher_name": teacher_name,
-            "room": _cell_text(item.get("room"))[:120],
-            "source": _cell_text(item.get("source"))[:500],
-            "raw_text": _cell_text(item.get("raw_text"))[:500],
-        })
+        normalized_rows.append(
+            {
+                "draft_id": draft_id,
+                "slot": slot,
+                "class_id": class_id,
+                "class_name": class_name,
+                "subject_name": subject_name,
+                "teacher_name": teacher_name,
+                "room": _cell_text(item.get("room"))[:120],
+                "source": _cell_text(item.get("source"))[:500],
+                "raw_text": _cell_text(item.get("raw_text"))[:500],
+            }
+        )
 
     data = report.get("data") if isinstance(report.get("data"), dict) else {}
-    previous_subjects = data.get("subjects") if isinstance(data.get("subjects"), list) else []
-    previous_teachers = data.get("teachers") if isinstance(data.get("teachers"), list) else []
+    previous_subjects = (
+        data.get("subjects") if isinstance(data.get("subjects"), list) else []
+    )
+    previous_teachers = (
+        data.get("teachers") if isinstance(data.get("teachers"), list) else []
+    )
     previous_subject_by_key = {
         _identity_text(row.get("name")): row
-        for row in previous_subjects if isinstance(row, dict) and _identity_text(row.get("name"))
+        for row in previous_subjects
+        if isinstance(row, dict) and _identity_text(row.get("name"))
     }
     previous_teacher_by_key = {
         _identity_text(row.get("name")): row
-        for row in previous_teachers if isinstance(row, dict) and _identity_text(row.get("name"))
+        for row in previous_teachers
+        if isinstance(row, dict) and _identity_text(row.get("name"))
     }
     used_subject_ids: set[int] = set()
     used_teacher_ids: set[int] = set()
-    max_subject_id = max((int(row.get("id") or 0) for row in previous_subjects if isinstance(row, dict) and str(row.get("id") or "").isdigit()), default=0)
-    max_teacher_id = max((int(row.get("id") or 0) for row in previous_teachers if isinstance(row, dict) and str(row.get("id") or "").isdigit()), default=0)
+    max_subject_id = max(
+        (
+            int(row.get("id") or 0)
+            for row in previous_subjects
+            if isinstance(row, dict) and str(row.get("id") or "").isdigit()
+        ),
+        default=0,
+    )
+    max_teacher_id = max(
+        (
+            int(row.get("id") or 0)
+            for row in previous_teachers
+            if isinstance(row, dict) and str(row.get("id") or "").isdigit()
+        ),
+        default=0,
+    )
     next_subject_id = max_subject_id + 1
     next_teacher_id = max_teacher_id + 1
     subjects_by_key: dict[str, dict[str, Any]] = {}
@@ -2096,11 +2668,14 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         if existing is not None:
             return existing
         previous = previous_subject_by_key.get(key, {})
-        subject_id, next_subject_id = allocate_id(previous.get("id"), used_subject_ids, next_subject_id)
+        subject_id, next_subject_id = allocate_id(
+            previous.get("id"), used_subject_ids, next_subject_id
+        )
         row = {
             "id": subject_id,
             "name": name,
-            "short_name": _cell_text(previous.get("short_name"))[:20] or _standalone_short_name(name, f"M{subject_id}"),
+            "short_name": _cell_text(previous.get("short_name"))[:20]
+            or _standalone_short_name(name, f"M{subject_id}"),
             "is_placeholder": _standalone_is_unknown_subject(name),
         }
         subjects_by_key[key] = row
@@ -2113,11 +2688,14 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         if existing is not None:
             return existing
         previous = previous_teacher_by_key.get(key, {})
-        teacher_id, next_teacher_id = allocate_id(previous.get("id"), used_teacher_ids, next_teacher_id)
+        teacher_id, next_teacher_id = allocate_id(
+            previous.get("id"), used_teacher_ids, next_teacher_id
+        )
         row = {
             "id": teacher_id,
             "name": name,
-            "short_name": _cell_text(previous.get("short_name"))[:20] or _standalone_short_name(name, f"GV{teacher_id}"),
+            "short_name": _cell_text(previous.get("short_name"))[:20]
+            or _standalone_short_name(name, f"GV{teacher_id}"),
             "is_placeholder": _standalone_is_unknown_teacher(name),
             "subject_ids": [],
         }
@@ -2150,52 +2728,79 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
     for assignment_id, key in enumerate(assignment_order, start=1):
         class_id, subject_id, teacher_id = key
         assignment_id_by_key[key] = assignment_id
-        assignments.append({
-            "id": assignment_id,
-            "class_id": class_id,
-            "subject_id": subject_id,
-            "teacher_id": teacher_id,
-            "periods_per_week": assignment_counts[key],
-            "block_mode": "free",
-            "class_name": class_by_id[class_id]["name"],
-            "subject_name": subject_by_id[subject_id]["name"],
-            "subject_short": subject_by_id[subject_id]["short_name"],
-            "teacher_name": teacher_by_id[teacher_id]["name"],
-            "teacher_short": teacher_by_id[teacher_id]["short_name"],
-        })
+        assignments.append(
+            {
+                "id": assignment_id,
+                "class_id": class_id,
+                "subject_id": subject_id,
+                "teacher_id": teacher_id,
+                "periods_per_week": assignment_counts[key],
+                "block_mode": "free",
+                "class_name": class_by_id[class_id]["name"],
+                "subject_name": subject_by_id[subject_id]["name"],
+                "subject_short": subject_by_id[subject_id]["short_name"],
+                "teacher_name": teacher_by_id[teacher_id]["name"],
+                "teacher_short": teacher_by_id[teacher_id]["short_name"],
+            }
+        )
 
     issues = [
-        dict(issue) for issue in (report.get("issues") or [])
-        if isinstance(issue, dict) and issue.get("code") not in {
-            "teacher_collision", "class_collision", "room_collision", "unknown_subject", "unknown_teacher"
+        dict(issue)
+        for issue in (report.get("issues") or [])
+        if isinstance(issue, dict)
+        and issue.get("code")
+        not in {
+            "teacher_collision",
+            "class_collision",
+            "room_collision",
+            "unknown_subject",
+            "unknown_teacher",
         }
     ]
     for row in normalized_rows:
         subject_id, teacher_id = entity_ids_by_draft[int(row["draft_id"])]
         key = (int(row["class_id"]), subject_id, teacher_id)
-        recognized.append({
-            "draft_id": int(row["draft_id"]),
-            "assignment_id": assignment_id_by_key[key],
-            "slot": int(row["slot"]),
-            "room": row["room"],
-            "source": row["source"],
-            "raw_text": row["raw_text"],
-            "class_id": int(row["class_id"]),
-            "subject_id": subject_id,
-            "teacher_id": teacher_id,
-        })
+        recognized.append(
+            {
+                "draft_id": int(row["draft_id"]),
+                "assignment_id": assignment_id_by_key[key],
+                "slot": int(row["slot"]),
+                "room": row["room"],
+                "source": row["source"],
+                "raw_text": row["raw_text"],
+                "class_id": int(row["class_id"]),
+                "subject_id": subject_id,
+                "teacher_id": teacher_id,
+            }
+        )
         if _standalone_is_unknown_subject(row["subject_name"]):
-            issues.append(_issue(
-                "unknown_subject", "warning", "Chua xac dinh duoc mon hoc",
-                f"{row['class_name']} tai {slot_label(int(row['slot']), project)} chua co ten mon ro rang.",
-                slot=int(row["slot"]), project=project, source=row["source"], entity=row["class_name"],
-            ))
-        if _standalone_is_unknown_teacher(row["teacher_name"]) and not _standalone_teacher_is_optional(row["subject_name"]):
-            issues.append(_issue(
-                "unknown_teacher", "warning", "Chua xac dinh duoc giao vien",
-                f"{row['class_name']} · {row['subject_name']} chua co ten giao vien ro rang.",
-                slot=int(row["slot"]), project=project, source=row["source"], entity=row["class_name"],
-            ))
+            issues.append(
+                _issue(
+                    "unknown_subject",
+                    "warning",
+                    "Chua xac dinh duoc mon hoc",
+                    f"{row['class_name']} tai {slot_label(int(row['slot']), project)} chua co ten mon ro rang.",
+                    slot=int(row["slot"]),
+                    project=project,
+                    source=row["source"],
+                    entity=row["class_name"],
+                )
+            )
+        if _standalone_is_unknown_teacher(
+            row["teacher_name"]
+        ) and not _standalone_teacher_is_optional(row["subject_name"]):
+            issues.append(
+                _issue(
+                    "unknown_teacher",
+                    "warning",
+                    "Chua xac dinh duoc giao vien",
+                    f"{row['class_name']} · {row['subject_name']} chua co ten giao vien ro rang.",
+                    slot=int(row["slot"]),
+                    project=project,
+                    source=row["source"],
+                    entity=row["class_name"],
+                )
+            )
 
     conflict_codes_by_draft: dict[int, set[str]] = defaultdict(set)
     conflict_details_by_draft: dict[int, list[str]] = defaultdict(list)
@@ -2220,45 +2825,83 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         for row in rows:
             conflict_codes_by_draft[int(row["draft_id"])].add("class_collision")
             conflict_details_by_draft[int(row["draft_id"])].append(detail)
-        issues.append(_issue(
-            "class_collision", "error", "Trung lich lop", detail,
-            slot=slot, project=project, source="; ".join(row["source"] for row in rows if row["source"]), entity=class_by_id[class_id]["name"],
-        ))
+        issues.append(
+            _issue(
+                "class_collision",
+                "error",
+                "Trung lich lop",
+                detail,
+                slot=slot,
+                project=project,
+                source="; ".join(row["source"] for row in rows if row["source"]),
+                entity=class_by_id[class_id]["name"],
+            )
+        )
     for (slot, teacher_id), rows in by_teacher_slot.items():
         if len(rows) <= 1:
             continue
-        class_names = list(dict.fromkeys(class_by_id[int(row["class_id"])]["name"] for row in rows))
+        class_names = list(
+            dict.fromkeys(class_by_id[int(row["class_id"])]["name"] for row in rows)
+        )
         detail = f"Giáo viên {teacher_by_id[teacher_id]['name']} bị xếp đồng thời: {', '.join(class_names)}."
         for row in rows:
             conflict_codes_by_draft[int(row["draft_id"])].add("teacher_collision")
             conflict_details_by_draft[int(row["draft_id"])].append(detail)
-        issues.append(_issue(
-            "teacher_collision", "error", "Trung lich giao vien", detail,
-            slot=slot, project=project, source="; ".join(row["source"] for row in rows if row["source"]), entity=teacher_by_id[teacher_id]["name"],
-        ))
+        issues.append(
+            _issue(
+                "teacher_collision",
+                "error",
+                "Trung lich giao vien",
+                detail,
+                slot=slot,
+                project=project,
+                source="; ".join(row["source"] for row in rows if row["source"]),
+                entity=teacher_by_id[teacher_id]["name"],
+            )
+        )
     for (slot, _room_key), rows in by_room_slot.items():
         distinct_class_ids = {int(row["class_id"]) for row in rows}
         if len(distinct_class_ids) <= 1:
             continue
         room = rows[0]["room"]
-        class_names = sorted({class_by_id[class_id]["name"] for class_id in distinct_class_ids}, key=normalize_text)
+        class_names = sorted(
+            {class_by_id[class_id]["name"] for class_id in distinct_class_ids},
+            key=normalize_text,
+        )
         detail = f"Phòng {room} đang được dùng đồng thời cho: {', '.join(class_names)}."
         for row in rows:
             conflict_codes_by_draft[int(row["draft_id"])].add("room_collision")
             conflict_details_by_draft[int(row["draft_id"])].append(detail)
-        issues.append(_issue(
-            "room_collision", "error", "Trung phong hoc", detail,
-            slot=slot, project=project, source="; ".join(row["source"] for row in rows if row["source"]), entity=room,
-        ))
+        issues.append(
+            _issue(
+                "room_collision",
+                "error",
+                "Trung phong hoc",
+                detail,
+                slot=slot,
+                project=project,
+                source="; ".join(row["source"] for row in rows if row["source"]),
+                entity=room,
+            )
+        )
 
     severity_order = {"error": 0, "warning": 1, "info": 2}
-    issues.sort(key=lambda item: (
-        severity_order.get(str(item.get("severity")), 9), item.get("slot") is None,
-        int(item.get("slot") or -1), str(item.get("title") or ""),
-    ))
+    issues.sort(
+        key=lambda item: (
+            severity_order.get(str(item.get("severity")), 9),
+            item.get("slot") is None,
+            int(item.get("slot") or -1),
+            str(item.get("title") or ""),
+        )
+    )
     errors = sum(1 for item in issues if item.get("severity") == "error")
     warnings = sum(1 for item in issues if item.get("severity") == "warning")
-    collision_count = sum(1 for item in issues if item.get("code") in {"teacher_collision", "class_collision", "room_collision"})
+    collision_count = sum(
+        1
+        for item in issues
+        if item.get("code")
+        in {"teacher_collision", "class_collision", "room_collision"}
+    )
 
     affected_coordinates: set[tuple[int, int]] = set()
     cells: list[dict[str, Any]] = []
@@ -2269,19 +2912,21 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         codes = sorted(conflict_codes_by_draft.get(draft_id, set()))
         if codes:
             affected_coordinates.add((int(entry["slot"]), int(entry["class_id"])))
-        cells.append({
-            "draft_id": draft_id,
-            "slot": int(entry["slot"]),
-            "class_id": int(entry["class_id"]),
-            "class_name": row["class_name"],
-            "subject_name": row["subject_name"],
-            "teacher_name": row["teacher_name"],
-            "room": row["room"],
-            "source": row["source"],
-            "raw_text": row["raw_text"],
-            "conflicts": codes,
-            "conflict_details": conflict_details_by_draft.get(draft_id, []),
-        })
+        cells.append(
+            {
+                "draft_id": draft_id,
+                "slot": int(entry["slot"]),
+                "class_id": int(entry["class_id"]),
+                "class_name": row["class_name"],
+                "subject_name": row["subject_name"],
+                "teacher_name": row["teacher_name"],
+                "room": row["room"],
+                "source": row["source"],
+                "raw_text": row["raw_text"],
+                "conflicts": codes,
+                "conflict_details": conflict_details_by_draft.get(draft_id, []),
+            }
+        )
 
     statistics = _standalone_statistics(
         recognized,
@@ -2291,33 +2936,41 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
     )
     known_teachers = [row["name"] for row in teachers if not row.get("is_placeholder")]
     known_subjects = [row["name"] for row in subjects if not row.get("is_placeholder")]
-    viewer.update({
-        "days": days,
-        "sessions": sessions,
-        "periods": periods,
-        "classes": classes,
-        "cells": cells,
-        "conflict_cells": len(affected_coordinates),
-    })
+    viewer.update(
+        {
+            "days": days,
+            "sessions": sessions,
+            "periods": periods,
+            "classes": classes,
+            "cells": cells,
+            "conflict_cells": len(affected_coordinates),
+        }
+    )
     report["viewer"] = viewer
     report["issues"] = issues
     report["statistics"] = statistics
     report["status"] = "error" if errors else ("warning" if warnings else "clean")
     summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
-    summary.update({
-        "recognized_lessons": len(recognized),
-        "errors": errors,
-        "warnings": warnings,
-        "collisions": collision_count,
-        "classes": len(classes),
-        "teachers": len(known_teachers),
-        "subjects": len(known_subjects),
-    })
+    summary.update(
+        {
+            "recognized_lessons": len(recognized),
+            "errors": errors,
+            "warnings": warnings,
+            "collisions": collision_count,
+            "classes": len(classes),
+            "teachers": len(known_teachers),
+            "subjects": len(known_subjects),
+        }
+    )
     report["summary"] = summary
-    detection = report.get("detection") if isinstance(report.get("detection"), dict) else {}
+    detection = (
+        report.get("detection") if isinstance(report.get("detection"), dict) else {}
+    )
     detection["classes"] = [row["name"] for row in classes]
     detection["teachers"] = known_teachers
-    detection["scope_label"] = f"Doc lap · {len(classes)} lop · {len(known_teachers)} giao vien · {len(known_subjects)} mon"
+    detection["scope_label"] = (
+        f"Doc lap · {len(classes)} lop · {len(known_teachers)} giao vien · {len(known_subjects)} mon"
+    )
     report["detection"] = detection
     report["data"] = {
         **data,
@@ -2345,7 +2998,9 @@ def apply_standalone_viewer_edits(
 ) -> dict[str, Any]:
     """Apply only the explicitly editable fields onto a freshly parsed report."""
     base_viewer = base_report.get("viewer") if isinstance(base_report, dict) else None
-    edited_viewer = edited_report.get("viewer") if isinstance(edited_report, dict) else None
+    edited_viewer = (
+        edited_report.get("viewer") if isinstance(edited_report, dict) else None
+    )
     if not isinstance(base_viewer, dict) or not isinstance(edited_viewer, dict):
         raise ValueError("missing viewer")
     base_cells = base_viewer.get("cells")
@@ -2383,7 +3038,9 @@ def apply_standalone_viewer_edits(
             raise ValueError("empty edited entity")
         cell["subject_name"] = subject_name
         cell["teacher_name"] = teacher_name
-        cell["raw_text"] = " - ".join(part for part in (subject_name, teacher_name) if part)
+        cell["raw_text"] = " - ".join(
+            part for part in (subject_name, teacher_name) if part
+        )
 
     if set(edited_by_draft) != base_draft_ids:
         raise ValueError("edited timetable does not match source file")
@@ -2409,52 +3066,85 @@ def analyze_standalone_schedule_file(
     for raw in raw_lessons:
         slot = _resolve_slot(raw.day_text, raw.session_text, raw.period_text, project)
         if slot is None:
-            issues.append(_issue(
-                "invalid_slot", "error", "Khong xac dinh duoc tiet hoc",
-                f"Khong doi duoc '{raw.day_text} / {raw.session_text or '-'} / {raw.period_text}' thanh mot o hop le.",
-                source=raw.source,
-            ))
+            issues.append(
+                _issue(
+                    "invalid_slot",
+                    "error",
+                    "Khong xac dinh duoc tiet hoc",
+                    f"Khong doi duoc '{raw.day_text} / {raw.session_text or '-'} / {raw.period_text}' thanh mot o hop le.",
+                    source=raw.source,
+                )
+            )
             continue
-        class_name = _standalone_class_token(raw.class_text) or _standalone_clean_entity_heading(raw.class_text)
-        subject_name = _cell_text(raw.subject_text) or _standalone_subject_from_text(raw.lesson_text)
+        class_name = _standalone_class_token(
+            raw.class_text
+        ) or _standalone_clean_entity_heading(raw.class_text)
+        subject_name = _cell_text(raw.subject_text) or _standalone_subject_from_text(
+            raw.lesson_text
+        )
         teacher_name = _cell_text(raw.teacher_text)
         if not class_name:
-            issues.append(_issue(
-                "unknown_class", "error", "Khong nhan dien duoc lop",
-                f"Khong tim thay ten lop trong o '{raw.lesson_text or raw.class_text}'.",
-                slot=slot, project=project, source=raw.source,
-            ))
+            issues.append(
+                _issue(
+                    "unknown_class",
+                    "error",
+                    "Khong nhan dien duoc lop",
+                    f"Khong tim thay ten lop trong o '{raw.lesson_text or raw.class_text}'.",
+                    slot=slot,
+                    project=project,
+                    source=raw.source,
+                )
+            )
             continue
         if not subject_name:
             _class, subject_name, inferred_teacher = _standalone_parse_cell(
-                raw.lesson_text, fixed_class=class_name, fixed_teacher=teacher_name,
+                raw.lesson_text,
+                fixed_class=class_name,
+                fixed_teacher=teacher_name,
             )
             teacher_name = teacher_name or inferred_teacher
         if not subject_name:
             subject_name = f"Mon chua xac dinh - {class_name}"
-            issues.append(_issue(
-                "unknown_subject", "warning", "Chua xac dinh duoc mon hoc",
-                f"{class_name} tai {slot_label(slot, project)} khong co ten mon ro rang; he thong tao mon tam de van hien thi day du tiet tren bang.",
-                slot=slot, project=project, source=raw.source, entity=class_name,
-            ))
+            issues.append(
+                _issue(
+                    "unknown_subject",
+                    "warning",
+                    "Chua xac dinh duoc mon hoc",
+                    f"{class_name} tai {slot_label(slot, project)} khong co ten mon ro rang; he thong tao mon tam de van hien thi day du tiet tren bang.",
+                    slot=slot,
+                    project=project,
+                    source=raw.source,
+                    entity=class_name,
+                )
+            )
         if not teacher_name:
             teacher_name = f"GV chua xac dinh - {class_name} - {subject_name}"
             if not _standalone_teacher_is_optional(subject_name):
-                issues.append(_issue(
-                    "unknown_teacher", "warning", "Chua xac dinh duoc giao vien",
-                    f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi hien thi.",
-                    slot=slot, project=project, source=raw.source, entity=class_name,
-                ))
-        normalized_rows.append({
-            "slot": slot,
-            "class_name": class_name,
-            "subject_name": subject_name,
-            "teacher_name": teacher_name,
-            "room": raw.room_text.strip(),
-            "source": raw.source,
-            "origin": raw.origin,
-            "raw_text": _cell_text(raw.lesson_text) or " · ".join(part for part in (subject_name, teacher_name) if part),
-        })
+                issues.append(
+                    _issue(
+                        "unknown_teacher",
+                        "warning",
+                        "Chua xac dinh duoc giao vien",
+                        f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi hien thi.",
+                        slot=slot,
+                        project=project,
+                        source=raw.source,
+                        entity=class_name,
+                    )
+                )
+        normalized_rows.append(
+            {
+                "slot": slot,
+                "class_name": class_name,
+                "subject_name": subject_name,
+                "teacher_name": teacher_name,
+                "room": raw.room_text.strip(),
+                "source": raw.source,
+                "origin": raw.origin,
+                "raw_text": _cell_text(raw.lesson_text)
+                or " · ".join(part for part in (subject_name, teacher_name) if part),
+            }
+        )
 
     # Gop ban ghi trung hoan toan truoc khi tinh xung dot/thong ke. Mot dong bi
     # lap trong cung sheet khong phai la hai tiet hoc. Van giu co che gop cung mot
@@ -2471,8 +3161,10 @@ def analyze_standalone_schedule_file(
 
     for entry in normalized_rows:
         core_key = (
-            int(entry["slot"]), _identity_text(entry["class_name"]),
-            _identity_text(entry["subject_name"]), _identity_text(entry["teacher_name"]),
+            int(entry["slot"]),
+            _identity_text(entry["class_name"]),
+            _identity_text(entry["subject_name"]),
+            _identity_text(entry["teacher_name"]),
         )
         exact_key = (*core_key, _identity_text(entry["room"]))
         exact_existing = first_by_exact_key.get(exact_key)
@@ -2486,12 +3178,19 @@ def analyze_standalone_schedule_file(
             and (
                 not _identity_text(core_existing["room"])
                 or not _identity_text(entry["room"])
-                or _identity_text(core_existing["room"]) == _identity_text(entry["room"])
+                or _identity_text(core_existing["room"])
+                == _identity_text(entry["room"])
             )
         )
-        if core_existing is not None and entry["origin"] != core_existing["origin"] and rooms_compatible:
+        if (
+            core_existing is not None
+            and entry["origin"] != core_existing["origin"]
+            and rooms_compatible
+        ):
             merge_source(core_existing, entry)
-            first_by_exact_key[(*core_key, _identity_text(core_existing["room"]))] = core_existing
+            first_by_exact_key[(*core_key, _identity_text(core_existing["room"]))] = (
+                core_existing
+            )
             continue
 
         deduplicated.append(entry)
@@ -2504,31 +3203,63 @@ def analyze_standalone_schedule_file(
         for row in normalized_rows:
             name = row[field]
             by_identity.setdefault(_identity_text(name), name)
-        return sorted(by_identity.values(), key=lambda value: (normalize_text(value), _identity_text(value)))
+        return sorted(
+            by_identity.values(),
+            key=lambda value: (normalize_text(value), _identity_text(value)),
+        )
 
     class_names = unique_entity_names("class_name")
     subject_names = unique_entity_names("subject_name")
     teacher_names = unique_entity_names("teacher_name")
-    known_subject_names = [name for name in subject_names if not _standalone_is_unknown_subject(name)]
-    known_teacher_names = [name for name in teacher_names if not _standalone_is_unknown_teacher(name)]
-    class_ids = {_identity_text(name): index for index, name in enumerate(class_names, start=1)}
-    subject_ids = {_identity_text(name): index for index, name in enumerate(subject_names, start=1)}
-    teacher_ids = {_identity_text(name): index for index, name in enumerate(teacher_names, start=1)}
+    known_subject_names = [
+        name for name in subject_names if not _standalone_is_unknown_subject(name)
+    ]
+    known_teacher_names = [
+        name for name in teacher_names if not _standalone_is_unknown_teacher(name)
+    ]
+    class_ids = {
+        _identity_text(name): index for index, name in enumerate(class_names, start=1)
+    }
+    subject_ids = {
+        _identity_text(name): index for index, name in enumerate(subject_names, start=1)
+    }
+    teacher_ids = {
+        _identity_text(name): index for index, name in enumerate(teacher_names, start=1)
+    }
 
-    classes = [{"id": item_id, "name": name, "grade_id": None, "unavailable": []} for name, item_id in ((name, class_ids[_identity_text(name)]) for name in class_names)]
-    subjects = [{
-        "id": subject_ids[_identity_text(name)], "name": name,
-        "short_name": _standalone_short_name(name, f"M{subject_ids[_identity_text(name)]}"),
-        "max_consecutive": int(project["periods"]),
-        "is_placeholder": _standalone_is_unknown_subject(name),
-    } for name in subject_names]
-    teachers = [{
-        "id": teacher_ids[_identity_text(name)], "name": name,
-        "short_name": _standalone_short_name(name, f"GV{teacher_ids[_identity_text(name)]}"),
-        "department_id": None, "max_periods_day": int(project["sessions"]) * int(project["periods"]),
-        "unavailable": [], "subject_ids": [],
-        "is_placeholder": _standalone_is_unknown_teacher(name),
-    } for name in teacher_names]
+    classes = [
+        {"id": item_id, "name": name, "grade_id": None, "unavailable": []}
+        for name, item_id in (
+            (name, class_ids[_identity_text(name)]) for name in class_names
+        )
+    ]
+    subjects = [
+        {
+            "id": subject_ids[_identity_text(name)],
+            "name": name,
+            "short_name": _standalone_short_name(
+                name, f"M{subject_ids[_identity_text(name)]}"
+            ),
+            "max_consecutive": int(project["periods"]),
+            "is_placeholder": _standalone_is_unknown_subject(name),
+        }
+        for name in subject_names
+    ]
+    teachers = [
+        {
+            "id": teacher_ids[_identity_text(name)],
+            "name": name,
+            "short_name": _standalone_short_name(
+                name, f"GV{teacher_ids[_identity_text(name)]}"
+            ),
+            "department_id": None,
+            "max_periods_day": int(project["sessions"]) * int(project["periods"]),
+            "unavailable": [],
+            "subject_ids": [],
+            "is_placeholder": _standalone_is_unknown_teacher(name),
+        }
+        for name in teacher_names
+    ]
 
     assignment_keys: list[tuple[int, int, int]] = []
     assignment_counts: dict[tuple[int, int, int], int] = defaultdict(int)
@@ -2549,19 +3280,21 @@ def analyze_standalone_schedule_file(
     for assignment_id, key in enumerate(assignment_keys, start=1):
         class_id, subject_id, teacher_id = key
         assignment_id_by_key[key] = assignment_id
-        assignments.append({
-            "id": assignment_id,
-            "class_id": class_id,
-            "subject_id": subject_id,
-            "teacher_id": teacher_id,
-            "periods_per_week": assignment_counts[key],
-            "block_mode": "free",
-            "class_name": class_by_id[class_id]["name"],
-            "subject_name": subject_by_id[subject_id]["name"],
-            "subject_short": subject_by_id[subject_id]["short_name"],
-            "teacher_name": teacher_by_id[teacher_id]["name"],
-            "teacher_short": teacher_by_id[teacher_id]["short_name"],
-        })
+        assignments.append(
+            {
+                "id": assignment_id,
+                "class_id": class_id,
+                "subject_id": subject_id,
+                "teacher_id": teacher_id,
+                "periods_per_week": assignment_counts[key],
+                "block_mode": "free",
+                "class_name": class_by_id[class_id]["name"],
+                "subject_name": subject_by_id[subject_id]["name"],
+                "subject_short": subject_by_id[subject_id]["short_name"],
+                "teacher_name": teacher_by_id[teacher_id]["name"],
+                "teacher_short": teacher_by_id[teacher_id]["short_name"],
+            }
+        )
         teacher_by_id[teacher_id]["subject_ids"].append(subject_id)
 
     recognized: list[dict[str, Any]] = []
@@ -2571,15 +3304,19 @@ def analyze_standalone_schedule_file(
             subject_ids[_identity_text(row["subject_name"])],
             teacher_ids[_identity_text(row["teacher_name"])],
         )
-        recognized.append({
-            "draft_id": index,
-            "assignment_id": assignment_id_by_key[key],
-            "slot": int(row["slot"]),
-            "room": row["room"],
-            "source": row["source"],
-            "raw_text": row.get("raw_text", ""),
-            "class_id": key[0], "subject_id": key[1], "teacher_id": key[2],
-        })
+        recognized.append(
+            {
+                "draft_id": index,
+                "assignment_id": assignment_id_by_key[key],
+                "slot": int(row["slot"]),
+                "room": row["room"],
+                "source": row["source"],
+                "raw_text": row.get("raw_text", ""),
+                "class_id": key[0],
+                "subject_id": key[1],
+                "teacher_id": key[2],
+            }
+        )
 
     conflict_codes_by_draft: dict[int, set[str]] = defaultdict(set)
     conflict_details_by_draft: dict[int, list[str]] = defaultdict(list)
@@ -2597,15 +3334,24 @@ def analyze_standalone_schedule_file(
             by_room_slot[(entry["slot"], room_key)].append(entry)
     for (slot, class_id), rows in by_class_slot.items():
         if len(rows) > 1:
-            detail = f"Lớp {class_by_id[class_id]['name']} có {len(rows)} tiết cùng lúc."
+            detail = (
+                f"Lớp {class_by_id[class_id]['name']} có {len(rows)} tiết cùng lúc."
+            )
             for row in rows:
                 conflict_codes_by_draft[int(row["draft_id"])].add("class_collision")
                 conflict_details_by_draft[int(row["draft_id"])].append(detail)
-            issues.append(_issue(
-                "class_collision", "error", "Trung lich lop",
-                detail,
-                slot=slot, project=project, source="; ".join(row["source"] for row in rows), entity=class_by_id[class_id]["name"],
-            ))
+            issues.append(
+                _issue(
+                    "class_collision",
+                    "error",
+                    "Trung lich lop",
+                    detail,
+                    slot=slot,
+                    project=project,
+                    source="; ".join(row["source"] for row in rows),
+                    entity=class_by_id[class_id]["name"],
+                )
+            )
     for (slot, teacher_id), rows in by_teacher_slot.items():
         if len(rows) > 1:
             class_list = ", ".join(class_by_id[row["class_id"]]["name"] for row in rows)
@@ -2613,27 +3359,48 @@ def analyze_standalone_schedule_file(
             for row in rows:
                 conflict_codes_by_draft[int(row["draft_id"])].add("teacher_collision")
                 conflict_details_by_draft[int(row["draft_id"])].append(detail)
-            issues.append(_issue(
-                "teacher_collision", "error", "Trung lich giao vien",
-                detail,
-                slot=slot, project=project, source="; ".join(row["source"] for row in rows), entity=teacher_by_id[teacher_id]["name"],
-            ))
+            issues.append(
+                _issue(
+                    "teacher_collision",
+                    "error",
+                    "Trung lich giao vien",
+                    detail,
+                    slot=slot,
+                    project=project,
+                    source="; ".join(row["source"] for row in rows),
+                    entity=teacher_by_id[teacher_id]["name"],
+                )
+            )
     for (slot, _room), rows in by_room_slot.items():
         distinct_class_ids = {int(row["class_id"]) for row in rows}
         if len(distinct_class_ids) > 1:
             room = rows[0]["room"]
-            class_names = sorted({class_by_id[class_id]["name"] for class_id in distinct_class_ids}, key=normalize_text)
-            detail = f"Phòng {room} đang được dùng đồng thời cho: {', '.join(class_names)}."
+            class_names = sorted(
+                {class_by_id[class_id]["name"] for class_id in distinct_class_ids},
+                key=normalize_text,
+            )
+            detail = (
+                f"Phòng {room} đang được dùng đồng thời cho: {', '.join(class_names)}."
+            )
             for row in rows:
                 conflict_codes_by_draft[int(row["draft_id"])].add("room_collision")
                 conflict_details_by_draft[int(row["draft_id"])].append(detail)
-            issues.append(_issue(
-                "room_collision", "error", "Trung phong hoc",
-                detail,
-                slot=slot, project=project, source="; ".join(row["source"] for row in rows), entity=room,
-            ))
+            issues.append(
+                _issue(
+                    "room_collision",
+                    "error",
+                    "Trung phong hoc",
+                    detail,
+                    slot=slot,
+                    project=project,
+                    source="; ".join(row["source"] for row in rows),
+                    entity=room,
+                )
+            )
     for warning in parse_warnings:
-        issues.append(_issue("unread_table", "warning", "Co bang/sheet chua doc duoc", warning))
+        issues.append(
+            _issue("unread_table", "warning", "Co bang/sheet chua doc duoc", warning)
+        )
 
     # Neu mot dong du lieu bi lap, cac canh bao phat sinh truoc buoc gop tiet cung
     # khong nen xuat hien lap lai. Gop issue trung noi dung va noi nguon de nguoi
@@ -2642,29 +3409,48 @@ def analyze_standalone_schedule_file(
     first_issue_by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
     for issue in issues:
         issue_key = (
-            issue.get("code"), issue.get("severity"), issue.get("title"),
-            issue.get("detail"), issue.get("slot"), issue.get("entity"),
+            issue.get("code"),
+            issue.get("severity"),
+            issue.get("title"),
+            issue.get("detail"),
+            issue.get("slot"),
+            issue.get("entity"),
         )
         existing_issue = first_issue_by_key.get(issue_key)
         if existing_issue is not None:
             source = _cell_text(issue.get("source"))
             if source and source not in existing_issue.get("source", ""):
-                existing_issue["source"] = f"{existing_issue.get('source', '')}; {source}".strip("; ")
+                existing_issue["source"] = (
+                    f"{existing_issue.get('source', '')}; {source}".strip("; ")
+                )
             continue
         first_issue_by_key[issue_key] = issue
         deduplicated_issues.append(issue)
     issues = deduplicated_issues
 
     severity_order = {"error": 0, "warning": 1, "info": 2}
-    issues.sort(key=lambda item: (severity_order.get(item["severity"], 9), item.get("slot") is None, item.get("slot") or -1, item["title"]))
+    issues.sort(
+        key=lambda item: (
+            severity_order.get(item["severity"], 9),
+            item.get("slot") is None,
+            item.get("slot") or -1,
+            item["title"],
+        )
+    )
     errors = sum(1 for item in issues if item["severity"] == "error")
     warnings = sum(1 for item in issues if item["severity"] == "warning")
-    collisions = sum(1 for item in issues if item["code"] in {"teacher_collision", "class_collision", "room_collision"})
-    detection.update({
-        "scope_label": f"Doc lap · {len(classes)} lop · {len(known_teacher_names)} giao vien · {len(known_subject_names)} mon",
-        "classes": [row["name"] for row in classes],
-        "teachers": known_teacher_names,
-    })
+    collisions = sum(
+        1
+        for item in issues
+        if item["code"] in {"teacher_collision", "class_collision", "room_collision"}
+    )
+    detection.update(
+        {
+            "scope_label": f"Doc lap · {len(classes)} lop · {len(known_teacher_names)} giao vien · {len(known_subject_names)} mon",
+            "classes": [row["name"] for row in classes],
+            "teachers": known_teacher_names,
+        }
+    )
 
     viewer_cells: list[dict[str, Any]] = []
     affected_coordinates: set[tuple[int, int]] = set()
@@ -2675,19 +3461,23 @@ def analyze_standalone_schedule_file(
         codes = sorted(conflict_codes_by_draft.get(int(entry["draft_id"]), set()))
         if codes:
             affected_coordinates.add((int(entry["slot"]), class_id))
-        viewer_cells.append({
-            "draft_id": int(entry["draft_id"]),
-            "slot": int(entry["slot"]),
-            "class_id": class_id,
-            "class_name": class_by_id[class_id]["name"],
-            "subject_name": subject_by_id[subject_id]["name"],
-            "teacher_name": teacher_by_id[teacher_id]["name"],
-            "room": entry.get("room", ""),
-            "source": entry.get("source", ""),
-            "raw_text": entry.get("raw_text", ""),
-            "conflicts": codes,
-            "conflict_details": conflict_details_by_draft.get(int(entry["draft_id"]), []),
-        })
+        viewer_cells.append(
+            {
+                "draft_id": int(entry["draft_id"]),
+                "slot": int(entry["slot"]),
+                "class_id": class_id,
+                "class_name": class_by_id[class_id]["name"],
+                "subject_name": subject_by_id[subject_id]["name"],
+                "teacher_name": teacher_by_id[teacher_id]["name"],
+                "room": entry.get("room", ""),
+                "source": entry.get("source", ""),
+                "raw_text": entry.get("raw_text", ""),
+                "conflicts": codes,
+                "conflict_details": conflict_details_by_draft.get(
+                    int(entry["draft_id"]), []
+                ),
+            }
+        )
     viewer = {
         "days": int(project["days"]),
         "sessions": int(project["sessions"]),
@@ -2707,7 +3497,9 @@ def analyze_standalone_schedule_file(
         "filename": filename,
         "format": file_format,
         "detection": detection,
-        "status": "clean" if errors == 0 and warnings == 0 else ("error" if errors else "warning"),
+        "status": "clean"
+        if errors == 0 and warnings == 0
+        else ("error" if errors else "warning"),
         "summary": {
             "read_lessons": len(raw_lessons),
             "recognized_lessons": len(recognized),
@@ -2734,7 +3526,11 @@ def analyze_standalone_schedule_file(
     }
     if include_editable:
         result["editable_lessons"] = [
-            {"draft_id": row["draft_id"], "assignment_id": row["assignment_id"], "slot": row["slot"]}
+            {
+                "draft_id": row["draft_id"],
+                "assignment_id": row["assignment_id"],
+                "slot": row["slot"],
+            }
             for row in recognized
         ]
     return result

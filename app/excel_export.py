@@ -9,7 +9,10 @@ from openpyxl.utils import get_column_letter
 
 
 def _natural_key(value: str):
-    return [int(part) if part.isdigit() else part.casefold() for part in re.split(r"(\d+)", str(value or ""))]
+    return [
+        int(part) if part.isdigit() else part.casefold()
+        for part in re.split(r"(\d+)", str(value or ""))
+    ]
 
 
 def _safe_excel_text(value: object) -> str:
@@ -40,7 +43,9 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
     sheet.title = "Thời khóa biểu"
     sheet.sheet_view.showGridLines = False
 
-    classes = sorted(data.get("classes", []), key=lambda item: _natural_key(item.get("name", "")))
+    classes = sorted(
+        data.get("classes", []), key=lambda item: _natural_key(item.get("name", ""))
+    )
     teachers = {item["id"]: item for item in data.get("teachers", [])}
     assignments = {item["id"]: item for item in data.get("assignments", [])}
     lessons = data.get("lessons", [])
@@ -65,14 +70,22 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
     sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=last_col)
     sheet.cell(2, 1, _safe_excel_text(project.name or "THỜI KHÓA BIỂU"))
     sheet.cell(2, 1).font = Font(name="Times New Roman", size=12, bold=True)
-    sheet.cell(2, 1).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    sheet.cell(2, 1).alignment = Alignment(
+        horizontal="center", vertical="center", wrap_text=True
+    )
     sheet.row_dimensions[2].height = 32
 
-    headers = ["Thứ", "Buổi", "Tiết"] + [_safe_excel_text(item["name"]) for item in classes] + ["GV nghỉ"]
+    headers = (
+        ["Thứ", "Buổi", "Tiết"]
+        + [_safe_excel_text(item["name"]) for item in classes]
+        + ["GV nghỉ"]
+    )
     for col, value in enumerate(headers, start=1):
         cell = sheet.cell(3, col, value)
         cell.font = Font(name="Times New Roman", size=8, bold=True, italic=True)
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
         cell.border = table_border
         cell.fill = white_fill
     sheet.row_dimensions[3].height = 24
@@ -93,7 +106,8 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
             busy_teachers[slot].add(teacher_id)
 
     active_teacher_ids = {
-        item.get("teacher_id") for item in assignments.values()
+        item.get("teacher_id")
+        for item in assignments.values()
         if item.get("teacher_id") in teachers
     }
 
@@ -104,43 +118,84 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
         for session in range(project.sessions):
             session_start = current_row
             for period in range(project.periods_per_session):
-                slot = day * periods_per_day + session * project.periods_per_session + period
+                slot = (
+                    day * periods_per_day
+                    + session * project.periods_per_session
+                    + period
+                )
                 sheet.cell(current_row, 3, period + 1)
 
                 for class_item in classes:
                     assignment = by_slot_class.get((slot, class_item["id"]))
                     if not assignment:
                         continue
-                    subject = str(assignment.get("subject_short") or assignment.get("subject_name") or "").strip()
-                    teacher = str(assignment.get("teacher_short") or assignment.get("teacher_name") or "").strip()
+                    subject = str(
+                        assignment.get("subject_short")
+                        or assignment.get("subject_name")
+                        or ""
+                    ).strip()
+                    teacher = str(
+                        assignment.get("teacher_short")
+                        or assignment.get("teacher_name")
+                        or ""
+                    ).strip()
                     lesson_text = " ".join(part for part in (subject, teacher) if part)
-                    sheet.cell(current_row, class_column[class_item["id"]], _safe_excel_text(lesson_text))
+                    sheet.cell(
+                        current_row,
+                        class_column[class_item["id"]],
+                        _safe_excel_text(lesson_text),
+                    )
 
                 free_teacher_names = []
                 for teacher_id in sorted(
                     active_teacher_ids - busy_teachers.get(slot, set()),
-                    key=lambda tid: _natural_key(teachers[tid].get("short_name") or teachers[tid].get("name", "")),
+                    key=lambda tid: _natural_key(
+                        teachers[tid].get("short_name") or teachers[tid].get("name", "")
+                    ),
                 ):
                     teacher = teachers[teacher_id]
-                    free_teacher_names.append(str(teacher.get("short_name") or teacher.get("name") or "").strip())
-                sheet.cell(current_row, last_col, _safe_excel_text(", ".join(name for name in free_teacher_names if name)))
+                    free_teacher_names.append(
+                        str(
+                            teacher.get("short_name") or teacher.get("name") or ""
+                        ).strip()
+                    )
+                sheet.cell(
+                    current_row,
+                    last_col,
+                    _safe_excel_text(
+                        ", ".join(name for name in free_teacher_names if name)
+                    ),
+                )
 
                 for col in range(1, last_col + 1):
                     cell = sheet.cell(current_row, col)
                     cell.font = Font(name="Times New Roman", size=10)
-                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                    cell.alignment = Alignment(
+                        horizontal="center", vertical="center", wrap_text=True
+                    )
                     cell.border = table_border
                     cell.fill = white_fill
-                sheet.cell(current_row, last_col).font = Font(name="Times New Roman", size=9, bold=True)
+                sheet.cell(current_row, last_col).font = Font(
+                    name="Times New Roman", size=9, bold=True
+                )
                 sheet.row_dimensions[current_row].height = 24
                 current_row += 1
 
             session_end = current_row - 1
             if session_end >= session_start:
-                sheet.merge_cells(start_row=session_start, start_column=2, end_row=session_end, end_column=2)
-                session_cell = sheet.cell(session_start, 2, _session_label(day, session, project.sessions))
+                sheet.merge_cells(
+                    start_row=session_start,
+                    start_column=2,
+                    end_row=session_end,
+                    end_column=2,
+                )
+                session_cell = sheet.cell(
+                    session_start, 2, _session_label(day, session, project.sessions)
+                )
                 session_cell.font = Font(name="Times New Roman", size=9)
-                session_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                session_cell.alignment = Alignment(
+                    horizontal="center", vertical="center", wrap_text=True
+                )
                 session_cell.border = table_border
 
             # The reference workbook leaves a thin blank separator row after each session.
@@ -153,7 +208,9 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
 
         day_end = current_row - 1
         if day_end >= day_start:
-            sheet.merge_cells(start_row=day_start, start_column=1, end_row=day_end, end_column=1)
+            sheet.merge_cells(
+                start_row=day_start, start_column=1, end_row=day_end, end_column=1
+            )
             day_cell = sheet.cell(day_start, 1, _day_label(day))
             day_cell.font = Font(name="Times New Roman", size=9)
             day_cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -175,7 +232,9 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.fitToWidth = 1
     sheet.page_setup.fitToHeight = 0
-    sheet.page_setup.paperSize = sheet.PAPERSIZE_A3 if len(classes) > 10 else sheet.PAPERSIZE_A4
+    sheet.page_setup.paperSize = (
+        sheet.PAPERSIZE_A3 if len(classes) > 10 else sheet.PAPERSIZE_A4
+    )
     sheet.sheet_properties.pageSetUpPr.fitToPage = True
     sheet.page_margins.left = 0.2
     sheet.page_margins.right = 0.2

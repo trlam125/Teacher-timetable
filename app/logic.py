@@ -14,9 +14,7 @@ def remap_slot_for_session_expansion(
     """Preserve day/session/period coordinates when the day gains sessions."""
     if old_sessions < 1 or new_sessions < old_sessions or periods_per_session < 1:
         raise ValueError("Cấu hình số buổi/tiết không hợp lệ")
-    if isinstance(slot, bool) or (
-        isinstance(slot, float) and not slot.is_integer()
-    ):
+    if isinstance(slot, bool) or (isinstance(slot, float) and not slot.is_integer()):
         raise ValueError("Slot phải là số nguyên không âm")
     try:
         value = int(slot)
@@ -42,15 +40,17 @@ def remap_slots_for_session_expansion(
     periods_per_session: int,
 ) -> list[int]:
     """Remap slot collections without changing their timetable coordinates."""
-    return sorted({
-        remap_slot_for_session_expansion(
-            slot,
-            old_sessions=old_sessions,
-            new_sessions=new_sessions,
-            periods_per_session=periods_per_session,
-        )
-        for slot in slots
-    })
+    return sorted(
+        {
+            remap_slot_for_session_expansion(
+                slot,
+                old_sessions=old_sessions,
+                new_sessions=new_sessions,
+                periods_per_session=periods_per_session,
+            )
+            for slot in slots
+        }
+    )
 
 
 def schedule_validation_peers(existing_lessons, *, target_locked: bool):
@@ -62,7 +62,9 @@ def schedule_validation_peers(existing_lessons, *, target_locked: bool):
     """
     if not target_locked:
         return list(existing_lessons)
-    return [lesson for lesson in existing_lessons if bool(getattr(lesson, "locked", False))]
+    return [
+        lesson for lesson in existing_lessons if bool(getattr(lesson, "locked", False))
+    ]
 
 
 def contiguous_session_group(
@@ -107,10 +109,7 @@ def required_double_removal_slots(
     run is safer than leaving another malformed fragment behind. An isolated
     slot (the permitted odd remainder) is removed by itself.
     """
-    return contiguous_session_group(
-        slots, target_slot, sessions, periods_per_session
-    )
-
+    return contiguous_session_group(slots, target_slot, sessions, periods_per_session)
 
 
 def parse_integer_set(text: str | None) -> set[int]:

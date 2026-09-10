@@ -1,147 +1,190 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Xem thời khóa biểu · Smart TKB</title>
-  <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode') } })(); function toggleTheme() { const d = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', d ? 'dark' : 'light') }</script>
-  <link rel="stylesheet" href="/static/style.css?v=1">
-  <script src="/static/operation-status.js?v=1" defer></script>
-  <link rel="stylesheet" href="/static/effects.css?v=1">
-  <link rel="stylesheet" href="/static/front.css?v=1">
-  <link rel="stylesheet" href="/static/preferences.css?v=1">
-  <link rel="stylesheet" href="/static/chatbot.css?v=1">
-</head>
-
-<body class="teacher-surface">
-  <header class="appbar">
-    <b>Smart TKB · Cổng giáo viên</b>
-    <div><strong>{{user.name}}</strong><small>Chế độ chỉ xem</small></div>
-    <div class="spacer"></div>
-    <button class="theme-toggle-btn" onclick="toggleTheme()" title="Đổi giao diện Sáng/Tối"
-      aria-label="Đổi giao diện Sáng/Tối">
-      <svg class="theme-toggle-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="5"></circle>
-        <line x1="12" y1="1" x2="12" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="23"></line>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-        <line x1="1" y1="12" x2="3" y2="12"></line>
-        <line x1="21" y1="12" x2="23" y2="12"></line>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-      </svg>
-      <svg class="theme-toggle-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-      </svg>
-    </button>
-    <a class="btn ghost" href="/teacher/account?project_id={{p.id}}">Tài khoản của tôi</a>
-    <a class="btn ghost" href="/logout">Đăng xuất</a>
-  </header>
-  <main class="container preference-page">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">CHỈ XEM</span>
-        <h1>Thời khóa biểu</h1>
-        <p>{{p.school_name}} · {{p.name}}</p>
-      </div>
-      <div class="row" style="align-items:end;flex-wrap:wrap">
-        <label class="project-switcher">Bộ thời khóa biểu
-          <select id="teacherProjectSelect" onchange="location.href='/teacher?project_id='+this.value">
-            {% for project in teacher_projects %}
-            <option value="{{project.id}}" {% if project.id==p.id %}selected{% endif %}>{{project.school_name}} ·
-              {{project.name}}</option>
-            {% endfor %}
-          </select>
-        </label>
-      </div>
-    </div>
-    <div class="panel">
-      <div class="row" style="gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px">
-        <label style="min-width:190px">Kiểu lọc
-          <select id="viewType">
-            <option value="overview" selected>Toàn trường</option>
-            <option value="teacher">Theo giáo viên</option>
-            <option value="class">Theo lớp</option>
-            <option value="subject">Theo môn học</option>
-          </select>
-        </label>
-        <label style="min-width:240px;flex:1">Tìm theo tên
-          <input id="viewSearch" type="search" placeholder="Nhập tên giáo viên, lớp hoặc môn..." autocomplete="off">
-        </label>
-        <label style="min-width:240px">Đối tượng
-          <select id="viewEntity"></select>
-        </label>
-      </div>
-      <div id="scheduleGrid"></div>
-    </div>
-
-    <section id="teacher-preferences" class="panel teacher-preference-section">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">THAM KHẢO</span>
-          <h2>Gửi nguyện vọng thời khóa biểu</h2>
-          <p>Nguyện vọng chỉ để quản trị viên tham khảo. Các ô bạn chọn <b>không trở thành ràng buộc</b> và <b>không
-              được dùng trong logic xếp lịch</b>.</p>
-        </div>
-      </div>
-      {% if preference_saved %}<div class="alert success">Đã gửi nguyện vọng. Lịch hiện tại không bị thay đổi.</div>{%
-      endif %}
-      <div class="preference-edit-note">
-        <b>Người gửi: {{user.name}} · {{user.email}}</b>
-        <span>Bấm một ô để chuyển lần lượt: Không chọn → Mong muốn → Muốn tránh → Không chọn.</span>
-      </div>
-      <form class="preference-form" method="post" action="/teacher/preferences"
-        onsubmit="return prepareTeacherPreferenceSubmit()">
-        <input type="hidden" name="project_id" value="{{p.id}}">
-        <input type="hidden" id="preferredSlotsInput" name="preferred_slots" value="[]">
-        <input type="hidden" id="unavailableSlotsInput" name="unavailable_slots" value="[]">
-        <div class="preference-legend">
-          <span><i class="preferred-dot"></i>Mong muốn</span>
-          <span><i class="blocked-dot"></i>Muốn tránh (chỉ tham khảo)</span>
-        </div>
-        <div id="teacherPreferenceGrid" class="teacher-preference-grid"></div>
-        <label>Ghi chú
-          <textarea name="note" rows="4" maxlength="2000"
-            placeholder="Ví dụ: ưu tiên dạy buổi sáng vì có lịch công tác buổi chiều..."></textarea>
-        </label>
-        <div class="row end"><button class="btn" type="submit">Gửi nguyện vọng</button></div>
-      </form>
-
-      {% if preference_history %}
-      <div class="teacher-preference-history">
-        <h3>Nguyện vọng gần đây</h3>
-        <div class="preference-list">
-          {% for item in preference_history %}
-          <article class="preference-card compact">
-            <div class="preference-card-head">
-              <small>{{item.created_at.replace('T',' ')}}</small>
-              <span class="status status-{{item.status}}">{% if item.status=='pending' %}Chờ xem{% elif
-                item.status=='accepted' %}Đã ghi nhận{% elif item.status=='rejected' %}Đã từ chối{% else %}Đã thay thế{%
-                endif %}</span>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Xem thời khóa biểu · Smart TKB</title>
+        <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode') } })(); function toggleTheme() { const d = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', d ? 'dark' : 'light') }</script>
+        <link rel="stylesheet" href="/static/style.css?v=1">
+        <script src="/static/operation-status.js?v=1" defer></script>
+        <link rel="stylesheet" href="/static/effects.css?v=1">
+        <link rel="stylesheet" href="/static/front.css?v=1">
+        <link rel="stylesheet" href="/static/preferences.css?v=1">
+        <link rel="stylesheet" href="/static/chatbot.css?v=1">
+    </head>
+    <body class="teacher-surface">
+        <header class="appbar">
+            <b>Smart TKB · Cổng giáo viên</b>
+            <div><strong>{{ user.name }}</strong><small>Chế độ chỉ xem</small></div>
+            <div class="spacer"></div>
+            <button class="theme-toggle-btn"
+                    onclick="toggleTheme()"
+                    title="Đổi giao diện Sáng/Tối"
+                    aria-label="Đổi giao diện Sáng/Tối">
+                <svg class="theme-toggle-sun"
+                     xmlns="http://www.w3.org/2000/svg"
+                     width="18"
+                     height="18"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2.5"
+                     stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="theme-toggle-moon"
+                     xmlns="http://www.w3.org/2000/svg"
+                     width="18"
+                     height="18"
+                     viewBox="0 0 24 24"
+                     fill="none"
+                     stroke="currentColor"
+                     stroke-width="2.5"
+                     stroke-linecap="round"
+                     stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <a class="btn ghost" href="/teacher/account?project_id={{ p.id }}">Tài khoản của tôi</a>
+            <a class="btn ghost" href="/logout">Đăng xuất</a>
+        </header>
+        <main class="container preference-page">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">CHỈ XEM</span>
+                    <h1>Thời khóa biểu</h1>
+                    <p>{{ p.school_name }} · {{ p.name }}</p>
+                </div>
+                <div class="row" style="align-items:end;flex-wrap:wrap">
+                    <label class="project-switcher">
+                        Bộ thời khóa biểu
+                        <select id="teacherProjectSelect"
+                                onchange="location.href='/teacher?project_id='+this.value">
+                            {% for project in teacher_projects %}
+                                <option value="{{ project.id }}"
+                                        {% if project.id==p.id %}selected{% endif %}>{{ project.school_name }} ·
+                                    {{ project.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
             </div>
-            <div class="preference-detail"><b>Tiết mong muốn</b>
-              <div class="slot-chips">{% if item.preferred_labels %}{% for label in item.preferred_labels %}<span
-                  class="slot-chip preferred">{{label}}</span>{% endfor %}{% else %}<span class="muted">Không
-                  chọn</span>{% endif %}</div>
+            <div class="panel">
+                <div class="row"
+                     style="gap:12px;
+                            align-items:end;
+                            flex-wrap:wrap;
+                            margin-bottom:16px">
+                    <label style="min-width:190px">
+                        Kiểu lọc
+                        <select id="viewType">
+                            <option value="overview" selected>Toàn trường</option>
+                            <option value="teacher">Theo giáo viên</option>
+                            <option value="class">Theo lớp</option>
+                            <option value="subject">Theo môn học</option>
+                        </select>
+                    </label>
+                    <label style="min-width:240px;flex:1">
+                        Tìm theo tên
+                        <input id="viewSearch"
+                               type="search"
+                               placeholder="Nhập tên giáo viên, lớp hoặc môn..."
+                               autocomplete="off">
+                    </label>
+                    <label style="min-width:240px">
+                        Đối tượng
+                        <select id="viewEntity"></select>
+                    </label>
+                </div>
+                <div id="scheduleGrid"></div>
             </div>
-            <div class="preference-detail"><b>Tiết muốn tránh</b>
-              <div class="slot-chips">{% if item.unavailable_labels %}{% for label in item.unavailable_labels %}<span
-                  class="slot-chip blocked">{{label}}</span>{% endfor %}{% else %}<span class="muted">Không
-                  chọn</span>{% endif %}</div>
+            <section id="teacher-preferences" class="panel teacher-preference-section">
+                <div class="section-head">
+                    <div>
+                        <span class="eyebrow">THAM KHẢO</span>
+                        <h2>Gửi nguyện vọng thời khóa biểu</h2>
+                        <p>
+                            Nguyện vọng chỉ để quản trị viên tham khảo. Các ô bạn chọn <b>không trở thành ràng buộc</b> và <b>không
+                            được dùng trong logic xếp lịch</b>.
+                        </p>
+                    </div>
+                </div>
+                {% if preference_saved %}<div class="alert success">Đã gửi nguyện vọng. Lịch hiện tại không bị thay đổi.</div>{%
+                endif %}
+                <div class="preference-edit-note">
+                    <b>Người gửi: {{ user.name }} · {{ user.email }}</b>
+                    <span>Bấm một ô để chuyển lần lượt: Không chọn → Mong muốn → Muốn tránh → Không chọn.</span>
+                </div>
+                <form class="preference-form"
+                      method="post"
+                      action="/teacher/preferences"
+                      onsubmit="return prepareTeacherPreferenceSubmit()">
+                    <input type="hidden" name="project_id" value="{{ p.id }}">
+                    <input type="hidden"
+                           id="preferredSlotsInput"
+                           name="preferred_slots"
+                           value="[]">
+                    <input type="hidden"
+                           id="unavailableSlotsInput"
+                           name="unavailable_slots"
+                           value="[]">
+                    <div class="preference-legend">
+                        <span><i class="preferred-dot"></i>Mong muốn</span>
+                        <span><i class="blocked-dot"></i>Muốn tránh (chỉ tham khảo)</span>
+                    </div>
+                    <div id="teacherPreferenceGrid" class="teacher-preference-grid"></div>
+                    <label>
+                        Ghi chú
+                        <textarea name="note"
+                                  rows="4"
+                                  maxlength="2000"
+                                  placeholder="Ví dụ: ưu tiên dạy buổi sáng vì có lịch công tác buổi chiều..."></textarea>
+                    </label>
+                    <div class="row end">
+                        <button class="btn" type="submit">Gửi nguyện vọng</button>
+                    </div>
+                </form>
+                {% if preference_history %}
+                    <div class="teacher-preference-history">
+                        <h3>Nguyện vọng gần đây</h3>
+                        <div class="preference-list">
+                            {% for item in preference_history %}
+                                <article class="preference-card compact">
+                                    <div class="preference-card-head">
+                                        <small>{{ item.created_at.replace('T', ' ') }}</small>
+                                        <span class="status status-{{ item.status }}">{% if item.status=="pending" %}Chờ xem{% elif
+                                            item.status=="accepted" %}Đã ghi nhận{% elif item.status=="rejected" %}Đã từ chối{% else %}Đã thay thế{%
+                                                endif %}</span>
+                                    </div>
+                                    <div class="preference-detail">
+                                        <b>Tiết mong muốn</b>
+                                        <div class="slot-chips">{% if item.preferred_labels %}{% for label in item.preferred_labels %}<span class="slot-chip preferred">{{ label }}</span>{% endfor %}{% else %}<span class="muted">Không
+                                        chọn</span>{% endif %}</div>
+                                </div>
+                                <div class="preference-detail">
+                                    <b>Tiết muốn tránh</b>
+                                    <div class="slot-chips">{% if item.unavailable_labels %}{% for label in item.unavailable_labels %}<span class="slot-chip blocked">{{ label }}</span>{% endfor %}{% else %}<span class="muted">Không
+                                    chọn</span>{% endif %}</div>
+                            </div>
+                            {% if item.note %}<p class="preference-note">{{ item.note }}</p>{% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
             </div>
-            {% if item.note %}<p class="preference-note">{{item.note}}</p>{% endif %}
-          </article>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
+        {% endif %}
     </section>
-  </main>
-  <script>
+</main>
+<script>
     window.PROJECT_ID = {{ p.id }}; window.INIT_DATA = {{ data | tojson }}; window.READ_ONLY = true;
     (function () {
       const grid = document.getElementById('teacherPreferenceGrid');
@@ -197,9 +240,10 @@
         return true;
       };
     })();
-  </script>
-  <script src="/static/app.js?v=1"></script>
-  {% if chatbot_project_id %}{% include "_chatbot_popup.html" %}{% endif %}
+</script>
+<script src="/static/app.js?v=1"></script>
+{% if chatbot_project_id %}
+    {% include "_chatbot_popup.html" %}
+{% endif %}
 </body>
-
 </html>
