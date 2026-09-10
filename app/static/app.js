@@ -751,6 +751,64 @@ function opts(rows, label = "name") {
     .map((x) => `<option value="${x.id}">${esc(x[label])}</option>`)
     .join("");
 }
+
+function renderScheduleSelectors() {
+  const type = $("#viewType"),
+    entity = $("#viewEntity"),
+    search = $("#viewSearch");
+  if (!type || !entity) return;
+
+  const updateEntity = (preserveValue = true) => {
+    const previousValue = preserveValue ? entity.value : "";
+    const filterType = type.value;
+    let rows = [];
+    if (filterType === "class") rows = data.classes || [];
+    else if (filterType === "teacher") rows = data.teachers || [];
+    else if (filterType === "subject") rows = data.subjects || [];
+
+    const query = (search?.value || "").trim().toLocaleLowerCase("vi");
+    if (query) {
+      rows = rows.filter((item) =>
+        [item.name, item.short_name]
+          .filter(Boolean)
+          .some((value) => String(value).toLocaleLowerCase("vi").includes(query)),
+      );
+    }
+
+    const needsEntity = filterType !== "overview";
+    entity.hidden = !needsEntity;
+    entity.disabled = !needsEntity;
+    const entityLabel = entity.closest("label");
+    if (entityLabel) entityLabel.hidden = !needsEntity;
+
+    entity.innerHTML = needsEntity ? opts(rows) : "";
+    if (needsEntity && previousValue && [...entity.options].some((o) => o.value === previousValue)) {
+      entity.value = previousValue;
+    }
+  };
+
+  const rerender = () => {
+    renderSchedule(true);
+    if ($("#unscheduledTray")) renderManualTray();
+  };
+
+  updateEntity(true);
+
+  type.onchange = () => {
+    updateEntity(false);
+    rerender();
+  };
+  entity.onchange = rerender;
+
+  if (search) {
+    search.oninput = () => {
+      updateEntity(true);
+      rerender();
+    };
+  }
+
+  rerender();
+}
 function blockModeEditor(mode = "free") {
   const selected = (value) => (value === mode ? "selected" : "");
   return `<label>Chế độ xếp tiết<select name="block_mode" onchange="updateBlockModePreview(this.form)"><option value="free" ${selected("free")}>Tự do</option><option value="preferred_double" ${selected("preferred_double")}>Ưu tiên tiết đôi</option><option value="required_double" ${selected("required_double")}>Bắt buộc tiết đôi</option></select><small class="block-mode-help">Tự do: các tiết độc lập. Ưu tiên: cố gắng ghép đôi nhưng được tách. Bắt buộc: hệ thống tự chia 2 + 2 + 1.</small></label><div class="block-mode-preview" data-block-preview></div>`;
@@ -1429,10 +1487,7 @@ function handleExportExcel(event, link) {
 }
 window.handleExportExcel = handleExportExcel;
 
-window.CURRENT_SCHEDULE_LAYOUT =
-  typeof window !== "undefined" && window.innerWidth <= 768
-    ? "day_card"
-    : "matrix";
+window.CURRENT_SCHEDULE_LAYOUT = "matrix";
 window.CURRENT_SELECTED_DAY = 0;
 
 function toggleScheduleLayout() {

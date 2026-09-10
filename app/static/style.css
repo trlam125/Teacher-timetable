@@ -3498,7 +3498,7 @@ html.dark-mode .day-slot-dropzone.android-touch-drop-target {
   background: var(--line, #e2e8f0);
   border-radius: var(--radius-full, 9999px);
   overflow: hidden;
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .ai-progress-bar {
