@@ -13,7 +13,7 @@ html {
 }
 
 body {
-  font-family: "Aptos", "Segoe UI Variable", sans-serif;
+  font-family: var(--font-sans);
   background:
     radial-gradient(
       circle at 8% 2%,
@@ -48,7 +48,7 @@ h2,
 h3,
 .brand,
 .appbar b {
-  font-family: "Aptos Display", "Segoe UI Variable Display", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: -0.025em;
 }
 

@@ -342,6 +342,7 @@ async function refresh(skipOperationStatus = false) {
     throw error;
   }
   data = result;
+  if (typeof clearTapAssign === "function") clearTapAssign();
   renderAll();
   restoreRefreshScrollState(scrollState);
   requestAnimationFrame(() => restoreRefreshScrollState(scrollState));
@@ -350,6 +351,7 @@ async function refresh(skipOperationStatus = false) {
 function activateWorkspaceTab(tabName) {
   const b = document.querySelector(`.nav[data-tab="${tabName}"]`);
   if (!b) return false;
+  if (typeof clearTapAssign === "function") clearTapAssign();
   document
     .querySelectorAll(".nav,.tab")
     .forEach((x) => x.classList.remove("active"));
@@ -2794,6 +2796,81 @@ document.addEventListener("pointerdown", (event) => {
 const DRAG_WHEEL_SCROLL_MULTIPLIER = 1.7;
 const DRAG_EDGE_SCROLL_MULTIPLIER = 1.0;
 const dragAutoScroll = { frame: 0 };
+let activeTapAssign = null;
+
+function clearTapAssign() {
+  if (!activeTapAssign) return;
+  document
+    .querySelectorAll(".selected-for-assign")
+    .forEach((el) => el.classList.remove("selected-for-assign"));
+  document.querySelector(".workspace")?.classList.remove("is-assign-mode");
+  const bar = document.getElementById("tapAssignBar");
+  if (bar) bar.remove();
+  activeTapAssign = null;
+}
+
+function getPayloadLabel(payload) {
+  if (!payload || !data) return "Tiết học";
+  try {
+    if (payload.startsWith("assignment:")) {
+      const aid = Number(payload.split(":")[1]);
+      const a = data.assignments.find((x) => x.id === aid);
+      return a
+        ? `${a.subject_short || a.subject_name} (${a.class_name})`
+        : "Tiết học";
+    }
+    if (payload.startsWith("scheduled-assignment:")) {
+      const aid = Number(payload.split(":")[1]);
+      const a = data.assignments.find((x) => x.id === aid);
+      return a
+        ? `${a.subject_short || a.subject_name} (${a.class_name})`
+        : "Phân công";
+    }
+    const lid = Number(payload);
+    if (Number.isInteger(lid)) {
+      const l = data.lessons.find((x) => x.id === lid);
+      if (l) {
+        const a = data.assignments.find((x) => x.id === l.assignment_id);
+        return a
+          ? `${a.subject_short || a.subject_name} (${a.class_name})`
+          : "Tiết học";
+      }
+    }
+  } catch (e) {}
+  return "Tiết học";
+}
+
+function handleTapToSelect(source, payload) {
+  if (window.READ_ONLY || !payload) return;
+
+  if (activeTapAssign && activeTapAssign.payload === payload) {
+    clearTapAssign();
+    return;
+  }
+
+  clearTapAssign();
+
+  activeTapAssign = { payload, source };
+  source.classList.add("selected-for-assign");
+  document.querySelector(".workspace")?.classList.add("is-assign-mode");
+
+  const label = getPayloadLabel(payload);
+  let bar = document.getElementById("tapAssignBar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "tapAssignBar";
+    bar.className = "tap-assign-bar";
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = `
+    <div class="tap-assign-bar-info">
+      <span class="tap-assign-pulse-dot" aria-hidden="true"></span>
+      <span>Đang chọn: <b>${esc(label)}</b> · Chạm ô trên lịch để xếp</span>
+    </div>
+    <button type="button" onclick="clearTapAssign()">Hủy</button>
+  `;
+}
+
 const pointerDrag = {
   active: false,
   pointerId: null,
@@ -3028,10 +3105,18 @@ function finishPointerDrag(event, cancel = false) {
     updatePointerDropTarget(event.clientX, event.clientY);
   }
   const payload = pointerDrag.payload,
+    source = pointerDrag.source,
     target = pointerDrag.target,
-    shouldDrop = !cancel && pointerDrag.didMove && target;
+    didMove = pointerDrag.didMove,
+    shouldDrop = !cancel && didMove && target;
   clearPointerDrag();
-  if (!shouldDrop) return;
+  if (!shouldDrop) {
+    if (!cancel && !didMove && source && payload) {
+      handleTapToSelect(source, payload);
+    }
+    return;
+  }
+  clearTapAssign();
   if (target.classList.contains("unscheduled-tray")) {
     dropToTrayPayload(payload);
     return;
@@ -3049,8 +3134,37 @@ document.addEventListener(
       event.target.closest("button,a,input,select,textarea,label")
     )
       return;
+
+    // Destination handling for Tap-to-Assign
+    if (activeTapAssign) {
+      const cell = event.target.closest(".cell.available");
+      if (cell && cell.dataset.slot != null) {
+        event.preventDefault();
+        event.stopPropagation();
+        const slot = Number(cell.dataset.slot);
+        const payload = activeTapAssign.payload;
+        clearTapAssign();
+        dropLessonPayload(payload, slot);
+        return;
+      }
+      const tray = event.target.closest(".unscheduled-tray");
+      if (tray) {
+        event.preventDefault();
+        event.stopPropagation();
+        const payload = activeTapAssign.payload;
+        clearTapAssign();
+        dropToTrayPayload(payload);
+        return;
+      }
+    }
+
     const source = event.target.closest("[data-drag-payload]");
-    if (!source || !source.dataset.dragPayload) return;
+    if (!source || !source.dataset.dragPayload) {
+      if (activeTapAssign && !event.target.closest("#tapAssignBar")) {
+        clearTapAssign();
+      }
+      return;
+    }
     event.preventDefault();
     beginPointerDrag(event, source);
   },
@@ -3091,9 +3205,12 @@ window.addEventListener("blur", () => finishPointerDrag(null, true));
 document.addEventListener(
   "keydown",
   (event) => {
-    if (event.key === "Escape" && pointerDrag.active) {
-      event.preventDefault();
-      finishPointerDrag(null, true);
+    if (event.key === "Escape") {
+      if (activeTapAssign) clearTapAssign();
+      if (pointerDrag.active) {
+        event.preventDefault();
+        finishPointerDrag(null, true);
+      }
     }
   },
   { capture: true },
@@ -3126,4 +3243,31 @@ window.addEventListener("beforeprint", () => {
   const scheduleGrid = document.querySelector("#scheduleGrid");
   if (scheduleGrid && !scheduleGrid.querySelector(".timetable"))
     renderSchedule();
+});
+
+function toggleSidebarCollapse() {
+  const ws = document.querySelector(".workspace");
+  if (!ws) return;
+  const isCollapsed = ws.classList.toggle("sidebar-collapsed");
+  try {
+    localStorage.setItem("smart_tkb_sidebar_collapsed", isCollapsed ? "1" : "0");
+  } catch (e) {}
+  const btn = document.getElementById("sidebarCollapseBtn");
+  if (btn) {
+    btn.title = isCollapsed ? "Mở rộng danh mục" : "Thu gọn danh mục";
+    btn.setAttribute("aria-label", btn.title);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    if (localStorage.getItem("smart_tkb_sidebar_collapsed") === "1") {
+      document.querySelector(".workspace")?.classList.add("sidebar-collapsed");
+      const btn = document.getElementById("sidebarCollapseBtn");
+      if (btn) {
+        btn.title = "Mở rộng danh mục";
+        btn.setAttribute("aria-label", btn.title);
+      }
+    }
+  } catch (e) {}
 });
