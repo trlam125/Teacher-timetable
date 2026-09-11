@@ -312,7 +312,13 @@ class TeacherPreference(Base):
         ForeignKey("teachers.id"), nullable=True, index=True
     )
     submitted_by_user_id: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True, index=True
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+            name="fk_teacher_preferences_submitted_by_user_id",
+        ),
+        nullable=True,
+        index=True,
     )
     submitted_name: Mapped[str] = mapped_column(String(120), default="")
     submitted_email: Mapped[str] = mapped_column(String(255), default="")
@@ -508,6 +514,31 @@ def migrate_schema():
             connection.exec_driver_sql(
                 "CREATE INDEX IF NOT EXISTS ix_teacher_preferences_submitted_by_user_id "
                 "ON teacher_preferences (submitted_by_user_id)"
+            )
+            # Dữ liệu cũ có thể còn user_id trỏ tới tài khoản đã bị xóa.
+            # Dọn các giá trị mồ côi trước khi bổ sung khóa ngoại để migration
+            # chạy được trên database đang sử dụng.
+            connection.exec_driver_sql(
+                "UPDATE teacher_preferences preference "
+                "SET submitted_by_user_id=NULL "
+                "WHERE submitted_by_user_id IS NOT NULL "
+                "AND NOT EXISTS ("
+                "SELECT 1 FROM users WHERE users.id=preference.submitted_by_user_id"
+                ")"
+            )
+            connection.exec_driver_sql(
+                "DO $$ "
+                "BEGIN "
+                "IF NOT EXISTS ("
+                "SELECT 1 FROM pg_constraint "
+                "WHERE conname='fk_teacher_preferences_submitted_by_user_id'"
+                ") THEN "
+                "ALTER TABLE teacher_preferences "
+                "ADD CONSTRAINT fk_teacher_preferences_submitted_by_user_id "
+                "FOREIGN KEY (submitted_by_user_id) REFERENCES users(id) "
+                "ON DELETE SET NULL; "
+                "END IF; "
+                "END $$"
             )
         # Không migrate nguyện vọng thành teacher.unavailable_json và không dùng
         # chúng làm ràng buộc xếp lịch.
@@ -3258,6 +3289,16 @@ def delete_account(
             | (EmailChangeVerification.requested_by_user_id == account.id)
         )
     )
+    # Giữ lịch sử nguyện vọng nhưng không để lại user_id mồ côi sau khi
+    # tài khoản bị xóa. submitted_name/submitted_email vẫn là snapshot để
+    # quản trị viên biết nguyện vọng trước đây do ai gửi.
+    preferences = db.scalars(
+        select(TeacherPreference).where(
+            TeacherPreference.submitted_by_user_id == account.id
+        )
+    ).all()
+    for preference in preferences:
+        preference.submitted_by_user_id = None
     db.delete(account)
     db.commit()
     return RedirectResponse("/admin/users", 303)

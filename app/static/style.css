@@ -3174,7 +3174,6 @@ dialog::backdrop {
   position: relative;
   max-height: calc(100vh - 190px);
   overflow: auto;
-  scroll-behavior: smooth;
 }
 
 .timetable .cell.head {

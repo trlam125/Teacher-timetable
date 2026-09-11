@@ -291,36 +291,79 @@ function launchConfetti() {
   draw();
 }
 function captureRefreshScrollState() {
-  const root = document.scrollingElement || document.documentElement,
+  const root =
+      document.scrollingElement || document.documentElement || document.body,
     table = document.querySelector("#scheduleGrid .timetable"),
     content = document.querySelector(".workspace .content");
+  const tableRect = table ? table.getBoundingClientRect() : null;
   return {
-    pageTop: root?.scrollTop ?? window.scrollY ?? 0,
-    pageLeft: root?.scrollLeft ?? window.scrollX ?? 0,
-    tableTop: table?.scrollTop ?? null,
-    tableLeft: table?.scrollLeft ?? null,
-    contentTop: content?.scrollTop ?? null,
-    contentLeft: content?.scrollLeft ?? null,
+    pageTop: window.pageYOffset ?? window.scrollY ?? root?.scrollTop ?? 0,
+    pageLeft: window.pageXOffset ?? window.scrollX ?? root?.scrollLeft ?? 0,
+    tableTop: table ? table.scrollTop : null,
+    tableLeft: table ? table.scrollLeft : null,
+    tableRectTop: tableRect ? tableRect.top : null,
+    contentTop: content ? content.scrollTop : null,
+    contentLeft: content ? content.scrollLeft : null,
   };
 }
 function restoreRefreshScrollState(state) {
   if (!state) return;
-  const table = document.querySelector("#scheduleGrid .timetable"),
-    content = document.querySelector(".workspace .content");
-  if (table && state.tableTop != null) {
-    table.scrollTop = state.tableTop;
-    table.scrollLeft = state.tableLeft || 0;
-  }
-  if (content && state.contentTop != null) {
-    content.scrollTop = state.contentTop;
-    content.scrollLeft = state.contentLeft || 0;
-  }
-  const root = document.scrollingElement || document.documentElement;
-  if (root) {
-    root.scrollTop = state.pageTop || 0;
-    root.scrollLeft = state.pageLeft || 0;
-  } else if (typeof window.scrollTo === "function")
-    window.scrollTo(state.pageLeft || 0, state.pageTop || 0);
+  const apply = () => {
+    const table = document.querySelector("#scheduleGrid .timetable"),
+      content = document.querySelector(".workspace .content"),
+      root =
+        document.scrollingElement || document.documentElement || document.body;
+
+    if (table) {
+      const top = state.tableTop ?? table.scrollTop;
+      const left = state.tableLeft ?? table.scrollLeft;
+      try {
+        table.scrollTo({ top, left, behavior: "instant" });
+      } catch {
+        table.scrollTop = top;
+        table.scrollLeft = left;
+      }
+    }
+
+    if (content && (state.contentTop != null || state.contentLeft != null)) {
+      const top = state.contentTop ?? content.scrollTop;
+      const left = state.contentLeft ?? content.scrollLeft;
+      try {
+        content.scrollTo({ top, left, behavior: "instant" });
+      } catch {
+        content.scrollTop = top;
+        content.scrollLeft = left;
+      }
+    }
+
+    let targetPageTop = state.pageTop ?? 0;
+    let targetPageLeft = state.pageLeft ?? 0;
+
+    if (state.tableRectTop != null && table) {
+      const currentRect = table.getBoundingClientRect();
+      const deltaY = currentRect.top - state.tableRectTop;
+      if (Math.abs(deltaY) > 1) {
+        targetPageTop += deltaY;
+      }
+    }
+
+    try {
+      window.scrollTo({
+        top: targetPageTop,
+        left: targetPageLeft,
+        behavior: "instant",
+      });
+    } catch {
+      window.scrollTo(targetPageLeft, targetPageTop);
+    }
+    if (root) {
+      root.scrollTop = targetPageTop;
+      root.scrollLeft = targetPageLeft;
+    }
+  };
+
+  apply();
+  requestAnimationFrame(apply);
 }
 async function refresh(skipOperationStatus = false) {
   const scrollState = captureRefreshScrollState(),
@@ -1808,10 +1851,13 @@ function renderManualTray() {
   const gapsHtml = groups.length
     ? `<div><b>Dữ liệu chưa có phân công</b><p>Giáo viên, môn hoặc lớp chỉ xuất hiện trên thời khóa biểu sau khi được tạo ở mục Phân công.</p>${groups.map(([label, rows]) => `<div><strong>${label}:</strong> ${rows.map((row) => esc(row.name)).join(", ")}</div>`).join("")}</div>`
     : "";
-  coverageBox.innerHTML =
+  const coverageHtml =
     duplicateHtml || overloadHtml || classOverloadHtml || gapsHtml
       ? `<div class="coverage-warning">${duplicateHtml}${overloadHtml}${classOverloadHtml}${gapsHtml}<button class="btn ghost" onclick="goToAssignments()">Đến mục Phân công</button></div>`
       : "";
+  if (coverageBox && coverageBox.innerHTML !== coverageHtml) {
+    coverageBox.innerHTML = coverageHtml;
+  }
   const counts = {};
   data.lessons.forEach(
     (lesson) =>
@@ -1827,20 +1873,24 @@ function renderManualTray() {
   if (vt && ve && vt.value === "teacher")
     rows = rows.filter((item) => item.teacher_id === Number(ve.value));
   if (!rows.length) {
-    scheduledBox.innerHTML = "";
+    if (scheduledBox && scheduledBox.innerHTML !== "") scheduledBox.innerHTML = "";
     const filtered =
       vt && ve && (vt.value === "class" || vt.value === "teacher");
-    tray.innerHTML = `<div class="empty-state">${filtered ? "Không có phân công cho " + (vt.value === "class" ? "lớp" : "giáo viên") + " đang chọn." : "Chưa có phân công để xếp. Hãy tạo phân công lớp – môn – giáo viên – số tiết/tuần."}</div>`;
+    const emptyHtml = `<div class="empty-state">${filtered ? "Không có phân công cho " + (vt.value === "class" ? "lớp" : "giáo viên") + " đang chọn." : "Chưa có phân công để xếp. Hãy tạo phân công lớp – môn – giáo viên – số tiết/tuần."}</div>`;
+    if (tray.innerHTML !== emptyHtml) tray.innerHTML = emptyHtml;
     return;
   }
   const scheduled = rows.filter((item) => item.scheduled > 0),
     pending = rows.filter((item) => item.remaining > 0);
-  scheduledBox.innerHTML = scheduled.length
+  const scheduledHtml = scheduled.length
     ? `<div class="scheduled-label">Đang có trên lịch · kéo cả thẻ xuống khay để thu hồi toàn bộ phân công</div><div class="scheduled-cards">${scheduled.map((item) => `<div class="scheduled-assignment" draggable="false" data-drag-payload="scheduled-assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>${item.scheduled}/${item.periods_per_week} tiết</span></div>`).join("")}</div>`
     : "";
+  if (scheduledBox && scheduledBox.innerHTML !== scheduledHtml) {
+    scheduledBox.innerHTML = scheduledHtml;
+  }
   const hint =
     '<div class="tray-drop-hint">Thả tiết trên thời khóa biểu hoặc thẻ “đang có trên lịch” vào đây để đưa về khay</div>';
-  tray.innerHTML =
+  const trayHtml =
     hint +
     pending
       .map(
@@ -1848,6 +1898,9 @@ function renderManualTray() {
           `<div class="tray-lesson" draggable="false" data-drag-payload="assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>Còn ${item.remaining}</span></div>`,
       )
       .join("");
+  if (tray.innerHTML !== trayHtml) {
+    tray.innerHTML = trayHtml;
+  }
 }
 
 function clusteredLessonIds() {
@@ -1894,11 +1947,6 @@ function renderSchedule(preserveScroll = false) {
     vt = $("#viewType"),
     ve = $("#viewEntity");
   if (!box || !vt || !ve) return;
-  const currentTable = box.querySelector(".timetable");
-  const scrollState =
-    preserveScroll && currentTable
-      ? { top: currentTable.scrollTop, left: currentTable.scrollLeft }
-      : null;
 
   if (vt.value !== "overview" && !ve.value) {
     box.innerHTML =
@@ -1931,6 +1979,53 @@ function renderSchedule(preserveScroll = false) {
     return (a?.class_name || "").localeCompare(b?.class_name || "", "vi");
   };
 
+  const currentTable = box.querySelector(".timetable");
+  const totalSlots = days * sessions * pps;
+  const isOverview = vt.value === "overview";
+  const canUpdateInPlace =
+    currentTable &&
+    currentTable.classList.contains("overview-timetable") === isOverview &&
+    currentTable.querySelectorAll(".cell.available[data-slot]").length ===
+      totalSlots;
+
+  if (canUpdateInPlace) {
+    for (let slot = 0; slot < totalSlots; slot++) {
+      const cell = currentTable.querySelector(
+        `.cell.available[data-slot="${slot}"]`,
+      );
+      if (!cell) continue;
+      const slotConflicts = conflicts.conflictsBySlot.get(slot) || [];
+      const hasConflict = slotConflicts.length > 0;
+      const slotConflictText = hasConflict ? slotConflicts.join("; ") : "";
+      const lessons = data.lessons
+        .filter((l) => l.slot === slot)
+        .filter(filterLesson)
+        .sort(sortLessons);
+      const newLessonHtml = lessons
+        .map((l) =>
+          lessonHtml(
+            l,
+            vt.value,
+            clustered.has(l.id),
+            conflicts.conflictsByLessonId.get(l.id),
+          ),
+        )
+        .join("");
+
+      cell.classList.toggle("has-conflict", hasConflict);
+      if (cell.title !== slotConflictText) cell.title = slotConflictText;
+      const existingLockLabel = cell.querySelector(".global-lock-label");
+      const lockHtml = existingLockLabel ? existingLockLabel.outerHTML : "";
+      const targetHtml = lockHtml + newLessonHtml;
+      if (cell.innerHTML !== targetHtml) {
+        cell.innerHTML = targetHtml;
+      }
+    }
+    return;
+  }
+
+  const scrollState = preserveScroll ? captureRefreshScrollState() : null;
+
   let html = `<div class="timetable ${vt.value === "overview" ? "overview-timetable" : ""}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;
   for (let d = 0; d < days; d++)
     html += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
@@ -1954,11 +2049,7 @@ function renderSchedule(preserveScroll = false) {
   box.innerHTML = legend + html;
 
   if (scrollState) {
-    const nextTable = box.querySelector(".timetable");
-    if (nextTable) {
-      nextTable.scrollTop = scrollState.top;
-      nextTable.scrollLeft = scrollState.left;
-    }
+    restoreRefreshScrollState(scrollState);
   }
 }
 
@@ -2008,7 +2099,7 @@ function showToast(message, type = "info", duration = 3200) {
       ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
       : type === "success"
         ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
-        : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
   toast.innerHTML = `<span class="app-toast-icon">${icon}</span><span class="app-toast-text">${esc(message)}</span>`;
   container.appendChild(toast);
   setTimeout(() => {
@@ -2021,8 +2112,10 @@ function showToast(message, type = "info", duration = 3200) {
 let optimisticLessonId = -1;
 const pendingDropPayloads = new Set();
 function renderOptimisticSchedule() {
+  const scrollState = captureRefreshScrollState();
   renderSchedule(true);
   renderManualTray();
+  restoreRefreshScrollState(scrollState);
 }
 function showDropConflict(slot, message) {
   const text = message || "Không thể xếp tiết";
