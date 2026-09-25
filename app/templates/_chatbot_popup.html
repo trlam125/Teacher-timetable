@@ -1,0 +1,154 @@
+{% set is_teacher_chat = user is defined and user and user.role == 'teacher' %}
+<button id="chatbotFab" class="chatbot-fab" type="button" aria-label="Mở Trợ lý AI" aria-controls="chatbotPopup"
+    aria-expanded="false">
+    <span class="chatbot-fab-icon" aria-hidden="true">
+        <svg class="fab-icon-svg chatbot-icon-svg" viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <defs>
+                <linearGradient id="aiFabGradPrimary" x1="2" y1="2" x2="17" y2="20" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#2563eb" />
+                    <stop offset="50%" stop-color="#4f46e5" />
+                    <stop offset="100%" stop-color="#7c3aed" />
+                </linearGradient>
+                <linearGradient id="aiFabGradSecondary" x1="15" y1="2" x2="22" y2="9" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#0284c7" />
+                    <stop offset="100%" stop-color="#06b6d4" />
+                </linearGradient>
+            </defs>
+            <!-- Primary 4-point curved AI Star -->
+            <path
+                d="M9.5 2C9.5 6.97 5.97 11 2 11C5.97 11 9.5 15.03 9.5 20C9.5 15.03 13.03 11 17 11C13.03 11 9.5 6.97 9.5 2Z"
+                fill="url(#aiFabGradPrimary)" />
+            <!-- Satellite AI Sparkle -->
+            <path
+                d="M18.5 2C18.5 3.93 16.93 5.5 15 5.5C16.93 5.5 18.5 7.07 18.5 9C18.5 7.07 20.07 5.5 22 5.5C20.07 5.5 18.5 3.93 18.5 2Z"
+                fill="url(#aiFabGradSecondary)" />
+            <!-- Bottom-right accent star -->
+            <path
+                d="M17.5 15.5C17.5 16.88 16.38 18 15 18C16.38 18 17.5 19.12 17.5 20.5C17.5 19.12 18.62 18 20 18C18.62 18 17.5 16.88 17.5 15.5Z"
+                fill="#8b5cf6" fill-opacity="0.85" />
+        </svg>
+    </span>
+</button>
+<div id="chatbotTrail" class="fab-trail-container chatbot-trail" aria-hidden="true">
+    <div class="circle trail t4"></div>
+    <div class="circle trail t3"></div>
+    <div class="circle trail t2"></div>
+    <div class="circle trail t1"></div>
+</div>
+<section id="chatbotPopup" class="chatbot-popup" aria-label="Trợ lý AI" aria-hidden="true">
+    <div class="chatbot-border-pet chatbot-border-ball" id="chatbotPet" role="button" tabindex="0"
+        aria-label="Quả bóng đá 3D của Trợ lý AI" title="Bấm để sút / tâng bóng!">
+        <!-- Bong bóng cảm xúc / tương tác bóng đá -->
+        <div class="pet-bubble ball-bubble" aria-hidden="true" id="petBubble">
+            <span class="pet-bubble-icon">⚽</span>
+            <span class="pet-bubble-text">Vào ooo!</span>
+        </div>
+        <!-- Không gian 3D Quả bóng đá -->
+        <div class="ball-3d-scene" aria-hidden="true">
+            <!-- Đổ bóng tiếp xúc mặt viền co giãn theo độ nảy -->
+            <div class="ball-3d-shadow"></div>
+            <!-- Khối cầu bóng đá 3D (Canvas động + lớp phủ ánh sáng CSS) -->
+            <div class="ball-3d-rig">
+                <canvas id="chatbotBallCanvas" class="ball-3d-canvas" width="48" height="48"></canvas>
+                <!-- Hiệu ứng phản quang bóng sáng (Specular Lens Flare / Gloss) -->
+                <div class="ball-3d-gloss"></div>
+                <!-- Vành tối 3D / Ambient Rim -->
+                <div class="ball-3d-rim"></div>
+            </div>
+        </div>
+    </div>
+    <div class="chatbot-sheet-handle" aria-hidden="true" id="chatbotSheetHandle" title="Bấm để thu nhỏ"></div>
+    <header class="chatbot-popup-header">
+        <div class="chatbot-popup-avatar" aria-hidden="true">
+            <svg class="chatbot-avatar-svg" viewBox="0 0 24 24" width="20" height="20" fill="none">
+                <path
+                    d="M9.5 2C9.5 6.97 5.97 11 2 11C5.97 11 9.5 15.03 9.5 20C9.5 15.03 13.03 11 17 11C13.03 11 9.5 6.97 9.5 2Z"
+                    fill="currentColor" />
+                <path
+                    d="M18.5 2C18.5 3.93 16.93 5.5 15 5.5C16.93 5.5 18.5 7.07 18.5 9C18.5 7.07 20.07 5.5 22 5.5C20.07 5.5 18.5 3.93 18.5 2Z"
+                    fill="currentColor" opacity="0.8" />
+                <path
+                    d="M17.5 15.5C17.5 16.88 16.38 18 15 18C16.38 18 17.5 19.12 17.5 20.5C17.5 19.12 18.62 18 20 18C18.62 18 17.5 16.88 17.5 15.5Z"
+                    fill="currentColor" opacity="0.6" />
+            </svg>
+        </div>
+        <div class="chatbot-popup-title">
+            <strong>Trợ lý AI</strong>
+            <span class="chatbot-popup-status {{ 'is-ready' if chatbot_enabled else 'is-offline' }}">
+                {{ 'Sẵn sàng hỗ trợ' if chatbot_enabled else 'Không thể kết nối tới chatbot' }}{% if
+                chatbot_project_name %} · {{ chatbot_project_name }}{% endif %}
+            </span>
+        </div>
+        <button id="chatbotMinimize" class="chatbot-icon-button" type="button" aria-label="Thu nhỏ">−</button>
+        <button id="chatbotClose" class="chatbot-icon-button" type="button" aria-label="Đóng">×</button>
+    </header>
+    <div id="chatMessages" class="chat-messages chatbot-popup-messages" aria-live="polite">
+        <article class="chat-message assistant">
+            <div class="message-avatar">AI</div>
+            <div class="message-body">
+                {%- if is_teacher_chat -%}
+                Xin chào! Bạn có thể hỏi mình về thời khóa biểu, giáo viên, lớp, môn học hoặc phân công trong bộ đang
+                xem. Hãy nêu tên giáo viên/lớp/môn nếu muốn lọc cụ thể.
+                {%- else -%}
+                Xin chào! Bạn có thể yêu cầu mình kiểm tra tải giáo viên, tìm phân công thiếu, xem lịch học hoặc đề xuất
+                phân công lại. Nếu có bảng yêu cầu riêng, hãy đính kèm bên dưới.
+                {%- endif -%}
+            </div>
+        </article>
+        <div class="suggestion-list">
+            {% if is_teacher_chat %}
+            <button type="button" data-prompt="Tóm tắt thời khóa biểu hiện tại theo từng ngày, lớp và môn.">
+                Tóm tắt thời khóa biểu
+            </button>
+            <button type="button"
+                data-prompt="Liệt kê phân công theo từng giáo viên, gồm tổng số tiết, các lớp và môn đang phụ trách.">
+                Phân công giáo viên
+            </button>
+            <button type="button"
+                data-prompt="Cho biết các lớp hoặc giáo viên có lịch dày nhất trong bộ thời khóa biểu này.">
+                Xem tải theo lịch
+            </button>
+            {% else %}
+            <button type="button"
+                data-prompt="Kiểm tra phân công hiện tại: lớp/môn nào còn thiếu, giáo viên nào quá tải hoặc dạy chưa đúng chuyên môn?">
+                Kiểm tra toàn bộ
+            </button>
+            <button type="button"
+                data-prompt="Đề xuất cân bằng số tiết giữa các giáo viên nhưng không thay đổi giáo viên sang môn ngoài chuyên môn.">
+                Cân bằng tải
+            </button>
+            <button type="button"
+                data-prompt="Tóm tắt phân công hiện tại theo từng giáo viên, gồm các lớp, môn và tổng số tiết mỗi tuần.">
+                Tóm tắt giáo viên
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <form id="chatForm" class="chat-composer chatbot-popup-composer">
+        <div id="filePreview" class="file-preview" hidden>
+            <span id="fileName"></span>
+            <button id="removeFile" type="button" aria-label="Bỏ tệp đính kèm">×</button>
+        </div>
+        <textarea id="chatInput" maxlength="4000" rows="2" placeholder="Hỏi trợ lý về phân công, lịch học..."
+            required></textarea>
+        <div class="composer-actions">
+            <label class="attach-button chatbot-attach" title="Đính kèm tài liệu">
+                <input id="chatFile" type="file"
+                    accept=".docx,.xlsx,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                    multiple hidden>
+                <span aria-hidden="true">📎</span><span class="attach-text">Tệp</span>
+            </label>
+            <button id="clearChat" class="clear-button" type="button">Xóa</button>
+            <span class="composer-hint">Enter để gửi</span>
+            <button id="sendChat" class="btn chatbot-send" type="submit" {{ '' if chatbot_enabled else 'disabled'
+                }}>Gửi</button>
+        </div>
+    </form>
+</section>
+<script>
+    window.CHATBOT_PROJECT_ID = {{ chatbot_project_id }};
+    window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }};
+    window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }};
+</script>
+<script src="/static/fab-motion.js?v=1"></script>
+<script src="/static/chatbot.js?v=1"></script>

@@ -1,0 +1,111 @@
+# Tu dong nhan dien tep van ban; cac quy tac ben duoi giu line ending
+# nhat quan khi lam viec tren Windows, Linux va macOS.
+* text=auto
+
+# Tep cau hinh cua Git dung LF
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# Python va cau hinh project
+*.py          text eol=lf
+*.pyi         text eol=lf
+*.java        text eol=lf
+*.kt          text eol=lf
+*.kts         text eol=lf
+*.gradle      text eol=lf
+*.pro         text eol=lf
+*.toml        text eol=lf
+*.ini         text eol=lf
+*.cfg         text eol=lf
+*.conf        text eol=lf
+*.properties  text eol=lf
+*.lock        text eol=lf
+
+# Frontend / web
+*.html        text eol=lf
+*.htm         text eol=lf
+*.css         text eol=lf
+*.scss        text eol=lf
+*.js          text eol=lf
+*.mjs         text eol=lf
+*.cjs         text eol=lf
+*.ts          text eol=lf
+*.tsx         text eol=lf
+*.json        text eol=lf
+*.xml         text eol=lf
+*.svg         text eol=lf
+
+# Tai lieu va du lieu dang van ban
+*.md          text eol=lf
+*.rst         text eol=lf
+*.txt         text eol=lf
+*.csv         text eol=lf
+*.tsv         text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+*.sql         text eol=lf
+
+# Shell tren Linux/macOS dung LF
+*.sh          text eol=lf
+*.bash        text eol=lf
+*.zsh         text eol=lf
+
+# Script Windows dung CRLF
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Tep nhi phan: khong chuyen doi line ending va khong diff nhu van ban
+*.pyc         binary
+*.pyo         binary
+*.pyd         binary
+*.so          binary
+*.dll         binary
+*.exe         binary
+*.db          binary
+*.sqlite      binary
+*.sqlite3     binary
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.webp        binary
+*.ico         binary
+*.bmp         binary
+*.pdf         binary
+*.zip         binary
+*.7z          binary
+*.rar         binary
+*.tar         binary
+*.gz          binary
+*.bz2         binary
+*.xz          binary
+*.woff        binary
+*.woff2       binary
+*.ttf         binary
+*.otf         binary
+*.class       binary
+*.dex         binary
+*.jar         binary
+*.aar         binary
+*.apk         binary
+*.aab         binary
+*.apks        binary
+*.jks         binary
+*.keystore    binary
+*.p12         binary
+*.pfx         binary
+
+# Gradle Wrapper: script Unix dung LF, script Windows dung CRLF.
+android-webview/gradlew     text eol=lf
+android-webview/gradlew.bat text eol=crlf
+
+# Khong dua cac cong cu tunnel cuc bo vao goi source tao boi Git
+cloudflared.exe             export-ignore
+cloudflared-windows-*.exe   export-ignore
+cloudflared-linux-*         export-ignore
+cloudflared-darwin-*        export-ignore
+ngrok.exe                   export-ignore
+ngrok                       export-ignore
+tailscale.exe               export-ignore
+tailscaled.exe              export-ignore

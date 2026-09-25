@@ -1,0 +1,132 @@
+/**
+ * Smart TKB Design Tokens & System Variables
+ * Standardizes colors, typography, borders, shadows and micro-interaction timings across the app.
+ */
+:root {
+  /* Brand & Core Palette */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-subtle: #eff6ff;
+  --primary-focus: rgba(37, 99, 235, 0.25);
+
+  /* Surface & Canvas */
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --card-bg: #ffffff;
+  --card-bg-elevated: #ffffff;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+
+  /* Typography */
+  --font-sans:
+    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --ink: #0f172a;
+  --ink-secondary: #334155;
+  --muted: #64748b;
+  --ink-subtle: #94a3b8;
+
+  /* Semantic Feedback Colors */
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #991b1b;
+
+  --warning: #f59e0b;
+  --warning-hover: #d97706;
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #92400e;
+
+  --success: #10b981;
+  --success-hover: #059669;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+  --success-text: #065f46;
+
+  --info: #0284c7;
+  --info-hover: #0369a1;
+  --info-bg: #f0f9ff;
+  --info-border: #bae6fd;
+  --info-text: #075985;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Elevation & Shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm:
+    0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:
+    0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg:
+    0 10px 15px -3px rgba(15, 23, 42, 0.08),
+    0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-xl:
+    0 20px 25px -5px rgba(15, 23, 42, 0.1),
+    0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-float: 0 14px 40px rgba(15, 23, 42, 0.16);
+
+  /* Animation & Transitions */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-smooth: 360ms;
+}
+
+/* Dark Mode Tokens */
+html.dark-mode {
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-subtle: rgba(59, 130, 246, 0.15);
+  --primary-focus: rgba(59, 130, 246, 0.3);
+
+  --bg: #0b0f19;
+  --panel: #111827;
+  --card-bg: #1e293b;
+  --card-bg-elevated: #1e293b;
+  --line: #334155;
+  --line-strong: #475569;
+
+  --ink: #f8fafc;
+  --ink-secondary: #e2e8f0;
+  --muted: #94a3b8;
+  --ink-subtle: #64748b;
+
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.15);
+  --danger-border: rgba(239, 68, 68, 0.3);
+  --danger-text: #fca5a5;
+
+  --warning: #fbbf24;
+  --warning-hover: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --warning-border: rgba(245, 158, 11, 0.3);
+  --warning-text: #fde68a;
+
+  --success: #34d399;
+  --success-hover: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.3);
+  --success-text: #a7f3d0;
+
+  --info: #38bdf8;
+  --info-hover: #0ea5e9;
+  --info-bg: rgba(14, 165, 233, 0.15);
+  --info-border: rgba(14, 165, 233, 0.3);
+  --info-text: #bae6fd;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 14px 40px rgba(0, 0, 0, 0.6);
+}

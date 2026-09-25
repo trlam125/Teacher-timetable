@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Thời khóa biểu · Smart TKB</title>
+    <script>
+        (function () {
+            const t = localStorage.getItem('theme');
+            if (t === 'dark') document.documentElement.classList.add('dark-mode');
+        })();
+        function toggleTheme() {
+            const dark = document.documentElement.classList.toggle('dark-mode');
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            document.querySelectorAll('.theme-switch__checkbox').forEach(cb => cb.checked = dark);
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/design-tokens.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <script src="/static/operation-status.js?v=1" defer></script>
+    <script src="/static/appbar-datetime.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/effects.css?v=1">
+    <link rel="stylesheet" href="/static/front.css?v=1">
+    <link rel="stylesheet" href="/static/preferences.css?v=1">
+    <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
+</head>
+
+<body class="teacher-surface">
+    <header class="appbar">
+        <a class="appbar-brand" href="/teacher" aria-label="Smart TKB - Cổng giáo viên"><img
+                src="/static/brand-logo.svg?v=1" alt=""><span class="appbar-brand-copy"><span>Smart
+                    TKB</span><small>Cổng
+                    giáo viên</small></span></a>
+        <div><strong>{{ user.name }}</strong><small>Chế độ chỉ xem</small></div>
+        <div class="spacer"></div>
+        {% include "_theme_switch.html" %}
+        <a class="btn ghost" href="/teacher/account">Tài khoản của tôi</a>
+        <a class="btn ghost" href="/logout">Đăng xuất</a>
+    </header>
+    <main class="container preference-page">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">CHỈ XEM</span>
+                <h1>Thời khóa biểu</h1>
+                <p>{% if not teacher_schools %}Tài khoản của bạn chưa được gán trường nên chưa thể xem bất kỳ thời khóa
+                    biểu nào.{% else %}Chưa có bộ thời khóa biểu nào thuộc trường được gán cho tài khoản của bạn.{%
+                    endif %}</p>
+            </div>
+            <div class="row" style="align-items:end;flex-wrap:wrap">
+                <label class="project-switcher">
+                    Bộ thời khóa biểu
+                    <select id="teacherProjectSelect" disabled>
+                        <option>Chưa có bộ thời khóa biểu</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="row" style="gap:12px;
+                            align-items:end;
+                            flex-wrap:wrap;
+                            margin-bottom:16px">
+                <label style="min-width:190px">
+                    Kiểu lọc
+                    <select disabled>
+                        <option>Toàn trường</option>
+                    </select>
+                </label>
+                <label style="min-width:240px;flex:1">
+                    Tìm theo tên
+                    <input type="search" placeholder="Nhập tên giáo viên, lớp hoặc môn..." disabled>
+                </label>
+                <label style="min-width:240px">
+                    Đối tượng
+                    <select disabled>
+                        <option>Chưa có dữ liệu</option>
+                    </select>
+                </label>
+            </div>
+            <div class="empty-state">{% if not teacher_schools %}Vui lòng liên hệ quản trị viên để được gán trường trong
+                Quản lý tài khoản.{% else %}Hiện chưa có thời khóa biểu nào trong phạm vi trường của bạn.{% endif %}
+            </div>
+        </div>
+    </main>
+    {% include "_realtime_chat_popup.html" %}
+</body>
+
+</html>

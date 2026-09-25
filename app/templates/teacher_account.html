@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Tài khoản của tôi · Smart TKB</title>
+    <script>
+        (function () {
+            const t = localStorage.getItem('theme');
+            if (t === 'dark') document.documentElement.classList.add('dark-mode');
+        })();
+        function toggleTheme() {
+            const dark = document.documentElement.classList.toggle('dark-mode');
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            document.querySelectorAll('.theme-switch__checkbox').forEach(cb => cb.checked = dark);
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/design-tokens.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <script src="/static/operation-status.js?v=1" defer></script>
+    <script src="/static/appbar-datetime.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/effects.css?v=1">
+    <link rel="stylesheet" href="/static/preferences.css?v=1">
+    <link rel="stylesheet" href="/static/chatbot.css?v=1">
+    <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
+</head>
+
+<body class="teacher-surface">
+    <header class="appbar">
+        <a class="appbar-brand" href="/teacher" aria-label="Smart TKB - Cổng giáo viên"><img
+                src="/static/brand-logo.svg?v=1" alt=""><span class="appbar-brand-copy"><span>Smart
+                    TKB</span><small>Cổng
+                    giáo viên</small></span></a>
+        <div><strong>{{ user.name }}</strong><small>Tài khoản của tôi</small></div>
+        <div class="spacer"></div>
+        {% include "_theme_switch.html" %}
+        <a class="btn ghost" href="/teacher{% if p %}?project_id={{ p.id }}{% endif %}">Quay lại thời khóa biểu</a>
+        <a class="btn ghost" href="/logout">Đăng xuất</a>
+    </header>
+    <main class="container account-page">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">BẢO MẬT TÀI KHOẢN</span>
+                <h1>Tài khoản của tôi</h1>
+                <p>{{ user.name }} · quyền xem thời khóa biểu</p>
+            </div>
+        </div>
+        {% if error %}<div class="alert error" style="margin-bottom:16px">{{ error }}</div>{% endif %}
+        {% if success %}<div class="alert success" style="margin-bottom:16px">{{ success }}</div>{% endif %}
+        <section class="panel account-form" style="margin-bottom:18px">
+            <h2>Thông tin đăng nhập</h2>
+            <label>
+                Email
+                <input type="email" value="{{ user.email }}" readonly>
+            </label>
+            <div class="row end">
+                <a class="btn ghost" href="/account/email-change{% if p %}?project_id={{ p.id }}{% endif %}">Đổi
+                    email</a>
+            </div>
+        </section>
+        <form class="panel account-form" method="post" action="/teacher/account/password">
+            {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
+            <h2>Đổi mật khẩu</h2>
+            <p class="muted">Nhập mật khẩu hiện tại để xác nhận trước khi đặt mật khẩu mới.</p>
+            <label>
+                Mật khẩu hiện tại
+                <input type="password" name="current_password" autocomplete="current-password" required>
+            </label>
+            <label>
+                Mật khẩu mới
+                <input type="password" name="new_password" minlength="8" autocomplete="new-password" required>
+            </label>
+            <label>
+                Xác nhận mật khẩu mới
+                <input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+            </label>
+            <div class="row end">
+                <a class="btn ghost" href="/teacher{% if p %}?project_id={{ p.id }}{% endif %}">Hủy</a>
+                <button class="btn" type="submit">Đổi mật khẩu</button>
+            </div>
+        </form>
+    </main>
+    {% include "_realtime_chat_popup.html" %}
+    {% if chatbot_project_id %}
+    {% include "_chatbot_popup.html" %}
+    {% endif %}
+</body>
+
+</html>

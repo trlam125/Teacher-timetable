@@ -1,0 +1,30 @@
+# Cache va cau hinh rieng cua may
+.gradle/
+.kotlin/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Ket qua build
+**/build/
+*.apk
+*.aab
+*.apks
+*.aar
+*.dex
+mapping.txt
+native-debug-symbols.zip
+
+# Khoa ky va cau hinh bao mat
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.properties
+signing.properties
+google-services.json
+service-account*.json
+firebase-adminsdk*.json

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Smart TKB</title>
+  <desc id="desc">Biểu tượng lịch học thông minh</desc>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F80ED"/>
+      <stop offset="0.55" stop-color="#4F6BF6"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="21" y1="35" x2="44" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DE8FF"/>
+      <stop offset="1" stop-color="#C4B5FD"/>
+    </linearGradient>
+  </defs>
+  <rect x="5" y="5" width="54" height="54" rx="17" fill="url(#bg)"/>
+  <rect x="14.5" y="17.5" width="35" height="32" rx="7" fill="none" stroke="#FFFFFF" stroke-width="3"/>
+  <path d="M15 27h34" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M23 14v7M41 14v7" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M22 35h7M35 35h7M22 42h7" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.92"/>
+  <path d="m34.5 42 3.8 3.6 7.2-8.4" fill="none" stroke="url(#accent)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="51" cy="13" r="4.2" fill="#7DE8FF" stroke="#FFFFFF" stroke-width="2"/>
+</svg>

@@ -1,0 +1,80 @@
+<button id="generalChatFab" class="general-chat-fab" type="button" aria-label="Mở chat chung"
+    aria-controls="generalChatPopup" aria-expanded="false">
+    <span class="general-chat-fab-icon" aria-hidden="true">
+        <svg class="fab-icon-svg general-chat-icon-svg" viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <!-- Back community dialogue layer with glass opacity -->
+            <path
+                d="M19 4H9C7.34 4 6 5.34 6 7v1h8.5c1.93 0 3.5 1.57 3.5 3.5V15h1c1.66 0 3-1.34 3-3V7c0-1.66-1.34-3-3-3Z"
+                fill="white" fill-opacity="0.45" />
+            <!-- Front main dialogue bubble with sleek rounded curves -->
+            <path
+                d="M14.5 7.5H4.5C2.57 7.5 1 9.07 1 11v4.5c0 1.93 1.57 3.5 3.5 3.5h1.2v2.24c0 .54.62.84 1.04.5l3.18-2.74h4.08c1.93 0 3.5-1.57 3.5-3.5V11c0-1.93-1.57-3.5-3.5-3.5Z"
+                fill="white" />
+            <!-- Tri-dot active communication indicator in subtle indigo tones -->
+            <circle cx="5.6" cy="13.2" r="1.15" fill="#4f46e5" />
+            <circle cx="9.5" cy="13.2" r="1.15" fill="#6366f1" />
+            <circle cx="13.4" cy="13.2" r="1.15" fill="#8b5cf6" />
+        </svg>
+    </span>
+    <span id="generalChatUnread" class="general-chat-unread" hidden>0</span>
+</button>
+
+<div id="generalChatTrail" class="fab-trail-container general-chat-trail" aria-hidden="true">
+    <div class="circle trail t4"></div>
+    <div class="circle trail t3"></div>
+    <div class="circle trail t2"></div>
+    <div class="circle trail t1"></div>
+</div>
+
+
+
+
+<section id="generalChatPopup" class="general-chat-popup" aria-label="Chat chung" aria-hidden="true"
+    data-current-user-id="{{ user.id }}" data-current-user-name="{{ user.name | e }}"
+    data-current-user-role="{{ user.role | e }}">
+    <header class="general-chat-header">
+        <div class="general-chat-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+                <path
+                    d="M7.2 11.2a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Zm9.6 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM1.8 19.6c0-3 2.5-5.4 5.4-5.4h.1c3 0 5.4 2.4 5.4 5.4v.4H1.8v-.4Zm11.4.4c.1-.3.1-.6.1-.9 0-1.7-.6-3.2-1.7-4.4a4.9 4.9 0 0 1 2.8-.9h.1c2.7 0 4.9 2.2 4.9 4.9V20h-6.2Z" />
+            </svg>
+        </div>
+        <div class="general-chat-heading">
+            <strong>Chat chung</strong>
+            <select id="generalChatSchoolSelect" class="general-chat-school-select" aria-label="Chọn trường">
+                <option value="">Đang tải trường...</option>
+            </select>
+            <span id="generalChatOnlineText">Đang kết nối...</span>
+        </div>
+        <span id="generalChatSocketState" class="general-chat-connection" title="Trạng thái kết nối"
+            aria-label="Đang kết nối"></span>
+        <button id="generalChatClose" class="general-chat-close" type="button" aria-label="Đóng chat chung">×</button>
+    </header>
+
+    <div id="generalChatMessages" class="general-chat-messages" aria-live="polite">
+        <div id="generalChatLoading" class="general-chat-empty">Đang tải tin nhắn...</div>
+    </div>
+
+    <div id="generalChatTyping" class="general-chat-typing" hidden></div>
+
+    <div id="generalChatComposerContext" class="general-chat-composer-context" hidden>
+        <div class="general-chat-context-copy">
+            <strong id="generalChatContextTitle"></strong>
+            <span id="generalChatContextText"></span>
+        </div>
+        <button id="generalChatContextCancel" type="button" aria-label="Hủy trả lời hoặc chỉnh sửa">×</button>
+    </div>
+
+    <form id="generalChatForm" class="general-chat-composer">
+        <textarea id="generalChatInput" rows="1" maxlength="2000" placeholder="Nhắn trong trường..."
+            required></textarea>
+        <button id="generalChatSend" type="submit" aria-label="Gửi tin nhắn" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                    d="m3.4 3.9 17.1 7.2c.8.3.8 1.5 0 1.8L3.4 20.1c-.8.3-1.5-.4-1.2-1.2l2.1-5.2 8.1-1.7-8.1-1.7-2.1-5.2c-.3-.8.4-1.5 1.2-1.2Z" />
+            </svg>
+        </button>
+    </form>
+</section>
+<script src="/static/fab-motion.js?v=1"></script>
+<script src="/static/realtime-chat.js?v=1"></script>

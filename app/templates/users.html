@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Quản lý tài khoản</title>
+    <script>
+        (function () {
+            const t = localStorage.getItem('theme');
+            if (t === 'dark') document.documentElement.classList.add('dark-mode');
+        })();
+
+        function toggleTheme() {
+            const d = document.documentElement.classList.toggle('dark-mode');
+            localStorage.setItem('theme', d ? 'dark' : 'light');
+            document.querySelectorAll('.theme-switch__checkbox').forEach(cb => cb.checked = d);
+        }
+
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/design-tokens.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <script src="/static/operation-status.js?v=1" defer></script>
+    <script src="/static/appbar-datetime.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/effects.css?v=1">
+    <link rel="stylesheet" href="/static/auth-extra.css?v=1">
+    <link rel="stylesheet" href="/static/chatbot.css?v=1">
+    <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
+</head>
+
+<body>
+    <header class="appbar">
+        <a class="appbar-brand" href="/projects" aria-label="Smart TKB"><img src="/static/brand-logo.svg?v=1"
+                alt=""><span>Smart TKB</span></a>
+        <div class="spacer"></div>
+        {% include "_theme_switch.html" %}
+        <a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{ greeting_name }}</span><a href="/logout">Đăng
+            xuất</a>
+    </header>
+    <main class="container">
+        <div class="page-title">
+            <div>
+                <h1>Quản lý tài khoản</h1>
+                <p>
+                    Tài khoản giáo viên tự đăng ký và được kích hoạt bằng OTP. Quyền truy cập thời khóa biểu được giới
+                    hạn
+                    theo trường và chỉ gán thủ công tại trang này.
+                </p>
+            </div>
+        </div>
+        {% if user.role == "super_admin" %}
+        <section class="panel" style="margin-bottom:24px">
+            <div class="section-head" style="margin-bottom:12px">
+                <div>
+                    <h2 style="margin:0 0 6px">Trường học</h2>
+                    <p>Tạo danh sách trường tại đây, sau đó gán thủ công cho quản trị viên và giáo viên.</p>
+                </div>
+            </div>
+            <form method="post" action="/admin/schools/create" class="row school-create-form"
+                style="align-items:end;gap:10px;flex-wrap:wrap">
+                <label class="school-create-field">
+                    <span>Tên trường</span>
+                    <input name="name" maxlength="200" required placeholder="Ví dụ: THPT A">
+                </label>
+                <button class="btn" type="submit">+ Thêm trường</button>
+            </form>
+
+            {% if schools %}
+            <div class="school-manage-list" aria-label="Danh sách trường có thể chỉnh sửa">
+                <div class="school-manage-heading">
+                    <strong>Danh sách trường</strong>
+                    <span>{{ schools | length }} trường</span>
+                </div>
+                {% for school in schools %}
+                <form method="post" action="/admin/schools/{{ school.id }}/rename" class="school-rename-form">
+                    <label for="school-name-{{ school.id }}">Tên trường</label>
+                    <input id="school-name-{{ school.id }}" name="name" value="{{ school.name }}" maxlength="200"
+                        required aria-label="Tên trường {{ school.name }}">
+                    <button class="btn ghost school-rename-btn" type="submit">Lưu tên</button>
+                </form>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+        <div class="project-grid">
+            {% for account in users %}
+            <article class="project-card account-card">
+                <div>
+                    {% if account.role == "teacher" %}<span class="pill">Giáo viên</span>
+                    {% elif account.role == "super_admin" %}<span class="pill approved-pill">Super admin</span>
+                    {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
+                    <h3>{{ account.name }}</h3>
+                    <p>{{ account.email }}</p>
+                    <div class="account-presence {{ 'is-online' if account.id in online_user_ids else '' }}"
+                        data-presence-user-id="{{ account.id }}" data-last-seen="{{ account.last_seen or '' }}">
+                        <span class="account-presence-dot" aria-hidden="true"></span>
+                        <span class="account-presence-copy">
+                            <strong data-presence-state>{{ 'Online' if account.id in online_user_ids else 'Offline'
+                                }}</strong>
+                            <span data-presence-last-seen>{{ 'Đang hoạt động' if account.id in online_user_ids else
+                                (account.last_seen | timeago) }}</span>
+                        </span>
+                    </div>
+                    {% set assigned_ids = school_assignments.get(account.id, []) %}
+                    <p class="muted" style="margin-top:10px">
+                        <b>Trường:</b>
+                        {% if assigned_ids %}{{ school_names_by_account.get(account.id, []) | join(' · ') }}{% else
+                        %}Chưa được gán trường{% endif %}
+                    </p>
+                    {% if account.role == "teacher" %}<p class="muted">Quyền: chỉ xem các thời khóa biểu thuộc trường đã
+                        được gán.</p>{% endif %}
+                </div>
+                {% set can_assign_school = (user.role == "super_admin" and account.role in ["admin", "teacher"]) or
+                (user.role == "admin" and account.role == "teacher") %}
+                {% if can_assign_school %}
+                <details class="account-edit school-assignment-edit">
+                    <summary><span>Chọn trường</span><span class="school-assignment-summary-meta">{{ assigned_ids |
+                            length }} đã chọn</span></summary>
+                    <form method="post" action="/admin/users/{{ account.id }}/schools"
+                        class="account-edit-form school-assignment-form">
+                        <div class="school-assignment-intro">
+                            <div class="school-assignment-intro-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path
+                                        d="M4 21V7.6L12 3l8 4.6V21h-6v-5h-4v5H4Zm2-2h2v-5h8v5h2V8.8l-6-3.4-6 3.4V19Zm3-8h2V9H9v2Zm4 0h2V9h-2v2Z" />
+                                </svg>
+                            </div>
+                            <p>
+                                {% if user.role == "super_admin" %}Chọn các trường tài khoản này được phép truy cập.
+                                {% else %}Bạn chỉ có thể thay đổi các trường thuộc phạm vi quản lý của mình.{% endif %}
+                            </p>
+                        </div>
+                        <div class="school-assignment-list" role="group" aria-label="Danh sách trường">
+                            {% set ns = namespace(has_school=false) %}
+                            {% for school in schools %}
+                            {% if school.id in assignable_school_ids %}
+                            {% set ns.has_school = true %}
+                            <label class="school-assignment-option">
+                                <input type="checkbox" name="school_ids" value="{{ school.id }}" {% if school.id in
+                                    school_assignments.get(account.id, []) %}checked{% endif %}>
+                                <span class="school-assignment-check" aria-hidden="true">
+                                    <svg viewBox="0 0 20 20">
+                                        <path d="m5 10.2 3.1 3.1L15.5 6" />
+                                    </svg>
+                                </span>
+                                <span class="school-assignment-name">{{ school.name }}</span>
+                            </label>
+                            {% endif %}
+                            {% endfor %}
+                            {% if not ns.has_school %}<p class="muted">Tài khoản quản trị hiện chưa có trường nào để
+                                gán.</p>{% endif %}
+                        </div>
+                        <div class="row end school-assignment-actions"><button class="btn ghost" type="submit" {% if not
+                                ns.has_school %}disabled{% endif %}>Lưu lựa chọn</button></div>
+                    </form>
+                </details>
+                {% endif %}
+                <details class="account-edit">
+                    <summary>Chỉnh sửa thông tin</summary>
+                    <form method="post" action="/admin/users/{{ account.id }}/update" class="account-edit-form">
+                        <label>
+                            Họ tên<input name="name" value="{{ account.name }}" required>
+                        </label>
+                        <label>
+                            Mật khẩu mới<input type="password" name="password" minlength="8"
+                                placeholder="Để trống nếu không đổi">
+                        </label>
+                        <div class="row end">
+                            <button class="btn">Lưu tên / mật khẩu</button>
+                        </div>
+                    </form>
+                    <form method="post" action="/account/email-change/prepare" class="account-edit-form"
+                        style="margin-top:16px">
+                        <input type="hidden" name="account_id" value="{{ account.id }}">
+                        <label>
+                            Email hiện tại<input type="email" value="{{ account.email }}" disabled>
+                        </label>
+                        <label>
+                            Email mới<input type="email" name="email" required placeholder="Nhập email mới">
+                        </label>
+                        {% if account.id == user.id %}
+                        <label>
+                            Mật khẩu hiện tại<input type="password" name="current_password" required
+                                autocomplete="current-password">
+                        </label>
+                        {% endif %}
+                        <p class="muted">Sau bước này hệ thống sẽ hỏi xác nhận, rồi mới gửi OTP tới email mới.</p>
+                        <div class="row end">
+                            <button class="btn ghost" type="submit">Tiếp tục đổi email</button>
+                        </div>
+                    </form>
+                </details>
+                {% if user.role == "super_admin" and account.role == "teacher" %}
+                <form method="post" action="/admin/users/{{ account.id }}/promote-admin">
+                    <button class="btn ghost wide">
+                        Nâng lên
+                        quản trị viên
+                    </button>
+                </form>
+                {% elif account.role != "teacher" %}<p class="muted">Tài khoản quản trị.</p>{% endif %}
+                {% if account.id != user.id %}
+                <form method="post" action="/admin/users/{{ account.id }}/delete"
+                    onsubmit="event.preventDefault();window.OperationStatus.confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.',{title:'Xóa tài khoản',confirmText:'Xóa'}).then(ok=>{if(ok)this.submit();});">
+                    <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
+                </form>
+                {% else %}<p class="muted">Tài khoản này không thể xóa từ giao diện.</p>{% endif %}
+            </article>
+            {% else %}<div class="empty-state">Không có tài khoản nào trong phạm vi quản lý.</div>{% endfor %}
+        </div>
+        {% if user.role == "super_admin" %}
+        <section id="chatbot-logs" class="panel" style="margin-top:28px">
+            <div class="section-head" style="margin-bottom:16px">
+                <div>
+                    <h2 style="margin:0 0 6px">Log lỗi chatbot</h2>
+                    <p>
+                        Lưu lỗi kỹ thuật từ Gemini để super admin kiểm tra. Không lưu nội dung câu hỏi hoặc tệp người
+                        dùng; hệ thống
+                        chỉ giữ tối đa 500 log mới nhất.
+                        {% if chatbot_error_log_count %}Đang có {{ chatbot_error_log_count }} log; bảng hiển thị tối đa
+                        100 log mới
+                        nhất.{% endif %}
+                    </p>
+                </div>
+                {% if chatbot_error_logs %}
+                <form method="post" action="/admin/chatbot-logs/clear"
+                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ log lỗi chatbot?', {title: 'Xóa log chatbot', confirmText: 'Xóa log'}).then(ok => { if (ok) this.submit(); });">
+                    <button class="btn ghost danger-btn" type="submit">Xóa log</button>
+                </form>
+                {% endif %}
+            </div>
+            {% if chatbot_error_logs %}
+            <div style="overflow-x:auto">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Giờ Việt Nam (UTC+7)</th>
+                            <th>Project</th>
+                            <th>Tài khoản</th>
+                            <th>Loại lỗi</th>
+                            <th>Chi tiết kỹ thuật</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in chatbot_error_logs %}
+                        <tr>
+                            <td style="white-space:nowrap">{{ log.created_at | vietnam_datetime }}</td>
+                            <td>
+                                <b>{{ log.project_name or ('Project #' ~ log.project_id) }}</b>
+                                {% if log.project_id %}<div class="muted">ID {{ log.project_id }}</div>{% endif %}
+                            </td>
+                            <td>
+                                <b>{{ log.user_name or 'Không xác định' }}</b>
+                                {% if log.user_email %}<div class="muted">{{ log.user_email }}</div>{% endif %}
+                            </td>
+                            <td style="white-space:nowrap">
+                                <span class="pill">{{ log.error_code }}</span>
+                                {% if log.provider_status %}
+                                <div class="muted" style="margin-top:6px">HTTP {{ log.provider_status }}</div>
+                                {% endif %}
+                            </td>
+                            <td style="min-width:320px; max-width:520px; white-space:normal; word-break:break-word">
+                                {{ log.error_message }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="muted" style="margin:0">Chưa có lỗi chatbot nào được ghi nhận.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(window.location.search);
+            const message = params.get('notice');
+            if (message && window.OperationStatus) {
+                window.OperationStatus.notify(message, params.get('notice_type') || undefined);
+                params.delete('notice');
+                params.delete('notice_type');
+                const query = params.toString();
+                history.replaceState(null, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+            }
+        });
+    </script>
+    {% include "_realtime_chat_popup.html" %}
+    {% if chatbot_project_id %}
+    {% include "_chatbot_popup.html" %}
+    {% endif %}
+</body>
+
+</html>
