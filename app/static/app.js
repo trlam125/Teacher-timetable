@@ -85,6 +85,7 @@ let entityId = null;
 let pendingAssignmentGap = null;
 let constraintDraftDirty = false;
 let globalLocksDraftDirty = false;
+let activeTapAssign = null;
 const $ = (s) => document.querySelector(s);
 const entityModal = $("#entityModal");
 const esc = (s) =>
@@ -247,34 +248,29 @@ function showInlineActionFeedback(
     }, timeout);
 }
 function setScheduleFeedback(message, kind = "info", timeout = 4200) {
+  // Không chèn trạng thái cạnh nút Xếp tự động nữa. Mọi kết quả được đưa vào
+  // toast ở góc trên bên phải để nội dung trang không bị dịch/chèn thêm dòng.
   document
     .querySelectorAll("[data-schedule-action]")
-    .forEach((button) =>
-      showInlineActionFeedback(button, message, kind, timeout),
-    );
+    .forEach((button) => {
+      const feedback = button.parentElement?.querySelector(
+        ":scope > .inline-action-feedback",
+      );
+      if (feedback) feedback.hidden = true;
+    });
+  if (message) showToast(message, kind, timeout);
 }
 function setTrayActionStatus(state, message, resetAfter = 0) {
-  const panel = $(".manual-tray-panel");
-  if (!panel) return;
-  let status = $("#trayActionStatus");
-  if (!status) {
-    status = document.createElement("div");
-    status.id = "trayActionStatus";
-    status.className = "tray-action-status";
-    panel
-      .querySelector(".manual-tray-head")
-      ?.insertAdjacentElement("afterend", status);
-  }
-  status.hidden = false;
-  status.className = `tray-action-status is-${state}`;
-  status.innerHTML =
-    state === "loading"
-      ? `<span class="tray-status-spinner" aria-hidden="true"></span><span>${esc(message)}</span>`
-      : `<span aria-hidden="true">${state === "success" ? "✓" : "!"}</span><span>${esc(message)}</span>`;
-  if (resetAfter > 0)
-    setTimeout(() => {
-      if (status.isConnected) status.hidden = true;
-    }, resetAfter);
+  // Trạng thái hoàn tất/lỗi của thao tác khay dùng toast thay cho dòng chữ
+  // nằm trong panel. Loading đã được thể hiện ngay trên nút/thao tác hiện tại.
+  const status = $("#trayActionStatus");
+  if (status) status.hidden = true;
+  if (!message || state === "loading") return;
+  showToast(
+    message,
+    state === "success" ? "success" : state === "error" ? "error" : "info",
+    resetAfter || 3600,
+  );
 }
 function setEntityActionMessage(message, kind = "error") {
   const form = entityModal?.querySelector("form");
@@ -1866,6 +1862,9 @@ function openAssignmentEdit(id) {
   const item = data.assignments.find((x) => x.id === id);
   if (!item) return;
   entityType = "assignment_edit";
+  entityModal
+    .querySelector(".modal-form")
+    ?.classList.remove("assignment-bulk-form");
   $("#modalTitle").textContent = "Sửa phân công";
   $("#entityFields").innerHTML =
     `<div class="assignment-summary"><b>${esc(item.class_name)} · ${esc(item.subject_name)}</b><span>${esc(item.teacher_name)}</span></div><input type="hidden" name="assignment_id" value="${item.id}"><label>Số tiết/tuần<input type="number" name="periods_per_week" min="1" max="40" value="${item.periods_per_week}" required oninput="updateAssignmentEditPreview(this.form)" onchange="updateAssignmentEditPreview(this.form)"></label><div data-assignment-edit-load></div>${blockModeEditor(item.block_mode)}`;
@@ -2137,7 +2136,7 @@ async function delEntity(type, id, button) {
       { idle: "Xóa", error: "Chưa hoàn tất" },
       2200,
     );
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 function exportFilenameFromResponse(response) {
@@ -2469,7 +2468,6 @@ async function generateSchedule(allowRebuild = false) {
           refreshed ? 2600 : 6500,
         );
         if (refreshed) {
-          showToast(j.message || "Đã xếp thời khóa biểu thành công.", "success");
           launchConfetti();
         }
       }, 400);
@@ -2495,7 +2493,7 @@ async function generateSchedule(allowRebuild = false) {
         "error",
         5200,
       );
-      showToast(apiErrorMessage(j, "Xếp thời khóa biểu thất bại."), "error", 4500);
+
     }
   } catch (error) {
     if (modal) modal.close();
@@ -2505,7 +2503,6 @@ async function generateSchedule(allowRebuild = false) {
       "Mất kết nối tới máy chủ. Không thể xếp thời khóa biểu.",
     );
     setScheduleFeedback(message, "error", 5200);
-    showToast(message, "error", 4500);
   }
 }
 function goToAssignments() {
@@ -3229,8 +3226,7 @@ async function returnAllToTray(button) {
         { idle: "Đưa tiết chưa cố định về khay", success: "Đã đưa về khay" },
         1800,
       );
-      showInlineActionFeedback(
-        button,
+      showToast(
         j.message || "Đã đưa các tiết chưa cố định về khay.",
         "success",
         2600,
@@ -3242,8 +3238,7 @@ async function returnAllToTray(button) {
         { idle: "Đưa tiết chưa cố định về khay", error: "Chưa đưa được" },
         2200,
       );
-      showInlineActionFeedback(
-        button,
+      showToast(
         apiErrorMessage(j, "Không thể đưa lịch về khay."),
         "error",
         5000,
@@ -3256,7 +3251,7 @@ async function returnAllToTray(button) {
       { idle: "Đưa tiết chưa cố định về khay", error: "Chưa hoàn tất" },
       2200,
     );
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 async function returnPayloadToTray(raw) {
@@ -3542,7 +3537,7 @@ async function saveGlobalSessionLocks(button) {
       { idle: "Lưu khóa lịch", error: "Chưa lưu được" },
       2200,
     );
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 function renderConstraintSelectors({ force = false } = {}) {
@@ -3732,7 +3727,7 @@ async function saveConstraints(button) {
       { idle: "Lưu ràng buộc", error: "Chưa lưu được" },
       2200,
     );
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 function preferenceSlotLabel(slot) {
@@ -3830,7 +3825,7 @@ async function deletePreference(id, button) {
     await loadPreferenceInbox();
   } catch (error) {
     setInlineActionState(button, "error", { idle: "Xóa", error: "Chưa xóa được" }, 2200);
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 
@@ -3880,7 +3875,7 @@ async function deleteAllPreferences(button) {
       { idle: "Xóa tất cả", error: "Chưa xóa được" },
       2200,
     );
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 
@@ -3930,7 +3925,7 @@ async function reviewPreference(id, action, button) {
     }
   } catch (error) {
     setInlineActionState(button, "error", { idle, error: "Chưa cập nhật" }, 2200);
-    showInlineActionFeedback(button, requestFailureMessage(error), "error", 5000);
+    showToast(requestFailureMessage(error), "error", 5000);
   }
 }
 async function copyTextWithFallback(text) {
@@ -3976,6 +3971,7 @@ function openManualShareDialog(shareUrl) {
     dialog = document.createElement("dialog");
     dialog.id = "manualShareDialog";
     dialog.className = "manual-share-dialog";
+    dialog.setAttribute("data-app-zoom", "");
     dialog.innerHTML = `
       <div class="modal-form manual-share-modal">
         <div class="manual-share-head">
@@ -4130,8 +4126,6 @@ document.addEventListener("pointerdown", (event) => {
   target.appendChild(ripple);
   setTimeout(() => ripple.remove(), 700);
 });
-let activeTapAssign = null;
-
 function tapAssignCapabilities(payload) {
   return {
     schedule: Boolean(payload) && !payload.startsWith("scheduled-assignment:"),

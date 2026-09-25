@@ -144,6 +144,15 @@ class RealtimeConnection(Base):
     updated_at: Mapped[str] = mapped_column(String(40), index=True)
 
 
+class RealtimeEvent(Base):
+    """Short-lived cross-worker payloads; NOTIFY carries only the event ID."""
+
+    __tablename__ = "realtime_events"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    envelope_json: Mapped[str] = mapped_column(Text)
+    expires_at: Mapped[int] = mapped_column(Integer, index=True)
+
+
 class RegistrationVerification(Base):
     __tablename__ = "registration_verifications"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -1217,7 +1226,8 @@ class RealtimeConnectionManager:
     CHANNEL = "smart_tkb_realtime_v1"
     PRESENCE_TTL_SECONDS = 180
     PRESENCE_LOCK_BASE = 73120270000
-    RECIPIENT_CHUNK_SIZE = 250
+    EVENT_TTL_SECONDS = 24 * 60 * 60
+    SESSION_CHECK_INTERVAL_SECONDS = 15
 
     def __init__(self):
         self._lock = threading.RLock()
@@ -1267,10 +1277,10 @@ class RealtimeConnectionManager:
                     conn.execute(f"LISTEN {self.CHANNEL}")
                     for notification in conn.notifies():
                         try:
-                            envelope = json.loads(notification.payload)
+                            envelope = self._notification_envelope(notification.payload)
                         except (TypeError, ValueError, json.JSONDecodeError):
                             continue
-                        if envelope.get("source") == self._instance_id:
+                        if not envelope or envelope.get("source") == self._instance_id:
                             continue
                         payload = envelope.get("payload")
                         if not isinstance(payload, dict):
@@ -1302,40 +1312,65 @@ class RealtimeConnectionManager:
                 logger.exception("PostgreSQL realtime listener stopped; reconnecting.")
                 time.sleep(2)
 
+    def _notification_envelope(self, raw: str) -> dict | None:
+        notice = json.loads(raw)
+        if not isinstance(notice, dict):
+            return None
+        if notice.get("source") == self._instance_id:
+            return None
+        event_id = notice.get("event_id")
+        if event_id is None:
+            # Accept notifications sent by an older worker during restart.
+            return notice
+        if not isinstance(event_id, str) or len(event_id) > 64:
+            return None
+        with SessionLocal() as db:
+            event = db.get(RealtimeEvent, event_id)
+            if event is None or event.expires_at <= int(time.time()):
+                return None
+            envelope = json.loads(event.envelope_json)
+        return envelope if isinstance(envelope, dict) else None
+
     def _publish_sync(
         self,
         payload: dict,
         exclude_user_id: int | None,
         only_user_ids: set[int] | None,
     ) -> None:
-        recipient_groups: list[list[int] | None]
-        if only_user_ids is None:
-            recipient_groups = [None]
-        else:
-            ordered = sorted(int(uid) for uid in only_user_ids)
-            recipient_groups = [
-                ordered[index : index + self.RECIPIENT_CHUNK_SIZE]
-                for index in range(0, len(ordered), self.RECIPIENT_CHUNK_SIZE)
-            ]
-            if not recipient_groups:
-                return
-
+        if only_user_ids is not None and not only_user_ids:
+            return
+        now = int(time.time())
+        event_id = secrets.token_hex(16)
+        envelope = json.dumps(
+            {
+                "source": self._instance_id,
+                "payload": payload,
+                "exclude_user_id": exclude_user_id,
+                "only_user_ids": (
+                    sorted(int(uid) for uid in only_user_ids)
+                    if only_user_ids is not None else None
+                ),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        # Insert and notify in one transaction: another worker must never see
+        # a notification before the complete event has been committed.
         with engine.begin() as connection:
-            for recipients in recipient_groups:
-                envelope = json.dumps(
-                    {
-                        "source": self._instance_id,
-                        "payload": payload,
-                        "exclude_user_id": exclude_user_id,
-                        "only_user_ids": recipients,
-                    },
-                    ensure_ascii=False,
-                    separators=(",", ":"),
+            connection.execute(
+                delete(RealtimeEvent).where(RealtimeEvent.expires_at <= now)
+            )
+            connection.execute(
+                RealtimeEvent.__table__.insert().values(
+                    id=event_id,
+                    envelope_json=envelope,
+                    expires_at=now + self.EVENT_TTL_SECONDS,
                 )
-                connection.exec_driver_sql(
-                    "SELECT pg_notify(%s, %s)",
-                    (self.CHANNEL, envelope),
-                )
+            )
+            connection.exec_driver_sql(
+                "SELECT pg_notify(%s, %s)",
+                (self.CHANNEL, json.dumps({"source": self._instance_id, "event_id": event_id})),
+            )
 
     def add(self, user_id: int, connection_id: str, websocket: WebSocket) -> bool:
         try:
@@ -1480,7 +1515,18 @@ class RealtimeConnectionManager:
                 for cid, ws in sockets.items()
             ]
         dead: list[tuple[int, str]] = []
+        if not targets:
+            return
+        valid_connections = await asyncio.to_thread(valid_realtime_connections, targets)
         for uid, cid, ws in targets:
+            if cid not in valid_connections:
+                # Let realtime_socket's finally block remove presence and
+                # announce offline, rather than removing it twice here.
+                try:
+                    await ws.close(code=4401)
+                except Exception:
+                    pass
+                continue
             try:
                 await ws.send_json(payload)
             except Exception:
@@ -1581,6 +1627,33 @@ def touch_user_last_seen(user_id: int, min_interval_seconds: int = 0) -> str:
         return now_iso
     finally:
         db.close()
+
+
+def valid_realtime_connections(targets: list[tuple[int, str, WebSocket]]) -> set[str]:
+    """Check cookie expiry and current account versions before every broadcast.
+
+    Cache accounts only within this call so a password change on any worker
+    takes effect on the next delivery, including receive-only connections.
+    """
+    valid: set[str] = set()
+    accounts: dict[int, User | None] = {}
+    with SessionLocal() as db:
+        for user_id, connection_id, websocket in targets:
+            raw = websocket.cookies.get("session")
+            if not raw:
+                continue
+            try:
+                data = signer.loads(raw, max_age=SESSION_TTL_SECONDS)
+                if int(data["uid"]) != user_id:
+                    continue
+                if user_id not in accounts:
+                    accounts[user_id] = db.get(User, user_id)
+                account = accounts[user_id]
+                if account and int(data.get("sv", -1)) == account.session_version:
+                    valid.add(connection_id)
+            except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
+                continue
+    return valid
 
 
 def websocket_session_user(websocket: WebSocket) -> User | None:
@@ -4099,7 +4172,7 @@ def _payload_school_id(payload: dict) -> int | None:
 
 @app.websocket("/ws/realtime")
 async def realtime_socket(websocket: WebSocket):
-    account = websocket_session_user(websocket)
+    account = await asyncio.to_thread(websocket_session_user, websocket)
     if account is None:
         await websocket.close(code=4401)
         return
@@ -4140,7 +4213,22 @@ async def realtime_socket(websocket: WebSocket):
 
     try:
         while True:
-            payload = await websocket.receive_json()
+            # Even an idle socket must expire. Revalidate before activity as
+            # well as chat events; never allow heartbeat to bypass revocation.
+            try:
+                payload = await asyncio.wait_for(
+                    websocket.receive_json(),
+                    timeout=realtime_manager.SESSION_CHECK_INTERVAL_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                payload = None
+            refreshed = await asyncio.to_thread(websocket_session_user, websocket)
+            if refreshed is None:
+                await websocket.close(code=4401)
+                break
+            account = refreshed
+            if not isinstance(payload, dict):
+                continue
             event_type = str(payload.get("type") or "").strip()
 
             if event_type == "activity":
@@ -4380,6 +4468,9 @@ async def realtime_socket(websocket: WebSocket):
     except Exception:
         logger.exception("Realtime WebSocket error for user_id=%s", account.id)
     finally:
+        # Remove this socket before broadcasting cleanup events, so a revoked
+        # connection is not selected again while its close handler is running.
+        became_offline = realtime_manager.remove(account.id, connection_id)
         # Clear typing state in every school the account can access.
         db = SessionLocal()
         try:
@@ -4398,7 +4489,6 @@ async def realtime_socket(websocket: WebSocket):
                 )
         finally:
             db.close()
-        became_offline = realtime_manager.remove(account.id, connection_id)
         if became_offline:
             last_seen = touch_user_last_seen(account.id)
             asyncio.create_task(_broadcast_delayed_offline(account.id, last_seen))

@@ -431,7 +431,7 @@
             </div>
         </main>
     </div>
-    <dialog id="renameProject">
+    <dialog id="renameProject" data-app-zoom>
         <form method="post" action="/projects/{{ p.id }}/rename" class="modal-form">
             <h2>Đổi tên bộ thời khóa biểu</h2>
             <label>
@@ -462,7 +462,7 @@
     </dialog>
     {% include "_realtime_chat_popup.html" %}
     {% include "_chatbot_popup.html" %}
-    <dialog id="entityModal">
+    <dialog id="entityModal" data-app-zoom>
         <form class="modal-form" onsubmit="submitEntity(event)">
             <h2 id="modalTitle"></h2>
             <div id="entityFields"></div>
@@ -507,6 +507,7 @@
             }
         });
     </script>
+    <script src="/static/dialog-zoom.js?v=1"></script>
     <script src="/static/app.js?v=1"></script>
 </body>
 

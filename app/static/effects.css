@@ -2330,3 +2330,66 @@ body.workspace-viewport .content {
     opacity: 1 !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Origin-aware app-style dialog transition
+   Only dialogs explicitly marked with data-app-zoom participate. Navigation
+   and full page loads are intentionally left untouched.
+   -------------------------------------------------------------------------- */
+dialog[data-app-zoom].app-zoom-active[open] {
+  animation: none !important;
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+
+dialog[data-app-zoom].app-zoom-closing::backdrop {
+  animation: app-zoom-backdrop-out 0.3s ease both !important;
+}
+
+@keyframes app-zoom-backdrop-out {
+  from {
+    background: rgba(8, 26, 52, 0.38);
+    backdrop-filter: blur(7px) saturate(120%);
+  }
+
+  to {
+    background: rgba(8, 26, 52, 0);
+    backdrop-filter: blur(0) saturate(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  dialog[data-app-zoom].app-zoom-active[open],
+  dialog[data-app-zoom].app-zoom-closing::backdrop {
+    animation: none !important;
+  }
+}
+
+/* ===== Corner toast placement for workspace actions =====
+   Keep action feedback out of the document flow. This applies to tray actions,
+   auto scheduling and the fallback app toast system. */
+.operation-toast-container,
+.app-toast-container {
+  top: 20px;
+  right: 20px;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  width: min(420px, calc(100vw - 40px));
+  max-width: 420px;
+  align-items: stretch;
+}
+
+@media (max-width: 600px) {
+
+  .operation-toast-container,
+  .app-toast-container {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+}

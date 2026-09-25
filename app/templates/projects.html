@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="/static/style.css?v=1">
     <script src="/static/operation-status.js?v=1" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
-    <link rel="stylesheet" href="/static/effects.css?v=1">
+    <link rel="stylesheet" href="/static/effects.css?v=2">
     <link rel="stylesheet" href="/static/front.css?v=1">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
@@ -75,7 +75,7 @@
             {% endfor %}
         </div>
     </main>
-    <dialog id="newProject">
+    <dialog id="newProject" data-app-zoom>
         <form method="post" action="/projects" class="modal-form">
             <h2>Tạo bộ thời khóa biểu</h2>
             <label>
@@ -102,7 +102,7 @@
             </div>
         </form>
     </dialog>
-    <dialog id="renameProject">
+    <dialog id="renameProject" data-app-zoom>
         <form method="post" class="modal-form" id="renameProjectForm">
             <h2>Đổi tên bộ thời khóa biểu</h2>
             <label>
@@ -116,7 +116,7 @@
             </div>
         </form>
     </dialog>
-    <dialog id="cloneProject">
+    <dialog id="cloneProject" data-app-zoom>
         <form method="post" class="modal-form" id="cloneProjectForm">
             <h2>Nhân bản bộ thời khóa biểu</h2>
             <label>
@@ -198,6 +198,7 @@
     {% if chatbot_project_id %}
     {% include "_chatbot_popup.html" %}
     {% endif %}
+    <script src="/static/dialog-zoom.js?v=1"></script>
 </body>
 
 </html>
