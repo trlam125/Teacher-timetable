@@ -20,6 +20,12 @@
   };
 
   const PROFILES = {
+    helpTourFab: {
+      name: 'Trợ giúp',
+      gradient: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 52%, #a855f7 100%)',
+      glow: 'rgba(99, 102, 241, 0.82)',
+      borderGlow: '#c7d2fe'
+    },
     generalChatFab: {
       name: 'Chat chung',
       gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
@@ -41,8 +47,10 @@
 
   function getFabList() {
     const list = [];
+    const helpFab = document.getElementById('helpTourFab');
     const generalFab = document.getElementById('generalChatFab');
     const chatbotFab = document.getElementById('chatbotFab');
+    if (helpFab) list.push(helpFab);
     if (generalFab) list.push(generalFab);
     if (chatbotFab) list.push(chatbotFab);
 
@@ -66,6 +74,7 @@
   function updateAllBaselines() {
     baselineTops.clear();
     const fabs = [
+      document.getElementById('helpTourFab'),
       document.getElementById('generalChatFab'),
       document.getElementById('chatbotFab')
     ].filter(Boolean);
@@ -78,6 +87,11 @@
   }
 
   window.addEventListener('resize', updateAllBaselines);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateAllBaselines);
+  } else {
+    updateAllBaselines();
+  }
 
   /**
    * Spawn a single translucent ghost echo disc
@@ -202,7 +216,10 @@
       }
       triggerFab.setAttribute('aria-expanded', 'true');
       triggerFab.classList.add('is-on-top');
-      subordinates.forEach(b => b.classList.remove('is-on-top'));
+      subordinates.forEach(b => {
+        b.classList.remove('is-on-top', 'is-glowing');
+        b.setAttribute('aria-expanded', 'false');
+      });
 
       subordinates.forEach(btn => {
         btn.classList.add('anim-motion');
@@ -235,7 +252,8 @@
     triggerFab.dataset.motionY = '0';
 
     subordinates.forEach(btn => {
-      btn.classList.remove('is-on-top');
+      btn.classList.remove('is-on-top', 'is-glowing');
+      btn.setAttribute('aria-expanded', 'false');
       btn.classList.add('is-stacked-behind');
       btn.classList.add('anim-motion-fast');
       const delta = targetTop - getBaselineTop(btn);
@@ -317,10 +335,11 @@
         btn.classList.add('anim-motion');
         btn.style.transform = 'translateY(0px) scale(1)';
         btn.dataset.motionY = '0';
-        btn.classList.remove('is-stacked-behind', 'is-on-top');
+        btn.classList.remove('is-stacked-behind', 'is-on-top', 'is-glowing');
+        btn.setAttribute('aria-expanded', 'false');
       });
 
-      triggerFab.classList.remove('is-on-top');
+      triggerFab.classList.remove('is-on-top', 'is-glowing');
       triggerFab.style.transform = 'translateY(0px)';
       triggerFab.dataset.motionY = '0';
 
@@ -375,10 +394,11 @@
       btn.classList.add('anim-motion-fast');
       btn.style.transform = 'translateY(0px) scale(1)';
       btn.dataset.motionY = '0';
-      btn.classList.remove('is-stacked-behind', 'is-on-top');
+      btn.classList.remove('is-stacked-behind', 'is-on-top', 'is-glowing');
+      btn.setAttribute('aria-expanded', 'false');
     });
 
-    triggerFab.classList.remove('is-on-top');
+    triggerFab.classList.remove('is-on-top', 'is-glowing');
     triggerFab.style.transform = 'translateY(0px)';
     triggerFab.dataset.motionY = '0';
 

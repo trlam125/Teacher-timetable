@@ -1,0 +1,1049 @@
+/* ========================================================================== 
+   Contextual help tour
+   ========================================================================== */
+
+.help-tour-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 144px;
+  z-index: 898;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  isolation: isolate;
+  transition: opacity .18s ease, transform .18s ease;
+  will-change: transform, opacity;
+}
+
+.help-tour-fab::before,
+.help-tour-fab::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  z-index: -2;
+  border-radius: inherit;
+  background: rgba(99, 102, 241, .24);
+  pointer-events: none;
+  transform: scale(.9);
+  opacity: .55;
+  animation: help-tour-fab-ripple 2.6s cubic-bezier(.18, .72, .35, 1) infinite;
+}
+
+.help-tour-fab::after {
+  animation-delay: -1.3s;
+  background: rgba(56, 189, 248, .19);
+}
+
+.help-tour-fab-icon {
+  position: relative;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, .88);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, .92) 0 8%, rgba(255, 255, 255, .2) 9% 20%, transparent 21%),
+    linear-gradient(145deg, #e0f2fe 0%, #e0e7ff 48%, #f3e8ff 100%);
+  box-shadow: 0 10px 28px rgba(79, 70, 229, .28), 0 0 0 4px rgba(99, 102, 241, .1), 0 0 20px rgba(56, 189, 248, .2);
+  transition: transform .18s ease, box-shadow .18s ease;
+  animation: help-tour-fab-core 2.6s ease-in-out infinite;
+}
+
+.help-tour-fab-icon svg {
+  width: 29px;
+  height: 29px;
+  display: block;
+  transform-origin: center;
+  filter: drop-shadow(0 2px 4px rgba(79, 70, 229, .22));
+  animation: help-tour-icon-float 3.2s ease-in-out infinite;
+}
+
+.help-tour-fab:hover .help-tour-fab-icon {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 14px 34px rgba(79, 70, 229, .34), 0 0 0 5px rgba(99, 102, 241, .12), 0 0 28px rgba(56, 189, 248, .3);
+}
+
+.help-tour-fab:focus-visible {
+  outline: 3px solid rgba(99, 102, 241, .3);
+  outline-offset: 6px;
+}
+
+.help-tour-fab.is-launching .help-tour-fab-icon {
+  animation: help-tour-launch .48s cubic-bezier(.2, .9, .3, 1);
+}
+
+.help-tour-fab.is-glowing::before,
+.help-tour-fab[aria-expanded="true"]::before {
+  opacity: 1;
+  background: rgba(99, 102, 241, .38);
+  animation: help-tour-fab-glow-ripple 2s cubic-bezier(0.18, 0.72, 0.35, 1) infinite;
+}
+
+.help-tour-fab.is-glowing::after,
+.help-tour-fab[aria-expanded="true"]::after {
+  opacity: 1;
+  background: rgba(56, 189, 248, .32);
+  animation: help-tour-fab-glow-ripple 2s cubic-bezier(0.18, 0.72, 0.35, 1) infinite -1s;
+}
+
+.help-tour-fab.is-glowing .help-tour-fab-icon,
+.help-tour-fab[aria-expanded="true"] .help-tour-fab-icon {
+  transform: scale(1.04);
+  box-shadow: 0 14px 36px rgba(99, 102, 241, .45), 0 0 0 5px rgba(99, 102, 241, .2), 0 0 30px rgba(56, 189, 248, .4);
+}
+
+.help-tour-fab.anim-motion {
+  transition: transform 0.48s cubic-bezier(0.19, 1, 0.22, 1) !important;
+  will-change: transform, z-index;
+}
+
+.help-tour-fab.anim-motion-fast {
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  will-change: transform, z-index;
+}
+
+.help-tour-fab.is-stacked-behind {
+  filter: brightness(0.85);
+  opacity: 0.9;
+  z-index: 897 !important;
+}
+
+.help-tour-fab.is-stacked-behind::before,
+.help-tour-fab.is-stacked-behind::after {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+.help-tour-fab.is-on-top {
+  z-index: 1000 !important;
+}
+
+html.help-tour-active .help-tour-fab.is-on-top {
+  z-index: 10060 !important;
+}
+
+.help-tour-fab.fab-absorb-pulse .help-tour-fab-icon {
+  animation: help-tour-absorb .42s cubic-bezier(.2, .9, .3, 1) !important;
+}
+
+@keyframes help-tour-fab-glow-ripple {
+  0% {
+    transform: scale(.88);
+    opacity: .75;
+  }
+
+  65% {
+    opacity: .25;
+  }
+
+  100% {
+    transform: scale(1.72);
+    opacity: 0;
+  }
+}
+
+@keyframes help-tour-fab-ripple {
+  0% {
+    transform: scale(.84);
+    opacity: .55;
+  }
+
+  62% {
+    opacity: .17;
+  }
+
+  100% {
+    transform: scale(1.62);
+    opacity: 0;
+  }
+}
+
+@keyframes help-tour-fab-core {
+
+  0%,
+  100% {
+    box-shadow: 0 10px 28px rgba(79, 70, 229, .28), 0 0 0 4px rgba(99, 102, 241, .1), 0 0 18px rgba(56, 189, 248, .18);
+  }
+
+  50% {
+    box-shadow: 0 12px 32px rgba(79, 70, 229, .36), 0 0 0 6px rgba(99, 102, 241, .07), 0 0 28px rgba(56, 189, 248, .3);
+  }
+}
+
+@keyframes help-tour-icon-float {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-1.5px) rotate(2deg);
+  }
+}
+
+@keyframes help-tour-launch {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+
+  45% {
+    transform: scale(.82) rotate(-8deg);
+  }
+
+  75% {
+    transform: scale(1.16) rotate(6deg);
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes help-tour-absorb {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(.84);
+  }
+}
+
+.help-tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  pointer-events: none;
+  font-family: inherit;
+}
+
+.help-tour-layer[hidden] {
+  display: none !important;
+}
+
+.help-tour-layer.is-open {
+  pointer-events: auto;
+}
+
+.help-tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.help-tour-spotlight {
+  --help-radius: 14px;
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border: 2px solid rgba(165, 180, 252, .98);
+  border-radius: var(--help-radius);
+  background: rgba(255, 255, 255, .035);
+  box-shadow:
+    0 0 0 9999px rgba(2, 6, 23, .62),
+    0 0 0 6px rgba(99, 102, 241, .17),
+    0 0 30px rgba(99, 102, 241, .7);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    left .34s cubic-bezier(.2, .9, .3, 1),
+    top .34s cubic-bezier(.2, .9, .3, 1),
+    width .34s cubic-bezier(.2, .9, .3, 1),
+    height .34s cubic-bezier(.2, .9, .3, 1),
+    border-radius .24s ease,
+    opacity .2s ease;
+  animation: help-tour-spotlight-pulse 1.8s ease-in-out infinite;
+}
+
+.help-tour-layer.is-open .help-tour-spotlight {
+  opacity: 1;
+}
+
+.help-tour-card {
+  --help-card-x: 24px;
+  --help-card-y: 24px;
+  position: fixed;
+  z-index: 3;
+  left: var(--help-card-x);
+  top: var(--help-card-y);
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(440px, calc(100vh - 24px));
+  overflow: visible;
+  padding: 18px;
+  border: 1px solid rgba(165, 180, 252, .42);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(96, 165, 250, .13), transparent 34%),
+    radial-gradient(circle at 95% 10%, rgba(168, 85, 247, .12), transparent 32%),
+    rgba(255, 255, 255, .97);
+  color: #172033;
+  box-shadow: 0 26px 80px rgba(2, 6, 23, .34), 0 0 0 1px rgba(255, 255, 255, .62) inset;
+  backdrop-filter: blur(18px);
+  outline: none;
+  opacity: 0;
+  transform: translateY(12px) scale(.95);
+  transform-origin: center;
+  transition:
+    left .34s cubic-bezier(.2, .9, .3, 1),
+    top .34s cubic-bezier(.2, .9, .3, 1),
+    opacity .22s ease,
+    transform .32s cubic-bezier(.2, .9, .3, 1);
+}
+
+/* ==========================================================================
+   HELP TOUR CARD WAVE BACKGROUND (Hiệu ứng lướt sóng nhẹ nền box hướng dẫn)
+   ========================================================================== */
+.help-tour-wave-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.help-tour-wave-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 125px;
+  overflow: hidden;
+  animation: help-tour-wave-swell 6.5s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.help-tour-wave-svg {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 200%;
+  height: 100%;
+  display: block;
+  will-change: transform;
+}
+
+.help-tour-wave-svg.wave-layer-1 {
+  animation: help-tour-wave-slide-1 11s linear infinite;
+  opacity: 0.95;
+}
+
+.help-tour-wave-svg.wave-layer-2 {
+  animation: help-tour-wave-slide-2 16s linear infinite;
+  opacity: 0.82;
+}
+
+.help-tour-wave-svg.wave-layer-3 {
+  animation: help-tour-wave-slide-1 22s linear infinite;
+  opacity: 0.65;
+}
+
+@keyframes help-tour-wave-slide-1 {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes help-tour-wave-slide-2 {
+  0% {
+    transform: translateX(-50%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes help-tour-wave-swell {
+
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+
+  50% {
+    transform: translateY(-4px) scaleY(1.08);
+  }
+}
+
+:root.dark-mode .help-tour-wave-svg.wave-layer-1 {
+  opacity: 0.55;
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.28));
+}
+
+:root.dark-mode .help-tour-wave-svg.wave-layer-2 {
+  opacity: 0.45;
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.22));
+}
+
+:root.dark-mode .help-tour-wave-svg.wave-layer-3 {
+  opacity: 0.35;
+}
+
+/* ==========================================================================
+   HELP TOUR WRITING PEN MASCOT (Bút viết chạy ngang quanh viền box hướng dẫn)
+   ========================================================================== */
+.help-tour-pen-mascot {
+  position: absolute;
+  top: -35px;
+  left: 18px;
+  width: 24px;
+  height: 38px;
+  z-index: 25;
+  --help-pen-start: 18px;
+  --help-pen-end: calc(100% - 62px);
+  pointer-events: auto;
+  user-select: none;
+  cursor: pointer;
+  outline: none;
+  animation: help-tour-pen-patrol 16s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  will-change: left, transform;
+}
+
+.help-tour-pen-mascot:focus-visible {
+  outline: 2px dashed rgba(99, 102, 241, 0.7);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+/* Pause patrol on hover or active interaction */
+.help-tour-pen-mascot:hover,
+.help-tour-pen-mascot.is-active {
+  animation-play-state: paused;
+}
+
+.help-tour-pen-mascot:hover .pen-scene {
+  animation-play-state: paused;
+}
+
+.help-tour-pen-mascot:hover .pen-rig {
+  transform: translateY(-2px) scale(1.1);
+  filter: drop-shadow(0 4px 10px rgba(99, 102, 241, 0.45));
+  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.24s ease;
+}
+
+/* Speech / Reaction Bubble */
+.pen-bubble {
+  position: absolute;
+  top: -27px;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px) scale(0.85);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 14px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(99, 102, 241, 0.16);
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 30;
+}
+
+.pen-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px 4px 0 4px;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.96) transparent transparent transparent;
+}
+
+.help-tour-pen-mascot:hover .pen-bubble,
+.help-tour-pen-mascot.is-active .pen-bubble {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+:root.dark-mode .pen-bubble {
+  background: rgba(15, 23, 42, 0.96);
+  color: #f1f5f9;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(129, 140, 248, 0.35);
+}
+
+:root.dark-mode .pen-bubble::after {
+  border-color: rgba(15, 23, 42, 0.96) transparent transparent transparent;
+}
+
+/* Scene, Shadow & Ink Sparkles */
+.pen-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: 12px 36.5px;
+  animation: help-tour-pen-writing-cycle 16s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  will-change: transform;
+}
+
+.pen-shadow {
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+  width: 16px;
+  height: 3px;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(0.5px);
+}
+
+:root.dark-mode .pen-shadow {
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0) 70%);
+}
+
+.pen-sparkle {
+  position: absolute;
+  bottom: -2px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pen-sparkle-svg {
+  width: 10px;
+  height: 10px;
+  animation: pen-sparkle-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pen-sparkle-pulse {
+
+  0%,
+  100% {
+    transform: scale(0.65) rotate(0deg);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: scale(1.15) rotate(45deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 5px #fbbf24);
+  }
+}
+
+/* Pen Rig & Writing Animation */
+.pen-rig {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: 12px 36.5px;
+  animation: help-tour-pen-scribble 0.28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.pen-rig.is-spinning {
+  animation: help-tour-pen-spin 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.pen-svg {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 2px 5px rgba(15, 23, 42, 0.16));
+}
+
+:root.dark-mode .pen-svg {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+/* Patrol Along Card Top Border */
+@keyframes help-tour-pen-patrol {
+  0% {
+    left: var(--help-pen-start);
+    transform: translateY(0);
+  }
+
+  37% {
+    left: var(--help-pen-end);
+    transform: translateY(0);
+  }
+
+  40% {
+    left: var(--help-pen-end);
+    transform: translateY(-3px) scale(0.96, 1.04);
+  }
+
+  43% {
+    left: var(--help-pen-end);
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+
+  45% {
+    left: var(--help-pen-end);
+    transform: translateY(-2px);
+  }
+
+  48% {
+    left: var(--help-pen-end);
+    transform: translateY(0);
+  }
+
+  50% {
+    left: var(--help-pen-end);
+    transform: translateY(0);
+  }
+
+  87% {
+    left: var(--help-pen-start);
+    transform: translateY(0);
+  }
+
+  90% {
+    left: var(--help-pen-start);
+    transform: translateY(-3px) scale(0.96, 1.04);
+  }
+
+  93% {
+    left: var(--help-pen-start);
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+
+  96% {
+    left: var(--help-pen-start);
+    transform: translateY(-2px);
+  }
+
+  100% {
+    left: var(--help-pen-start);
+    transform: translateY(0);
+  }
+}
+
+/* Pen Writing Posture & Turn Cycle Synchronized with Patrol */
+@keyframes help-tour-pen-writing-cycle {
+  0% {
+    transform: rotate(-25deg);
+  }
+
+  37% {
+    transform: rotate(-25deg);
+  }
+
+  41% {
+    transform: rotate(0deg);
+  }
+
+  47% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: scaleX(-1) rotate(-25deg);
+  }
+
+  87% {
+    transform: scaleX(-1) rotate(-25deg);
+  }
+
+  91% {
+    transform: scaleX(-1) rotate(0deg);
+  }
+
+  97% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(-25deg);
+  }
+}
+
+/* Micro Scribbling Vibration of the Fountain Pen Nib */
+@keyframes help-tour-pen-scribble {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  100% {
+    transform: translateY(-1.4px) rotate(-2deg);
+  }
+}
+
+/* 360-degree Pen Spinning Trick Flourish on Click */
+@keyframes help-tour-pen-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  35% {
+    transform: translateY(-8px) rotate(160deg) scale(1.2);
+  }
+
+  75% {
+    transform: translateY(-2px) rotate(320deg) scale(1.08);
+  }
+
+  100% {
+    transform: translateY(0) rotate(360deg) scale(1);
+  }
+}
+
+.help-tour-layer.is-open .help-tour-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.help-tour-card.is-step-changing {
+  animation: help-tour-card-step .32s cubic-bezier(.2, .9, .3, 1);
+}
+
+.help-tour-card::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 255, 255, .98);
+  border: solid rgba(165, 180, 252, .42);
+  transform: rotate(45deg);
+}
+
+.help-tour-card[data-side="bottom"]::before {
+  left: var(--help-arrow-x, 28px);
+  top: -8px;
+  border-width: 1px 0 0 1px;
+}
+
+.help-tour-card[data-side="top"]::before {
+  left: var(--help-arrow-x, 28px);
+  bottom: -8px;
+  border-width: 0 1px 1px 0;
+}
+
+.help-tour-card[data-side="right"]::before {
+  left: -8px;
+  top: var(--help-arrow-y, 28px);
+  border-width: 0 0 1px 1px;
+}
+
+.help-tour-card[data-side="left"]::before {
+  right: -8px;
+  top: var(--help-arrow-y, 28px);
+  border-width: 1px 1px 0 0;
+}
+
+.help-tour-card-topline,
+.help-tour-progress-row,
+.help-tour-actions,
+.help-tour-nav-actions {
+  display: flex;
+  align-items: center;
+}
+
+.help-tour-card-topline,
+.help-tour-card h3,
+.help-tour-card p,
+.help-tour-progress-row,
+.help-tour-actions {
+  position: relative;
+  z-index: 2;
+}
+
+.help-tour-card-topline {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-tour-context {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, .12), rgba(124, 58, 237, .12));
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.help-tour-close {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, .11);
+  color: #475569;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.help-tour-card h3 {
+  margin: 14px 0 8px;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.help-tour-card p {
+  margin: 0;
+  color: #58657a;
+  font-size: 14px;
+  line-height: 1.62;
+  max-height: min(220px, calc(100vh - 240px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.help-tour-progress-row {
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.help-tour-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.help-tour-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: width .2s ease, background .2s ease, transform .2s ease;
+}
+
+.help-tour-dot.is-active {
+  width: 20px;
+  background: linear-gradient(90deg, #3b82f6, #7c3aed);
+}
+
+.help-tour-dot.is-done {
+  background: #818cf8;
+}
+
+.help-tour-counter {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.help-tour-actions {
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, .2);
+}
+
+.help-tour-nav-actions {
+  gap: 8px;
+}
+
+.help-tour-actions button {
+  min-height: 38px;
+  border-radius: 11px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.help-tour-skip,
+.help-tour-prev {
+  border: 1px solid rgba(148, 163, 184, .28);
+  background: rgba(248, 250, 252, .92);
+  color: #475569;
+}
+
+.help-tour-prev:disabled {
+  opacity: .42;
+  cursor: default;
+}
+
+.help-tour-next {
+  border: 0;
+  background: linear-gradient(135deg, #2563eb, #6d28d9);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, .22);
+}
+
+.help-tour-finish-burst {
+  position: fixed;
+  z-index: 10060;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: #818cf8;
+  box-shadow:
+    0 -28px 0 -2px #38bdf8,
+    20px -20px 0 -2px #a78bfa,
+    28px 0 0 -2px #60a5fa,
+    20px 20px 0 -2px #c084fc,
+    0 28px 0 -2px #22d3ee,
+    -20px 20px 0 -2px #818cf8,
+    -28px 0 0 -2px #38bdf8,
+    -20px -20px 0 -2px #a78bfa;
+  animation: help-tour-finish .62s cubic-bezier(.2, .9, .3, 1) forwards;
+}
+
+:root.dark-mode .help-tour-card {
+  border-color: rgba(129, 140, 248, .28);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(59, 130, 246, .13), transparent 34%),
+    radial-gradient(circle at 95% 10%, rgba(168, 85, 247, .12), transparent 32%),
+    rgba(15, 23, 42, .97);
+  color: #e5e7eb;
+  box-shadow: 0 28px 86px rgba(0, 0, 0, .52), 0 0 0 1px rgba(255, 255, 255, .035) inset;
+}
+
+:root.dark-mode .help-tour-card p,
+:root.dark-mode .help-tour-counter {
+  color: #aab5c6;
+}
+
+:root.dark-mode .help-tour-card::before {
+  background: rgba(15, 23, 42, .98);
+  border-color: rgba(129, 140, 248, .28);
+}
+
+:root.dark-mode .help-tour-close,
+:root.dark-mode .help-tour-skip,
+:root.dark-mode .help-tour-prev {
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, .84);
+  border-color: rgba(148, 163, 184, .16);
+}
+
+@keyframes help-tour-spotlight-pulse {
+
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.13);
+  }
+}
+
+@keyframes help-tour-card-step {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: translateY(5px) scale(.985);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes help-tour-finish {
+  0% {
+    opacity: 0;
+    transform: scale(.2) rotate(0deg);
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.55) rotate(24deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .help-tour-fab {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 124px + var(--tap-assign-clearance, 0px));
+    width: 48px;
+    height: 48px;
+  }
+
+  .help-tour-fab-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .help-tour-card {
+    width: min(360px, calc(100vw - 20px));
+    max-height: min(420px, calc(100vh - 20px));
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .help-tour-pen-mascot {
+    --help-pen-start: 12px;
+    --help-pen-end: calc(100% - 52px);
+  }
+
+  .help-tour-card h3 {
+    font-size: 18px;
+  }
+
+  .help-tour-actions {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .help-tour-nav-actions {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .help-tour-fab::before,
+  .help-tour-fab::after,
+  .help-tour-fab-icon,
+  .help-tour-fab-icon svg,
+  .help-tour-spotlight,
+  .help-tour-card,
+  .help-tour-finish-burst,
+  .help-tour-pen-mascot,
+  .pen-scene,
+  .pen-rig,
+  .pen-sparkle-svg,
+  .help-tour-wave-wrap,
+  .help-tour-wave-svg {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+}

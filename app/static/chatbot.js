@@ -549,6 +549,15 @@
     if (isChatbotAnimating || popup?.classList.contains("is-open")) return;
     isChatbotAnimating = true;
 
+    // Đóng hướng dẫn nếu đang mở mà không cần undock
+    if (window.ContextHelpTour?.isOpen?.()) {
+      if (window.ContextHelpTour.closeWithoutUndock) {
+        window.ContextHelpTour.closeWithoutUndock();
+      } else {
+        window.ContextHelpTour.close(false);
+      }
+    }
+
     // Đóng khung chat chung nếu đang mở mà không cần undock
     if (window.GeneralChat?.isOpen?.()) {
       if (window.GeneralChat.closeWithoutUndock) {
@@ -559,7 +568,9 @@
     }
 
     const generalFab = document.getElementById("generalChatFab");
+    const helpFab = document.getElementById("helpTourFab");
     generalFab?.classList.remove("is-on-top", "is-glowing");
+    helpFab?.classList.remove("is-on-top", "is-glowing");
 
     if (window.FabMotion) {
       fab?.classList.add("is-glowing");
@@ -630,6 +641,13 @@
     if (event.key === "Escape" && popup?.classList.contains("is-open"))
       closeChatbotPopup();
   });
+  document.addEventListener("click", (event) => {
+    const generalFab = event.target.closest?.("#generalChatFab");
+    const helpFab = event.target.closest?.("#helpTourFab");
+    if ((generalFab || helpFab) && popup?.classList.contains("is-open")) {
+      closeChatbotWithoutUndock();
+    }
+  }, true);
 
   function addMessage(role, content, extraClass = "") {
     const article = document.createElement("article");

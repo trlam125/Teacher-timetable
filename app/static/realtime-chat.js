@@ -384,10 +384,21 @@
     if (isChatAnimating || isOpen()) return;
     isChatAnimating = true;
 
+    // Đóng hướng dẫn nếu đang mở mà không cần undock
+    if (window.ContextHelpTour?.isOpen?.()) {
+      if (window.ContextHelpTour.closeWithoutUndock) {
+        window.ContextHelpTour.closeWithoutUndock();
+      } else {
+        window.ContextHelpTour.close(false);
+      }
+    }
+
     await closeAssistantPopup(true);
 
     const assistantFab = document.getElementById("chatbotFab");
+    const helpFab = document.getElementById("helpTourFab");
     assistantFab?.classList.remove("is-glowing");
+    helpFab?.classList.remove("is-glowing");
 
     if (window.FabMotion) {
       await window.FabMotion.open(fab, popup, {
@@ -463,7 +474,8 @@
 
   document.addEventListener("click", (event) => {
     const assistantFab = event.target.closest?.("#chatbotFab");
-    if (assistantFab && isOpen()) closeGeneralChatWithoutUndock();
+    const helpFab = event.target.closest?.("#helpTourFab");
+    if ((assistantFab || helpFab) && isOpen()) closeGeneralChatWithoutUndock();
     if (!event.target.closest?.(".general-chat-message-actions")) closeAllMenus();
   }, true);
 

@@ -1,0 +1,166 @@
+<link rel="stylesheet" href="/static/help-tour.css?v=1">
+
+<button id="helpTourFab" class="help-tour-fab" type="button" aria-label="Hướng dẫn trang này"
+    aria-controls="helpTourLayer" aria-expanded="false" title="Hướng dẫn trang này">
+    <span class="help-tour-fab-icon" aria-hidden="true">
+        <svg class="fab-icon-svg help-tour-icon-svg" viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <defs>
+                <linearGradient id="helpFabGradient" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#38bdf8" />
+                    <stop offset="52%" stop-color="#6366f1" />
+                    <stop offset="100%" stop-color="#a855f7" />
+                </linearGradient>
+            </defs>
+            <path d="M12 2.7a8.1 8.1 0 1 0 0 16.2 8.1 8.1 0 0 0 0-16.2Z" fill="url(#helpFabGradient)" />
+            <path d="M9.55 9.1a2.58 2.58 0 0 1 5.03.75c0 1.78-1.27 2.38-2.05 2.92-.63.43-.78.77-.78 1.48" fill="none"
+                stroke="white" stroke-width="1.9" stroke-linecap="round" />
+            <circle cx="11.75" cy="16.55" r="1.05" fill="white" />
+            <path d="M18.65 4.1 19.2 5.5l1.4.55-1.4.55-.55 1.4-.55-1.4-1.4-.55 1.4-.55.55-1.4Z" fill="white"
+                fill-opacity=".9" />
+        </svg>
+    </span>
+</button>
+
+<div id="helpTourTrail" class="fab-trail-container help-tour-trail" aria-hidden="true">
+    <div class="circle trail t4"></div>
+    <div class="circle trail t3"></div>
+    <div class="circle trail t2"></div>
+    <div class="circle trail t1"></div>
+</div>
+
+<div id="helpTourLayer" class="help-tour-layer" hidden aria-hidden="true">
+    <div class="help-tour-backdrop" data-help-tour-close aria-hidden="true"></div>
+    <div id="helpTourSpotlight" class="help-tour-spotlight" aria-hidden="true"></div>
+    <section id="helpTourCard" class="help-tour-card" role="dialog" aria-modal="true" aria-labelledby="helpTourTitle"
+        aria-describedby="helpTourText" tabindex="-1">
+        <!-- Hiệu ứng lướt sóng nhẹ nền box hướng dẫn -->
+        <div class="help-tour-wave-bg" aria-hidden="true">
+            <div class="help-tour-wave-wrap">
+                <svg class="help-tour-wave-svg wave-layer-1" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="helpWaveGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.22" />
+                            <stop offset="50%" stop-color="#818cf8" stop-opacity="0.18" />
+                            <stop offset="100%" stop-color="#c084fc" stop-opacity="0.24" />
+                        </linearGradient>
+                    </defs>
+                    <path
+                        d="M 0,50 C 150,20 150,80 300,50 C 450,20 450,80 600,50 C 750,20 750,80 900,50 C 1050,20 1050,80 1200,50 L 1200,120 L 0,120 Z"
+                        fill="url(#helpWaveGrad1)" />
+                </svg>
+                <svg class="help-tour-wave-svg wave-layer-2" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="helpWaveGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#6366f1" stop-opacity="0.18" />
+                            <stop offset="50%" stop-color="#06b6d4" stop-opacity="0.22" />
+                            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.16" />
+                        </linearGradient>
+                    </defs>
+                    <path
+                        d="M 0,65 C 150,88 150,42 300,65 C 450,88 450,42 600,65 C 750,88 750,42 900,65 C 1050,88 1050,42 1200,65 L 1200,120 L 0,120 Z"
+                        fill="url(#helpWaveGrad2)" />
+                </svg>
+                <svg class="help-tour-wave-svg wave-layer-3" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                    <path
+                        d="M 0,80 C 150,60 150,96 300,80 C 450,60 450,96 600,80 C 750,60 750,96 900,80 C 1050,60 1050,96 1200,80 L 1200,120 L 0,120 Z"
+                        fill="rgba(129, 140, 248, 0.12)" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Mascot Bút viết chạy dọc quanh viền trên box hướng dẫn -->
+        <div class="help-tour-pen-mascot" id="helpTourPen" role="button" tabindex="0"
+            aria-label="Bút hướng dẫn - bấm để tương tác" title="Bút đang viết hướng dẫn - Bấm để tương tác!">
+            <!-- Bong bóng tin nhắn / cảm xúc -->
+            <div class="pen-bubble" aria-hidden="true" id="penBubble">
+                <span class="pen-bubble-icon">✍️</span>
+                <span class="pen-bubble-text" id="penBubbleText">Để mình chỉ cho!</span>
+            </div>
+            <!-- Khung cảnh hoạt họa cây bút -->
+            <div class="pen-scene" aria-hidden="true">
+                <!-- Bóng tiếp xúc mặt viền -->
+                <div class="pen-shadow"></div>
+                <!-- Tia sáng / bụi mực lấp lánh ở ngòi bút -->
+                <div class="pen-sparkle">
+                    <svg viewBox="0 0 16 16" class="pen-sparkle-svg">
+                        <path d="M8 0 L9.5 6.5 L16 8 L9.5 9.5 L8 16 L6.5 9.5 L0 8 L6.5 6.5 Z" fill="#fbbf24" />
+                        <circle cx="8" cy="8" r="2" fill="#fff" />
+                    </svg>
+                </div>
+                <!-- Thân bút và ngòi bút chuyển động -->
+                <div class="pen-rig" id="penRig">
+                    <svg class="pen-svg" viewBox="0 0 24 38" width="24" height="38">
+                        <defs>
+                            <linearGradient id="penBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#38bdf8" />
+                                <stop offset="45%" stop-color="#6366f1" />
+                                <stop offset="100%" stop-color="#a855f7" />
+                            </linearGradient>
+                            <linearGradient id="penGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#fef08a" />
+                                <stop offset="50%" stop-color="#f59e0b" />
+                                <stop offset="100%" stop-color="#d97706" />
+                            </linearGradient>
+                            <linearGradient id="penNibGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#fffbeb" />
+                                <stop offset="40%" stop-color="#fde047" />
+                                <stop offset="85%" stop-color="#d97706" />
+                            </linearGradient>
+                            <linearGradient id="penGripGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#334155" />
+                                <stop offset="50%" stop-color="#475569" />
+                                <stop offset="100%" stop-color="#1e293b" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Nắp & đuôi bút mạ vàng -->
+                        <rect x="9.5" y="1.5" width="5" height="2.5" rx="1.25" fill="url(#penGoldGrad)" />
+                        <!-- Thân bút gradient hiện đại -->
+                        <rect x="8.5" y="3.5" width="7" height="13.5" rx="3.5" fill="url(#penBodyGrad)" />
+                        <!-- Vệt sáng phản quang thân bút -->
+                        <line x1="10" y1="5" x2="10" y2="15" stroke="rgba(255,255,255,0.45)" stroke-width="1"
+                            stroke-linecap="round" />
+                        <!-- Kẹp bút mạ vàng thanh lịch -->
+                        <path d="M14.5 5.5 C15.8 5.5 16 7 16 9 L15.5 13 C15.5 13.5 14.8 14 14.2 13.5" fill="none"
+                            stroke="url(#penGoldGrad)" stroke-width="1.2" stroke-linecap="round" />
+                        <!-- Vòng đai vàng giữa thân bút -->
+                        <rect x="8" y="16.5" width="8" height="2.2" rx="0.8" fill="url(#penGoldGrad)" />
+                        <!-- Cổ bút kim loại cầm nắm -->
+                        <path d="M8.5 18.7 L9 24.5 L15 24.5 L15.5 18.7 Z" fill="url(#penGripGrad)" />
+                        <!-- Đai ngòi vàng -->
+                        <rect x="8.8" y="24.2" width="6.4" height="1.6" rx="0.6" fill="url(#penGoldGrad)" />
+                        <!-- Ngòi bút máy vàng óng -->
+                        <path d="M9 25.8 L12 36.5 L15 25.8 Z" fill="url(#penNibGrad)" />
+                        <!-- Khe thoát mực & lỗ thở của ngòi -->
+                        <circle cx="12" cy="29.5" r="0.9" fill="#1e293b" />
+                        <line x1="12" y1="29.5" x2="12" y2="36.5" stroke="#1e293b" stroke-width="0.7"
+                            stroke-linecap="round" />
+                        <!-- Ánh kim phản xạ ngòi bút -->
+                        <path d="M9.8 26.2 L12 34.5" stroke="rgba(255,255,255,0.7)" stroke-width="0.6"
+                            stroke-linecap="round" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="help-tour-card-topline">
+            <span id="helpTourContext" class="help-tour-context">Hướng dẫn</span>
+            <button id="helpTourClose" class="help-tour-close" type="button" aria-label="Đóng hướng dẫn">×</button>
+        </div>
+        <h3 id="helpTourTitle">Hướng dẫn trang này</h3>
+        <p id="helpTourText"></p>
+        <div class="help-tour-progress-row">
+            <div id="helpTourDots" class="help-tour-dots" aria-hidden="true"></div>
+            <span id="helpTourCounter" class="help-tour-counter"></span>
+        </div>
+        <div class="help-tour-actions">
+            <button id="helpTourSkip" class="help-tour-skip" type="button">Kết thúc</button>
+            <div class="help-tour-nav-actions">
+                <button id="helpTourPrev" class="help-tour-prev" type="button">← Trước</button>
+                <button id="helpTourNext" class="help-tour-next" type="button">Tiếp →</button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script src="/static/fab-motion.js?v=1"></script>
+<script src="/static/help-tour.js?v=1"></script>

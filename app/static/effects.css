@@ -1200,28 +1200,42 @@ dialog::backdrop {
 }
 
 /* FabMotion Dynamic Transitions */
+.help-tour-fab.anim-motion,
 .general-chat-fab.anim-motion,
 .chatbot-fab.anim-motion {
   transition: transform 0.48s cubic-bezier(0.19, 1, 0.22, 1) !important;
   will-change: transform, z-index;
 }
 
+.help-tour-fab.anim-motion-fast,
 .general-chat-fab.anim-motion-fast,
 .chatbot-fab.anim-motion-fast {
   transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1) !important;
   will-change: transform, z-index;
 }
 
+.help-tour-fab.is-stacked-behind,
 .general-chat-fab.is-stacked-behind,
 .chatbot-fab.is-stacked-behind {
   filter: brightness(0.85);
   opacity: 0.9;
-  z-index: 899 !important;
+  z-index: 897 !important;
 }
 
+.help-tour-fab.is-stacked-behind::before,
+.help-tour-fab.is-stacked-behind::after {
+  opacity: 0 !important;
+  animation: none !important;
+}
+
+.help-tour-fab.is-on-top,
 .general-chat-fab.is-on-top,
 .chatbot-fab.is-on-top {
   z-index: 1000 !important;
+}
+
+html.help-tour-active .help-tour-fab.is-on-top {
+  z-index: 10060 !important;
 }
 
 /* FAB Absorb Reaction when popup collapses into button */
@@ -1246,6 +1260,7 @@ dialog::backdrop {
   }
 }
 
+.help-tour-fab.fab-absorb-pulse .help-tour-fab-icon,
 .general-chat-fab.fab-absorb-pulse .general-chat-fab-icon,
 .chatbot-fab.fab-absorb-pulse .chatbot-fab-icon {
   animation: fab-absorb-pulse 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) !important;
@@ -1258,6 +1273,10 @@ dialog::backdrop {
   height: 52px;
   pointer-events: none;
   z-index: 898;
+}
+
+.help-tour-trail {
+  bottom: 144px;
 }
 
 .general-chat-trail {
@@ -1275,6 +1294,12 @@ dialog::backdrop {
   opacity: 0;
   pointer-events: none;
   will-change: transform, opacity;
+}
+
+.help-tour-trail .circle.trail {
+  background: linear-gradient(135deg, #38bdf8, #6366f1 52%, #a855f7);
+  border: 2px solid rgba(255, 255, 255, .82);
+  box-shadow: 0 10px 28px rgba(99, 102, 241, .3);
 }
 
 .general-chat-trail .circle.trail {
@@ -2256,6 +2281,7 @@ body.workspace-viewport .content {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .tab.is-sliding-out,
   .tab.is-sliding-in {
     animation: none !important;
