@@ -1,0 +1,86 @@
+/* Core timetable and lesson structure shared by schedule views. */
+
+.constraint-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.timetable {
+  display: grid;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.cell {
+  min-height: 78px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 6px;
+  position: relative;
+}
+
+.cell.head {
+  min-height: 46px;
+  background: var(--table-header-bg);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.cell.period {
+  background: var(--table-header-bg);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.cell.blocked {
+  background: repeating-linear-gradient(135deg,
+      var(--bg),
+      var(--bg) 8px,
+      var(--line) 8px,
+      var(--line) 16px);
+  cursor: pointer;
+}
+
+.cell.available {
+  cursor: pointer;
+}
+
+.lesson {
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  padding: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  height: 100%;
+}
+
+/* Overview can contain several lessons in the same slot.
+   Keep cards in normal flow instead of letting height:100% overlap rows. */
+.overview-timetable .cell.available {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  min-height: 110px;
+}
+
+.lesson.lesson-overview {
+  height: auto;
+  min-height: 48px;
+  flex: 0 0 auto;
+}
+
+.lesson b {
+  display: block;
+  color: #1e3a8a;
+}
+
+.lesson small {
+  color: #475467;
+}

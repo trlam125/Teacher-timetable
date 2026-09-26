@@ -82,23 +82,39 @@
     return { ...lastTrigger.rect };
   }
 
-  function transformFor(dialogRect, triggerRect) {
+  function getTriggerRadius(triggerElement) {
+    if (!triggerElement) return 9;
+    try {
+      const style = window.getComputedStyle(triggerElement);
+      const r = parseFloat(style.borderRadius);
+      return Number.isFinite(r) && r > 0 ? r : 9;
+    } catch {
+      return 9;
+    }
+  }
+
+  function transformToTrigger(dialogRect, triggerRect) {
     const dx = triggerRect.centerX - (dialogRect.left + dialogRect.width / 2);
     const dy = triggerRect.centerY - (dialogRect.top + dialogRect.height / 2);
 
-    // A uniform scale avoids stretching form fields while still making the dialog
-    // visually grow out of the pressed button, like an Android app-launch transition.
-    const widthScale = triggerRect.width / Math.max(dialogRect.width, 1);
-    const heightScale = triggerRect.height / Math.max(dialogRect.height, 1);
-    const scale = clamp(Math.max(widthScale, heightScale), 0.14, 0.34);
+    const scaleX = triggerRect.width / Math.max(dialogRect.width, 1);
+    const scaleY = triggerRect.height / Math.max(dialogRect.height, 1);
 
-    return `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
+    return {
+      transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scaleX}, ${scaleY})`,
+      scaleX,
+      scaleY,
+      dx,
+      dy,
+    };
   }
 
   function cleanDialog(dialog) {
     dialog.classList.remove("app-zoom-active", "app-zoom-closing");
     dialog.style.removeProperty("transform-origin");
     dialog.style.removeProperty("will-change");
+    dialog.style.removeProperty("overflow");
+    dialog.style.removeProperty("border-radius");
   }
 
   function attachCancelHandler(dialog) {
@@ -128,36 +144,41 @@
 
     attachCancelHandler(this);
     const triggerRect = recentTriggerRect();
+    const triggerElement = lastTrigger?.element || null;
     const result = nativeShowModal.apply(this, args);
 
-    // Dialogs opened automatically after a page load intentionally keep the
-    // project's normal modal animation rather than pretending to originate
-    // from a stale button on another page.
     if (!triggerRect) return result;
 
     const dialogRect = this.getBoundingClientRect();
     if (!dialogRect.width || !dialogRect.height) return result;
 
-    const startTransform = transformFor(dialogRect, triggerRect);
+    const start = transformToTrigger(dialogRect, triggerRect);
+    const btnRadius = getTriggerRadius(triggerElement);
+    const rx = Math.round(btnRadius / Math.max(start.scaleX, 0.01));
+    const ry = Math.round(btnRadius / Math.max(start.scaleY, 0.01));
+
     this.classList.add("app-zoom-active");
     this.style.transformOrigin = "center center";
-    this.style.willChange = "transform, opacity, filter";
+    this.style.willChange = "transform, opacity, filter, border-radius";
+    this.style.overflow = "hidden";
 
     const animation = this.animate(
       [
         {
           opacity: 0,
-          transform: startTransform,
-          filter: "blur(1.5px)",
+          transform: start.transform,
+          borderRadius: `${rx}px / ${ry}px`,
+          filter: "blur(0.5px)",
         },
         {
-          offset: 0.66,
-          opacity: 1,
+          offset: 0.28,
+          opacity: 0.88,
           filter: "blur(0px)",
         },
         {
           opacity: 1,
-          transform: "translate3d(0, 0, 0) scale(1)",
+          transform: "translate3d(0, 0, 0) scale(1, 1)",
+          borderRadius: "16px",
           filter: "blur(0px)",
         },
       ],
@@ -169,6 +190,7 @@
     );
 
     states.set(this, {
+      triggerElement,
       triggerRect,
       animation,
       closing: false,
@@ -181,6 +203,8 @@
         if (!state || state.animation !== animation || state.closing) return;
         animation.cancel();
         state.animation = null;
+        this.style.removeProperty("overflow");
+        this.style.removeProperty("will-change");
       },
       { once: true },
     );
@@ -201,27 +225,44 @@
     state.closing = true;
     this.classList.add("app-zoom-active", "app-zoom-closing");
 
-    // If the user closes while the opening transition is still running,
-    // continue smoothly from the current visual transform instead of jumping.
+    let currentTriggerRect = state.triggerRect;
+    if (state.triggerElement && state.triggerElement.isConnected) {
+      const refreshedRect = snapshotRect(state.triggerElement);
+      if (refreshedRect) currentTriggerRect = refreshedRect;
+    }
+
     const computed = getComputedStyle(this);
     const currentTransform = computed.transform === "none" ? "translate3d(0, 0, 0) scale(1)" : computed.transform;
     const currentOpacity = Number.parseFloat(computed.opacity || "1");
     state.animation?.cancel?.();
 
     const dialogRect = this.getBoundingClientRect();
-    const endTransform = transformFor(dialogRect, state.triggerRect);
+    const target = transformToTrigger(dialogRect, currentTriggerRect);
+    const btnRadius = getTriggerRadius(state.triggerElement);
+    const rx = Math.round(btnRadius / Math.max(target.scaleX, 0.01));
+    const ry = Math.round(btnRadius / Math.max(target.scaleY, 0.01));
+
+    this.style.overflow = "hidden";
+    this.style.transformOrigin = "center center";
 
     const animation = this.animate(
       [
         {
           opacity: Number.isFinite(currentOpacity) ? currentOpacity : 1,
           transform: currentTransform,
+          borderRadius: "16px",
+          filter: "blur(0px)",
+        },
+        {
+          offset: 0.7,
+          opacity: 0.88,
           filter: "blur(0px)",
         },
         {
           opacity: 0,
-          transform: endTransform,
-          filter: "blur(1.2px)",
+          transform: target.transform,
+          borderRadius: `${rx}px / ${ry}px`,
+          filter: "blur(0.4px)",
         },
       ],
       {
@@ -231,6 +272,15 @@
       },
     );
     state.animation = animation;
+
+    // Trigger visual absorb reaction on the button as the dialog converges into it
+    if (state.triggerElement && state.triggerElement.isConnected) {
+      const triggerEl = state.triggerElement;
+      setTimeout(() => {
+        triggerEl.classList.add("btn-absorb-pulse");
+        setTimeout(() => triggerEl.classList.remove("btn-absorb-pulse"), 380);
+      }, Math.max(0, CLOSE_DURATION - 70));
+    }
 
     const finishClose = () => {
       if (!this.open) return;

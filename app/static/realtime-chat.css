@@ -207,19 +207,31 @@
   backdrop-filter: blur(18px);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(24px) scale(0.88);
-  transform-origin: bottom right;
-  transition: opacity 0.48s cubic-bezier(0.19, 1, 0.22, 1),
-    transform 0.48s cubic-bezier(0.19, 1, 0.22, 1),
-    visibility 0.48s;
+  transform: scale(0.04);
+  transform-origin: var(--fab-origin-x, calc(100% - 18px)) var(--fab-origin-y, calc(100% + 2px));
+  border-radius: 44px;
+  filter: blur(1.5px);
+  pointer-events: none;
+  transition:
+    transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.34s cubic-bezier(0.32, 0, 0.67, 0) 0.06s,
+    filter 0.38s ease,
+    visibility 0.44s;
 }
 
 .general-chat-popup.is-open {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0) scale(1);
-  transition: opacity 0.48s cubic-bezier(0.19, 1, 0.22, 1),
-    transform 0.48s cubic-bezier(0.19, 1, 0.22, 1),
+  transform: scale(1);
+  border-radius: 20px;
+  filter: blur(0px);
+  pointer-events: auto;
+  transition:
+    transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.36s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.36s ease,
     visibility 0s linear 0s;
 }
 
@@ -784,7 +796,7 @@
 @media (max-width: 768px) {
   .general-chat-fab {
     right: max(12px, env(safe-area-inset-right));
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 62px);
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 62px + var(--tap-assign-clearance, 0px));
     width: 48px;
     height: 48px;
   }

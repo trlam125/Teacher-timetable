@@ -421,6 +421,9 @@
 
   function closeChatbotWithoutUndock() {
     if (!popup?.classList.contains("is-open")) return;
+    if (window.FabMotion?.alignPopupToFab) {
+      window.FabMotion.alignPopupToFab(popup, fab);
+    }
     setPopup(false);
   }
 
@@ -559,13 +562,18 @@
     generalFab?.classList.remove("is-on-top", "is-glowing");
 
     if (window.FabMotion) {
-      setPopup(true);
+      fab?.classList.add("is-glowing");
       await window.FabMotion.open(fab, popup, {
         onOpened: () => {
+          popup.setAttribute("aria-hidden", "false");
+          fab?.setAttribute("aria-expanded", "true");
           requestAnimationFrame(() => input?.focus());
         }
       });
     } else {
+      if (window.FabMotion?.alignPopupToFab) {
+        window.FabMotion.alignPopupToFab(popup, fab);
+      }
       fab?.classList.add("is-on-top");
       if (generalFab) {
         if (window.GeneralChat?.dockDown) {
@@ -583,9 +591,14 @@
     isChatbotAnimating = true;
 
     if (window.FabMotion) {
-      setPopup(false);
+      fab?.classList.remove("is-glowing");
+      fab?.setAttribute("aria-expanded", "false");
       await window.FabMotion.close(fab, popup);
+      popup.setAttribute("aria-hidden", "true");
     } else {
+      if (window.FabMotion?.alignPopupToFab) {
+        window.FabMotion.alignPopupToFab(popup, fab);
+      }
       setPopup(false);
       fab?.classList.remove("is-on-top");
       if (window.GeneralChat?.dockUp) {

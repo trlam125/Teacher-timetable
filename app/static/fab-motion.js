@@ -125,6 +125,40 @@
   }
 
   /**
+   * Dynamically aligns popup's transform-origin to the exact center of the trigger FAB.
+   * This guarantees that when shrinking/closing (or expanding/opening), the popup
+   * converges precisely into the button disc without any misalignment.
+   */
+  function alignPopupToFab(popupEl, triggerFab, targetTopOverride = null) {
+    if (!popupEl || !triggerFab) return;
+    if (window.innerWidth <= 768 && popupEl.id === 'chatbotPopup') return;
+
+    const computed = window.getComputedStyle(popupEl);
+    const right = parseFloat(computed.right) || 24;
+    const bottom = parseFloat(computed.bottom) || 104;
+    const popupWidth = popupEl.offsetWidth || 420;
+    const popupHeight = popupEl.offsetHeight || 600;
+
+    const unscaledLeft = window.innerWidth - right - popupWidth;
+    const unscaledTop = window.innerHeight - bottom - popupHeight;
+
+    const fabRect = triggerFab.getBoundingClientRect();
+    const fabCenterX = fabRect.left + fabRect.width / 2;
+
+    const currentFabTop = (targetTopOverride !== null && targetTopOverride !== undefined)
+      ? targetTopOverride
+      : fabRect.top;
+    const fabCenterY = currentFabTop + fabRect.height / 2;
+
+    const originX = Math.round(fabCenterX - unscaledLeft);
+    const originY = Math.round(fabCenterY - unscaledTop);
+
+    popupEl.style.transformOrigin = `${originX}px ${originY}px`;
+    popupEl.style.setProperty('--fab-origin-x', `${originX}px`);
+    popupEl.style.setProperty('--fab-origin-y', `${originY}px`);
+  }
+
+  /**
    * MASTER OPEN CHOREOGRAPHY
    */
   async function open(triggerFab, popupEl, options = {}) {
@@ -133,6 +167,7 @@
 
     // If another popup is open, close its UI first without resetting layout
     if (activePopup && activePopup !== popupEl) {
+      if (activeFab) alignPopupToFab(activePopup, activeFab);
       activePopup.classList.remove('is-open');
       activePopup.setAttribute('aria-hidden', 'true');
     }
@@ -159,8 +194,9 @@
       const subordinates = fabs.filter(b => b !== triggerFab);
       startGhostTrail(subordinates, CONFIG.durationGlide, profile);
 
-      // Open popup simultaneously
+      // Precisely anchor popup expansion to triggerFab's current center
       if (popupEl) {
+        alignPopupToFab(popupEl, triggerFab);
         popupEl.classList.add('is-open');
         popupEl.setAttribute('aria-hidden', 'false');
       }
@@ -213,6 +249,7 @@
 
     // Step 2: Downward Glide of the whole stack + Synchronized Popup Opening
     if (popupEl) {
+      alignPopupToFab(popupEl, triggerFab, lastTop);
       popupEl.classList.add('is-open');
       popupEl.setAttribute('aria-hidden', 'false');
     }
@@ -257,14 +294,21 @@
     const targetTop = getBaselineTop(triggerFab);
     const profile = PROFILES[triggerFab.id] || PROFILES.generalChatFab;
 
-    if (popupEl) {
-      popupEl.classList.remove('is-open');
-      popupEl.setAttribute('aria-hidden', 'true');
-    }
-    triggerFab.setAttribute('aria-expanded', 'false');
-
-    // SPECIAL CASE: Closing from bottom button
+    // SPECIAL CASE: Closing from bottom button (chatbotFab)
     if (k === lastIndex) {
+      if (popupEl) {
+        alignPopupToFab(popupEl, triggerFab);
+        popupEl.classList.remove('is-open');
+        popupEl.setAttribute('aria-hidden', 'true');
+      }
+      triggerFab.setAttribute('aria-expanded', 'false');
+
+      // Visual absorb reaction on button when popup shrinks into it
+      setTimeout(() => {
+        triggerFab.classList.add('fab-absorb-pulse');
+        setTimeout(() => triggerFab.classList.remove('fab-absorb-pulse'), 450);
+      }, 300);
+
       const subordinates = fabs.filter(b => b !== triggerFab);
       startGhostTrail(subordinates, CONFIG.durationGlide, profile);
 
@@ -290,6 +334,20 @@
     }
 
     // GENERAL CASE: Closing from upper button (e.g. generalChatFab)
+    // Align shrink origin to destination position of triggerFab
+    if (popupEl) {
+      alignPopupToFab(popupEl, triggerFab, targetTop);
+      popupEl.classList.remove('is-open');
+      popupEl.setAttribute('aria-hidden', 'true');
+    }
+    triggerFab.setAttribute('aria-expanded', 'false');
+
+    // Visual absorb reaction on button when meeting popup at targetTop
+    setTimeout(() => {
+      triggerFab.classList.add('fab-absorb-pulse');
+      setTimeout(() => triggerFab.classList.remove('fab-absorb-pulse'), 450);
+    }, 360);
+
     // Phase A: Stack glides back UP to triggerFab's baseline position with upward ghost trail
     startGhostTrail([triggerFab], CONFIG.durationGlide, profile);
 
@@ -333,10 +391,19 @@
     isAnimating = false;
   }
 
+  // Update popup transform-origin on window resize
+  window.addEventListener('resize', () => {
+    updateAllBaselines();
+    if (activePopup && activeFab) {
+      alignPopupToFab(activePopup, activeFab);
+    }
+  });
+
   // Export Global API
   window.FabMotion = {
     open,
     close,
+    alignPopupToFab,
     isAnimating: () => isAnimating,
     getActiveFab: () => activeFab,
     getActivePopup: () => activePopup,

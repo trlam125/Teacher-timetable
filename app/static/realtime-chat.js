@@ -234,6 +234,9 @@
 
   function closeGeneralChatWithoutUndock() {
     if (!isOpen()) return;
+    if (window.FabMotion?.alignPopupToFab) {
+      window.FabMotion.alignPopupToFab(popup, fab);
+    }
     popup.classList.remove("is-open");
     popup.setAttribute("aria-hidden", "true");
     fab.setAttribute("aria-expanded", "false");
@@ -396,6 +399,9 @@
         }
       });
     } else {
+      if (window.FabMotion?.alignPopupToFab) {
+        window.FabMotion.alignPopupToFab(popup, fab);
+      }
       if (assistantFab) {
         await dockDown(true);
       }
@@ -423,6 +429,9 @@
     if (window.FabMotion) {
       await window.FabMotion.close(fab, popup);
     } else {
+      if (window.FabMotion?.alignPopupToFab) {
+        window.FabMotion.alignPopupToFab(popup, fab);
+      }
       popup.classList.remove("is-open");
       popup.setAttribute("aria-hidden", "true");
       fab.setAttribute("aria-expanded", "false");

@@ -67,58 +67,6 @@ def schedule_validation_peers(existing_lessons, *, target_locked: bool):
     ]
 
 
-def contiguous_session_group(
-    slots: list[int] | set[int] | tuple[int, ...],
-    target_slot: int,
-    sessions: int,
-    periods_per_session: int,
-) -> set[int]:
-    """Return the contiguous run containing target_slot within one day/session."""
-    values = set(slots)
-    if target_slot not in values:
-        return set()
-    periods_per_day = sessions * periods_per_session
-    day = target_slot // periods_per_day
-    inside = target_slot % periods_per_day
-    session = inside // periods_per_session
-    session_start = day * periods_per_day + session * periods_per_session
-    session_end = session_start + periods_per_session
-
-    group = {target_slot}
-    cursor = target_slot - 1
-    while cursor >= session_start and cursor in values:
-        group.add(cursor)
-        cursor -= 1
-    cursor = target_slot + 1
-    while cursor < session_end and cursor in values:
-        group.add(cursor)
-        cursor += 1
-    return group
-
-
-def required_double_removal_slots(
-    slots: list[int] | set[int] | tuple[int, ...],
-    target_slot: int,
-    sessions: int,
-    periods_per_session: int,
-) -> set[int]:
-    """Return the logical required-double group that contains ``target_slot``.
-
-    Required-double groups are allowed to touch. Therefore a four-period run
-    represents two adjacent pairs instead of one malformed block. Runs are
-    partitioned deterministically from their first period into chunks of two;
-    an odd final period is the permitted single remainder.
-    """
-    run = sorted(
-        contiguous_session_group(slots, target_slot, sessions, periods_per_session)
-    )
-    if not run or target_slot not in run:
-        return set()
-    index = run.index(target_slot)
-    group_start = (index // 2) * 2
-    return set(run[group_start : group_start + 2])
-
-
 def parse_integer_set(text: str | None) -> set[int]:
     """Parse a JSON array while preserving valid integers around bad items.
 
