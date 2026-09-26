@@ -53,7 +53,7 @@ body.workspace-viewport .content {
   height: 100%;
   max-height: 100%;
   box-sizing: border-box;
-  padding: 28px 36px 64px;
+  padding: 28px max(84px, calc(36px + env(safe-area-inset-right))) max(200px, calc(150px + env(safe-area-inset-bottom))) 36px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -87,7 +87,7 @@ body.workspace-viewport .content {
   }
 
   .workspace-tabs-stage .tab {
-    padding: 20px 18px 48px;
+    padding: 20px max(76px, calc(18px + env(safe-area-inset-right))) max(160px, calc(120px + env(safe-area-inset-bottom))) 18px;
   }
 }
 
@@ -112,6 +112,7 @@ body.workspace-viewport .content {
 
   .workspace-tabs-stage #schedule {
     display: block !important;
+    padding: 0 !important;
   }
 
   .tab.is-sliding-out,

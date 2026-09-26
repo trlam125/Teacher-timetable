@@ -4,8 +4,8 @@
   right: 16px;
   bottom: 80px;
   z-index: 899;
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -15,8 +15,15 @@
   background: transparent;
   overflow: visible;
   isolation: isolate;
+  opacity: 0.94;
   transition: transform .18s ease, opacity .18s ease;
   will-change: transform, opacity;
+}
+
+.general-chat-fab:hover,
+.general-chat-fab:focus-visible,
+.general-chat-fab[aria-expanded="true"] {
+  opacity: 1;
 }
 
 .general-chat-fab.is-moving {
@@ -24,7 +31,7 @@
 }
 
 .general-chat-fab.is-docked {
-  transform: translateY(var(--gc-dock-y, 58px)) !important;
+  transform: translateY(var(--gc-dock-y, 64px)) !important;
 }
 
 .general-chat-fab.is-on-top {
@@ -143,16 +150,16 @@
 
 @keyframes general-chat-fab-ripple {
   0% {
-    transform: scale(.84);
-    opacity: .58;
+    transform: scale(.88);
+    opacity: .42;
   }
 
   62% {
-    opacity: .18;
+    opacity: .14;
   }
 
   100% {
-    transform: scale(1.62);
+    transform: scale(1.24);
     opacity: 0;
   }
 }
@@ -795,8 +802,8 @@
 
 @media (max-width: 768px) {
   .general-chat-fab {
-    right: max(12px, env(safe-area-inset-right));
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 62px + var(--tap-assign-clearance, 0px));
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 64px + var(--tap-assign-clearance, 0px));
     width: 48px;
     height: 48px;
   }
@@ -895,14 +902,18 @@
    Keep both launchers on the right while reserving only a small rail so they
    do not cover table actions. The AI launcher is below; General Chat is above. */
 @media (min-width: 769px) {
-  .workspace .content {
-    padding-right: max(76px, calc(30px + env(safe-area-inset-right)));
-    padding-bottom: max(76px, calc(30px + env(safe-area-inset-bottom)));
+
+  .workspace .content,
+  .workspace-tabs-stage .tab {
+    padding-right: max(84px, calc(36px + env(safe-area-inset-right)));
+    padding-bottom: max(160px, calc(100px + env(safe-area-inset-bottom)));
   }
 }
 
 @media (max-width: 768px) {
-  .workspace .content {
-    padding-bottom: max(132px, calc(112px + env(safe-area-inset-bottom)));
+
+  .workspace .content,
+  .workspace-tabs-stage .tab {
+    padding-bottom: max(160px, calc(120px + env(safe-area-inset-bottom)));
   }
 }

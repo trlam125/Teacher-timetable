@@ -271,7 +271,13 @@ select {
 .container {
   max-width: 1200px;
   margin: auto;
-  padding: 34px 26px;
+  padding: 34px 26px 160px;
+}
+
+@media (max-width: 1360px) {
+  .container {
+    padding-right: max(84px, calc(26px + env(safe-area-inset-right)));
+  }
 }
 
 .page-title,
@@ -296,16 +302,44 @@ select {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 18px;
 }
 
 .project-card {
-  padding: 22px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   min-height: 190px;
+}
+
+.project-card>.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.project-card>.row::-webkit-scrollbar {
+  display: none;
+}
+
+.project-card>.row .btn {
+  padding: 7px 11px;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.project-card>.row form {
+  margin: 0;
+  display: inline-flex;
+  flex-shrink: 0;
 }
 
 .form-grid {
@@ -761,7 +795,7 @@ dialog::backdrop {
 
 @media (max-width: 560px) {
   .container {
-    padding: 24px 16px;
+    padding: 24px max(76px, calc(16px + env(safe-area-inset-right))) 160px 16px;
   }
 
   .page-title,
@@ -792,7 +826,7 @@ dialog::backdrop {
   }
 
   .project-card>.row {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 }
 

@@ -328,8 +328,8 @@
   right: 16px;
   bottom: 16px;
   z-index: 900;
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -341,13 +341,20 @@
   font: inherit;
   cursor: pointer;
   isolation: isolate;
+  opacity: 0.94;
   transition:
     opacity 0.18s ease,
     transform 0.18s ease;
 }
 
+.chatbot-fab:hover,
+.chatbot-fab:focus-visible,
+.chatbot-fab[aria-expanded="true"] {
+  opacity: 1;
+}
+
 .chatbot-fab.is-docked {
-  transform: translateY(var(--cb-dock-y, -58px)) !important;
+  transform: translateY(var(--cb-dock-y, -64px)) !important;
 }
 
 .chatbot-fab.is-on-top {
@@ -486,16 +493,16 @@
 
 @keyframes chatbot-fab-ripple {
   0% {
-    transform: scale(0.84);
-    opacity: 0.62;
+    transform: scale(0.88);
+    opacity: 0.42;
   }
 
   62% {
-    opacity: 0.2;
+    opacity: 0.15;
   }
 
   100% {
-    transform: scale(1.62);
+    transform: scale(1.24);
     opacity: 0;
   }
 }
@@ -1414,8 +1421,8 @@
 
 @media (max-width: 768px) {
   .chatbot-fab {
-    right: max(12px, env(safe-area-inset-right));
-    bottom: calc(max(12px, env(safe-area-inset-bottom)) + var(--tap-assign-clearance, 0px));
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + var(--tap-assign-clearance, 0px));
     width: 48px;
     height: 48px;
   }
@@ -1541,12 +1548,15 @@
 }
 
 /* Workspace safe area for the floating AI button: the last row can scroll above the FAB instead of sitting underneath it. */
-.workspace .content {
-  padding-bottom: max(112px, calc(30px + env(safe-area-inset-bottom)));
+.workspace .content,
+.workspace-tabs-stage .tab {
+  padding-bottom: max(160px, calc(100px + env(safe-area-inset-bottom)));
 }
 
 @media (max-width: 620px) {
-  .workspace .content {
-    padding-bottom: max(92px, calc(76px + env(safe-area-inset-bottom)));
+
+  .workspace .content,
+  .workspace-tabs-stage .tab {
+    padding-bottom: max(160px, calc(120px + env(safe-area-inset-bottom)));
   }
 }
