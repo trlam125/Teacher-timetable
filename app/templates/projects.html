@@ -28,8 +28,7 @@
                 alt=""><span>Smart TKB</span></a>
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
-        <a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import
-            &amp; kiểm tra TKB</a><span>Xin chào, {{ greeting_name }}</span><a href="/admin/users">Quản lý tài
+        <span>Xin chào, {{ greeting_name }}</span><a href="/admin/users">Quản lý tài
             khoản</a><a href="/logout">Đăng xuất</a>
     </header>
     <main class="container">
@@ -38,9 +37,14 @@
                 <h1>Bộ thời khóa biểu</h1>
                 <p>Tạo và quản lý các phương án của nhà trường.</p>
             </div>
-            {% if assigned_schools %}
-            <button class="btn" onclick="document.querySelector('#newProject').showModal()">+ Tạo mới</button>
-            {% endif %}
+            <div class="row">
+                <a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import &amp; kiểm
+                    tra TKB</a>
+                {% if assigned_schools %}
+                <button class="btn project-create-btn" onclick="document.querySelector('#newProject').showModal()">+ Tạo
+                    mới</button>
+                {% endif %}
+            </div>
         </div>
         {% if not assigned_schools %}
         <div class="empty-state" style="margin-bottom:20px">

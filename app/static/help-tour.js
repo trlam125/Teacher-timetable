@@ -29,7 +29,7 @@
       label: 'Bộ thời khóa biểu',
       steps: [
         { target: '.page-title', title: 'Quản lý các bộ thời khóa biểu', text: 'Đây là nơi tạo và quản lý các phương án thời khóa biểu của trường.' },
-        { target: '.page-title .btn', title: 'Tạo bộ thời khóa biểu mới', text: 'Bấm “Tạo mới” để khai báo tên bộ, trường, số ngày học, số buổi và số tiết mỗi buổi.' },
+        { target: '.project-create-btn', title: 'Tạo bộ thời khóa biểu mới', text: 'Bấm “Tạo mới” để khai báo tên bộ, trường, số ngày học, số buổi và số tiết mỗi buổi.' },
         { target: '.project-grid', title: 'Danh sách các bộ hiện có', text: 'Mỗi thẻ là một bộ thời khóa biểu độc lập. Bạn có thể mở, đổi tên, nhân bản hoặc xóa bộ tại đây.' },
         { target: '.project-card .row', title: 'Thao tác nhanh với một bộ', text: 'Mở bộ để cấu hình dữ liệu và xếp lịch; nhân bản khi muốn tạo một phương án mới từ dữ liệu hiện có.' },
         { target: 'a[href="/schedule-audit"]', title: 'Import và kiểm tra TKB', text: 'Dùng chức năng này khi bạn có file thời khóa biểu bên ngoài và muốn kiểm tra lỗi hoặc xung đột.' }
