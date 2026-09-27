@@ -1,0 +1,457 @@
+/* 1. Canvas Layer for Atmosphere Effects (Overlays the Entire Page) */
+.auth-effects-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
+  display: block;
+}
+
+/* Ensure the main auth container sits properly */
+.auth-scene {
+  position: relative;
+  z-index: 1;
+  transition: background 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.auth-shell {
+  position: relative;
+  z-index: 2;
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.auth-grid {
+  z-index: 0;
+  transition: opacity 0.5s ease;
+}
+
+.auth-glow {
+  z-index: 0;
+  transition: opacity 0.5s ease, border-color 0.5s ease;
+}
+
+/* 2. LIGHT MODE STYLING */
+:root:not(.dark-mode) .auth-scene {
+  background:
+    radial-gradient(circle at 18% 16%, rgba(186, 230, 253, 0.55), transparent 38%),
+    radial-gradient(circle at 86% 82%, rgba(251, 207, 232, 0.5), transparent 40%),
+    radial-gradient(circle at 45% 65%, rgba(233, 213, 255, 0.4), transparent 45%),
+    linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 32%, #fdf2f8 68%, #ede9fe 100%);
+}
+
+:root:not(.dark-mode) .auth-grid {
+  opacity: 0.15;
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.12) 1px, transparent 1px);
+}
+
+:root:not(.dark-mode) .auth-glow {
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+:root:not(.dark-mode) .auth-glow::after {
+  border-color: rgba(244, 114, 182, 0.22);
+}
+
+:root:not(.dark-mode) .auth-shell {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    0 35px 90px rgba(99, 102, 241, 0.14),
+    0 10px 30px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+:root:not(.dark-mode) .auth-brand {
+  color: #0f2747;
+}
+
+:root:not(.dark-mode) .auth-brand-logo {
+  filter: drop-shadow(0 8px 18px rgba(37, 99, 235, 0.25));
+}
+
+:root:not(.dark-mode) .auth-kicker {
+  color: #0284c7;
+}
+
+:root:not(.dark-mode) .auth-story h2 {
+  color: #0f2747;
+}
+
+:root:not(.dark-mode) .auth-story h2 em {
+  background: linear-gradient(90deg, #0284c7, #7c3aed);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+:root:not(.dark-mode) .auth-story-copy>p {
+  color: #475569;
+}
+
+:root:not(.dark-mode) .auth-feature-row span {
+  color: #334155;
+  background: rgba(255, 255, 255, 0.55);
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+:root:not(.dark-mode) .auth-feature-row b {
+  color: #0284c7;
+}
+
+:root:not(.dark-mode) .floating-lesson {
+  background: rgba(255, 255, 255, 0.88);
+  color: #0f2747;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:root:not(.dark-mode) .floating-lesson b {
+  color: #0f2747;
+}
+
+:root:not(.dark-mode) .floating-lesson small {
+  color: #64748b;
+}
+
+:root:not(.dark-mode) .panda-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* 3. DARK MODE STYLING */
+:root.dark-mode .auth-scene {
+  background:
+    radial-gradient(circle at 18% 16%, rgba(30, 58, 138, 0.38), transparent 32%),
+    radial-gradient(circle at 88% 82%, rgba(88, 28, 135, 0.32), transparent 35%),
+    radial-gradient(circle at 50% 25%, rgba(14, 116, 144, 0.22), transparent 45%),
+    linear-gradient(135deg, #020617 0%, #081124 45%, #0c182e 100%);
+}
+
+:root.dark-mode .auth-grid {
+  opacity: 0.18;
+}
+
+:root.dark-mode .auth-glow {
+  border-color: rgba(85, 230, 187, 0.22);
+}
+
+:root.dark-mode .auth-shell {
+  background: rgba(8, 24, 46, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 40px 100px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+:root.dark-mode .auth-brand {
+  color: #f8fafc;
+}
+
+:root.dark-mode .auth-story h2 {
+  color: #f8fafc;
+}
+
+:root.dark-mode .auth-story-copy>p {
+  color: #94a3b8;
+}
+
+:root.dark-mode .floating-lesson {
+  background: rgba(15, 36, 64, 0.88);
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+}
+
+/* 4. Original Theme Switcher Positioning & Styles */
+.auth-theme-toggle-wrap {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .auth-theme-toggle-wrap {
+    top: 14px;
+    right: 14px;
+  }
+}
+
+/* ==========================================================================
+   Day-Night Switch 2 - Original Theme Switch from Project
+   ========================================================================== */
+.theme-switch {
+  --toggle-size: 10px;
+  --container-width: 5.625em;
+  --container-height: 2.5em;
+  --container-radius: 6.25em;
+  --container-light-bg: #3D7EAE;
+  --container-night-bg: #1D1F2C;
+  --circle-container-diameter: 3.375em;
+  --sun-moon-diameter: 2.125em;
+  --sun-bg: #ECCA2F;
+  --moon-bg: #C4C9D1;
+  --spot-color: #959DB1;
+  --circle-container-offset: calc((var(--circle-container-diameter) - var(--container-height)) / 2 * -1);
+  --stars-color: #fff;
+  --clouds-color: #F3FDFF;
+  --back-clouds-color: #AACADF;
+  --transition: .5s cubic-bezier(0, -0.02, 0.4, 1.25);
+  --circle-transition: .3s cubic-bezier(0, -0.02, 0.35, 1.17);
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  line-height: normal;
+}
+
+.theme-switch,
+.theme-switch *,
+.theme-switch *::before,
+.theme-switch *::after {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-size: var(--toggle-size);
+}
+
+.theme-switch__container {
+  width: var(--container-width);
+  height: var(--container-height);
+  background-color: var(--container-light-bg);
+  border-radius: var(--container-radius);
+  overflow: hidden;
+  cursor: pointer;
+  -webkit-box-shadow: 0em -0.062em 0.062em rgba(0, 0, 0, 0.25), 0em 0.062em 0.125em rgba(255, 255, 255, 0.94);
+  box-shadow: 0em -0.062em 0.062em rgba(0, 0, 0, 0.25), 0em 0.062em 0.125em rgba(255, 255, 255, 0.94);
+  -webkit-transition: var(--transition);
+  -o-transition: var(--transition);
+  transition: var(--transition);
+  position: relative;
+}
+
+.theme-switch__container::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  -webkit-box-shadow: 0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset, 0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset;
+  box-shadow: 0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset, 0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset;
+  border-radius: var(--container-radius);
+  pointer-events: none;
+}
+
+.theme-switch__checkbox {
+  display: none !important;
+}
+
+.theme-switch__circle-container {
+  width: var(--circle-container-diameter);
+  height: var(--circle-container-diameter);
+  background-color: rgba(255, 255, 255, 0.1);
+  position: absolute;
+  left: var(--circle-container-offset);
+  top: var(--circle-container-offset);
+  border-radius: var(--container-radius);
+  -webkit-box-shadow: inset 0 0 0 3.375em rgba(255, 255, 255, 0.1), inset 0 0 0 3.375em rgba(255, 255, 255, 0.1), 0 0 0 0.625em rgba(255, 255, 255, 0.1), 0 0 0 1.25em rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 3.375em rgba(255, 255, 255, 0.1), inset 0 0 0 3.375em rgba(255, 255, 255, 0.1), 0 0 0 0.625em rgba(255, 255, 255, 0.1), 0 0 0 1.25em rgba(255, 255, 255, 0.1);
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-transition: var(--circle-transition);
+  -o-transition: var(--circle-transition);
+  transition: var(--circle-transition);
+  pointer-events: none;
+}
+
+.theme-switch__sun-moon-container {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  width: var(--sun-moon-diameter);
+  height: var(--sun-moon-diameter);
+  margin: auto;
+  border-radius: var(--container-radius);
+  background-color: var(--sun-bg);
+  -webkit-box-shadow: 0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset, 0em -0.062em 0.062em 0em #a1872a inset;
+  box-shadow: 0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset, 0em -0.062em 0.062em 0em #a1872a inset;
+  -webkit-filter: drop-shadow(0.062em 0.125em 0.125em rgba(0, 0, 0, 0.25)) drop-shadow(0em 0.062em 0.125em rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0.062em 0.125em 0.125em rgba(0, 0, 0, 0.25)) drop-shadow(0em 0.062em 0.125em rgba(0, 0, 0, 0.25));
+  overflow: hidden;
+  -webkit-transition: var(--transition);
+  -o-transition: var(--transition);
+  transition: var(--transition);
+}
+
+.theme-switch__moon {
+  -webkit-transform: translateX(100%);
+  -ms-transform: translateX(100%);
+  transform: translateX(100%);
+  width: 100%;
+  height: 100%;
+  background-color: var(--moon-bg);
+  border-radius: inherit;
+  -webkit-box-shadow: 0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset, 0em -0.062em 0.062em 0em #969696 inset;
+  box-shadow: 0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset, 0em -0.062em 0.062em 0em #969696 inset;
+  -webkit-transition: var(--transition);
+  -o-transition: var(--transition);
+  transition: var(--transition);
+  position: relative;
+}
+
+.theme-switch__spot {
+  position: absolute;
+  top: 0.75em;
+  left: 0.312em;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: var(--container-radius);
+  background-color: var(--spot-color);
+  -webkit-box-shadow: 0em 0.0312em 0.062em rgba(0, 0, 0, 0.25) inset;
+  box-shadow: 0em 0.0312em 0.062em rgba(0, 0, 0, 0.25) inset;
+}
+
+.theme-switch__spot:nth-of-type(2) {
+  width: 0.375em;
+  height: 0.375em;
+  top: 0.937em;
+  left: 1.375em;
+}
+
+.theme-switch__spot:nth-last-of-type(3) {
+  width: 0.25em;
+  height: 0.25em;
+  top: 0.312em;
+  left: 0.812em;
+}
+
+.theme-switch__clouds {
+  width: 1.25em;
+  height: 1.25em;
+  background-color: var(--clouds-color);
+  border-radius: var(--container-radius);
+  position: absolute;
+  bottom: -0.625em;
+  left: 0.312em;
+  -webkit-box-shadow: 0.937em 0.312em var(--clouds-color), -0.312em -0.312em var(--back-clouds-color), 1.437em 0.375em var(--clouds-color), 0.5em -0.125em var(--back-clouds-color), 2.187em 0 var(--clouds-color), 1.25em -0.062em var(--back-clouds-color), 2.937em 0.312em var(--clouds-color), 2em -0.312em var(--back-clouds-color), 3.625em -0.062em var(--clouds-color), 2.625em 0em var(--back-clouds-color), 4.5em -0.312em var(--clouds-color), 3.375em -0.437em var(--back-clouds-color), 4.625em -1.75em 0 0.437em var(--clouds-color), 4em -0.625em var(--back-clouds-color), 4.125em -2.125em 0 0.437em var(--back-clouds-color);
+  box-shadow: 0.937em 0.312em var(--clouds-color), -0.312em -0.312em var(--back-clouds-color), 1.437em 0.375em var(--clouds-color), 0.5em -0.125em var(--back-clouds-color), 2.187em 0 var(--clouds-color), 1.25em -0.062em var(--back-clouds-color), 2.937em 0.312em var(--clouds-color), 2em -0.312em var(--back-clouds-color), 3.625em -0.062em var(--clouds-color), 2.625em 0em var(--back-clouds-color), 4.5em -0.312em var(--clouds-color), 3.375em -0.437em var(--back-clouds-color), 4.625em -1.75em 0 0.437em var(--clouds-color), 4em -0.625em var(--back-clouds-color), 4.125em -2.125em 0 0.437em var(--back-clouds-color);
+  -webkit-transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+  -o-transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+  transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+}
+
+.theme-switch__stars-container {
+  position: absolute;
+  color: var(--stars-color);
+  top: -100%;
+  left: 0.312em;
+  width: 2.75em;
+  height: auto;
+  -webkit-transition: var(--transition);
+  -o-transition: var(--transition);
+  transition: var(--transition);
+}
+
+/* Actions: either checked checkbox or :root.dark-mode */
+.theme-switch__checkbox:checked+.theme-switch__container,
+:root.dark-mode .theme-switch__container {
+  background-color: var(--container-night-bg);
+}
+
+.theme-switch__checkbox:checked+.theme-switch__container .theme-switch__circle-container,
+:root.dark-mode .theme-switch__container .theme-switch__circle-container {
+  left: calc(100% - var(--circle-container-offset) - var(--circle-container-diameter));
+}
+
+.theme-switch__checkbox:checked+.theme-switch__container .theme-switch__circle-container:hover,
+:root.dark-mode .theme-switch__container .theme-switch__circle-container:hover {
+  left: calc(100% - var(--circle-container-offset) - var(--circle-container-diameter) - 0.187em);
+}
+
+.theme-switch__circle-container:hover {
+  left: calc(var(--circle-container-offset) + 0.187em);
+}
+
+.theme-switch__checkbox:checked+.theme-switch__container .theme-switch__moon,
+:root.dark-mode .theme-switch__container .theme-switch__moon {
+  -webkit-transform: translate(0);
+  -ms-transform: translate(0);
+  transform: translate(0);
+}
+
+.theme-switch__checkbox:checked+.theme-switch__container .theme-switch__clouds,
+:root.dark-mode .theme-switch__container .theme-switch__clouds {
+  bottom: -4.062em;
+}
+
+.theme-switch__checkbox:checked+.theme-switch__container .theme-switch__stars-container,
+:root.dark-mode .theme-switch__container .theme-switch__stars-container {
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+  -ms-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
+
+body.front-surface #authAtmosphereCanvas,
+body.front-surface .auth-effects-canvas {
+  z-index: 0 !important;
+}
+
+body.front-surface .appbar {
+  position: sticky !important;
+  z-index: 50 !important;
+}
+
+body.front-surface .container,
+body.front-surface main {
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+body.front-surface .page-title,
+body.front-surface .project-grid {
+  position: relative !important;
+  z-index: 15 !important;
+}
+
+body.front-surface .project-card,
+body.front-surface .empty-state {
+  position: relative !important;
+  z-index: 20 !important;
+  background: #ffffff !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+:root.dark-mode body.front-surface .project-card,
+:root.dark-mode body.front-surface .empty-state {
+  background: #111e33 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+body.front-surface dialog {
+  z-index: 100 !important;
+}

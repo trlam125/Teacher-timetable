@@ -302,11 +302,3 @@ class ChatMessage(Base):
     edited_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     deleted_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
-class SystemSetting(Base):
-    __tablename__ = "system_settings"
-    key: Mapped[str] = mapped_column(String(80), primary_key=True)
-    value: Mapped[str] = mapped_column(Text, default="")
-    updated_at: Mapped[str] = mapped_column(
-        String(40),
-        default=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    )
