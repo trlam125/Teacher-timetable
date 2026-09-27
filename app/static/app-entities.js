@@ -89,8 +89,7 @@ function opts(rows, label = "name") {
 
 function renderScheduleSelectors() {
   const type = $("#viewType"),
-    entity = $("#viewEntity"),
-    search = $("#viewSearch");
+    entity = $("#viewEntity");
   if (!type || !entity) return;
 
   const updateEntity = (preserveValue = true) => {
@@ -100,17 +99,6 @@ function renderScheduleSelectors() {
     if (filterType === "class") rows = data.classes || [];
     else if (filterType === "teacher") rows = data.teachers || [];
     else if (filterType === "subject") rows = data.subjects || [];
-
-    const query = (search?.value || "").trim().toLocaleLowerCase("vi");
-    if (query) {
-      rows = rows.filter((item) =>
-        [item.name, item.short_name]
-          .filter(Boolean)
-          .some((value) =>
-            String(value).toLocaleLowerCase("vi").includes(query),
-          ),
-      );
-    }
 
     const needsEntity = filterType !== "overview";
     entity.hidden = !needsEntity;
@@ -140,15 +128,10 @@ function renderScheduleSelectors() {
     updateEntity(false);
     rerender();
   };
-  entity.onchange = () => { clearTapAssign(); rerender(); };
-
-  if (search) {
-    search.oninput = () => {
-      clearTapAssign();
-      updateEntity(true);
-      rerender();
-    };
-  }
+  entity.onchange = () => {
+    clearTapAssign();
+    rerender();
+  };
 
   rerender();
 }

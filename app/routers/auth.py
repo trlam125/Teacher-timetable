@@ -517,12 +517,31 @@ def forgot_password(
             status_code=400,
         )
 
-    account = db.scalar(select(User).where(User.email == normalized_email))
     dev_reset_link = None
     allow_local_link = development_reset_links_enabled(request)
-    smtp_configured = bool(os.getenv("SMTP_HOST"))
+    smtp_configured = bool(os.getenv("SMTP_HOST", "").strip())
     base_url = public_base_url(request)
-    if account and (smtp_configured or allow_local_link) and base_url:
+    # Check service configuration before looking up the account, so the response
+    # cannot disclose whether an email exists and missing config never looks successful.
+    if not base_url or not (smtp_configured or allow_local_link):
+        logger.error("Password reset unavailable: configure APP_BASE_URL and SMTP_HOST")
+        fresh_challenge, fresh_token = new_captcha()
+        return templates.TemplateResponse(
+            "forgot_password.html",
+            {
+                "request": request,
+                "captcha_challenge": fresh_challenge,
+                "captcha_token": fresh_token,
+                "error": "Chức năng đặt lại mật khẩu chưa được cấu hình đầy đủ. "
+                         "Vui lòng liên hệ quản trị viên để kiểm tra URL công khai và dịch vụ gửi email.",
+                "submitted": False,
+                "dev_reset_link": None,
+            },
+            status_code=503,
+        )
+
+    account = db.scalar(select(User).where(User.email == normalized_email))
+    if account:
         nonce = secrets.token_urlsafe(32)
         account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
         account.reset_token_expires_at = (
@@ -546,11 +565,6 @@ def forgot_password(
                 )
         if allow_local_link and not email_sent:
             dev_reset_link = reset_url
-    elif account and smtp_configured and not base_url:
-        logger.error(
-            "Password reset skipped because no public server URL is configured"
-        )
-
     fresh_challenge, fresh_token = new_captcha()
     return templates.TemplateResponse(
         "forgot_password.html",
@@ -944,4 +958,3 @@ def verify_email_change(
     if target.id == user.id:
         set_session_cookie(response, target)
     return response
-

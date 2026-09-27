@@ -11,11 +11,12 @@ def shared(token: str, request: Request, db: Session = Depends(db_session)):
     if not p:
         raise HTTPException(404)
     integrity = schedule_integrity_report(db, p)
-    if not integrity["valid"]:
-        raise HTTPException(409, integrity["message"])
     return templates.TemplateResponse(
         "share.html",
-        {"request": request, "p": p, "data": public_project_data(db, p), "days": DAYS},
+        {
+            "request": request, "p": p, "data": public_project_data(db, p), "days": DAYS,
+            "integrity_warning": integrity["message"] if not integrity["valid"] else None,
+        },
         headers={"Cache-Control": "no-store"},
     )
 
@@ -47,14 +48,8 @@ def export_excel(
 
     p = get_project(pid, user, db)
     integrity = schedule_integrity_report(db, p)
-    if not integrity["valid"]:
-        return JSONResponse(
-            integrity,
-            status_code=409,
-            headers={"Cache-Control": "no-store"},
-        )
     data = project_data(db, p)
-    workbook = build_timetable_workbook(p, data)
+    workbook = build_timetable_workbook(p, data, integrity=integrity)
 
     output = io.BytesIO()
     workbook.save(output)
@@ -71,4 +66,3 @@ def export_excel(
             "Cache-Control": "no-store",
         },
     )
-

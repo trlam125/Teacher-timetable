@@ -329,15 +329,8 @@ async function copyShare(button) {
           { idle: "Chia sẻ", success: "Đã sao chép" },
           1700,
         );
-        showInlineActionFeedback(
-          button,
-          "Đã sao chép liên kết chia sẻ.",
-          "success",
-          2400,
-        );
-      } else {
-        showToast("Đã sao chép liên kết chia sẻ.", "success", 2400);
       }
+      showToast("Đã sao chép liên kết chia sẻ.", "success", 2400);
       return;
     }
 
@@ -348,13 +341,12 @@ async function copyShare(button) {
         { idle: "Chia sẻ", error: "Sao chép thủ công" },
         2200,
       );
-      showInlineActionFeedback(
-        button,
-        "Trình duyệt không cho phép sao chép tự động. Liên kết chia sẻ đã được mở để bạn sao chép thủ công.",
-        "error",
-        5200,
-      );
     }
+    showToast(
+      "Trình duyệt không cho phép sao chép tự động. Liên kết chia sẻ đã được mở để bạn sao chép thủ công.",
+      "warning",
+      5200,
+    );
     openManualShareDialog(shareUrl);
   } catch (error) {
     if (button) {
@@ -465,6 +457,12 @@ function syncTapAssignClearance() {
   );
 }
 
+function tapAssignIsBusy() {
+  return Boolean(
+    activeTapAssign?.placementLoading || activeTapAssign?.placementSubmitting,
+  );
+}
+
 function clearTapAssign() {
   document
     .querySelectorAll(".selected-for-assign")
@@ -475,11 +473,12 @@ function clearTapAssign() {
     "tap-target-schedule",
     "tap-target-tray",
     "placement-scope-pending",
+    "placement-action-busy",
   );
   if (typeof clearPlacementTargetState === "function") clearPlacementTargetState();
   const bar = document.getElementById("tapAssignBar");
   if (bar) bar.remove();
-  document.body.classList.remove("tap-assign-active");
+  document.body.classList.remove("tap-assign-active", "tap-assign-busy");
   document.documentElement.style.removeProperty("--tap-assign-clearance");
   activeTapAssign = null;
   markScheduleAvoidSlots();
@@ -588,19 +587,39 @@ function renderTapAssignBar() {
   const payload = activeTapAssign.payload;
   const label = getPayloadLabel(payload);
   const clusterSize = tapAssignClusterSize(payload);
+  const isChecking = Boolean(activeTapAssign.placementLoading);
+  const isPlacing = Boolean(activeTapAssign.placementSubmitting);
+  const isBusy = isChecking || isPlacing;
   const scopeControls =
-    clusterSize > 1 && activeTapAssign.moveScope === "group"
+    !isBusy && clusterSize > 1 && activeTapAssign.moveScope === "group"
       ? `<div class="tap-assign-scope" aria-label="Phạm vi di chuyển">
           <span class="is-active">Cả block (${clusterSize})</span>
         </div>`
       : "";
+
+  let statusHtml = "";
+  if (isChecking) {
+    statusHtml = `<span>Đang kiểm tra: <b>${esc(label)}</b> · Đang tìm các ô có thể xếp…</span>`;
+  } else if (isPlacing) {
+    statusHtml = `<span>Đang xếp: <b>${esc(label)}</b> · Đang cập nhật thời khóa biểu…</span>`;
+  } else {
+    statusHtml = `<span>Đang chọn: <b>${esc(label)}</b> · ${esc(tapAssignInstruction(payload))}</span>`;
+  }
+
+  bar.classList.toggle("is-busy", isBusy);
+  bar.setAttribute("aria-busy", isBusy ? "true" : "false");
+  document.body.classList.toggle("tap-assign-busy", isBusy);
+  document
+    .querySelector(".workspace")
+    ?.classList.toggle("placement-action-busy", isBusy);
+
   bar.innerHTML = `
     <div class="tap-assign-bar-info">
       <span class="tap-assign-pulse-dot" aria-hidden="true"></span>
-      <span>Đang chọn: <b>${esc(label)}</b> · ${esc(tapAssignInstruction(payload))}</span>
+      ${statusHtml}
     </div>
     ${scopeControls}
-    <button type="button" data-tap-assign-cancel>Hủy</button>
+    <button type="button" data-tap-assign-cancel ${isPlacing ? "disabled" : ""}>Hủy</button>
   `;
   requestAnimationFrame(syncTapAssignClearance);
 }
@@ -629,7 +648,8 @@ function handleTapToSelect(source, payload) {
   activeTapAssign = {
     payload,
     moveScope: tapAssignDefaultMoveScope(payload),
-    placementLoading: false,
+    placementLoading: Boolean(capabilities.schedule && !needsScope),
+    placementSubmitting: false,
     validSlots: null,
     placementMessage: "",
     groupSize: 0,
@@ -652,18 +672,41 @@ function handleTapToSelect(source, payload) {
 }
 
 async function finishTapAssignToSchedule(slot) {
-  if (!activeTapAssign || !Number.isInteger(slot)) return;
+  if (!activeTapAssign || !Number.isInteger(slot) || tapAssignIsBusy()) return;
   const payload = activeTapAssign.payload;
   if (!tapAssignCapabilities(payload).schedule) {
     showToast("Phân công này chỉ có thể đưa về khay.", "warning", 2800);
     return;
   }
+
+  // Không cho bắt đầu xếp trước khi kết quả kiểm tra từ máy chủ đã sẵn sàng,
+  // và chỉ các ô hợp lệ mới được phép đi vào trạng thái "Đang xếp".
+  if (!(activeTapAssign.validSlots instanceof Set)) return;
+  if (!activeTapAssign.validSlots.has(slot)) {
+    const message =
+      document.querySelector(
+        `#scheduleGrid .cell.available[data-slot="${slot}"]`,
+      )?.dataset.placementInvalidReason ||
+      activeTapAssign.placementMessage ||
+      "Ô này không hợp lệ với các ràng buộc hiện tại.";
+    showPlacementConflict(slot, message);
+    return;
+  }
+
+  activeTapAssign.placementSubmitting = true;
+  renderTapAssignBar();
   const succeeded = await placeLessonPayload(payload, slot);
-  if (succeeded && activeTapAssign?.payload === payload) clearTapAssign();
+  if (activeTapAssign?.payload !== payload) return;
+  if (succeeded) {
+    clearTapAssign();
+    return;
+  }
+  activeTapAssign.placementSubmitting = false;
+  renderTapAssignBar();
 }
 
 async function finishTapAssignToTray() {
-  if (!activeTapAssign) return;
+  if (!activeTapAssign || tapAssignIsBusy()) return;
   const payload = activeTapAssign.payload;
   if (!tapAssignCapabilities(payload).tray) {
     showToast("Tiết chưa xếp cần được chọn một ô trên lịch.", "warning", 2800);
@@ -677,6 +720,9 @@ document.addEventListener("click", (event) => {
   const cancel = event.target.closest("[data-tap-assign-cancel]");
   if (cancel) {
     event.preventDefault();
+    // Cho phép hủy trong lúc đang kiểm tra ô hợp lệ. Khi đang ghi thay đổi
+    // thì vẫn khóa nút để tránh dừng giữa quá trình xếp.
+    if (activeTapAssign?.placementSubmitting) return;
     clearTapAssign();
     return;
   }
@@ -703,6 +749,11 @@ document.addEventListener("click", (event) => {
 
   const source = event.target.closest("[data-tap-payload]");
   const sourcePayload = source?.dataset.tapPayload || "";
+
+  if (activeTapAssign && tapAssignIsBusy()) {
+    event.preventDefault();
+    return;
+  }
 
   if (!activeTapAssign) {
     if (sourcePayload) {
@@ -772,6 +823,7 @@ document.addEventListener(
   (event) => {
     if (event.key === "Escape" && activeTapAssign) {
       event.preventDefault();
+      if (tapAssignIsBusy()) return;
       clearTapAssign();
     }
   },

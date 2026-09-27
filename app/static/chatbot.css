@@ -353,10 +353,6 @@
   opacity: 1;
 }
 
-.chatbot-fab.is-docked {
-  transform: translateY(var(--cb-dock-y, -64px)) !important;
-}
-
 .chatbot-fab.is-on-top {
   z-index: 905 !important;
 }

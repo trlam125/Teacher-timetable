@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 from fastapi import HTTPException
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.logic import fixed_group_validation_error, normalize_slot_values, parse_integer_set
 from app.models import (
@@ -27,18 +25,6 @@ def all_slots(project: Project):
 def parse_slots(text: str):
     return parse_integer_set(text)
 
-def consecutive_groups(pattern: str, total_periods: int):
-    """Đọc mẫu cụm cũ, chỉ dùng cho migration/tương thích dữ liệu cũ."""
-    text = (pattern or "").strip()
-    if not text:
-        return [1] * total_periods
-    try:
-        groups = [int(value.strip()) for value in text.split(",") if value.strip()]
-    except ValueError as exc:
-        raise ValueError("Mẫu tiết liên tiếp cũ không hợp lệ.") from exc
-    if not groups or any(value < 1 for value in groups) or sum(groups) != total_periods:
-        raise ValueError("Mẫu tiết liên tiếp cũ không hợp lệ.")
-    return groups
 
 def required_double_structure_feasible(
     project: Project, total_periods: int, max_consecutive: int
@@ -474,12 +460,6 @@ def ensure_assignment_hard_feasible(
             "Hãy điều chỉnh ràng buộc hoặc giảm số tiết.",
         )
 
-def assignment_generated_pattern(assignment: Assignment):
-    return (
-        ",".join(str(value) for value in assignment_groups(assignment))
-        if assignment_requires_double(assignment)
-        else ""
-    )
 
 def valid_slots(
     project: Project,
@@ -512,39 +492,6 @@ def bounded_int(value, default: int, minimum: int, maximum: int, label: str):
         )
     return parsed
 
-def pattern_slots_match(
-    project: Project, pattern: str, total_periods: int, slots: list[int] | set[int]
-):
-    """Kiểm tra các cụm tiết thực tế có đúng mẫu đã khai báo hay không."""
-    try:
-        expected = sorted(consecutive_groups(pattern, total_periods))
-    except ValueError:
-        return False
-    if len(slots) != total_periods:
-        return False
-    ppd = project.sessions * project.periods_per_session
-    groups = defaultdict(list)
-    for slot in sorted(set(slots)):
-        day = slot // ppd
-        inside = slot % ppd
-        session = inside // project.periods_per_session
-        period = inside % project.periods_per_session
-        groups[(day, session)].append(period)
-    actual = []
-    for periods in groups.values():
-        run = 1
-        for left, right in zip(periods, periods[1:]):
-            if right == left + 1:
-                run += 1
-            else:
-                actual.extend([2] * (run // 2))
-                if run % 2:
-                    actual.append(1)
-                run = 1
-        actual.extend([2] * (run // 2))
-        if run % 2:
-            actual.append(1)
-    return sorted(actual) == expected
 
 def assignment_run_groups(project: Project, slots: list[int] | set[int]):
     """Trả về các cụm liên tiếp theo đúng ranh giới ngày và buổi."""
@@ -857,20 +804,6 @@ def remaining_pattern_groups(
         return None
     return [item["size"] for item in plan]
 
-def assignment_pattern_matches(
-    project: Project, assignment: Assignment, slots: list[int] | set[int]
-):
-    values = list(slots)
-    if len(values) != len(set(values)) or len(values) != assignment.periods_per_week:
-        return False
-    if not assignment_requires_double(assignment):
-        return True
-    return pattern_slots_match(
-        project,
-        assignment_generated_pattern(assignment),
-        assignment.periods_per_week,
-        values,
-    )
 
 def fixed_row_size(
     project: Project,

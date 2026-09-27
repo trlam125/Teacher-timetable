@@ -61,7 +61,6 @@
         { target: 'main .section-head', title: 'Thời khóa biểu dành cho giáo viên', text: 'Bạn có thể xem lịch hiện tại và chuyển nhanh giữa các bộ thời khóa biểu được cấp quyền.' },
         { target: '#teacherProjectSelect', title: 'Chọn bộ thời khóa biểu', text: 'Chuyển sang một bộ khác khi tài khoản của bạn được quyền xem nhiều phương án.' },
         { target: '#viewType', title: 'Đổi cách xem', text: 'Lọc lịch theo toàn trường, giáo viên, lớp hoặc môn học để tìm đúng thông tin cần xem.' },
-        { target: '#viewSearch', title: 'Tìm nhanh', text: 'Nhập tên giáo viên, lớp hoặc môn để thu hẹp danh sách và mở đúng lịch.' },
         { target: '#scheduleGrid', title: 'Khu vực thời khóa biểu', text: 'Lịch sau khi lọc sẽ hiển thị tại đây. Đây là chế độ xem, không làm thay đổi lịch của nhà trường.' },
         { target: '#teacher-preferences', title: 'Gửi nguyện vọng', text: 'Bạn có thể gửi các khung giờ mong muốn hoặc muốn tránh để quản trị viên tham khảo.' },
         { target: '#teacherPreferenceGrid', title: 'Chọn khung giờ nguyện vọng', text: 'Bấm một ô để chuyển lần lượt giữa Không chọn, Mong muốn và Muốn tránh.' },
@@ -134,7 +133,6 @@
       steps: [
         { target: '#schedule .section-head', title: 'Khu vực xếp thời khóa biểu', text: 'Đây là nơi tạo lịch tự động, lọc lịch và tinh chỉnh từng tiết bằng thao tác trực tiếp.' },
         { target: '#viewType', title: 'Chọn kiểu xem', text: 'Chuyển giữa xem tổng quát, theo lớp, theo giáo viên hoặc theo môn học.' },
-        { target: '#viewSearch', title: 'Tìm đối tượng', text: 'Nhập tên lớp, giáo viên hoặc môn để mở nhanh đúng lịch cần kiểm tra.' },
         { target: '#assignmentCoverage', title: 'Độ phủ phân công', text: 'Khu vực này cho biết các phân công đã được xếp đủ hay còn thiếu tiết.' },
         { target: '.manual-tray-panel', title: 'Kho tiết chưa xếp', text: 'Các tiết chưa có vị trí hoặc được thu hồi sẽ nằm trong khay. Chọn một thẻ rồi bấm ô đích để xếp thủ công.' },
         { target: '#scheduleGrid', title: 'Lưới thời khóa biểu', text: 'Bấm tiết trên lịch để chọn, sau đó bấm ô hợp lệ để chuyển. Hệ thống sẽ kiểm tra các điều kiện trước khi lưu.' },

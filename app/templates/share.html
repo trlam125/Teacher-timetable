@@ -44,6 +44,13 @@
                 <select id="viewEntity"></select>
             </div>
         </div>
+        {% if integrity_warning %}
+        <aside class="schedule-integrity-warning" role="status">
+            <strong>Lưu ý: Thời khóa biểu chưa hoàn chỉnh hoặc còn xung đột.</strong>
+            <p>{{ integrity_warning }}</p>
+            <p>Đây là lịch hiện tại. Vui lòng xác nhận với nhà trường trước khi sử dụng.</p>
+        </aside>
+        {% endif %}
         <div id="scheduleGrid"></div>
     </main>
     <script>window.PROJECT_ID = {{ p.id }}; window.INIT_DATA = {{ data | tojson }}; window.READ_ONLY = true;</script>

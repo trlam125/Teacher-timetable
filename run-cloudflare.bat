@@ -42,7 +42,6 @@ echo Dang mo server local tren cong %PORT%...
 start "Teacher Timetable - Local Server" /D "%~dp0" cmd /k call "%LOCAL_SCRIPT%" "%PORT%"
 
 echo Dang cho server khoi dong...
-set "SERVER_READY="
 for /l %%I in (1,1,30) do (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$client = New-Object Net.Sockets.TcpClient; try { $client.Connect('127.0.0.1', %PORT%); exit 0 } catch { exit 1 } finally { $client.Dispose() }" >nul 2>&1
     if not errorlevel 1 goto server_ready

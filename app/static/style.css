@@ -3003,3 +3003,21 @@ html.dark-mode .cell.available.has-conflict {
     justify-content: center;
   }
 }
+
+/* Khóa thao tác xếp trong lúc đang kiểm tra ô hợp lệ hoặc đang ghi thay đổi. */
+body.tap-assign-busy #scheduleGrid,
+body.tap-assign-busy .unscheduled-tray,
+body.tap-assign-busy .scheduled-cards {
+  pointer-events: none;
+  user-select: none;
+}
+
+.tap-assign-bar.is-busy {
+  cursor: progress;
+}
+
+.tap-assign-bar button:disabled {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.5;
+}

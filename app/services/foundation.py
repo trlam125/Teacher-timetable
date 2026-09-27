@@ -25,18 +25,17 @@ from app.config import (
 from app.database import DATABASE_BOOTSTRAP_LOCK_KEY, SessionLocal, engine
 from app.models import (
     Base, User, RealtimeConnection, RealtimeEvent, RegistrationVerification,
-    EmailChangeVerification, School, UserSchool, Project, CaptchaUse,
-    RateLimitBucket, Department, Subject, Teacher, TeacherSubject, Grade,
+    EmailChangeVerification, School, UserSchool, Project, Department, Subject, Teacher, TeacherSubject, Grade,
     GradeSubjectRequirement, SchoolClass, Assignment, FixedLesson, Lesson,
-    TeacherPreference, ChatbotErrorLog, ChatMessage, SystemSetting,
+    TeacherPreference, ChatbotErrorLog, ChatMessage,
 )
 from app.scheduling.rules import (
-    all_slots, assignment_generated_pattern, assignment_groups,
-    assignment_pattern_matches, assignment_prefers_double,
+    all_slots, assignment_groups,
+    assignment_prefers_double,
     assignment_requires_double, assignment_run_groups, bounded_int,
     ensure_assignment_hard_feasible, ensure_required_double_hard_feasible,
     fixed_row_size, normalized_block_mode,
-    parse_slots, pattern_completion_plan, pattern_slots_match,
+    parse_slots, pattern_completion_plan,
     preferred_double_pair_count, remaining_pattern_groups,
     required_double_hard_feasible,
     required_double_block_state, next_required_double_block_size,
@@ -73,7 +72,6 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer

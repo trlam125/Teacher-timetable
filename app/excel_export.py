@@ -36,7 +36,7 @@ def _session_label(day_index: int, session_index: int, session_count: int) -> st
     return f"Buổi {session_index + 1} - {day}"
 
 
-def build_timetable_workbook(project, data: dict) -> Workbook:
+def build_timetable_workbook(project, data: dict, *, integrity: dict | None = None) -> Workbook:
     """Build a school timetable matrix similar to the supplied legacy Excel template."""
     workbook = Workbook()
     sheet = workbook.active
@@ -75,23 +75,36 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
     )
     sheet.row_dimensions[2].height = 32
 
+    header_row = 3
+    if integrity is not None and not integrity["valid"]:
+        sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=last_col)
+        warning = sheet.cell(3, 1, _safe_excel_text(
+            "CẢNH BÁO — Lịch chưa hoàn chỉnh hoặc còn xung đột. " + integrity["message"]
+        ))
+        warning.font = Font(name="Times New Roman", size=10, bold=True, color="92400E")
+        warning.fill = PatternFill(fill_type="solid", fgColor="FFFBEB")
+        warning.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        # Keep the warning visible both on screen and on every printed page.
+        sheet.row_dimensions[3].height = max(60, 15 * (len(str(warning.value)) // 60 + 1))
+        header_row = 4
+
     headers = (
         ["Thứ", "Buổi", "Tiết"]
         + [_safe_excel_text(item["name"]) for item in classes]
         + ["GV nghỉ"]
     )
     for col, value in enumerate(headers, start=1):
-        cell = sheet.cell(3, col, value)
+        cell = sheet.cell(header_row, col, value)
         cell.font = Font(name="Times New Roman", size=8, bold=True, italic=True)
         cell.alignment = Alignment(
             horizontal="center", vertical="center", wrap_text=True
         )
         cell.border = table_border
         cell.fill = white_fill
-    sheet.row_dimensions[3].height = 24
+    sheet.row_dimensions[header_row].height = 24
 
     # Build a quick lookup from (slot, class) to the assignment taught in that slot.
-    by_slot_class = {}
+    by_slot_class = defaultdict(list)
     busy_teachers = defaultdict(set)
     for lesson in lessons:
         assignment = assignments.get(lesson.get("assignment_id"))
@@ -101,7 +114,7 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
         class_id = assignment.get("class_id")
         teacher_id = assignment.get("teacher_id")
         if class_id is not None:
-            by_slot_class[(slot, class_id)] = assignment
+            by_slot_class[(slot, class_id)].append(assignment)
         if teacher_id is not None:
             busy_teachers[slot].add(teacher_id)
 
@@ -112,7 +125,7 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
     }
 
     periods_per_day = project.sessions * project.periods_per_session
-    current_row = 4
+    current_row = header_row + 1
     for day in range(project.days):
         day_start = current_row
         for session in range(project.sessions):
@@ -126,20 +139,21 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
                 sheet.cell(current_row, 3, period + 1)
 
                 for class_item in classes:
-                    assignment = by_slot_class.get((slot, class_item["id"]))
-                    if not assignment:
-                        continue
-                    subject = str(
-                        assignment.get("subject_short")
-                        or assignment.get("subject_name")
-                        or ""
-                    ).strip()
-                    teacher = str(
-                        assignment.get("teacher_short")
-                        or assignment.get("teacher_name")
-                        or ""
-                    ).strip()
-                    lesson_text = " ".join(part for part in (subject, teacher) if part)
+                    cell_assignments = by_slot_class.get((slot, class_item["id"]), [])
+                    lesson_lines = []
+                    for assignment in cell_assignments:
+                        subject = str(
+                            assignment.get("subject_short")
+                            or assignment.get("subject_name") or ""
+                        ).strip()
+                        teacher = str(
+                            assignment.get("teacher_short")
+                            or assignment.get("teacher_name") or ""
+                        ).strip()
+                        lesson_lines.append(" ".join(part for part in (subject, teacher) if part))
+                    # Invalid timetables may have several lessons in one cell.
+                    # Preserve them all instead of silently overwriting a lesson.
+                    lesson_text = "\n".join(lesson_lines)
                     sheet.cell(
                         current_row,
                         class_column[class_item["id"]],
@@ -178,7 +192,8 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
                 sheet.cell(current_row, last_col).font = Font(
                     name="Times New Roman", size=9, bold=True
                 )
-                sheet.row_dimensions[current_row].height = 24
+                max_lines = max((len(by_slot_class.get((slot, item["id"]), [])) for item in classes), default=1)
+                sheet.row_dimensions[current_row].height = 24 * max(1, max_lines)
                 current_row += 1
 
             session_end = current_row - 1
@@ -226,8 +241,8 @@ def build_timetable_workbook(project, data: dict) -> Workbook:
         sheet.column_dimensions[get_column_letter(col)].width = 15.7
     sheet.column_dimensions[last_col_letter].width = 37.8
 
-    sheet.freeze_panes = "D4"
-    sheet.print_title_rows = "1:3"
+    sheet.freeze_panes = f"D{header_row + 1}"
+    sheet.print_title_rows = f"1:{header_row}"
     sheet.print_area = f"A1:{last_col_letter}{last_row}"
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.fitToWidth = 1

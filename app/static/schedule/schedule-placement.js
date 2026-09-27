@@ -114,6 +114,7 @@ async function loadPlacementOptionsForTap(payload, moveScope = null) {
   activeTapAssign.placementLoading = true;
   activeTapAssign.validSlots = null;
   activeTapAssign.placementMessage = "";
+  if (typeof renderTapAssignBar === "function") renderTapAssignBar();
   const workspace = document.querySelector(".workspace");
   workspace?.classList.remove("placement-options-ready");
   workspace?.classList.add("placement-options-loading");
@@ -150,6 +151,7 @@ async function loadPlacementOptionsForTap(payload, moveScope = null) {
       activeTapAssign.validSlots = new Set();
       activeTapAssign.placementMessage = message;
       applyPlacementTargetOptions(activeTapAssign.validSlots, message);
+      if (typeof renderTapAssignBar === "function") renderTapAssignBar();
       showToast(message, "error", 4200);
       return null;
     }
@@ -184,6 +186,7 @@ async function loadPlacementOptionsForTap(payload, moveScope = null) {
     activeTapAssign.validSlots = new Set();
     activeTapAssign.placementMessage = message;
     applyPlacementTargetOptions(activeTapAssign.validSlots, message);
+    if (typeof renderTapAssignBar === "function") renderTapAssignBar();
     showToast(message, "error", 4200);
     return null;
   }
@@ -297,6 +300,12 @@ async function placeLessonPayload(raw, slot) {
         5000,
       );
     }
+
+    // Giữ thanh "Đang xếp" cho tới khi trình duyệt đã có ít nhất một lần
+    // vẽ giao diện lịch mới. Sau đó finishTapAssignToSchedule mới đóng thanh.
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => setTimeout(resolve, 0)),
+    );
     return true;
   } catch (error) {
     showPlacementConflict(numericSlot, requestFailureMessage(error));

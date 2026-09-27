@@ -648,7 +648,7 @@ dialog::backdrop {
     padding: 8px 12px;
   }
 
-  .appbar>div:not(.spacer) {
+  .appbar:not(.workspace-appbar)>div:not(.spacer) {
     display: none;
   }
 
@@ -1283,10 +1283,6 @@ html.help-tour-active .help-tour-fab.is-on-top {
   bottom: 80px;
 }
 
-.chatbot-trail {
-  bottom: 16px;
-}
-
 .fab-trail-container .circle.trail {
   position: absolute;
   inset: 0;
@@ -1306,12 +1302,6 @@ html.help-tour-active .help-tour-fab.is-on-top {
   background: linear-gradient(145deg, #0ea5e9, #6366f1 58%, #8b5cf6);
   border: 2px solid rgba(255, 255, 255, .82);
   box-shadow: 0 10px 28px rgba(37, 99, 235, .3);
-}
-
-.chatbot-trail .circle.trail {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  border: 2px solid rgba(255, 255, 255, .82);
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.28);
 }
 
 /* General Chat Sliding Down (towards Chatbot) */
@@ -1486,166 +1476,6 @@ html.help-tour-active .help-tour-fab.is-on-top {
 
   100% {
     transform: translateY(calc(var(--gc-dock-y, 64px) * 0.489));
-    opacity: 0;
-  }
-}
-
-/* Chatbot Sliding Up (towards General Chat) */
-.chatbot-fab.is-sliding-up {
-  animation: cb-move-up 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-  z-index: 902 !important;
-}
-
-.chatbot-trail.is-sliding-up .trail.t1 {
-  animation: cb-trail-up-1 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-.chatbot-trail.is-sliding-up .trail.t2 {
-  animation: cb-trail-up-2 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-.chatbot-trail.is-sliding-up .trail.t3 {
-  animation: cb-trail-up-3 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-.chatbot-trail.is-sliding-up .trail.t4 {
-  animation: cb-trail-up-4 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-@keyframes cb-move-up {
-  from {
-    transform: translateY(0);
-  }
-
-  to {
-    transform: translateY(var(--cb-dock-y, -64px));
-  }
-}
-
-@keyframes cb-trail-up-1 {
-  0% {
-    transform: translateY(0);
-    opacity: .65;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.878));
-    opacity: 0;
-  }
-}
-
-@keyframes cb-trail-up-2 {
-  0% {
-    transform: translateY(0);
-    opacity: .45;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.756));
-    opacity: 0;
-  }
-}
-
-@keyframes cb-trail-up-3 {
-  0% {
-    transform: translateY(0);
-    opacity: .28;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.634));
-    opacity: 0;
-  }
-}
-
-@keyframes cb-trail-up-4 {
-  0% {
-    transform: translateY(0);
-    opacity: .14;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.511));
-    opacity: 0;
-  }
-}
-
-/* Chatbot Sliding Down (returning home) */
-.chatbot-fab.is-sliding-down {
-  animation: cb-move-down 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-  z-index: 902 !important;
-}
-
-.chatbot-trail.is-sliding-down .trail.t1 {
-  animation: cb-trail-down-1 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-.chatbot-trail.is-sliding-down .trail.t2 {
-  animation: cb-trail-down-2 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-.chatbot-trail.is-sliding-down .trail.t3 {
-  animation: cb-trail-down-3 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-.chatbot-trail.is-sliding-down .trail.t4 {
-  animation: cb-trail-down-4 0.65s cubic-bezier(.4, 0, .2, 1) forwards !important;
-}
-
-@keyframes cb-move-down {
-  from {
-    transform: translateY(var(--cb-dock-y, -64px));
-  }
-
-  to {
-    transform: translateY(0);
-  }
-}
-
-@keyframes cb-trail-down-1 {
-  0% {
-    transform: translateY(var(--cb-dock-y, -64px));
-    opacity: .65;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.122));
-    opacity: 0;
-  }
-}
-
-@keyframes cb-trail-down-2 {
-  0% {
-    transform: translateY(var(--cb-dock-y, -64px));
-    opacity: .45;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.244));
-    opacity: 0;
-  }
-}
-
-@keyframes cb-trail-down-3 {
-  0% {
-    transform: translateY(var(--cb-dock-y, -64px));
-    opacity: .28;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.366));
-    opacity: 0;
-  }
-}
-
-@keyframes cb-trail-down-4 {
-  0% {
-    transform: translateY(var(--cb-dock-y, -64px));
-    opacity: .14;
-  }
-
-  100% {
-    transform: translateY(calc(var(--cb-dock-y, -64px) * 0.489));
     opacity: 0;
   }
 }

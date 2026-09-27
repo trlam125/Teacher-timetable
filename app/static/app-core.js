@@ -593,7 +593,14 @@ async function refresh(skipOperationStatus = false, parts = null) {
   if (!appliedParts.length) return data;
   data = merged;
 
-  if (typeof clearTapAssign === "function") clearTapAssign();
+  // Khi đang xếp thủ công, giữ thanh trạng thái "Đang xếp" trong lúc
+  // dữ liệu mới được render. Luồng xếp sẽ tự đóng thanh sau khi UI đã vẽ xong.
+  const preserveTapAssignDuringPlacement = Boolean(
+    typeof activeTapAssign !== "undefined" &&
+    activeTapAssign?.placementSubmitting,
+  );
+  if (typeof clearTapAssign === "function" && !preserveTapAssignDuringPlacement)
+    clearTapAssign();
   const lessonOnlyRefresh =
     appliedParts.includes("lessons") &&
     appliedParts.every((part) => ["lessons", "schedule_validation"].includes(part));

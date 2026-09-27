@@ -9,15 +9,6 @@ if not defined PORT set "PORT=8000"
 rem Tham so thu hai la URL ngrok co dinh, vi du:
 rem run-ngrok.bat 8000 https://ten-cua-ban.ngrok.app
 set "PUBLIC_URL=%~2"
-if defined PUBLIC_URL set "APP_BASE_URL=%PUBLIC_URL%"
-
-set "LOCAL_SCRIPT=%~dp0run-local.bat"
-if not exist "%LOCAL_SCRIPT%" (
-    echo [LOI] Khong tim thay run-local.bat trong:
-    echo       %~dp0
-    pause
-    exit /b 1
-)
 
 rem Tim ngrok.exe trong thu muc project truoc, sau do tim trong PATH.
 set "NGROK="
@@ -48,44 +39,26 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem Neu server da chay tren PORT thi dung luon, khong mo them mot server moi.
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$client = New-Object Net.Sockets.TcpClient; try { $client.Connect('127.0.0.1', %PORT%); exit 0 } catch { exit 1 } finally { $client.Dispose() }" >nul 2>&1
-if not errorlevel 1 goto server_ready
-
-echo Dang mo server local tren cong %PORT%...
-start "Teacher Timetable - Local Server" /D "%~dp0" cmd /k call "%LOCAL_SCRIPT%" "%PORT%"
-
-echo Dang cho server khoi dong...
-for /l %%I in (1,1,30) do (
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$client = New-Object Net.Sockets.TcpClient; try { $client.Connect('127.0.0.1', %PORT%); exit 0 } catch { exit 1 } finally { $client.Dispose() }" >nul 2>&1
-    if not errorlevel 1 goto server_ready
-    timeout /t 1 /nobreak >nul
-)
-
-echo [LOI] Server local khong khoi dong duoc tren cong %PORT%.
-echo Hay xem loi trong cua so "Teacher Timetable - Local Server".
-pause
-exit /b 1
-
-:server_ready
+rem Chi mo tunnel. Server local do nguoi dung tu khoi dong va quan ly.
 echo.
-echo Server local da san sang tai http://127.0.0.1:%PORT%
-echo Dang tao ngrok HTTPS tunnel...
+echo Dang tao ngrok HTTPS tunnel toi http://127.0.0.1:%PORT%
+echo Hay chay server local rieng tren cong %PORT% truoc khi truy cap URL ngrok.
+echo Neu can quen mat khau, dat APP_BASE_URL trong .env cua server local va khoi dong lai server.
 echo Nhan Ctrl+C de dung tunnel.
 echo.
 
 if defined PUBLIC_URL (
     echo Su dung URL da chi dinh: %PUBLIC_URL%
     echo.
-    "%NGROK%" http "%PORT%" --url "%PUBLIC_URL%"
+    "%NGROK%" http "http://127.0.0.1:%PORT%" --url "%PUBLIC_URL%"
 ) else (
-    "%NGROK%" http "%PORT%"
+    "%NGROK%" http "http://127.0.0.1:%PORT%"
 )
 
 set "EXIT_CODE=%ERRORLEVEL%"
 
 echo.
-echo Ngrok tunnel da dung. Server local co the van dang chay o cua so rieng.
+echo Ngrok tunnel da dung. Server local duoc quan ly rieng.
 if not "%EXIT_CODE%"=="0" (
     echo.
     echo Neu ngrok bao loi xac thuc, chay mot lan:

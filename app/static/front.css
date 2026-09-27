@@ -1719,6 +1719,27 @@ body.share-surface {
   color: #8492a8;
 }
 
+.schedule-integrity-warning {
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border: 1px solid #d97706;
+  border-radius: 12px;
+  background: #fffbeb;
+  color: #78350f;
+  overflow-wrap: anywhere;
+}
+
+.schedule-integrity-warning p {
+  margin: 8px 0 0;
+  color: inherit;
+}
+
+:root.dark-mode .schedule-integrity-warning {
+  background: #30230c;
+  color: #fde68a;
+  border-color: #b7791f;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .preview-selected,

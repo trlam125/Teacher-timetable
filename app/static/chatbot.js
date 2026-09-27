@@ -427,124 +427,6 @@
     setPopup(false);
   }
 
-  function getChatbotDockDeltaY() {
-    const generalFab = document.getElementById("generalChatFab");
-    if (!generalFab) return -64;
-    const generalRect = generalFab.getBoundingClientRect();
-    const fabRect = fab.getBoundingClientRect();
-    const delta = generalRect.top - fabRect.top;
-    return Math.round(delta) || -64;
-  }
-
-  function getChatbotTrail() {
-    let trail = document.getElementById("chatbotTrail");
-    if (!trail && fab) {
-      trail = document.createElement("div");
-      trail.id = "chatbotTrail";
-      trail.className = "fab-trail-container chatbot-trail";
-      trail.setAttribute("aria-hidden", "true");
-      trail.innerHTML = `
-        <div class="circle trail t4"></div>
-        <div class="circle trail t3"></div>
-        <div class="circle trail t2"></div>
-        <div class="circle trail t1"></div>
-      `;
-      fab.insertAdjacentElement("beforebegin", trail);
-    }
-    return trail;
-  }
-
-  function dockUpChatbot(onTop = true) {
-    return new Promise((resolve) => {
-      const generalFab = document.getElementById("generalChatFab");
-      if (!generalFab) {
-        resolve();
-        return;
-      }
-
-      const delta = getChatbotDockDeltaY();
-      fab.style.setProperty("--cb-dock-y", `${delta}px`);
-      const trail = getChatbotTrail();
-      if (trail) {
-        trail.style.setProperty("--cb-dock-y", `${delta}px`);
-      }
-
-      if (fab.classList.contains("is-docked")) {
-        if (onTop) fab.classList.add("is-on-top");
-        else fab.classList.remove("is-on-top");
-        resolve();
-        return;
-      }
-
-      if (onTop) fab.classList.add("is-on-top");
-      else fab.classList.remove("is-on-top");
-
-      fab.classList.remove("is-hidden", "is-sliding-down");
-      if (trail) trail.classList.remove("is-sliding-down");
-
-      void fab.offsetWidth;
-      if (trail) void trail.offsetWidth;
-
-      fab.classList.add("is-sliding-up");
-      if (trail) trail.classList.add("is-sliding-up");
-
-      let resolved = false;
-      const done = () => {
-        if (resolved) return;
-        resolved = true;
-        fab.removeEventListener("animationend", onEnd);
-        clearTimeout(timer);
-        fab.classList.remove("is-sliding-up");
-        if (trail) trail.classList.remove("is-sliding-up");
-        fab.classList.add("is-docked");
-        resolve();
-      };
-      const onEnd = (e) => {
-        if (e.target === fab && (e.animationName === "cb-move-up" || !e.animationName)) done();
-      };
-      fab.addEventListener("animationend", onEnd);
-      const timer = setTimeout(done, 680);
-    });
-  }
-
-  function dockDownChatbot() {
-    return new Promise((resolve) => {
-      const generalFab = document.getElementById("generalChatFab");
-      const trail = getChatbotTrail();
-      if (!generalFab || !fab.classList.contains("is-docked")) {
-        fab.classList.remove("is-docked", "is-on-top", "is-sliding-up", "is-sliding-down");
-        if (trail) trail.classList.remove("is-sliding-up", "is-sliding-down");
-        resolve();
-        return;
-      }
-
-      fab.classList.remove("is-hidden", "is-docked", "is-sliding-up");
-      if (trail) trail.classList.remove("is-sliding-up");
-
-      void fab.offsetWidth;
-      if (trail) void trail.offsetWidth;
-
-      fab.classList.add("is-sliding-down");
-      if (trail) trail.classList.add("is-sliding-down");
-
-      let resolved = false;
-      const done = () => {
-        if (resolved) return;
-        resolved = true;
-        fab.removeEventListener("animationend", onEnd);
-        clearTimeout(timer);
-        fab.classList.remove("is-on-top", "is-sliding-down");
-        if (trail) trail.classList.remove("is-sliding-down");
-        resolve();
-      };
-      const onEnd = (e) => {
-        if (e.target === fab && (e.animationName === "cb-move-down" || !e.animationName)) done();
-      };
-      fab.addEventListener("animationend", onEnd);
-      const timer = setTimeout(done, 680);
-    });
-  }
-
   async function openChatbotPopup() {
     if (isChatbotAnimating || popup?.classList.contains("is-open")) return;
     isChatbotAnimating = true;
@@ -582,9 +464,6 @@
         }
       });
     } else {
-      if (window.FabMotion?.alignPopupToFab) {
-        window.FabMotion.alignPopupToFab(popup, fab);
-      }
       fab?.classList.add("is-on-top");
       if (generalFab) {
         if (window.GeneralChat?.dockDown) {
@@ -607,9 +486,6 @@
       await window.FabMotion.close(fab, popup);
       popup.setAttribute("aria-hidden", "true");
     } else {
-      if (window.FabMotion?.alignPopupToFab) {
-        window.FabMotion.alignPopupToFab(popup, fab);
-      }
       setPopup(false);
       fab?.classList.remove("is-on-top");
       if (window.GeneralChat?.dockUp) {
@@ -1224,7 +1100,6 @@ function initSoccerBall3D() {
       const item = visibleFaces[i];
       const n = item.normal;
       const diffuse = Math.max(0.12, dot(n, lightDir));
-      const halfZ = Math.max(0, (n[2] + lightDir[2]) / 2);
       const specular = Math.pow(Math.max(0, dot(n, lightDir)), 8) * 0.35;
 
       ctx.beginPath();
@@ -1298,9 +1173,6 @@ function initSoccerBall3D() {
     }
   });
 }
-
-// Backward compatibility alias: initLivingPet3D delegates to initSoccerBall3D
-const initLivingPet3D = initSoccerBall3D;
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initSoccerBall3D);
