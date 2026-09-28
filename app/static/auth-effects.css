@@ -1,25 +1,20 @@
-/* 1. Canvas Layer for Atmosphere Effects (Overlays the Entire Page) */
+/* 1. Canvas Layer for Atmosphere Effects (Overlays story side, clipped on login card) */
+#authAtmosphereCanvas,
 .auth-effects-canvas {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  z-index: 50;
+  z-index: 25 !important;
   display: block;
 }
 
-/* Ensure the main auth container sits properly */
+/* Ensure the main auth container and cards sit firmly above atmosphere canvas */
 .auth-scene {
   position: relative;
   z-index: 1;
   transition: background 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.auth-shell {
-  position: relative;
-  z-index: 2;
-  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
 
 .auth-grid {
@@ -30,6 +25,24 @@
 .auth-glow {
   z-index: 0;
   transition: opacity 0.5s ease, border-color 0.5s ease;
+}
+
+.auth-shell {
+  position: relative !important;
+  z-index: 10 !important;
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* Login / Auth cards must sit firmly above atmosphere effects */
+.auth-card,
+.panda-card {
+  position: relative !important;
+  z-index: 20 !important;
+}
+
+.panda {
+  position: absolute !important;
+  z-index: 25 !important;
 }
 
 /* 2. LIGHT MODE STYLING */
@@ -122,12 +135,13 @@
   color: #64748b;
 }
 
-:root:not(.dark-mode) .panda-card {
-  background: rgba(255, 255, 255, 0.94);
+:root:not(.dark-mode) .panda-card,
+:root:not(.dark-mode) .auth-card {
+  background: #ffffff !important;
   border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* 3. DARK MODE STYLING */
@@ -176,12 +190,21 @@
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
 }
 
+:root.dark-mode .panda-card,
+:root.dark-mode .auth-card {
+  background: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* 4. Original Theme Switcher Positioning & Styles */
 .auth-theme-toggle-wrap {
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 100;
+  z-index: 100 !important;
   display: inline-flex;
   align-items: center;
 }

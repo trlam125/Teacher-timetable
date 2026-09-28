@@ -10,10 +10,12 @@
   canvas.setAttribute('aria-hidden', 'true');
   canvas.id = 'authAtmosphereCanvas';
 
-  // Append canvas to document.body so it floats over the entire page and forms
+  // Append canvas to document.body
   function attachCanvas() {
     if (document.body.classList.contains('front-surface')) {
       canvas.style.zIndex = '0';
+    } else {
+      canvas.style.zIndex = '25';
     }
     document.body.appendChild(canvas);
   }
@@ -488,7 +490,7 @@
     mouse.x = e.clientX;
     mouse.y = e.clientY;
     mouse.isHovering = true;
-    mouse.isOverCard = !!(e.target && e.target.closest && e.target.closest('.project-card, .appbar, dialog, button, a, input, select, textarea'));
+    mouse.isOverCard = !!(e.target && e.target.closest && e.target.closest('.auth-card, .panda-card, .project-card, .appbar, dialog, button, a, input, select, textarea'));
   }, { passive: true });
 
   window.addEventListener('pointerleave', () => {
@@ -505,7 +507,7 @@
   // Tap/click to pop bubbles directly (skip if user clicked on cards or interactive elements)
   window.addEventListener('pointerdown', (e) => {
     if (!bubbleOpacity || bubbleOpacity < 0.1) return;
-    if (e.target && e.target.closest && e.target.closest('.project-card, .appbar, dialog, button, a, input, select, textarea')) {
+    if (e.target && e.target.closest && e.target.closest('.auth-card, .panda-card, .project-card, .appbar, dialog, button, a, input, select, textarea')) {
       return;
     }
     const clickX = e.clientX;
@@ -542,6 +544,66 @@
   window.__triggerAuthThemeChange = (newIsDark) => {
     isDarkMode = newIsDark;
   };
+
+  // Cutout helper to exclude login card & mascot from canvas overlay
+  function drawCardCutout(ctx, rect) {
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const x = rect.left;
+    const y = rect.top;
+    const w = rect.width;
+    const h = rect.height;
+    const r = Math.min(rect.radius || 18, w / 2, h / 2);
+
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, y, w, h, r);
+    } else {
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+    ctx.fill();
+  }
+
+  function getExcludedCards() {
+    // On front-surface (projects.html), canvas is already behind cards
+    if (document.body && document.body.classList.contains('front-surface')) {
+      return [];
+    }
+
+    const cards = [];
+    const mainCard = document.querySelector('.panda-card, .auth-card');
+    if (mainCard) {
+      const rect = mainCard.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const isPanda = mainCard.classList.contains('panda-card');
+        cards.push({
+          left: rect.left - 1,
+          top: rect.top - 1,
+          width: rect.width + 2,
+          height: rect.height + 2,
+          radius: isPanda ? 28 : 18
+        });
+      }
+      const panda = mainCard.querySelector('.panda');
+      if (panda) {
+        const pRect = panda.getBoundingClientRect();
+        if (pRect.width > 0 && pRect.height > 0) {
+          cards.push({
+            left: pRect.left - 1,
+            top: pRect.top - 1,
+            width: pRect.width + 2,
+            height: pRect.height + 2,
+            radius: 24
+          });
+        }
+      }
+    }
+    return cards;
+  }
 
   // Main Render Loop
   let lastTime = performance.now();
@@ -600,6 +662,19 @@
           sparkles.splice(i, 1);
         }
       }
+    }
+
+    // 4. Cut out login card & mascot so particles NEVER overlap the login card,
+    // while still freely overlapping .auth-story ("Mỗi tiết học, đúng nơi đúng lúc...")
+    const excludedCards = getExcludedCards();
+    if (excludedCards.length > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = '#000000';
+      for (let i = 0; i < excludedCards.length; i++) {
+        drawCardCutout(ctx, excludedCards[i]);
+      }
+      ctx.restore();
     }
   }
 
