@@ -39,7 +39,7 @@ function computeScheduleConflicts() {
   return { conflictsByLessonId };
 }
 
-async function generateSchedule(allowRebuild = false) {
+async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAttempt = 0) {
   const modal = $("#aiProgressModal");
   const bar = $("#aiProgressBar");
   const subtitle = $("#aiProgressSubtitle");
@@ -72,10 +72,14 @@ async function generateSchedule(allowRebuild = false) {
   }
 
   try {
+    const allowRebuild = Array.isArray(confirmedRebuildLessonIds);
     const r = await fetch(`/api/projects/${PROJECT_ID}/generate`, {
       method: "POST",
       headers: operationHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ allow_rebuild: allowRebuild }),
+      body: JSON.stringify({
+        allow_rebuild: allowRebuild,
+        confirmed_rebuild_lesson_ids: confirmedRebuildLessonIds,
+      }),
     });
     const j = await readApiResponse(r);
 
@@ -99,9 +103,33 @@ async function generateSchedule(allowRebuild = false) {
           launchConfetti();
         }
       }, 400);
-    } else if (j.requires_confirmation && !allowRebuild) {
+    } else if (j.requires_confirmation) {
       if (modal) modal.close();
       setScheduleActionState("idle");
+      const affectedLessonIds = Array.isArray(j.affected_lesson_ids)
+        ? j.affected_lesson_ids
+          .map(Number)
+          .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
+      const movedCount = Number(j.moved_count) || 0;
+      if (movedCount > 0 && affectedLessonIds.length !== movedCount) {
+        setScheduleActionState("error", 1800);
+        setScheduleFeedback(
+          "Máy chủ không trả về đầy đủ danh sách tiết cần xác nhận. Hãy tải lại trang và thử lại.",
+          "error",
+          5200,
+        );
+        return;
+      }
+      if (confirmationAttempt >= 3) {
+        setScheduleActionState("error", 1800);
+        setScheduleFeedback(
+          "Lịch thay đổi liên tục trong lúc xác nhận. Hãy tải lại dữ liệu và thử lại.",
+          "error",
+          5200,
+        );
+        return;
+      }
       if (
         await confirmAction(
           `${apiErrorMessage(j, "Lịch hiện tại cần được xếp lại.")}\n\nBạn có đồng ý xếp lại phần không cố định không?`,
@@ -111,7 +139,7 @@ async function generateSchedule(allowRebuild = false) {
           },
         )
       ) {
-        return generateSchedule(true);
+        return generateSchedule(affectedLessonIds, confirmationAttempt + 1);
       }
     } else {
       if (modal) modal.close();

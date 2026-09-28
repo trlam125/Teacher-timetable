@@ -1247,13 +1247,13 @@ class ConstraintIn(BaseModel):
     entity_id: int
     slots: list[int]
     confirm_displacement: bool = False
-    confirmed_affected_lessons: int | None = None
+    confirmed_affected_lesson_ids: list[int] | None = None
 
 class SessionLocksIn(BaseModel):
     sessions: list[int] = Field(default_factory=list)
     slots: list[int] = Field(default_factory=list)
     confirm_displacement: bool = False
-    confirmed_affected_lessons: int | None = None
+    confirmed_affected_lesson_ids: list[int] | None = None
 
 class FixedIn(BaseModel):
     assignment_id: int
@@ -1261,6 +1261,7 @@ class FixedIn(BaseModel):
 
 class GenerateScheduleIn(BaseModel):
     allow_rebuild: bool = False
+    confirmed_rebuild_lesson_ids: list[int] | None = None
 
 class MoveIn(BaseModel):
     lesson_id: int

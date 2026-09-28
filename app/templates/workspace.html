@@ -14,6 +14,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="/static/design-tokens.css?v=1">
     <link rel="stylesheet" href="/static/style.css?v=1">
+    <link rel="stylesheet" href="/static/brand-motion.css?v=1">
+    <script src="/static/brand-motion.js?v=1" defer></script>
     <script src="/static/operation-status.js?v=1" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/schedule/schedule-base.css?v=1">
@@ -28,8 +30,7 @@
 <body class="workspace-viewport">
     <header class="appbar workspace-appbar">
         <a class="brand brand-with-logo workspace-appbar-brand" href="/projects"><img src="/static/brand-logo.svg?v=1"
-                alt=""><span>Smart
-                TKB</span></a>
+                alt=""><span>Smart TKB</span></a>
         <div class="workspace-appbar-project"><b>{{ p.name }}</b><small>{{ p.school_name }}</small></div>
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}

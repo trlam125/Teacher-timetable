@@ -5,6 +5,36 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
+def displacement_confirmation(removed_ids: set[int], payload):
+    """Require confirmation for the exact lesson rows that will be displaced.
+
+    The lesson IDs form a confirmation fingerprint. If another request changes
+    the schedule between preview and confirmation, the fingerprint changes and
+    the user must confirm the new impact instead of approving by count only.
+    """
+    affected_ids = sorted(set(removed_ids))
+    if not affected_ids:
+        return None
+
+    confirmed_ids = sorted(set(payload.confirmed_affected_lesson_ids or []))
+    if payload.confirm_displacement is True and confirmed_ids == affected_ids:
+        return None
+
+    return JSONResponse(
+        {
+            "ok": False,
+            "requires_confirmation": True,
+            "affected_lessons": len(affected_ids),
+            "affected_lesson_ids": affected_ids,
+            "message": (
+                f"Thay đổi này sẽ đưa {len(affected_ids)} tiết đang xếp về khay. "
+                "Bạn có muốn tiếp tục không?"
+            ),
+        },
+        409,
+    )
+
 @router.post("/api/projects/{pid}/constraints")
 def constraints(
     pid: int,
@@ -145,22 +175,9 @@ def constraints(
                 )
             removed_ids.update(row.id for row in affected)
 
-    if removed_ids and (
-        not payload.confirm_displacement
-        or payload.confirmed_affected_lessons != len(removed_ids)
-    ):
-        return JSONResponse(
-            {
-                "ok": False,
-                "requires_confirmation": True,
-                "affected_lessons": len(removed_ids),
-                "message": (
-                    f"Thay đổi này sẽ đưa {len(removed_ids)} tiết đang xếp về khay. "
-                    "Bạn có muốn tiếp tục không?"
-                ),
-            },
-            409,
-        )
+    confirmation = displacement_confirmation(removed_ids, payload)
+    if confirmation is not None:
+        return confirmation
 
     if payload.entity_type == "teacher":
         ensure_teacher_load_fits(
@@ -336,22 +353,9 @@ def save_session_locks(
                     409,
                 )
             removed_ids.update(row.id for row in affected)
-    if removed_ids and (
-        not payload.confirm_displacement
-        or payload.confirmed_affected_lessons != len(removed_ids)
-    ):
-        return JSONResponse(
-            {
-                "ok": False,
-                "requires_confirmation": True,
-                "affected_lessons": len(removed_ids),
-                "message": (
-                    f"Thay đổi này sẽ đưa {len(removed_ids)} tiết đang xếp về khay. "
-                    "Bạn có muốn tiếp tục không?"
-                ),
-            },
-            409,
-        )
+    confirmation = displacement_confirmation(removed_ids, payload)
+    if confirmation is not None:
+        return confirmation
 
     project.blocked_slots_json = json.dumps(blocked)
     for lesson in all_lessons:

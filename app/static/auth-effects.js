@@ -682,4 +682,5 @@
   onResize();
   window.addEventListener('resize', onResize);
   animationFrameId = requestAnimationFrame(loop);
+
 })();

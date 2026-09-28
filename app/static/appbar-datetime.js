@@ -161,5 +161,6 @@
     startAppbarClock();
     syncThemeSwitches();
   }
+
 })();
 

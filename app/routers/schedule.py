@@ -632,6 +632,32 @@ def generate(
             )
 
         if payload and payload.allow_rebuild:
+            current_lessons = db.scalars(
+                select(Lesson).where(Lesson.project_id == pid)
+            ).all()
+            rebuild_lesson_ids = sorted(
+                lesson.id for lesson in current_lessons if not lesson.locked
+            )
+            confirmed_rebuild_ids = sorted(
+                set(payload.confirmed_rebuild_lesson_ids or [])
+            )
+            if confirmed_rebuild_ids != rebuild_lesson_ids:
+                return JSONResponse(
+                    {
+                        "ok": False,
+                        "requires_confirmation": True,
+                        "moved_count": len(rebuild_lesson_ids),
+                        "affected_lesson_ids": rebuild_lesson_ids,
+                        "message": (
+                            "Lịch đã thay đổi kể từ lần xác nhận trước. "
+                            "Hệ thống cần được phép thử xếp lại tối đa "
+                            f"{len(rebuild_lesson_ids)} tiết không cố định hiện tại; "
+                            "các tiết cố định vẫn được giữ nguyên."
+                        ),
+                    },
+                    409,
+                )
+
             rebuild = solve_rebuild(db, p, tries=260)
             if rebuild["unscheduled"] > 0:
                 if rebuild.get("proven_infeasible"):
@@ -655,10 +681,7 @@ def generate(
                     409,
                 )
 
-            current_lessons = db.scalars(
-                select(Lesson).where(Lesson.project_id == pid)
-            ).all()
-            moved_count = sum(1 for lesson in current_lessons if not lesson.locked)
+            moved_count = len(rebuild_lesson_ids)
             for lesson in current_lessons:
                 if not lesson.locked:
                     db.delete(lesson)
@@ -684,12 +707,16 @@ def generate(
             current_lessons = db.scalars(
                 select(Lesson).where(Lesson.project_id == pid)
             ).all()
-            moved_count = sum(1 for lesson in current_lessons if not lesson.locked)
+            rebuild_lesson_ids = sorted(
+                lesson.id for lesson in current_lessons if not lesson.locked
+            )
+            moved_count = len(rebuild_lesson_ids)
             return JSONResponse(
                 {
                     "ok": False,
                     "requires_confirmation": True,
                     "moved_count": moved_count,
+                    "affected_lesson_ids": rebuild_lesson_ids,
                     "score": result["score"],
                     "unscheduled": result["unscheduled"],
                     "message": (

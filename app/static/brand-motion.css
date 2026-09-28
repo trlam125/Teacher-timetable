@@ -1,0 +1,665 @@
+/* ==========================================================================
+   Smart TKB - Brand Motion Design System
+   Chuyển động: Từng chữ hạ xuống (Drop-down cascade) -> Đốm sáng mờ quét (Soft Gleam Spot)
+   Đồng bộ chu kỳ 5.6s với hoạt ảnh vẽ nét của logo
+   ========================================================================== */
+
+/* -------------------------------------------------------------
+   1. KHUNG CHỨA DÒNG CHỮ
+   ------------------------------------------------------------- */
+.brand-motion-sweep {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  user-select: none;
+  overflow: visible !important;
+  line-height: inherit;
+  vertical-align: middle;
+}
+
+.brand-motion-sweep .brand-word {
+  display: inline-flex;
+  align-items: baseline;
+  overflow: visible !important;
+}
+
+.brand-motion-sweep .brand-char-space {
+  display: inline-block;
+  width: 0.32em;
+}
+
+/* -------------------------------------------------------------
+   2. GIAI ĐOẠN 1: TỪNG CHỮ RƠI TỪ TRÊN XUỐNG (Drop-down cascade 0% - 38%)
+   Từng ký tự S-m-a-r-t-T-K-B rơi từ trên cao (-36px) xuống so le lần lượt,
+   có độ nảy đàn hồi (bounce) rõ nét khi tiếp đất.
+   ------------------------------------------------------------- */
+.brand-motion-sweep .brand-char {
+  display: inline-block;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  will-change: transform, opacity;
+  opacity: 0;
+  transform: translateY(-36px);
+  filter: blur(2px);
+}
+
+/* Char 0: 'S' */
+.brand-motion-sweep .brand-char-0 {
+  animation: charDrop0 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop0 {
+
+  0%,
+  2% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  13% {
+    transform: translateY(-1px);
+  }
+
+  15% {
+    transform: translateY(0);
+  }
+
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  92% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 1: 'm' */
+.brand-motion-sweep .brand-char-1 {
+  animation: charDrop1 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop1 {
+
+  0%,
+  5% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  13% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  16% {
+    transform: translateY(-1px);
+  }
+
+  18% {
+    transform: translateY(0);
+  }
+
+  88% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  90% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 2: 'a' */
+.brand-motion-sweep .brand-char-2 {
+  animation: charDrop2 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop2 {
+
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  16% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  19% {
+    transform: translateY(-1px);
+  }
+
+  21% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  88% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  93%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 3: 'r' */
+.brand-motion-sweep .brand-char-3 {
+  animation: charDrop3 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop3 {
+
+  0%,
+  11% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  19% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  22% {
+    transform: translateY(-1px);
+  }
+
+  24% {
+    transform: translateY(0);
+  }
+
+  84% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  91%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 4: 't' */
+.brand-motion-sweep .brand-char-4 {
+  animation: charDrop4 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop4 {
+
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  22% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  25% {
+    transform: translateY(-1px);
+  }
+
+  27% {
+    transform: translateY(0);
+  }
+
+  82% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  84% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  89%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 5: 'T' */
+.brand-motion-sweep .brand-char-5 {
+  animation: charDrop5 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop5 {
+
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  26% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  29% {
+    transform: translateY(-1px);
+  }
+
+  31% {
+    transform: translateY(0);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  82% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  87%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 6: 'K' */
+.brand-motion-sweep .brand-char-6 {
+  animation: charDrop6 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop6 {
+
+  0%,
+  21% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  29% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  32% {
+    transform: translateY(-1px);
+  }
+
+  34% {
+    transform: translateY(0);
+  }
+
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  80% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  85%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 7+: 'B' and subsequent */
+.brand-motion-sweep .brand-char-7,
+.brand-motion-sweep .brand-char:nth-child(n+8) {
+  animation: charDrop7 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop7 {
+
+  0%,
+  24% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  32% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  35% {
+    transform: translateY(-1px);
+  }
+
+  37% {
+    transform: translateY(0);
+  }
+
+  76% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  78% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  83%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* -------------------------------------------------------------
+   3. GIAI ĐOẠN 2: CHỮ HẠ XUỐNG XONG -> ĐỐM SÁNG MỜ QUÉT QUA (38% - 66%)
+   Đốm sáng nhỏ mờ ảo (Soft Gleam Spot) lướt êm dịu, không gắt, không sắc
+   kèm ánh sắc kim loại Metallic Blue nhẹ nhàng trên bề mặt chữ.
+   ------------------------------------------------------------- */
+.brand-sweep-text {
+  --text-base: #10233f;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  color: var(--text-base);
+}
+
+:root.dark-mode .brand-sweep-text,
+body.dark-mode .brand-sweep-text {
+  --text-base: #f8fafc;
+}
+
+/*
+ * Shimmer is painted on a separate overlay so the real character spans stay
+ * visible while they fall. Applying transparent text fill to the wrapper
+ * makes nested characters invisible in Chromium.
+ */
+.brand-sweep-text::after {
+  content: attr(data-brand-text);
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  white-space: pre;
+  pointer-events: none;
+  color: transparent;
+  background: linear-gradient(100deg,
+      transparent 0%,
+      transparent 36%,
+      #1d63ed 45%,
+      #38bdf8 50%,
+      #ffffff 52%,
+      #38bdf8 54%,
+      #1d63ed 59%,
+      transparent 68%,
+      transparent 100%);
+  background-size: 320% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0;
+  animation: textShimmerSweep 5.6s ease-in-out infinite;
+}
+
+@keyframes textShimmerSweep {
+
+  0%,
+  37% {
+    opacity: 0;
+    background-position: 100% 0;
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  64% {
+    opacity: 1;
+    background-position: 0% 0;
+  }
+
+  72% {
+    opacity: 0;
+    background-position: 0% 0;
+  }
+
+  75%,
+  100% {
+    opacity: 0;
+    background-position: 100% 0;
+  }
+}
+
+/* Đốm sáng mờ quét ngang qua dòng chữ (Soft Subtle Gleam Spot) */
+.brand-flare-beam {
+  position: absolute;
+  top: 50%;
+  left: -15px;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  animation: beamTravel 5.6s cubic-bezier(0.36, 0, 0.24, 1) infinite;
+}
+
+/* Tâm đốm sáng mờ nhẹ (Soft Ambient Center) */
+.brand-flare-beam::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(255, 255, 255, 0.75) 0%,
+      rgba(125, 232, 255, 0.45) 45%,
+      transparent 75%);
+  box-shadow: 0 0 10px 3px rgba(125, 232, 255, 0.45),
+    0 0 18px 6px rgba(47, 128, 237, 0.25);
+  filter: blur(1px);
+}
+
+/* Hào quang mờ ảo bao quanh đốm sáng (Soft Hazy Aura) */
+.brand-flare-beam::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(125, 232, 255, 0.35) 0%,
+      rgba(47, 128, 237, 0.12) 50%,
+      transparent 70%);
+  filter: blur(2px);
+}
+
+@keyframes beamTravel {
+
+  0%,
+  37% {
+    left: -15px;
+    opacity: 0;
+  }
+
+  40% {
+    opacity: 0.75;
+  }
+
+  63% {
+    opacity: 0.8;
+  }
+
+  67%,
+  100% {
+    left: calc(100% + 15px);
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------
+   4. GIAI ĐOẠN 3: LẮNG ĐỌNG HÀO QUANG DỊU ÊM (Settle Glow 65% - 88%)
+   ------------------------------------------------------------- */
+.brand-settle-glow {
+  position: absolute;
+  inset: -6px -12px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 75% 50%, rgba(0, 210, 255, 0.20), transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  animation: settleGlow 5.6s ease-out infinite;
+}
+
+@keyframes settleGlow {
+
+  0%,
+  64% {
+    opacity: 0;
+  }
+
+  68% {
+    opacity: 0.8;
+  }
+
+  72% {
+    opacity: 0.4;
+  }
+
+  75%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------
+   5. TƯƠNG THÍCH TRÌNH DUYỆT & GIẢM CHUYỂN ĐỘNG
+   ------------------------------------------------------------- */
+.brand-name,
+.brand-name-reveal {
+  display: inline-block;
+  white-space: nowrap;
+  letter-spacing: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-motion-sweep .brand-char {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+  }
+
+  .brand-sweep-text::after {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .brand-flare-beam,
+  .brand-settle-glow {
+    display: none !important;
+  }
+}

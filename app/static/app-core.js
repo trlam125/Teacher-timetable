@@ -117,25 +117,41 @@ function operationHeaders(headers = {}) {
   return { ...headers, "X-Skip-Operation-Status": "1" };
 }
 async function postJsonWithDisplacementConfirmation(url, payload, options = {}) {
-  const send = async (confirmDisplacement = false, confirmedAffectedLessons = null) => {
+  const send = async (
+    confirmDisplacement = false,
+    confirmedAffectedLessonIds = null,
+  ) => {
     const response = await fetch(url, {
       method: "POST",
       headers: operationHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         ...payload,
         confirm_displacement: confirmDisplacement,
-        confirmed_affected_lessons: confirmedAffectedLessons,
+        confirmed_affected_lesson_ids: confirmedAffectedLessonIds,
       }),
     });
     return { response, result: await readApiResponse(response) };
   };
 
   let confirmDisplacement = false;
-  let confirmedAffectedLessons = null;
+  let confirmedAffectedLessonIds = null;
   for (let attemptIndex = 0; attemptIndex < 3; attemptIndex++) {
-    const attempt = await send(confirmDisplacement, confirmedAffectedLessons);
+    const attempt = await send(
+      confirmDisplacement,
+      confirmedAffectedLessonIds,
+    );
     if (!attempt.response.ok && attempt.result?.requires_confirmation) {
       const affected = Number(attempt.result.affected_lessons) || 0;
+      const affectedLessonIds = Array.isArray(attempt.result.affected_lesson_ids)
+        ? attempt.result.affected_lesson_ids
+          .map(Number)
+          .filter((id) => Number.isInteger(id) && id > 0)
+        : [];
+      if (affected > 0 && affectedLessonIds.length !== affected) {
+        throw new Error(
+          "Máy chủ không trả về đầy đủ danh sách tiết cần xác nhận. Hãy tải lại trang và thử lại.",
+        );
+      }
       const confirmed = await confirmAction(
         attempt.result.message ||
         `Thay đổi này sẽ đưa ${affected} tiết đang xếp về khay. Bạn có muốn tiếp tục không?`,
@@ -146,7 +162,7 @@ async function postJsonWithDisplacementConfirmation(url, payload, options = {}) 
       );
       if (!confirmed) return { ...attempt, cancelled: true };
       confirmDisplacement = true;
-      confirmedAffectedLessons = affected;
+      confirmedAffectedLessonIds = affectedLessonIds;
       continue;
     }
     return { ...attempt, cancelled: false };
