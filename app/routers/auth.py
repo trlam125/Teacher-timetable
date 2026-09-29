@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, db: Session = Depends(db_session)):
     raw = request.cookies.get("session")
@@ -23,11 +24,13 @@ def home(request: Request, db: Session = Depends(db_session)):
             pass
     return templates.TemplateResponse("landing.html", {"request": request})
 
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse(
         "auth.html", {"request": request, "mode": "login", "error": None}
     )
+
 
 @router.post("/login")
 def login(
@@ -93,6 +96,7 @@ def login(
     set_session_cookie(res, user)
     return res
 
+
 @router.get("/register", response_class=HTMLResponse)
 def register_page(request: Request):
     captcha_challenge, captcha_token = new_captcha("registration")
@@ -107,6 +111,7 @@ def register_page(request: Request):
             "form_values": {},
         },
     )
+
 
 @router.post("/register")
 def register(
@@ -247,6 +252,7 @@ def register(
         },
     )
 
+
 @router.post("/register/verify", response_class=HTMLResponse)
 def verify_registration_otp(
     request: Request,
@@ -346,6 +352,7 @@ def verify_registration_otp(
     response = RedirectResponse("/teacher", 303)
     set_session_cookie(response, user)
     return response
+
 
 @router.post("/register/resend", response_class=HTMLResponse)
 def resend_registration_otp(
@@ -459,6 +466,7 @@ def resend_registration_otp(
         ),
     )
 
+
 @router.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_page(request: Request):
     captcha_challenge, captcha_token = new_captcha()
@@ -473,6 +481,7 @@ def forgot_password_page(request: Request):
             "dev_reset_link": None,
         },
     )
+
 
 @router.post("/forgot-password", response_class=HTMLResponse)
 def forgot_password(
@@ -533,7 +542,7 @@ def forgot_password(
                 "captcha_challenge": fresh_challenge,
                 "captcha_token": fresh_token,
                 "error": "Chức năng đặt lại mật khẩu chưa được cấu hình đầy đủ. "
-                         "Vui lòng liên hệ quản trị viên để kiểm tra URL công khai và dịch vụ gửi email.",
+                "Vui lòng liên hệ quản trị viên để kiểm tra URL công khai và dịch vụ gửi email.",
                 "submitted": False,
                 "dev_reset_link": None,
             },
@@ -578,6 +587,7 @@ def forgot_password(
         },
     )
 
+
 @router.get("/reset-password/{token}", response_class=HTMLResponse)
 def reset_password_page(
     token: str, request: Request, db: Session = Depends(db_session)
@@ -594,6 +604,7 @@ def reset_password_page(
         },
         status_code=200 if account else 400,
     )
+
 
 @router.post("/reset-password/{token}", response_class=HTMLResponse)
 def reset_password(
@@ -642,11 +653,13 @@ def reset_password(
         },
     )
 
+
 @router.get("/logout")
 def logout():
     res = RedirectResponse("/", 303)
     res.delete_cookie("session")
     return res
+
 
 @router.get("/account/email-change", response_class=HTMLResponse)
 def email_change_page(
@@ -666,6 +679,7 @@ def email_change_page(
             "back_path": email_change_back_path(user, project_id),
         },
     )
+
 
 @router.post("/account/email-change/prepare", response_class=HTMLResponse)
 def prepare_email_change(
@@ -731,6 +745,7 @@ def prepare_email_change(
             "error": None,
         },
     )
+
 
 @router.post("/account/email-change/confirm", response_class=HTMLResponse)
 def confirm_email_change(
@@ -841,6 +856,7 @@ def confirm_email_change(
             "error": None,
         },
     )
+
 
 @router.post("/account/email-change/verify", response_class=HTMLResponse)
 def verify_email_change(

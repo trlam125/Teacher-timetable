@@ -4,6 +4,7 @@ from app.services.foundation import *
 from app.services.web import *
 from app.services.auth import *
 
+
 class RealtimeConnectionManager:
     """Realtime registry shared across Uvicorn workers through PostgreSQL."""
 
@@ -25,8 +26,7 @@ class RealtimeConnectionManager:
 
     def _presence_cutoff(self) -> str:
         return (
-            datetime.now(timezone.utc)
-            - timedelta(seconds=self.PRESENCE_TTL_SECONDS)
+            datetime.now(timezone.utc) - timedelta(seconds=self.PRESENCE_TTL_SECONDS)
         ).isoformat(timespec="seconds")
 
     def _lock_user_presence(self, db: Session, user_id: int) -> None:
@@ -132,7 +132,8 @@ class RealtimeConnectionManager:
                 "exclude_user_id": exclude_user_id,
                 "only_user_ids": (
                     sorted(int(uid) for uid in only_user_ids)
-                    if only_user_ids is not None else None
+                    if only_user_ids is not None
+                    else None
                 ),
             },
             ensure_ascii=False,
@@ -153,7 +154,10 @@ class RealtimeConnectionManager:
             )
             connection.exec_driver_sql(
                 "SELECT pg_notify(%s, %s)",
-                (self.CHANNEL, json.dumps({"source": self._instance_id, "event_id": event_id})),
+                (
+                    self.CHANNEL,
+                    json.dumps({"source": self._instance_id, "event_id": event_id}),
+                ),
             )
 
     def add(self, user_id: int, connection_id: str, websocket: WebSocket) -> bool:
@@ -169,14 +173,17 @@ class RealtimeConnectionManager:
         try:
             self._lock_user_presence(db, user_id)
             self._cleanup_stale_presence(db)
-            was_offline = db.scalar(
-                select(RealtimeConnection.connection_id)
-                .where(
-                    RealtimeConnection.user_id == user_id,
-                    RealtimeConnection.updated_at >= self._presence_cutoff(),
+            was_offline = (
+                db.scalar(
+                    select(RealtimeConnection.connection_id)
+                    .where(
+                        RealtimeConnection.user_id == user_id,
+                        RealtimeConnection.updated_at >= self._presence_cutoff(),
+                    )
+                    .limit(1)
                 )
-                .limit(1)
-            ) is None
+                is None
+            )
             db.merge(
                 RealtimeConnection(
                     connection_id=connection_id,
@@ -223,14 +230,17 @@ class RealtimeConnectionManager:
             if row and row.user_id == user_id and row.instance_id == self._instance_id:
                 db.delete(row)
             self._cleanup_stale_presence(db)
-            still_online = db.scalar(
-                select(RealtimeConnection.connection_id)
-                .where(
-                    RealtimeConnection.user_id == user_id,
-                    RealtimeConnection.updated_at >= self._presence_cutoff(),
+            still_online = (
+                db.scalar(
+                    select(RealtimeConnection.connection_id)
+                    .where(
+                        RealtimeConnection.user_id == user_id,
+                        RealtimeConnection.updated_at >= self._presence_cutoff(),
+                    )
+                    .limit(1)
                 )
-                .limit(1)
-            ) is not None
+                is not None
+            )
             db.commit()
             return not still_online
         except Exception:
@@ -332,11 +342,13 @@ class RealtimeConnectionManager:
         except Exception:
             logger.exception("Could not publish realtime event through PostgreSQL.")
 
+
 realtime_manager = RealtimeConnectionManager()
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
 
 def touch_user_last_seen(user_id: int, min_interval_seconds: int = 0) -> str:
     now = datetime.now(timezone.utc)
@@ -348,13 +360,17 @@ def touch_user_last_seen(user_id: int, min_interval_seconds: int = 0) -> str:
             return now_iso
         if min_interval_seconds > 0:
             previous = _parse_iso_datetime(account.last_seen)
-            if previous is not None and (now - previous).total_seconds() < min_interval_seconds:
+            if (
+                previous is not None
+                and (now - previous).total_seconds() < min_interval_seconds
+            ):
                 return account.last_seen or now_iso
         account.last_seen = now_iso
         db.commit()
         return now_iso
     finally:
         db.close()
+
 
 def valid_realtime_connections(targets: list[tuple[int, str, WebSocket]]) -> set[str]:
     """Check cookie expiry and current account versions before every broadcast.
@@ -382,6 +398,7 @@ def valid_realtime_connections(targets: list[tuple[int, str, WebSocket]]) -> set
                 continue
     return valid
 
+
 def websocket_session_user(websocket: WebSocket) -> User | None:
     raw = websocket.cookies.get("session")
     if not raw:
@@ -398,6 +415,7 @@ def websocket_session_user(websocket: WebSocket) -> User | None:
     finally:
         db.close()
 
+
 def school_chat_user_ids(db: Session, school_id: int) -> set[int]:
     member_ids = set(
         db.scalars(
@@ -408,6 +426,7 @@ def school_chat_user_ids(db: Session, school_id: int) -> set[int]:
         db.scalars(select(User.id).where(User.role == "super_admin")).all()
     )
     return member_ids
+
 
 def presence_visible_user_ids(db: Session, viewer: User) -> set[int]:
     """Users whose online state may be exposed to this viewer."""
@@ -422,6 +441,7 @@ def presence_visible_user_ids(db: Session, viewer: User) -> set[int]:
     visible.update(db.scalars(select(User.id).where(User.role == "super_admin")).all())
     return visible
 
+
 def presence_recipients_for_user(db: Session, subject: User) -> set[int]:
     """Users allowed to receive a generic presence event for subject."""
     if is_super_admin(subject):
@@ -434,6 +454,7 @@ def presence_recipients_for_user(db: Session, subject: User) -> set[int]:
         recipients.update(school_chat_user_ids(db, school_id))
     recipients.add(subject.id)
     return recipients
+
 
 async def broadcast_school_presence(user: User, online: bool, last_seen: str) -> None:
     db = SessionLocal()
@@ -454,6 +475,7 @@ async def broadcast_school_presence(user: User, online: bool, last_seen: str) ->
             )
     finally:
         db.close()
+
 
 async def _broadcast_delayed_offline(user_id: int, last_seen: str) -> None:
     # Avoid Online -> Offline -> Online flicker when the browser simply reloads.
@@ -480,6 +502,7 @@ async def _broadcast_delayed_offline(user_id: int, last_seen: str) -> None:
     finally:
         db.close()
 
+
 def _payload_school_id(payload: dict) -> int | None:
     try:
         value = payload.get("school_id")
@@ -488,4 +511,4 @@ def _payload_school_id(payload: dict) -> int | None:
         return None
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

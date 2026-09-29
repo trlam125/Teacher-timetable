@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/api/chat/schools")
 def chat_schools(
     user: User = Depends(current_user),
@@ -15,6 +16,7 @@ def chat_schools(
         "schools": [{"id": school.id, "name": school.name} for school in schools],
         "default_school_id": schools[0].id if schools else None,
     }
+
 
 @router.get("/api/chat/general/messages")
 def general_chat_messages(
@@ -36,9 +38,7 @@ def general_chat_messages(
     ).all()
     ordered_rows = list(reversed(rows))
     reply_ids = {
-        int(row.reply_to_id)
-        for row in ordered_rows
-        if row.reply_to_id is not None
+        int(row.reply_to_id) for row in ordered_rows if row.reply_to_id is not None
     }
     reply_rows = {}
     if reply_ids:
@@ -87,6 +87,7 @@ def general_chat_messages(
         for row in ordered_rows
     ]
     return {"school": {"id": school.id, "name": school.name}, "messages": messages}
+
 
 @router.websocket("/ws/realtime")
 async def realtime_socket(websocket: WebSocket):
@@ -179,10 +180,15 @@ async def realtime_socket(websocket: WebSocket):
 
                 if event_type == "room_join":
                     school_id = _payload_school_id(payload)
-                    school = db.get(School, school_id) if school_id is not None else None
+                    school = (
+                        db.get(School, school_id) if school_id is not None else None
+                    )
                     if not school or not user_can_access_school(current, school_id, db):
                         await websocket.send_json(
-                            {"type": "chat_error", "message": "Bạn không có quyền truy cập trường này."}
+                            {
+                                "type": "chat_error",
+                                "message": "Bạn không có quyền truy cập trường này.",
+                            }
                         )
                         continue
                     recipients = school_chat_user_ids(db, school_id)
@@ -191,15 +197,21 @@ async def realtime_socket(websocket: WebSocket):
                             "type": "room_ready",
                             "school_id": school.id,
                             "school_name": school.name,
-                            "online_user_ids": realtime_manager.online_user_ids_for(recipients),
-                            "online_count": realtime_manager.online_count_for(recipients),
+                            "online_user_ids": realtime_manager.online_user_ids_for(
+                                recipients
+                            ),
+                            "online_count": realtime_manager.online_count_for(
+                                recipients
+                            ),
                         }
                     )
                     continue
 
                 if event_type == "typing":
                     school_id = _payload_school_id(payload)
-                    if school_id is None or not user_can_access_school(current, school_id, db):
+                    if school_id is None or not user_can_access_school(
+                        current, school_id, db
+                    ):
                         continue
                     recipients = school_chat_user_ids(db, school_id)
                     await realtime_manager.broadcast(
@@ -220,10 +232,15 @@ async def realtime_socket(websocket: WebSocket):
 
                 if event_type == "chat_send":
                     school_id = _payload_school_id(payload)
-                    school = db.get(School, school_id) if school_id is not None else None
+                    school = (
+                        db.get(School, school_id) if school_id is not None else None
+                    )
                     if not school or not user_can_access_school(current, school_id, db):
                         await websocket.send_json(
-                            {"type": "chat_error", "message": "Bạn không có quyền gửi tin nhắn vào trường này."}
+                            {
+                                "type": "chat_error",
+                                "message": "Bạn không có quyền gửi tin nhắn vào trường này.",
+                            }
                         )
                         continue
                     content = str(payload.get("content") or "").strip()
@@ -231,13 +248,18 @@ async def realtime_socket(websocket: WebSocket):
                         continue
                     if len(content) > 2000:
                         await websocket.send_json(
-                            {"type": "chat_error", "message": "Tin nhắn tối đa 2000 ký tự."}
+                            {
+                                "type": "chat_error",
+                                "message": "Tin nhắn tối đa 2000 ký tự.",
+                            }
                         )
                         continue
 
                     reply_to_id = payload.get("reply_to_id")
                     try:
-                        reply_to_id = int(reply_to_id) if reply_to_id is not None else None
+                        reply_to_id = (
+                            int(reply_to_id) if reply_to_id is not None else None
+                        )
                     except (TypeError, ValueError):
                         reply_to_id = None
                     reply_target = None
@@ -245,7 +267,10 @@ async def realtime_socket(websocket: WebSocket):
                         reply_target = db.get(ChatMessage, reply_to_id)
                         if reply_target is None or reply_target.school_id != school_id:
                             await websocket.send_json(
-                                {"type": "chat_error", "message": "Tin nhắn được trả lời không còn tồn tại trong trường này."}
+                                {
+                                    "type": "chat_error",
+                                    "message": "Tin nhắn được trả lời không còn tồn tại trong trường này.",
+                                }
                             )
                             continue
 
@@ -269,7 +294,9 @@ async def realtime_socket(websocket: WebSocket):
                         reply_payload = {
                             "id": reply_target.id,
                             "user_name": reply_target.user_name or "Tài khoản đã xóa",
-                            "content": "Tin nhắn đã bị xóa" if reply_deleted else reply_target.content,
+                            "content": "Tin nhắn đã bị xóa"
+                            if reply_deleted
+                            else reply_target.content,
                             "deleted": reply_deleted,
                         }
                     recipients = school_chat_user_ids(db, school_id)
@@ -311,7 +338,10 @@ async def realtime_socket(websocket: WebSocket):
                     continue
                 if not user_can_access_school(current, row.school_id, db):
                     await websocket.send_json(
-                        {"type": "chat_error", "message": "Bạn không có quyền thao tác tin nhắn này."}
+                        {
+                            "type": "chat_error",
+                            "message": "Bạn không có quyền thao tác tin nhắn này.",
+                        }
                     )
                     continue
 
@@ -324,18 +354,27 @@ async def realtime_socket(websocket: WebSocket):
                         continue
                     if row.user_id != current.id:
                         await websocket.send_json(
-                            {"type": "chat_error", "message": "Bạn chỉ có thể sửa tin nhắn của mình."}
+                            {
+                                "type": "chat_error",
+                                "message": "Bạn chỉ có thể sửa tin nhắn của mình.",
+                            }
                         )
                         continue
                     content = str(payload.get("content") or "").strip()
                     if not content:
                         await websocket.send_json(
-                            {"type": "chat_error", "message": "Tin nhắn không được để trống."}
+                            {
+                                "type": "chat_error",
+                                "message": "Tin nhắn không được để trống.",
+                            }
                         )
                         continue
                     if len(content) > 2000:
                         await websocket.send_json(
-                            {"type": "chat_error", "message": "Tin nhắn tối đa 2000 ký tự."}
+                            {
+                                "type": "chat_error",
+                                "message": "Tin nhắn tối đa 2000 ký tự.",
+                            }
                         )
                         continue
                     edited_at = _utc_now_iso()
@@ -360,7 +399,10 @@ async def realtime_socket(websocket: WebSocket):
                 can_delete = row.user_id == current.id or current.role == "super_admin"
                 if not can_delete:
                     await websocket.send_json(
-                        {"type": "chat_error", "message": "Bạn không có quyền xóa tin nhắn này."}
+                        {
+                            "type": "chat_error",
+                            "message": "Bạn không có quyền xóa tin nhắn này.",
+                        }
                     )
                     continue
                 if row.deleted_at:
@@ -410,4 +452,3 @@ async def realtime_socket(websocket: WebSocket):
         if became_offline:
             last_seen = touch_user_last_seen(account.id)
             asyncio.create_task(_broadcast_delayed_offline(account.id, last_seen))
-

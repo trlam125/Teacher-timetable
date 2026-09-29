@@ -4,14 +4,17 @@ from app.services.foundation import *
 from app.services.web import *
 from app.services.schedule_service import *
 
+
 class EntityIn(BaseModel):
     type: str
     data: dict
+
 
 class BulkAssignmentSubjectIn(BaseModel):
     subject_id: int
     periods_per_week: int = 1
     block_mode: str = "free"
+
 
 class BulkAssignmentIn(BaseModel):
     teacher_id: int
@@ -21,6 +24,7 @@ class BulkAssignmentIn(BaseModel):
     subject_ids: list[int] = Field(default_factory=list)
     periods_per_week: int = 1
     block_mode: str = "free"
+
 
 def ensure_unique_project_name(
     db: Session,
@@ -38,6 +42,7 @@ def ensure_unique_project_name(
         stmt = stmt.where(model.id != exclude_id)
     if db.scalar(stmt) is not None:
         raise HTTPException(409, f"{label} ‘{name}’ đã tồn tại trong bộ thời khóa biểu")
+
 
 def ensure_unique_teacher_short_name(
     db: Session,
@@ -57,6 +62,7 @@ def ensure_unique_teacher_short_name(
             409,
             f"Tên ngắn giáo viên ‘{normalized}’ đã được sử dụng trong bộ thời khóa biểu",
         )
+
 
 def validated_subject_ids(db: Session, project_id: int, values) -> list[int]:
     if values is None:
@@ -87,6 +93,7 @@ def validated_subject_ids(db: Session, project_id: int, values) -> list[int]:
         raise HTTPException(400, "Có môn học không thuộc bộ thời khóa biểu")
     return result
 
+
 def replace_teacher_subjects(
     db: Session, project_id: int, teacher_id: int, subject_ids: list[int]
 ) -> None:
@@ -108,6 +115,7 @@ def replace_teacher_subjects(
                     project_id=project_id, teacher_id=teacher_id, subject_id=subject_id
                 )
             )
+
 
 def normalized_grade_requirements(
     db: Session, project: Project, values
@@ -160,6 +168,7 @@ def normalized_grade_requirements(
         (subject_id, periods, mode) for subject_id, (periods, mode) in configs.items()
     ]
 
+
 def replace_grade_requirements(
     db: Session, project: Project, grade_id: int, values
 ) -> None:
@@ -190,6 +199,7 @@ def replace_grade_requirements(
         else:
             row.periods_per_week = periods
             row.block_mode = mode
+
 
 def teacher_week_capacity(
     project: Project,
@@ -230,6 +240,7 @@ def teacher_week_capacity(
         capacity += min(daily_limit, available)
     return capacity
 
+
 def class_week_capacity(
     project: Project,
     school_class: SchoolClass,
@@ -256,6 +267,7 @@ def class_week_capacity(
     class_blocked = set(valid_slots(project, class_blocked, strict=False))
     return maximum - len(project_blocked | class_blocked)
 
+
 def teacher_assigned_periods(db: Session, project_id: int, teacher_id: int) -> int:
     value = db.scalar(
         select(func.coalesce(func.sum(Assignment.periods_per_week), 0)).where(
@@ -265,6 +277,7 @@ def teacher_assigned_periods(db: Session, project_id: int, teacher_id: int) -> i
     )
     return int(value or 0)
 
+
 def class_assigned_periods(db: Session, project_id: int, class_id: int) -> int:
     value = db.scalar(
         select(func.coalesce(func.sum(Assignment.periods_per_week), 0)).where(
@@ -273,6 +286,7 @@ def class_assigned_periods(db: Session, project_id: int, class_id: int) -> int:
         )
     )
     return int(value or 0)
+
 
 def ensure_teacher_load_fits(
     db: Session,
@@ -298,6 +312,7 @@ def ensure_teacher_load_fits(
             "tiết tránh và giới hạn tiết/ngày.",
         )
 
+
 def ensure_class_load_fits(
     project: Project,
     school_class: SchoolClass,
@@ -317,6 +332,7 @@ def ensure_class_load_fits(
             f"Tải học của lớp {school_class.name} sẽ là {projected_periods} tiết/tuần, "
             f"vượt {capacity} ô có thể học theo khóa lịch và tiết tránh hiện tại.",
         )
+
 
 def duplicate_assignment_issues(
     db: Session, assignments: list[Assignment]
@@ -347,6 +363,7 @@ def duplicate_assignment_issues(
             }
         )
     return sorted(issues, key=lambda item: (item["class_name"], item["subject_name"]))
+
 
 def assignment_project_reference_issues(
     db: Session, project_id: int, assignments: list[Assignment]
@@ -420,6 +437,7 @@ def assignment_project_reference_issues(
             )
     return issues
 
+
 def schedule_teacher_capacity_issues(
     db: Session,
     project: Project,
@@ -466,6 +484,7 @@ def schedule_teacher_capacity_issues(
             )
     return sorted(issues, key=lambda item: (-item["excess"], item["teacher_name"]))
 
+
 def schedule_class_capacity_issues(
     project: Project,
     classes: list[SchoolClass],
@@ -491,6 +510,7 @@ def schedule_class_capacity_issues(
                 }
             )
     return sorted(issues, key=lambda item: (-item["excess"], item["class_name"]))
+
 
 def grade_requirement_assignment_issues(
     db: Session,
@@ -634,12 +654,14 @@ def grade_requirement_assignment_issues(
     )
     return issues
 
+
 def block_mode_text(mode: str) -> str:
     return {
         "free": "Tự do",
         "preferred_double": "Ưu tiên tiết đôi",
         "required_double": "Bắt buộc tiết đôi",
     }.get(mode or "free", mode or "Tự do")
+
 
 def grade_requirement_for_assignment(
     db: Session,
@@ -656,6 +678,7 @@ def grade_requirement_for_assignment(
             GradeSubjectRequirement.subject_id == subject_id,
         )
     )
+
 
 def ensure_assignment_matches_grade_requirement(
     db: Session,
@@ -699,6 +722,7 @@ def ensure_assignment_matches_grade_requirement(
         f"{block_mode_text(required_mode)}. Dữ liệu đang nhập là "
         f"{periods} tiết/tuần · {block_mode_text(mode)}.",
     )
+
 
 def grade_requirement_extra_assignments(
     db: Session,
@@ -774,6 +798,7 @@ def grade_requirement_extra_assignments(
         for row in extras
     ]
 
+
 def grade_requirement_missing_assignments(
     db: Session,
     project: Project,
@@ -827,6 +852,7 @@ def grade_requirement_missing_assignments(
                 f"{required_periods} tiết/tuần · {block_mode_text(required_mode)}"
             )
     return issues
+
 
 def sync_assignments_to_grade_requirements(
     db: Session,
@@ -1011,8 +1037,10 @@ def sync_assignments_to_grade_requirements(
 
     return len(changes)
 
+
 def required_text(data: dict, key: str, label: str, max_length: int) -> str:
     return bounded_text(data.get(key, ""), label, max_length)
+
 
 def required_id(data: dict, key: str, label: str) -> int:
     value = data.get(key)
@@ -1023,6 +1051,7 @@ def required_id(data: dict, key: str, label: str) -> int:
     if parsed <= 0:
         raise HTTPException(400, f"{label} không hợp lệ")
     return parsed
+
 
 def schedule_displacement_confirmation(
     db: Session,
@@ -1059,6 +1088,7 @@ class AssignmentUpdateIn(BaseModel):
     confirm_displacement: bool = False
     confirmed_displaced_lesson_ids: list[int] | None = None
 
+
 def entity_delete_dependency(db: Session, typ: str, eid: int):
     # Use explicit branches so deleting one entity does not execute dependency
     # queries for every other entity type.
@@ -1082,6 +1112,7 @@ def entity_delete_dependency(db: Session, typ: str, eid: int):
     if typ == "class":
         return db.scalar(select(Assignment.id).where(Assignment.class_id == eid))
     return None
+
 
 def entity_delete_dependency_ids(db: Session, typ: str, ids: list[int]) -> set[int]:
     """Return selected entity IDs that are still referenced, in batch."""
@@ -1128,6 +1159,7 @@ def entity_delete_dependency_ids(db: Session, typ: str, ids: list[int]) -> set[i
         )
     return set()
 
+
 def delete_entity_related_rows(db: Session, typ: str, eid: int):
     if typ == "assignment":
         for l in db.scalars(select(Lesson).where(Lesson.assignment_id == eid)).all():
@@ -1164,6 +1196,7 @@ def delete_entity_related_rows(db: Session, typ: str, eid: int):
         ).all():
             db.delete(preference)
 
+
 class EntityDeleteIn(BaseModel):
     confirm_assignment_cascade: bool = False
     confirmed_lesson_ids: list[int] = Field(default_factory=list)
@@ -1175,7 +1208,9 @@ class BulkEntityDeleteIn(EntityDeleteIn):
     ids: list[int]
 
 
-def assignment_delete_impact(db: Session, assignment_ids: list[int]) -> dict[str, list[int]]:
+def assignment_delete_impact(
+    db: Session, assignment_ids: list[int]
+) -> dict[str, list[int]]:
     """Return the exact schedule rows that would be removed with assignments.
 
     The IDs are used as the confirmation fingerprint, so a second delete request
@@ -1221,7 +1256,8 @@ def assignment_delete_confirmation(
         if fixed_lesson_ids:
             details.append(f"{len(fixed_lesson_ids)} tiết ghim")
         message = (
-            f"Xóa {noun} sẽ xóa luôn " + " và ".join(details)
+            f"Xóa {noun} sẽ xóa luôn "
+            + " và ".join(details)
             + " liên quan. Thao tác này không thể hoàn tác. Bạn có chắc muốn tiếp tục?"
         )
     else:
@@ -1249,36 +1285,43 @@ class ConstraintIn(BaseModel):
     confirm_displacement: bool = False
     confirmed_affected_lesson_ids: list[int] | None = None
 
+
 class SessionLocksIn(BaseModel):
     sessions: list[int] = Field(default_factory=list)
     slots: list[int] = Field(default_factory=list)
     confirm_displacement: bool = False
     confirmed_affected_lesson_ids: list[int] | None = None
 
+
 class FixedIn(BaseModel):
     assignment_id: int
     slot: int
 
+
 class GenerateScheduleIn(BaseModel):
     allow_rebuild: bool = False
     confirmed_rebuild_lesson_ids: list[int] | None = None
+
 
 class MoveIn(BaseModel):
     lesson_id: int
     slot: int
     move_scope: str = "group"
 
+
 class PlacementOptionsIn(BaseModel):
     assignment_id: Optional[int] = None
     lesson_id: Optional[int] = None
     move_scope: str = "single"
 
+
 class ManualLessonIn(BaseModel):
     assignment_id: int
     slot: int
+
 
 class PreferenceReviewIn(BaseModel):
     action: str
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

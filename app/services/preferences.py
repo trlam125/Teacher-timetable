@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.services.foundation import *
 from app.services.web import *
 
+
 def teacher_own_preference_payload(
     db: Session, project: Project, user_id: int
 ) -> list[dict]:
@@ -43,6 +44,7 @@ def teacher_own_preference_payload(
             }
         )
     return items
+
 
 def preference_payload(db: Session, p: Project):
     rows = db.scalars(
@@ -91,4 +93,4 @@ def preference_payload(db: Session, p: Project):
     return items
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

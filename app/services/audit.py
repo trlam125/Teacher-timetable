@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.services.foundation import *
 
+
 def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
     filename = (file.filename or "").strip()
     if not filename:
@@ -12,6 +13,7 @@ def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
     if len(content) > MAX_SCHEDULE_AUDIT_FILE_BYTES:
         raise HTTPException(413, "File quá lớn. Giới hạn kiểm tra là 15 MB.")
     return filename, content
+
 
 def read_schedule_audit_report_json(report_json: str) -> dict:
     raw = str(report_json or "").strip()
@@ -55,4 +57,4 @@ def read_schedule_audit_report_json(report_json: str) -> dict:
         ) from exc
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

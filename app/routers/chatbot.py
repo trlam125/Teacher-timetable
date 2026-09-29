@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/projects/{pid}/chatbot", response_class=HTMLResponse)
 def chatbot_page(
     pid: int,
@@ -22,6 +23,7 @@ def chatbot_page(
             **chatbot_ui_context(p),
         },
     )
+
 
 @router.post("/api/projects/{pid}/chatbot")
 def chatbot_reply(
@@ -191,4 +193,3 @@ def chatbot_reply(
             os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
         ),
     }
-

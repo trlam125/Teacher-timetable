@@ -12,4 +12,4 @@ from app.services.preferences import *
 from app.services.audit import *
 from app.services.bootstrap import *
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

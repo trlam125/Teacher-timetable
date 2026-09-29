@@ -4,6 +4,7 @@ from app.services.foundation import *
 
 templates = Jinja2Templates(directory="app/templates")
 
+
 def redirect_with_notice(
     path: str, message: str, kind: str = "error", **extra_params: str | int
 ) -> RedirectResponse:
@@ -17,6 +18,7 @@ def redirect_with_notice(
     separator = "&" if "?" in path else "?"
     return RedirectResponse(f"{path}{separator}{'&'.join(params)}", 303)
 
+
 def _parse_iso_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -27,6 +29,7 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
         return parsed.astimezone(timezone.utc)
     except (TypeError, ValueError):
         return None
+
 
 def format_last_seen(value: str | None) -> str:
     parsed = _parse_iso_datetime(value)
@@ -43,12 +46,14 @@ def format_last_seen(value: str | None) -> str:
         return "Hôm qua"
     return parsed.astimezone(VIETNAM_TZ).strftime("%d/%m/%Y %H:%M")
 
+
 def format_vietnam_datetime(value: str | None) -> str:
     """Format an ISO timestamp in Vietnam time (UTC+7)."""
     parsed = _parse_iso_datetime(value)
     if parsed is None:
         return value or "-"
     return parsed.astimezone(VIETNAM_TZ).strftime("%d/%m/%Y %H:%M:%S")
+
 
 templates.env.filters["timeago"] = format_last_seen
 templates.env.filters["vietnam_datetime"] = format_vietnam_datetime
@@ -63,4 +68,4 @@ def bounded_text(value, label: str, max_length: int, *, required: bool = True) -
     return cleaned
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

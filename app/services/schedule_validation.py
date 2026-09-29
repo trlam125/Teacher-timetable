@@ -4,18 +4,29 @@ from app.services.foundation import *
 
 
 def assignment_availability_issues(
-    db: Session, project: Project, assignments: list[Assignment],
+    db: Session,
+    project: Project,
+    assignments: list[Assignment],
 ) -> list[dict]:
     """Catch legacy/impossible source assignments before invoking the solver."""
-    teachers = {row.id: row for row in db.scalars(
-        select(Teacher).where(Teacher.project_id == project.id)
-    ).all()}
-    classes = {row.id: row for row in db.scalars(
-        select(SchoolClass).where(SchoolClass.project_id == project.id)
-    ).all()}
-    subjects = {row.id: row for row in db.scalars(
-        select(Subject).where(Subject.project_id == project.id)
-    ).all()}
+    teachers = {
+        row.id: row
+        for row in db.scalars(
+            select(Teacher).where(Teacher.project_id == project.id)
+        ).all()
+    }
+    classes = {
+        row.id: row
+        for row in db.scalars(
+            select(SchoolClass).where(SchoolClass.project_id == project.id)
+        ).all()
+    }
+    subjects = {
+        row.id: row
+        for row in db.scalars(
+            select(Subject).where(Subject.project_id == project.id)
+        ).all()
+    }
     issues = []
     for assignment in assignments:
         teacher = teachers.get(assignment.teacher_id)
@@ -25,8 +36,12 @@ def assignment_availability_issues(
             continue  # Reported by the reference validator.
         try:
             ensure_assignment_hard_feasible(
-                project, teacher, school_class, subject,
-                assignment.periods_per_week, assignment.block_mode,
+                project,
+                teacher,
+                school_class,
+                subject,
+                assignment.periods_per_week,
+                assignment.block_mode,
             )
         except HTTPException as exc:
             if exc.status_code != 409:
@@ -202,25 +217,17 @@ def schedule_input_validation_report(
             select(SchoolClass).where(SchoolClass.project_id == project.id)
         ).all()
 
-    reference_issues = assignment_project_reference_issues(
-        db, project.id, assignments
-    )
+    reference_issues = assignment_project_reference_issues(db, project.id, assignments)
     duplicate_issues = duplicate_assignment_issues(db, assignments)
     curriculum_issues = grade_requirement_assignment_issues(
         db, project, assignments, classes
     )
-    teacher_subject_issues = teacher_subject_assignment_issues(
-        db, project, assignments
-    )
-    teacher_capacity_issues = schedule_teacher_capacity_issues(
-        db, project, assignments
-    )
+    teacher_subject_issues = teacher_subject_assignment_issues(db, project, assignments)
+    teacher_capacity_issues = schedule_teacher_capacity_issues(db, project, assignments)
     class_capacity_issues = schedule_class_capacity_issues(
         project, classes, assignments
     )
-    fixed_definition_issues = fixed_lesson_definition_issues(
-        db, project, assignments
-    )
+    fixed_definition_issues = fixed_lesson_definition_issues(db, project, assignments)
     availability_issues = assignment_availability_issues(db, project, assignments)
 
     issue_count = sum(

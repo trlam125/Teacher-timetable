@@ -36,7 +36,9 @@ def _session_label(day_index: int, session_index: int, session_count: int) -> st
     return f"Buổi {session_index + 1} - {day}"
 
 
-def build_timetable_workbook(project, data: dict, *, integrity: dict | None = None) -> Workbook:
+def build_timetable_workbook(
+    project, data: dict, *, integrity: dict | None = None
+) -> Workbook:
     """Build a school timetable matrix similar to the supplied legacy Excel template."""
     workbook = Workbook()
     sheet = workbook.active
@@ -78,14 +80,23 @@ def build_timetable_workbook(project, data: dict, *, integrity: dict | None = No
     header_row = 3
     if integrity is not None and not integrity["valid"]:
         sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=last_col)
-        warning = sheet.cell(3, 1, _safe_excel_text(
-            "CẢNH BÁO — Lịch chưa hoàn chỉnh hoặc còn xung đột. " + integrity["message"]
-        ))
+        warning = sheet.cell(
+            3,
+            1,
+            _safe_excel_text(
+                "CẢNH BÁO — Lịch chưa hoàn chỉnh hoặc còn xung đột. "
+                + integrity["message"]
+            ),
+        )
         warning.font = Font(name="Times New Roman", size=10, bold=True, color="92400E")
         warning.fill = PatternFill(fill_type="solid", fgColor="FFFBEB")
-        warning.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        warning.alignment = Alignment(
+            horizontal="left", vertical="center", wrap_text=True
+        )
         # Keep the warning visible both on screen and on every printed page.
-        sheet.row_dimensions[3].height = max(60, 15 * (len(str(warning.value)) // 60 + 1))
+        sheet.row_dimensions[3].height = max(
+            60, 15 * (len(str(warning.value)) // 60 + 1)
+        )
         header_row = 4
 
     headers = (
@@ -144,13 +155,17 @@ def build_timetable_workbook(project, data: dict, *, integrity: dict | None = No
                     for assignment in cell_assignments:
                         subject = str(
                             assignment.get("subject_short")
-                            or assignment.get("subject_name") or ""
+                            or assignment.get("subject_name")
+                            or ""
                         ).strip()
                         teacher = str(
                             assignment.get("teacher_short")
-                            or assignment.get("teacher_name") or ""
+                            or assignment.get("teacher_name")
+                            or ""
                         ).strip()
-                        lesson_lines.append(" ".join(part for part in (subject, teacher) if part))
+                        lesson_lines.append(
+                            " ".join(part for part in (subject, teacher) if part)
+                        )
                     # Invalid timetables may have several lessons in one cell.
                     # Preserve them all instead of silently overwriting a lesson.
                     lesson_text = "\n".join(lesson_lines)
@@ -192,7 +207,13 @@ def build_timetable_workbook(project, data: dict, *, integrity: dict | None = No
                 sheet.cell(current_row, last_col).font = Font(
                     name="Times New Roman", size=9, bold=True
                 )
-                max_lines = max((len(by_slot_class.get((slot, item["id"]), [])) for item in classes), default=1)
+                max_lines = max(
+                    (
+                        len(by_slot_class.get((slot, item["id"]), []))
+                        for item in classes
+                    ),
+                    default=1,
+                )
                 sheet.row_dimensions[current_row].height = 24 * max(1, max_lines)
                 current_row += 1
 

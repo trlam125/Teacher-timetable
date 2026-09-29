@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.services.foundation import *
 from app.services.web import _parse_iso_datetime
 
+
 class Passwords:
     @staticmethod
     def hash(password: str) -> str:
@@ -24,6 +25,7 @@ class Passwords:
             return hmac.compare_digest(actual, digest)
         except Exception:
             return False
+
 
 pwd = Passwords()
 signer = URLSafeTimedSerializer(SECRET_KEY, salt="session")
@@ -65,6 +67,7 @@ def _captcha_svg_data_uri(kind: str, variant: int = 0) -> str:
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="{bg}"/><stop offset="1" stop-color="#ffffff"/></linearGradient></defs>
 <rect width="180" height="120" rx="18" fill="url(#g)"/><circle cx="18" cy="18" r="7" fill="{accent}" opacity=".24"/><circle cx="160" cy="98" r="12" fill="{accent}" opacity=".18"/>{drawing}</svg>'''
     return "data:image/svg+xml;charset=UTF-8," + quote(svg, safe="")
+
 
 def _captcha_puzzle_piece_data_uris() -> list[str]:
     """Vẽ ảnh raster rồi cắt thật thành 4 mảnh; client không nhận tọa độ gốc."""
@@ -173,6 +176,7 @@ def _captcha_puzzle_piece_data_uris() -> list[str]:
             )
     return pieces
 
+
 def new_captcha(purpose: str = "password_reset") -> tuple[dict, str]:
     kind = "images" if secrets.randbelow(100) < 65 else "puzzle"
     issued_at = int(datetime.now(timezone.utc).timestamp())
@@ -247,6 +251,7 @@ def new_captcha(purpose: str = "password_reset") -> tuple[dict, str]:
     )
     return challenge, token
 
+
 def _consume_captcha_nonce(nonce: str, purpose: str, now_epoch: int) -> bool:
     nonce_hash = hashlib.sha256(nonce.encode()).hexdigest()
     with engine.begin() as connection:
@@ -261,6 +266,7 @@ def _consume_captcha_nonce(nonce: str, purpose: str, now_epoch: int) -> bool:
                 (now_epoch - 15 * 60,),
             )
     return inserted is not None
+
 
 def captcha_is_valid(token: str, answer: str, purpose: str = "password_reset") -> bool:
     try:
@@ -287,14 +293,17 @@ def captcha_is_valid(token: str, answer: str, purpose: str = "password_reset") -
     except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         return False
 
+
 def _rate_limit_identity(value: str) -> str:
     return hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()[
         :48
     ]
 
+
 def client_rate_limit_key(request: Request) -> str:
     host = request.client.host if request.client and request.client.host else "unknown"
     return _rate_limit_identity(host.strip().lower())
+
 
 def rate_limit_exceeded(
     scope: str, identity: str, *, limit: int, window_seconds: int
@@ -320,6 +329,7 @@ def rate_limit_exceeded(
             )
     return int(row) > limit
 
+
 def rate_limit_blocked(
     scope: str, identity: str, *, limit: int, window_seconds: int
 ) -> bool:
@@ -340,6 +350,7 @@ def rate_limit_blocked(
         return False
     return int(row["count"]) >= limit
 
+
 def clear_rate_limit_bucket(scope: str, identity: str) -> None:
     bucket_key = f"{scope}:{_rate_limit_identity(identity.strip().lower())}"
     with engine.begin() as connection:
@@ -347,6 +358,7 @@ def clear_rate_limit_bucket(scope: str, identity: str) -> None:
             "DELETE FROM rate_limit_buckets WHERE bucket_key=%s",
             (bucket_key,),
         )
+
 
 def send_email_message(recipient: str, subject: str, body: str) -> bool:
     smtp_host = os.getenv("SMTP_HOST", "").strip()
@@ -392,6 +404,7 @@ def send_email_message(recipient: str, subject: str, body: str) -> bool:
             return False
     return True
 
+
 def send_password_reset_email(recipient: str, reset_url: str) -> bool:
     return send_email_message(
         recipient,
@@ -400,6 +413,7 @@ def send_password_reset_email(recipient: str, reset_url: str) -> bool:
         f"Mở liên kết sau trong vòng 30 phút:\n{reset_url}\n\n"
         "Nếu bạn không yêu cầu, hãy bỏ qua email này.",
     )
+
 
 def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> bool:
     return send_email_message(
@@ -411,10 +425,12 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
         "Nếu bạn không thực hiện đăng ký này, hãy bỏ qua email.",
     )
 
+
 def registration_otp_hash(email: str, otp: str) -> str:
     return hmac.new(
         SECRET_KEY.encode(), f"{email}:{otp}".encode(), hashlib.sha256
     ).hexdigest()
+
 
 def send_email_change_otp_email(recipient: str, otp: str) -> bool:
     return send_email_message(
@@ -425,9 +441,11 @@ def send_email_change_otp_email(recipient: str, otp: str) -> bool:
         "Nếu bạn không yêu cầu thay đổi email, hãy bỏ qua thư này.",
     )
 
+
 def email_change_otp_hash(user_id: int, email: str, otp: str) -> str:
     value = f"email-change:{user_id}:{email.lower().strip()}:{otp}"
     return hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
+
 
 def public_base_url(request: Request) -> str | None:
     if APP_BASE_URL:
@@ -436,12 +454,14 @@ def public_base_url(request: Request) -> str | None:
         return str(request.base_url).rstrip("/")
     return None
 
+
 def db_session():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
 
 def set_session_cookie(response, user: User):
     response.set_cookie(
@@ -452,6 +472,7 @@ def set_session_cookie(response, user: User):
         samesite="lax",
         secure=APP_ENV == "production" or APP_BASE_URL.lower().startswith("https://"),
     )
+
 
 def current_user(request: Request, db: Session = Depends(db_session)) -> User:
     raw = request.cookies.get("session")
@@ -471,16 +492,20 @@ def current_user(request: Request, db: Session = Depends(db_session)) -> User:
     except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         raise HTTPException(401)
 
+
 def is_admin(user: User) -> bool:
     return user.role in ADMIN_ROLES
 
+
 def is_super_admin(user: User) -> bool:
     return user.role == "super_admin"
+
 
 def user_greeting_name(user: User) -> str:
     # Lời chào dùng đúng họ tên/tên hiển thị lưu trong hồ sơ người dùng.
     # Không suy ra tên từ phần trước dấu @ của email vì đó chỉ là tên tài khoản.
     return (user.name or "").strip() or "Người dùng"
+
 
 def user_school_ids(user: User, db: Session) -> set[int]:
     if is_super_admin(user):
@@ -490,6 +515,7 @@ def user_school_ids(user: User, db: Session) -> set[int]:
             select(UserSchool.school_id).where(UserSchool.user_id == user.id)
         ).all()
     )
+
 
 def user_schools(user: User, db: Session) -> list[School]:
     if is_super_admin(user):
@@ -501,12 +527,14 @@ def user_schools(user: User, db: Session) -> list[School]:
         select(School).where(School.id.in_(ids)).order_by(School.name.asc())
     ).all()
 
+
 def user_can_access_school(user: User, school_id: int | None, db: Session) -> bool:
     if is_super_admin(user):
         return True
     if school_id is None:
         return False
     return school_id in user_school_ids(user, db)
+
 
 def admin_can_manage_account(
     admin: User, account: User, db: Session | None = None
@@ -532,9 +560,11 @@ def admin_can_manage_account(
     # quản lý; giáo viên đã có trường chỉ hiện cho admin có ít nhất một trường chung.
     return not account_school_ids or bool(admin_school_ids & account_school_ids)
 
+
 def development_reset_links_enabled(request: Request) -> bool:
     host = (request.url.hostname or "").lower()
     return APP_ENV == "development" and host in {"localhost", "127.0.0.1", "::1"}
+
 
 def mask_email(email: str) -> str:
     local, separator, domain = email.partition("@")
@@ -542,6 +572,7 @@ def mask_email(email: str) -> str:
         return "***"
     visible = local[:2] if len(local) > 2 else local[:1]
     return f"{visible}{'*' * max(2, len(local) - len(visible))}@{domain}"
+
 
 def registration_verification_for_token(
     token: str,
@@ -566,6 +597,7 @@ def registration_verification_for_token(
     except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         return None
 
+
 def registration_otp_context(
     request: Request,
     verification: RegistrationVerification | None,
@@ -586,6 +618,7 @@ def registration_otp_context(
         "captcha_token": captcha_token,
     }
 
+
 def reset_account_for_token(token: str, db: Session) -> Optional[User]:
     try:
         data = reset_signer.loads(token, max_age=RESET_TOKEN_TTL_SECONDS)
@@ -602,6 +635,7 @@ def reset_account_for_token(token: str, db: Session) -> Optional[User]:
     except (BadSignature, SignatureExpired, KeyError, ValueError, TypeError):
         return None
 
+
 def email_change_target(account_id: str, actor: User, db: Session) -> User:
     raw = str(account_id or "").strip()
     if not raw:
@@ -615,6 +649,7 @@ def email_change_target(account_id: str, actor: User, db: Session) -> User:
         raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
     return target
 
+
 def email_change_back_path(actor: User, project_id: Optional[int] = None) -> str:
     if actor.role == "teacher":
         return (
@@ -623,6 +658,7 @@ def email_change_back_path(actor: User, project_id: Optional[int] = None) -> str
             else "/teacher/account"
         )
     return "/admin/users"
+
 
 def email_change_confirmation_data(
     token: str, actor: User, db: Session
@@ -648,6 +684,7 @@ def email_change_confirmation_data(
             400, "Phiên xác nhận đổi email không hợp lệ hoặc đã hết hạn"
         ) from exc
 
+
 def email_change_verification_for_token(
     token: str, actor: User, db: Session
 ) -> EmailChangeVerification | None:
@@ -670,4 +707,4 @@ def email_change_verification_for_token(
         return None
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

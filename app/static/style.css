@@ -110,7 +110,9 @@ textarea {
 }
 
 .appbar-brand img,
-.brand-with-logo img {
+.appbar-brand svg,
+.brand-with-logo img,
+.brand-with-logo svg {
   width: 36px;
   height: 36px;
   flex: 0 0 36px;
@@ -121,7 +123,9 @@ textarea {
 }
 
 .appbar-brand:hover img,
-.brand-with-logo:hover img {
+.appbar-brand:hover svg,
+.brand-with-logo:hover img,
+.brand-with-logo:hover svg {
   transform: translateY(-2px) scale(1.05);
   filter: drop-shadow(0 12px 24px rgba(37, 99, 235, 0.45)) drop-shadow(0 0 14px rgba(125, 232, 255, 0.5));
 }

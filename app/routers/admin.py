@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/admin/users", response_class=HTMLResponse)
 def admin_users(
     request: Request,
@@ -69,10 +70,13 @@ def admin_users(
             "school_names_by_account": school_names_by_account,
             "chatbot_error_logs": chatbot_error_logs,
             "chatbot_error_log_count": chatbot_error_log_count,
-            "online_user_ids": realtime_manager.online_user_ids_for({account.id for account in users}),
+            "online_user_ids": realtime_manager.online_user_ids_for(
+                {account.id for account in users}
+            ),
             **chatbot_ui_context(projects[-1] if projects else None),
         },
     )
+
 
 @router.post("/admin/schools/create")
 def create_school_from_account_management(
@@ -83,12 +87,15 @@ def create_school_from_account_management(
     if not is_super_admin(user):
         raise HTTPException(403, "Chỉ super admin được tạo trường")
     clean_name = bounded_text(name, "Tên trường", 200)
-    existing = db.scalar(select(School).where(func.lower(School.name) == clean_name.lower()))
+    existing = db.scalar(
+        select(School).where(func.lower(School.name) == clean_name.lower())
+    )
     if existing:
         return RedirectResponse("/admin/users", 303)
     db.add(School(name=clean_name))
     db.commit()
     return RedirectResponse("/admin/users", 303)
+
 
 @router.post("/admin/schools/{school_id}/rename")
 def rename_school_from_account_management(
@@ -131,6 +138,7 @@ def rename_school_from_account_management(
 
     return RedirectResponse("/admin/users", 303)
 
+
 @router.post("/admin/users/{account_id}/schools")
 def update_account_schools(
     account_id: int,
@@ -146,7 +154,9 @@ def update_account_schools(
 
     if is_super_admin(user):
         if account.role not in {"admin", "teacher"}:
-            raise HTTPException(403, "Super admin chỉ gán trường cho quản trị viên và giáo viên")
+            raise HTTPException(
+                403, "Super admin chỉ gán trường cho quản trị viên và giáo viên"
+            )
         allowed_ids = set(db.scalars(select(School.id)).all())
     else:
         if account.role != "teacher":
@@ -192,6 +202,7 @@ def update_account_schools(
     db.commit()
     return RedirectResponse("/admin/users", 303)
 
+
 @router.post("/admin/chatbot-logs/clear")
 def clear_chatbot_error_logs(
     user: User = Depends(current_user),
@@ -202,6 +213,7 @@ def clear_chatbot_error_logs(
     db.execute(delete(ChatbotErrorLog))
     db.commit()
     return RedirectResponse("/admin/users#chatbot-logs", 303)
+
 
 @router.post("/admin/users/{account_id}/update")
 def update_account(
@@ -238,6 +250,7 @@ def update_account(
     if account.id == user.id and password_changed:
         set_session_cookie(response, account)
     return response
+
 
 @router.post("/admin/users/{account_id}/delete")
 def delete_account(
@@ -276,6 +289,7 @@ def delete_account(
     db.commit()
     return RedirectResponse("/admin/users", 303)
 
+
 @router.post("/admin/users/{account_id}/promote-admin")
 def promote_teacher_to_admin(
     account_id: int,
@@ -283,7 +297,9 @@ def promote_teacher_to_admin(
     db: Session = Depends(db_session),
 ):
     if not is_super_admin(user):
-        raise HTTPException(403, "Chỉ super admin được nâng giáo viên lên quản trị viên")
+        raise HTTPException(
+            403, "Chỉ super admin được nâng giáo viên lên quản trị viên"
+        )
     account = db.get(User, account_id)
     if not account:
         raise HTTPException(404, "Không tìm thấy tài khoản")
@@ -296,4 +312,3 @@ def promote_teacher_to_admin(
     account.session_version += 1
     db.commit()
     return RedirectResponse("/admin/users", 303)
-

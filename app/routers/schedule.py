@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.post("/api/projects/{pid}/fixed")
 def fixed(
     pid: int,
@@ -16,16 +17,19 @@ def fixed(
     assignment = db.get(Assignment, payload.assignment_id)
     if not assignment or assignment.project_id != pid:
         raise HTTPException(404)
-    lessons = db.scalars(select(Lesson).where(
-        Lesson.project_id == pid, Lesson.assignment_id == assignment.id
-    )).all()
+    lessons = db.scalars(
+        select(Lesson).where(
+            Lesson.project_id == pid, Lesson.assignment_id == assignment.id
+        )
+    ).all()
     slots = {lesson.slot for lesson in lessons}
     if payload.slot not in slots:
         raise HTTPException(400, "Hãy chọn một tiết đang có trên lịch để cố định")
     selected_lesson = next((row for row in lessons if row.slot == payload.slot), None)
     members = (
         lesson_block_members(lessons, selected_lesson)
-        if assignment_requires_double(assignment) and selected_lesson else [selected_lesson]
+        if assignment_requires_double(assignment) and selected_lesson
+        else [selected_lesson]
     )
     run_slots = {row.slot for row in members if row is not None}
     for lesson in lessons:
@@ -37,7 +41,10 @@ def fixed(
     # double periods therefore lock atomically; neighboring blocks are untouched.
     coverage = fixed_coverage_slots(db, p).get(assignment.id, set())
     if not coverage.issubset(slots):
-        raise HTTPException(409, "Có cụm cố định đang thiếu tiết. Hãy xếp bổ sung hoặc bỏ ghim đó trước khi cố định thêm.")
+        raise HTTPException(
+            409,
+            "Có cụm cố định đang thiếu tiết. Hãy xếp bổ sung hoặc bỏ ghim đó trước khi cố định thêm.",
+        )
     for lesson in lessons:
         if lesson.slot in run_slots or lesson.slot in coverage:
             lesson.locked = True
@@ -48,10 +55,19 @@ def fixed(
     db.flush()
     if not assignment_completion_feasible(db, p, assignment, slots):
         db.rollback()
-        raise HTTPException(409, "Lịch hiện tại không thể hoàn thành hợp lệ. Hãy điều chỉnh trước khi ghim.")
+        raise HTTPException(
+            409,
+            "Lịch hiện tại không thể hoàn thành hợp lệ. Hãy điều chỉnh trước khi ghim.",
+        )
     db.commit()
-    return {"ok": True, "pinned": len(run_slots),
-            "message": f"Đã cố định cả cụm {len(run_slots)} tiết." if len(run_slots) > 1 else "Đã cố định tiết đang chọn."}
+    return {
+        "ok": True,
+        "pinned": len(run_slots),
+        "message": f"Đã cố định cả cụm {len(run_slots)} tiết."
+        if len(run_slots) > 1
+        else "Đã cố định tiết đang chọn.",
+    }
+
 
 @router.delete("/api/projects/{pid}/fixed/{assignment_id}/{slot}")
 def remove_fixed_group(
@@ -78,7 +94,8 @@ def remove_fixed_group(
     selected_lesson = next((row for row in lessons if row.slot == slot), None)
     members = (
         lesson_block_members(lessons, selected_lesson)
-        if assignment_requires_double(assignment) and selected_lesson else [selected_lesson]
+        if assignment_requires_double(assignment) and selected_lesson
+        else [selected_lesson]
     )
     run_slots = {row.slot for row in members if row is not None} or {slot}
     targets = []
@@ -86,7 +103,9 @@ def remove_fixed_group(
         size = max(1, fixed_row_size(p, assignment, row, lessons))
         if run_slots.intersection(range(row.slot, row.slot + size)):
             targets.append((row, size))
-    if not targets and not any(item.locked and item.slot in run_slots for item in lessons):
+    if not targets and not any(
+        item.locked and item.slot in run_slots for item in lessons
+    ):
         raise HTTPException(404, "Không tìm thấy cụm tiết cố định")
     unlocked = set(run_slots)
     for row, size in targets:
@@ -112,6 +131,7 @@ def remove_fixed_group(
             else "Đã bỏ cố định tiết đang chọn."
         ),
     }
+
 
 @router.delete("/api/projects/{pid}/fixed/{assignment_id}")
 def remove_fixed(
@@ -141,6 +161,7 @@ def remove_fixed(
     db.commit()
     return {"ok": True, "message": "Đã bỏ toàn bộ cố định của phân công."}
 
+
 @router.post("/api/projects/{pid}/generate")
 def generate(
     pid: int,
@@ -152,9 +173,7 @@ def generate(
     assignments = db.scalars(
         select(Assignment).where(Assignment.project_id == pid)
     ).all()
-    classes = db.scalars(
-        select(SchoolClass).where(SchoolClass.project_id == pid)
-    ).all()
+    classes = db.scalars(select(SchoolClass).where(SchoolClass.project_id == pid)).all()
     input_validation = schedule_input_validation_report(
         db, p, assignments=assignments, classes=classes
     )
@@ -362,7 +381,8 @@ def generate(
         details = "; ".join(item["message"] for item in availability_issues[:5])
         suffix = (
             f"; và {len(availability_issues) - 5} phân công khác"
-            if len(availability_issues) > 5 else ""
+            if len(availability_issues) > 5
+            else ""
         )
         return JSONResponse(
             {
@@ -477,7 +497,9 @@ def generate(
         if not lessons_for_assignment:
             continue
         if assignment_requires_double(assignment):
-            block_state = required_double_block_state(p, assignment, lessons_for_assignment)
+            block_state = required_double_block_state(
+                p, assignment, lessons_for_assignment
+            )
             if not block_state["valid"]:
                 rebuild_assignment_ids.add(assignment.id)
         else:
@@ -586,7 +608,9 @@ def generate(
         for assignment in assignments
     )
 
-    def finalize_generated_schedule(response_payload, *, invalid_status_code: int = 500):
+    def finalize_generated_schedule(
+        response_payload, *, invalid_status_code: int = 500
+    ):
         """Run the same authoritative integrity gate before committing."""
         db.flush()
         integrity = schedule_integrity_report(db, p)
@@ -772,6 +796,7 @@ def generate(
         }
     )
 
+
 @router.post("/api/projects/{pid}/placement-options")
 def placement_options(
     pid: int,
@@ -789,16 +814,25 @@ def placement_options(
         assignment = db.get(Assignment, payload.assignment_id)
         if not assignment or assignment.project_id != pid:
             raise HTTPException(404, "Phân công không còn tồn tại")
-        current_lessons = db.scalars(select(Lesson).where(
-            Lesson.project_id == pid, Lesson.assignment_id == assignment.id
-        )).all()
+        current_lessons = db.scalars(
+            select(Lesson).where(
+                Lesson.project_id == pid, Lesson.assignment_id == assignment.id
+            )
+        ).all()
         current_slots = [row.slot for row in current_lessons]
         group_size = 1
         if assignment_requires_double(assignment):
-            group_size = next_required_double_block_size(project, assignment, current_lessons)
+            group_size = next_required_double_block_size(
+                project, assignment, current_lessons
+            )
             if group_size is None:
-                return {"ok": True, "valid_slots": [], "move_scope": "new", "group_size": 0,
-                        "message": "Cấu trúc block hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu."}
+                return {
+                    "ok": True,
+                    "valid_slots": [],
+                    "move_scope": "new",
+                    "group_size": 0,
+                    "message": "Cấu trúc block hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu.",
+                }
         if len(current_slots) >= int(assignment.periods_per_week) or group_size == 0:
             return {
                 "ok": True,
@@ -810,7 +844,10 @@ def placement_options(
         feasibility = assignment_feasibility_context(db, project, assignment)
         valid = []
         for slot in all_slots(project):
-            if slot % project.periods_per_session + group_size > project.periods_per_session:
+            if (
+                slot % project.periods_per_session + group_size
+                > project.periods_per_session
+            ):
                 continue
             target_slots = list(range(slot, slot + group_size))
             proposed = [*current_slots, *target_slots]
@@ -825,7 +862,8 @@ def placement_options(
             "group_size": group_size,
             "message": (
                 f"Block {group_size} tiết sẽ được đặt cùng nhau; chỉ các vị trí hợp lệ được đánh dấu."
-                if group_size > 1 else "Chỉ các ô được đánh dấu mới có thể hoàn thành lịch hợp lệ."
+                if group_size > 1
+                else "Chỉ các ô được đánh dấu mới có thể hoàn thành lịch hợp lệ."
             ),
         }
 
@@ -846,9 +884,11 @@ def placement_options(
     else:
         scope = "single"
 
-    lessons = db.scalars(select(Lesson).where(
-        Lesson.project_id == pid, Lesson.assignment_id == assignment.id
-    )).all()
+    lessons = db.scalars(
+        select(Lesson).where(
+            Lesson.project_id == pid, Lesson.assignment_id == assignment.id
+        )
+    ).all()
     if assignment_requires_double(assignment):
         block_state = required_double_block_state(project, assignment, lessons)
         if not block_state["valid"]:
@@ -884,7 +924,10 @@ def placement_options(
     feasibility = assignment_feasibility_context(db, project, assignment)
     valid = []
     for start in all_slots(project):
-        if start % project.periods_per_session + len(moving) > project.periods_per_session:
+        if (
+            start % project.periods_per_session + len(moving)
+            > project.periods_per_session
+        ):
             continue
         target_slots = list(range(start, start + len(moving)))
         if set(target_slots) == original_slots:
@@ -929,9 +972,11 @@ def move(
     assignment = db.get(Assignment, lesson.assignment_id)
     if not assignment or assignment.project_id != pid:
         raise HTTPException(409, "Phân công của tiết học không còn tồn tại")
-    lessons = db.scalars(select(Lesson).where(
-        Lesson.project_id == pid, Lesson.assignment_id == assignment.id
-    )).all()
+    lessons = db.scalars(
+        select(Lesson).where(
+            Lesson.project_id == pid, Lesson.assignment_id == assignment.id
+        )
+    ).all()
     if assignment_requires_double(assignment):
         block_state = required_double_block_state(project, assignment, lessons)
         if not block_state["valid"]:
@@ -976,7 +1021,9 @@ def move(
         raise HTTPException(409, "Cụm tiết vượt quá cuối buổi học")
     target_slots = list(range(start, start + len(moving)))
     moving_ids = {item.id for item in moving}
-    proposed = [item.slot for item in lessons if item.id not in moving_ids] + target_slots
+    proposed = [
+        item.slot for item in lessons if item.id not in moving_ids
+    ] + target_slots
     if not assignment_completion_feasible(
         db, project, assignment, proposed, enforce_pattern=True
     ):
@@ -1005,7 +1052,14 @@ def move(
     block_id = lesson.block_id or new_schedule_block_id()
     block_size = int(getattr(lesson, "block_size", len(moving)) or len(moving))
     for slot in target_slots:
-        item = Lesson(project_id=pid, assignment_id=assignment.id, slot=slot, block_id=block_id, block_size=block_size, locked=False)
+        item = Lesson(
+            project_id=pid,
+            assignment_id=assignment.id,
+            slot=slot,
+            block_id=block_id,
+            block_size=block_size,
+            locked=False,
+        )
         db.add(item)
         created.append(item)
     db.commit()
@@ -1014,7 +1068,14 @@ def move(
         "moved": len(created),
         "removed_ids": sorted(moving_ids),
         "moved_lessons": [
-            {"id": item.id, "assignment_id": item.assignment_id, "slot": item.slot, "block_id": item.block_id, "block_size": item.block_size, "locked": item.locked}
+            {
+                "id": item.id,
+                "assignment_id": item.assignment_id,
+                "slot": item.slot,
+                "block_id": item.block_id,
+                "block_size": item.block_size,
+                "locked": item.locked,
+            }
             for item in created
         ],
         "move_scope": scope,
@@ -1033,36 +1094,82 @@ def add_manual_lesson(
     assignment = db.get(Assignment, payload.assignment_id)
     if not assignment or assignment.project_id != pid:
         raise HTTPException(404)
-    current_lessons = db.scalars(select(Lesson).where(
-        Lesson.project_id == pid, Lesson.assignment_id == assignment.id
-    )).all()
+    current_lessons = db.scalars(
+        select(Lesson).where(
+            Lesson.project_id == pid, Lesson.assignment_id == assignment.id
+        )
+    ).all()
     if len(current_lessons) >= assignment.periods_per_week:
-        return JSONResponse({"ok": False, "message": "Phân công này đã đủ số tiết/tuần."}, 409)
+        return JSONResponse(
+            {"ok": False, "message": "Phân công này đã đủ số tiết/tuần."}, 409
+        )
     group_size = 1
     if assignment_requires_double(assignment):
-        group_size = next_required_double_block_size(project, assignment, current_lessons)
+        group_size = next_required_double_block_size(
+            project, assignment, current_lessons
+        )
         if group_size is None:
-            return JSONResponse({"ok": False, "message": "Cấu trúc block hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu."}, 409)
-    if payload.slot % project.periods_per_session + group_size > project.periods_per_session:
-        return JSONResponse({"ok": False, "message": "Block tiết vượt quá cuối buổi học."}, 409)
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "message": "Cấu trúc block hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu.",
+                },
+                409,
+            )
+    if (
+        payload.slot % project.periods_per_session + group_size
+        > project.periods_per_session
+    ):
+        return JSONResponse(
+            {"ok": False, "message": "Block tiết vượt quá cuối buổi học."}, 409
+        )
     target_slots = list(range(payload.slot, payload.slot + group_size))
     for slot in target_slots:
         error = lesson_slot_error(db, project, assignment, slot)
         if error:
             return JSONResponse({"ok": False, "message": error}, 409)
     current_slots = [row.slot for row in current_lessons]
-    if not assignment_completion_feasible(db, project, assignment, [*current_slots, *target_slots]):
-        return JSONResponse({"ok": False, "message": f"Vị trí này không thể hoàn thành hợp lệ theo chế độ {assignment_pattern_label(assignment)} và các ràng buộc hiện tại."}, 409)
+    if not assignment_completion_feasible(
+        db, project, assignment, [*current_slots, *target_slots]
+    ):
+        return JSONResponse(
+            {
+                "ok": False,
+                "message": f"Vị trí này không thể hoàn thành hợp lệ theo chế độ {assignment_pattern_label(assignment)} và các ràng buộc hiện tại.",
+            },
+            409,
+        )
     block_id = new_schedule_block_id()
     created = []
     for slot in target_slots:
-        row = Lesson(project_id=pid, assignment_id=assignment.id, slot=slot, block_id=block_id, block_size=group_size, locked=False)
-        db.add(row); created.append(row)
+        row = Lesson(
+            project_id=pid,
+            assignment_id=assignment.id,
+            slot=slot,
+            block_id=block_id,
+            block_size=group_size,
+            locked=False,
+        )
+        db.add(row)
+        created.append(row)
     db.commit()
-    return {"ok": True, "id": created[0].id, "added_lessons": [
-        {"id": row.id, "assignment_id": row.assignment_id, "slot": row.slot, "block_id": row.block_id, "block_size": row.block_size, "locked": row.locked}
-        for row in created
-    ], "schedule_validation": schedule_ui_validation_report(db, project)}
+    return {
+        "ok": True,
+        "id": created[0].id,
+        "added_lessons": [
+            {
+                "id": row.id,
+                "assignment_id": row.assignment_id,
+                "slot": row.slot,
+                "block_id": row.block_id,
+                "block_size": row.block_size,
+                "locked": row.locked,
+            }
+            for row in created
+        ],
+        "schedule_validation": schedule_ui_validation_report(db, project),
+    }
+
 
 @router.delete("/api/projects/{pid}/lessons/{lesson_id}")
 def remove_manual_lesson(
@@ -1087,9 +1194,15 @@ def remove_manual_lesson(
     lessons = db.scalars(
         select(Lesson).where(Lesson.assignment_id == assignment.id)
     ).all()
-    group = lesson_block_members(lessons, lesson) if assignment_requires_double(assignment) else [lesson]
+    group = (
+        lesson_block_members(lessons, lesson)
+        if assignment_requires_double(assignment)
+        else [lesson]
+    )
     if any(item.locked or item.slot in fixed_slots for item in group):
-        return JSONResponse({"ok": False, "message": "Block có tiết cố định nên không thể gỡ."}, 409)
+        return JSONResponse(
+            {"ok": False, "message": "Block có tiết cố định nên không thể gỡ."}, 409
+        )
     remove_ids = {item.id for item in group}
 
     for item in lessons:
@@ -1103,6 +1216,7 @@ def remove_manual_lesson(
         else f"Đã trả cả cụm {removed} tiết về kho."
     )
     return {"ok": True, "removed": removed, "message": message}
+
 
 @router.delete("/api/projects/{pid}/assignments/{assignment_id}/lessons")
 def return_assignment_to_tray(
@@ -1147,6 +1261,7 @@ def return_assignment_to_tray(
         message += f" Giữ nguyên {locked} tiết đã cố định."
     return {"ok": True, "removed": len(removable), "locked": locked, "message": message}
 
+
 @router.delete("/api/projects/{pid}/lessons")
 def return_all_to_tray(
     pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
@@ -1166,8 +1281,7 @@ def return_all_to_tray(
     protected_ids = {
         lesson.id
         for lesson in lessons
-        if lesson.locked
-        or lesson.slot in fixed_slots.get(lesson.assignment_id, set())
+        if lesson.locked or lesson.slot in fixed_slots.get(lesson.assignment_id, set())
     }
     for assignment_id, assignment_lessons in lessons_by_assignment.items():
         assignment = assignments.get(assignment_id)
@@ -1193,6 +1307,7 @@ def return_all_to_tray(
         "message": message,
     }
 
+
 @router.get("/api/projects/{pid}/data")
 def api_data(
     pid: int,
@@ -1206,7 +1321,9 @@ def api_data(
         return project_data(db, p)
     unknown = requested - {"lessons", "schedule_validation"}
     if unknown:
-        raise HTTPException(400, f"Phần dữ liệu không hỗ trợ: {', '.join(sorted(unknown))}")
+        raise HTTPException(
+            400, f"Phần dữ liệu không hỗ trợ: {', '.join(sorted(unknown))}"
+        )
     result = {}
     if "lessons" in requested:
         result["lessons"] = project_lessons_data(db, p.id)

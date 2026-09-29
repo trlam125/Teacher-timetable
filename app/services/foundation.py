@@ -24,22 +24,50 @@ from app.config import (
 )
 from app.database import DATABASE_BOOTSTRAP_LOCK_KEY, SessionLocal, engine
 from app.models import (
-    Base, User, RealtimeConnection, RealtimeEvent, RegistrationVerification,
-    EmailChangeVerification, School, UserSchool, Project, Department, Subject, Teacher, TeacherSubject, Grade,
-    GradeSubjectRequirement, SchoolClass, Assignment, FixedLesson, Lesson,
-    TeacherPreference, ChatbotErrorLog, ChatMessage,
+    Base,
+    User,
+    RealtimeConnection,
+    RealtimeEvent,
+    RegistrationVerification,
+    EmailChangeVerification,
+    School,
+    UserSchool,
+    Project,
+    Department,
+    Subject,
+    Teacher,
+    TeacherSubject,
+    Grade,
+    GradeSubjectRequirement,
+    SchoolClass,
+    Assignment,
+    FixedLesson,
+    Lesson,
+    TeacherPreference,
+    ChatbotErrorLog,
+    ChatMessage,
 )
 from app.scheduling.rules import (
-    all_slots, assignment_groups,
+    all_slots,
+    assignment_groups,
     assignment_prefers_double,
-    assignment_requires_double, assignment_run_groups, bounded_int,
-    ensure_assignment_hard_feasible, ensure_required_double_hard_feasible,
-    fixed_row_size, normalized_block_mode,
-    parse_slots, pattern_completion_plan,
-    preferred_double_pair_count, remaining_pattern_groups,
+    assignment_requires_double,
+    assignment_run_groups,
+    bounded_int,
+    ensure_assignment_hard_feasible,
+    ensure_required_double_hard_feasible,
+    fixed_row_size,
+    normalized_block_mode,
+    parse_slots,
+    pattern_completion_plan,
+    preferred_double_pair_count,
+    remaining_pattern_groups,
     required_double_hard_feasible,
-    required_double_block_state, next_required_double_block_size,
-    required_double_structure_feasible, slot_meta, timetable_pattern_feasible,
+    required_double_block_state,
+    next_required_double_block_size,
+    required_double_structure_feasible,
+    slot_meta,
+    timetable_pattern_feasible,
     valid_slots,
 )
 from app.scheduling.solver import ga_schedule, solve, solve_missing, solve_rebuild
@@ -124,5 +152,4 @@ SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "false").strip().lower() in {
 }
 
 
-
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

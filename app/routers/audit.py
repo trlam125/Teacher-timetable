@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/schedule-audit", response_class=HTMLResponse)
 def standalone_schedule_audit_page(
     request: Request,
@@ -25,10 +26,12 @@ def standalone_schedule_audit_page(
         },
     )
 
+
 @router.get("/projects/{pid}/schedule-audit")
 def legacy_schedule_audit_page(pid: int, user: User = Depends(current_user)):
     # Route cu chi de bookmark cu khong bi loi; khong doc bat ky du lieu project nao.
     return RedirectResponse("/schedule-audit", 303)
+
 
 @router.post("/api/schedule-audit")
 def standalone_audit_schedule_file(
@@ -58,6 +61,7 @@ def standalone_audit_schedule_file(
             },
             status_code=500,
         )
+
 
 @router.post("/api/schedule-audit/ai")
 def standalone_ai_audit_schedule_file(
@@ -161,4 +165,3 @@ def standalone_ai_audit_schedule_file(
             },
             status_code=503,
         )
-

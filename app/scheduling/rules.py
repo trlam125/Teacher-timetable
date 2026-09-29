@@ -4,12 +4,23 @@ from collections import Counter, defaultdict
 
 from fastapi import HTTPException
 
-from app.logic import fixed_group_validation_error, normalize_slot_values, parse_integer_set
+from app.logic import (
+    fixed_group_validation_error,
+    normalize_slot_values,
+    parse_integer_set,
+)
 from app.models import (
-    Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher,
+    Assignment,
+    FixedLesson,
+    Lesson,
+    Project,
+    SchoolClass,
+    Subject,
+    Teacher,
 )
 
 BLOCK_MODES = {"free", "preferred_double", "required_double"}
+
 
 def slot_meta(project: Project, slot: int):
     ppd = project.sessions * project.periods_per_session
@@ -19,8 +30,10 @@ def slot_meta(project: Project, slot: int):
     period = inside % project.periods_per_session
     return day, session, period
 
+
 def all_slots(project: Project):
     return list(range(project.days * project.sessions * project.periods_per_session))
+
 
 def parse_slots(text: str):
     return parse_integer_set(text)
@@ -64,11 +77,7 @@ def required_double_structure_feasible(
                 if singles < target_singles:
                     options.add((doubles, singles + 1))
 
-        if (
-            target_doubles
-            and period + 1 < pps
-            and current_run + 2 <= max_run
-        ):
+        if target_doubles and period + 1 < pps and current_run + 2 <= max_run:
             for doubles, singles in session_walk(period + 2, current_run + 2):
                 if doubles < target_doubles:
                     options.add((doubles + 1, singles))
@@ -137,17 +146,21 @@ def normalized_block_mode(
             )
     return mode
 
+
 def assignment_requires_double(assignment: Assignment):
     return getattr(assignment, "block_mode", "free") == "required_double"
 
+
 def assignment_prefers_double(assignment: Assignment):
     return getattr(assignment, "block_mode", "free") == "preferred_double"
+
 
 def assignment_groups(assignment: Assignment):
     total = max(0, int(assignment.periods_per_week or 0))
     if assignment_requires_double(assignment):
         return [2] * (total // 2) + ([1] if total % 2 else [])
     return [1] * total
+
 
 def required_double_block_state(
     project: Project,
@@ -160,7 +173,12 @@ def required_double_block_state(
     for lesson in lessons:
         block_id = getattr(lesson, "block_id", None)
         if not block_id:
-            return {"valid": False, "reason": "Tiết học chưa có block_id.", "groups": [], "missing_sizes": []}
+            return {
+                "valid": False,
+                "reason": "Tiết học chưa có block_id.",
+                "groups": [],
+                "missing_sizes": [],
+            }
         groups[block_id].append(lesson)
 
     used = Counter()
@@ -202,12 +220,14 @@ def required_double_block_state(
                 "groups": [],
                 "missing_sizes": [],
             }
-        normalized.append({
-            "block_id": block_id,
-            "size": size,
-            "start": members[0].slot,
-            "lessons": members,
-        })
+        normalized.append(
+            {
+                "block_id": block_id,
+                "size": size,
+                "start": members[0].slot,
+                "lessons": members,
+            }
+        )
 
     missing = []
     for size in (2, 1):
@@ -355,6 +375,7 @@ def required_double_hard_feasible(
         reachable = next_reachable
     return (target_doubles, target_singles) in reachable
 
+
 def ensure_required_double_hard_feasible(
     project: Project,
     teacher: Teacher,
@@ -402,6 +423,7 @@ def ensure_required_double_hard_feasible(
             f"và tối đa {effective_max_consecutive} tiết liên tiếp của môn.",
         )
 
+
 def ensure_assignment_hard_feasible(
     project: Project,
     teacher: Teacher,
@@ -419,7 +441,12 @@ def ensure_assignment_hard_feasible(
     """Validate common availability for every mode, independent of movable lessons."""
     if mode == "required_double":
         return ensure_required_double_hard_feasible(
-            project, teacher, school_class, subject, total_periods, mode,
+            project,
+            teacher,
+            school_class,
+            subject,
+            total_periods,
+            mode,
             max_periods_day=max_periods_day,
             teacher_unavailable_slots=teacher_unavailable_slots,
             class_unavailable_slots=class_unavailable_slots,
@@ -434,8 +461,12 @@ def ensure_assignment_hard_feasible(
         (project_blocked_slots, project.blocked_slots_json),
     ):
         blocked.update(parse_slots(stored) if override is None else override)
-    daily_limit = int(teacher.max_periods_day if max_periods_day is None else max_periods_day)
-    run_limit = max(1, int(subject.max_consecutive if max_consecutive is None else max_consecutive))
+    daily_limit = int(
+        teacher.max_periods_day if max_periods_day is None else max_periods_day
+    )
+    run_limit = max(
+        1, int(subject.max_consecutive if max_consecutive is None else max_consecutive)
+    )
     pps = project.periods_per_session
     capacity = 0
     for day in range(project.days):
@@ -473,6 +504,7 @@ def valid_slots(
         return normalize_slot_values(slots, maximum, strict=strict)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
 
 def bounded_int(value, default: int, minimum: int, maximum: int, label: str):
     raw = default if value in (None, "") else value
@@ -524,6 +556,7 @@ def assignment_run_groups(project: Project, slots: list[int] | set[int]):
             )
     return sorted(runs, key=lambda item: item["start"])
 
+
 def preferred_double_pair_count(project: Project, slots: list[int] | set[int]):
     """Đếm các cụm đúng 2 tiết cho chế độ ưu tiên tiết đôi.
 
@@ -531,6 +564,7 @@ def preferred_double_pair_count(project: Project, slots: list[int] | set[int]):
     giữ cách chấm điểm của solver đồng nhất với cách giao diện đánh dấu tiết đôi.
     """
     return sum(1 for run in assignment_run_groups(project, slots) if run["size"] == 2)
+
 
 def _pack_pattern_groups_into_segments(
     group_sizes: list[int], segments: list[tuple[int, int]]
@@ -577,6 +611,7 @@ def _pack_pattern_groups_into_segments(
             placements.append((size, cursor))
             cursor += size
     return placements
+
 
 def _complete_pattern_placement(
     project: Project,
@@ -704,12 +739,17 @@ def _complete_pattern_placement(
 
     return search(frozenset(current - forced_covered))
 
+
 def timetable_pattern_feasible(project: Project, groups: list[int]):
     return _complete_pattern_placement(project, groups, set()) is not None
 
+
 def pattern_completion_plan(
-    project: Project, assignment: Assignment, slots: list[int] | set[int],
-    *, fixed_groups: list[tuple[int, int]] | None = None,
+    project: Project,
+    assignment: Assignment,
+    slots: list[int] | set[int],
+    *,
+    fixed_groups: list[tuple[int, int]] | None = None,
 ):
     """Lập kế hoạch hoàn thành mẫu tiết từ phần lịch hiện có.
 
@@ -738,8 +778,11 @@ def pattern_completion_plan(
     # as a pair and the solver incorrectly declares a feasible project invalid.
     fixed = [(size, start) for start, size in (fixed_groups or [])]
     if fixed_group_validation_error(
-        expected, fixed_groups or [], days=project.days,
-        sessions=project.sessions, periods_per_session=project.periods_per_session,
+        expected,
+        fixed_groups or [],
+        days=project.days,
+        sessions=project.sessions,
+        periods_per_session=project.periods_per_session,
     ):
         return None
     placements = _complete_pattern_placement(project, expected, current, fixed)
@@ -753,18 +796,22 @@ def pattern_completion_plan(
                 {
                     "size": target_size,
                     "anchor_slots": tuple(),
-                    "candidate_starts": (start,) if (target_size, start) in fixed else None,
+                    "candidate_starts": (start,)
+                    if (target_size, start) in fixed
+                    else None,
                 }
             )
             continue
         if len(covered) == target_size:
             continue
         if (target_size, start) in fixed:
-            plan.append({
-                "size": target_size,
-                "anchor_slots": tuple(sorted(covered)),
-                "candidate_starts": (start,),
-            })
+            plan.append(
+                {
+                    "size": target_size,
+                    "anchor_slots": tuple(sorted(covered)),
+                    "candidate_starts": (start,),
+                }
+            )
             continue
         alternative_starts = []
         for day in range(project.days):
@@ -794,6 +841,7 @@ def pattern_completion_plan(
             }
         )
     return plan
+
 
 def remaining_pattern_groups(
     project: Project, assignment: Assignment, slots: list[int] | set[int]

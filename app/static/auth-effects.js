@@ -612,8 +612,13 @@
   function loop(currentTime) {
     animationFrameId = requestAnimationFrame(loop);
 
-    // Skip drawing if tab hidden
-    if (document.hidden) return;
+    // Skip drawing if tab hidden or effects disabled
+    if (document.hidden || document.documentElement.classList.contains('disable-effects')) {
+      if (document.documentElement.classList.contains('disable-effects') && ctx && width && height) {
+        ctx.clearRect(0, 0, width, height);
+      }
+      return;
+    }
 
     const delta = Math.min(currentTime - lastTime, 64);
     lastTime = currentTime;

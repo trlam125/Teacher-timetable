@@ -16,6 +16,7 @@ ENTITY_MODELS = {
     "assignment": Assignment,
 }
 
+
 @router.post("/api/projects/{pid}/entity")
 def add_entity(
     pid: int,
@@ -190,6 +191,7 @@ def add_entity(
         )
     db.commit()
     return {"ok": True, "id": obj.id}
+
 
 @router.post("/api/projects/{pid}/assignments/bulk")
 def add_assignments_bulk(
@@ -452,6 +454,7 @@ def add_assignments_bulk(
     else:
         message = f"Không tạo mới: {skipped} phân công đã tồn tại."
     return {"ok": True, "created": created, "skipped": skipped, "message": message}
+
 
 @router.put("/api/projects/{pid}/entity/{typ}/{eid}")
 def update_entity(
@@ -765,7 +768,10 @@ def update_entity(
                     )
 
                 synced_assignments += sync_assignments_to_grade_requirements(
-                    db, project, obj.id, proposed_configs,
+                    db,
+                    project,
+                    obj.id,
+                    proposed_configs,
                     displaced_lesson_ids=displaced_lesson_ids,
                 )
                 for item in extra_assignments:
@@ -861,7 +867,8 @@ def update_entity(
         obj.name = name
         obj.grade_id = grade_id
     confirmation = schedule_displacement_confirmation(
-        db, displaced_lesson_ids,
+        db,
+        displaced_lesson_ids,
         confirmed=d.get("confirm_displacement") is True,
         confirmed_ids=d.get("confirmed_displaced_lesson_ids"),
     )
@@ -876,6 +883,7 @@ def update_entity(
         "missing_grade_assignments": missing_grade_assignments,
         "missing_grade_assignments_count": len(missing_grade_assignments),
     }
+
 
 @router.put("/api/projects/{pid}/assignments/{assignment_id}")
 def update_assignment(
@@ -977,9 +985,12 @@ def update_assignment(
             409,
         )
 
-    displaced_lesson_ids = sorted(original_lesson_ids - {lesson.id for lesson in lessons})
+    displaced_lesson_ids = sorted(
+        original_lesson_ids - {lesson.id for lesson in lessons}
+    )
     confirmation = schedule_displacement_confirmation(
-        db, displaced_lesson_ids,
+        db,
+        displaced_lesson_ids,
         confirmed=payload.confirm_displacement,
         confirmed_ids=payload.confirmed_displaced_lesson_ids,
     )
@@ -992,6 +1003,7 @@ def update_assignment(
         "scheduled_preserved": scheduled_preserved,
         "displaced_lessons": len(displaced_lesson_ids),
     }
+
 
 @router.delete("/api/projects/{pid}/entity/{typ}/{eid}")
 def delete_entity(
@@ -1022,6 +1034,7 @@ def delete_entity(
     db.delete(obj)
     db.commit()
     return {"ok": True}
+
 
 @router.delete("/api/projects/{pid}/entities/bulk")
 def delete_entities_bulk(
@@ -1111,4 +1124,3 @@ def delete_entities_bulk(
         "skipped": skipped,
         "message": message,
     }
-

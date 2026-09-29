@@ -4,6 +4,7 @@ from app.services.foundation import *
 from app.services.auth import *
 from app.services.projects import *
 
+
 def migrate_schema():
     """Nâng cấp schema PostgreSQL và loại bỏ cấu trúc liên kết tài khoản giáo viên cũ."""
     with engine.begin() as connection:
@@ -390,15 +391,19 @@ def migrate_schema():
                     "WHERE a.id=l.assignment_id AND a.block_mode<>'required_double'"
                 )
 
-                legacy_rows = connection.exec_driver_sql(
-                    "SELECT a.id AS assignment_id, p.sessions, p.periods_per_session, "
-                    "l.id AS lesson_id, l.slot "
-                    "FROM assignments a "
-                    "JOIN projects p ON p.id=a.project_id "
-                    "JOIN lessons l ON l.assignment_id=a.id "
-                    "WHERE a.block_mode='required_double' AND l.block_id IS NULL "
-                    "ORDER BY a.id, l.slot, l.id"
-                ).mappings().all()
+                legacy_rows = (
+                    connection.exec_driver_sql(
+                        "SELECT a.id AS assignment_id, p.sessions, p.periods_per_session, "
+                        "l.id AS lesson_id, l.slot "
+                        "FROM assignments a "
+                        "JOIN projects p ON p.id=a.project_id "
+                        "JOIN lessons l ON l.assignment_id=a.id "
+                        "WHERE a.block_mode='required_double' AND l.block_id IS NULL "
+                        "ORDER BY a.id, l.slot, l.id"
+                    )
+                    .mappings()
+                    .all()
+                )
                 grouped = {}
                 for row in legacy_rows:
                     grouped.setdefault(int(row["assignment_id"]), []).append(row)
@@ -413,9 +418,8 @@ def migrate_schema():
                     for row in rows:
                         slot = int(row["slot"])
                         key = (slot // ppd, (slot % ppd) // pps)
-                        if (
-                            current
-                            and (key != previous_key or slot != previous_slot + 1)
+                        if current and (
+                            key != previous_key or slot != previous_slot + 1
                         ):
                             runs.append(current)
                             current = []
@@ -432,7 +436,7 @@ def migrate_schema():
                             size = 2 if index + 1 < len(run) else 1
                             block_id = f"migrated-rd-{assignment_id}-{ordinal}"
                             ordinal += 1
-                            for row in run[index:index + size]:
+                            for row in run[index : index + size]:
                                 connection.exec_driver_sql(
                                     "UPDATE lessons SET block_id=%s, block_size=%s WHERE id=%s AND block_id IS NULL",
                                     (block_id, size, int(row["lesson_id"])),
@@ -506,7 +510,10 @@ def migrate_schema():
                     "Hãy sửa dữ liệu trước khi khởi động ứng dụng."
                 )
 
-        if "fixed_lessons" in inspector.get_table_names() and "assignments" in inspector.get_table_names():
+        if (
+            "fixed_lessons" in inspector.get_table_names()
+            and "assignments" in inspector.get_table_names()
+        ):
             connection.exec_driver_sql(
                 """
                 CREATE OR REPLACE FUNCTION enforce_fixed_lesson_project_integrity()
@@ -779,6 +786,7 @@ def migrate_schema():
                     (migration_key, datetime.now(timezone.utc).isoformat()),
                 )
 
+
 def acquire_database_bootstrap_lock(lock_connection):
     deadline = time.monotonic() + DATABASE_BOOTSTRAP_LOCK_TIMEOUT_SECONDS
     while True:
@@ -797,6 +805,7 @@ def acquire_database_bootstrap_lock(lock_connection):
             )
         time.sleep(min(0.25, remaining))
 
+
 def run_database_bootstrap_step(callback):
     """Tuần tự hóa các bước DDL/bootstrap giữa nhiều process cùng dùng một PostgreSQL."""
     with engine.connect() as lock_connection:
@@ -812,6 +821,7 @@ def run_database_bootstrap_step(callback):
             except Exception:
                 pass
 
+
 def initialize_schema():
     with engine.begin() as schema_connection:
         schema_connection.exec_driver_sql(
@@ -822,6 +832,7 @@ def initialize_schema():
         )
         Base.metadata.create_all(schema_connection)
     migrate_schema()
+
 
 def seed_project(db: Session, p: Project):
     d1 = Department(project_id=p.id, name="Tổ Toán - Tin")
@@ -897,6 +908,7 @@ def seed_project(db: Session, p: Project):
             ]
         )
     db.commit()
+
 
 def ensure_demo():
     db = SessionLocal()
@@ -1003,9 +1015,10 @@ def ensure_demo():
     finally:
         db.close()
 
+
 def initialize_database():
     initialize_schema()
     ensure_demo()
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

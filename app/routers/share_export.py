@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/share/{token}", response_class=HTMLResponse)
 def shared(token: str, request: Request, db: Session = Depends(db_session)):
     p = db.scalar(select(Project).where(Project.share_token == token))
@@ -14,8 +15,13 @@ def shared(token: str, request: Request, db: Session = Depends(db_session)):
     return templates.TemplateResponse(
         "share.html",
         {
-            "request": request, "p": p, "data": public_project_data(db, p), "days": DAYS,
-            "integrity_warning": integrity["message"] if not integrity["valid"] else None,
+            "request": request,
+            "p": p,
+            "data": public_project_data(db, p),
+            "days": DAYS,
+            "integrity_warning": integrity["message"]
+            if not integrity["valid"]
+            else None,
         },
         headers={"Cache-Control": "no-store"},
     )
@@ -33,12 +39,14 @@ def schedule_integrity(
         headers={"Cache-Control": "no-store"},
     )
 
+
 @router.get("/projects/{pid}/export.csv", include_in_schema=False)
 def export_csv_legacy(
     pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
 ):
     get_project(pid, user, db)
     return RedirectResponse(f"/projects/{pid}/export.xlsx", 303)
+
 
 @router.get("/projects/{pid}/export.xlsx")
 def export_excel(

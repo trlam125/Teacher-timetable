@@ -357,10 +357,34 @@ h3,
   box-shadow: 0 6px 18px rgba(15, 39, 71, 0.08);
 }
 
+.btn.ghost::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+      transparent 24%,
+      rgba(37, 99, 235, 0.12) 42%,
+      rgba(255, 255, 255, 0.72) 50%,
+      rgba(37, 99, 235, 0.12) 58%,
+      transparent 76%);
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+
 .btn.ghost:hover {
   color: var(--fx-blue);
   border-color: rgba(37, 99, 235, 0.3);
   background: #fff;
+}
+
+.btn.ghost:hover::after {
+  transform: translateX(120%);
+}
+
+.btn.ghost .button-ripple {
+  background: rgba(37, 99, 235, 0.22);
 }
 
 .btn.ghost.project-delete-btn {
@@ -782,10 +806,25 @@ dialog::backdrop {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
 
+:root.dark-mode .btn.ghost::after,
+body.dark-mode .btn.ghost::after {
+  background: linear-gradient(105deg,
+      transparent 24%,
+      rgba(56, 189, 248, 0.18) 42%,
+      rgba(255, 255, 255, 0.45) 50%,
+      rgba(56, 189, 248, 0.18) 58%,
+      transparent 76%);
+}
+
 :root.dark-mode .btn.ghost:hover {
   background: rgba(30, 41, 59, 0.95);
   color: #60a5fa;
   border-color: rgba(96, 165, 250, 0.3);
+}
+
+:root.dark-mode .btn.ghost .button-ripple,
+body.dark-mode .btn.ghost .button-ripple {
+  background: rgba(147, 197, 253, 0.32);
 }
 
 :root.dark-mode .btn.ghost.project-delete-btn {
@@ -2208,5 +2247,220 @@ dialog[data-app-zoom].app-zoom-closing::backdrop {
     left: 12px;
     width: auto;
     max-width: none;
+  }
+}
+
+/* ==========================================================================
+   CHẾ ĐỘ TẮT TOÀN BỘ HIỆU ỨNG (DISABLE ALL EFFECTS SYSTEM)
+   ========================================================================== */
+html.disable-effects *,
+html.disable-effects *::before,
+html.disable-effects *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+html.disable-effects .brand-motion-logo .logo-outline,
+.disable-effects .brand-motion-logo .logo-outline {
+  display: none !important;
+}
+
+html.disable-effects .brand-motion-logo .logo-base,
+.disable-effects .brand-motion-logo .logo-base {
+  opacity: 1 !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-logo .draw-stroke,
+.disable-effects .brand-motion-logo .draw-stroke {
+  opacity: 1 !important;
+  stroke-dashoffset: 0 !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-logo .badge,
+.disable-effects .brand-motion-logo .badge {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-logo .badge-halo,
+html.disable-effects .brand-motion-logo .shine,
+.disable-effects .brand-motion-logo .badge-halo,
+.disable-effects .brand-motion-logo .shine {
+  display: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-sweep .brand-char,
+.disable-effects .brand-motion-sweep .brand-char {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-sweep-text::after,
+.disable-effects .brand-sweep-text::after {
+  display: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-flare-beam,
+html.disable-effects .brand-settle-glow,
+.disable-effects .brand-flare-beam,
+.disable-effects .brand-settle-glow {
+  display: none !important;
+}
+
+html.disable-effects .auth-mesh-spotlight,
+html.disable-effects .auth-ambient-orb,
+html.disable-effects .glowing-circle,
+html.disable-effects canvas#authCanvas {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* ==========================================================================
+   NÚT BẬT / TẮT TOÀN BỘ HIỆU ỨNG (EFFECTS TOGGLE BUTTON - GIỐNG NÚT CHIA SẺ)
+   ========================================================================== */
+
+/* 1. Nút trên thanh Appbar */
+.appbar-effects-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
+  margin-right: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  border-radius: 9px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.appbar-effects-btn .appbar-effects-icon {
+  font-size: 13.5px;
+  display: inline-block;
+  line-height: 1;
+  transition: transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.appbar-effects-btn:hover .appbar-effects-icon {
+  transform: rotate(18deg) scale(1.2);
+}
+
+/* 2. Nút trong phần Page-Title Actions (Quản lý tài khoản) */
+.page-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.effects-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.effects-toggle-btn .effects-toggle-sparkle {
+  font-size: 14px;
+  display: inline-block;
+  line-height: 1;
+  transition: transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.effects-toggle-btn:hover .effects-toggle-sparkle {
+  transform: rotate(18deg) scale(1.22);
+}
+
+/* Micro-animation khi bấm chuyển đổi (giống cảm giác tương tác của nút chia sẻ) */
+@keyframes btn-toggle-pop {
+  0% {
+    transform: translateY(-3px) scale(0.95);
+  }
+
+  50% {
+    transform: translateY(-3px) scale(1.05);
+  }
+
+  100% {
+    transform: translateY(-3px) scale(1);
+  }
+}
+
+.btn-toggle-pop {
+  animation: btn-toggle-pop 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+/* Trạng thái KHI HIỆU ỨNG TẮT (disable-effects) */
+html.disable-effects .appbar-effects-btn,
+html.disable-effects .effects-toggle-btn {
+  color: #64748b;
+  border-color: rgba(203, 213, 225, 0.8);
+  background: rgba(241, 245, 249, 0.85);
+  box-shadow: none;
+}
+
+:root.dark-mode.disable-effects .appbar-effects-btn,
+body.dark-mode.disable-effects .appbar-effects-btn,
+:root.dark-mode.disable-effects .effects-toggle-btn,
+body.dark-mode.disable-effects .effects-toggle-btn {
+  color: #94a3b8;
+  border-color: rgba(71, 85, 105, 0.7);
+  background: rgba(30, 41, 59, 0.65);
+  box-shadow: none;
+}
+
+html.disable-effects .appbar-effects-btn:hover,
+html.disable-effects .effects-toggle-btn:hover {
+  color: var(--ink, #0f172a);
+  border-color: #94a3b8;
+  background: #ffffff;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+:root.dark-mode.disable-effects .appbar-effects-btn:hover,
+body.dark-mode.disable-effects .appbar-effects-btn:hover,
+:root.dark-mode.disable-effects .effects-toggle-btn:hover,
+body.dark-mode.disable-effects .effects-toggle-btn:hover {
+  color: #f1f5f9;
+  border-color: #64748b;
+  background: #1e293b;
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 640px) {
+  .page-title {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .page-title-actions {
+    width: 100%;
+  }
+
+  .effects-toggle-btn {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
   }
 }

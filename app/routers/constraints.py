@@ -35,6 +35,7 @@ def displacement_confirmation(removed_ids: set[int], payload):
         409,
     )
 
+
 @router.post("/api/projects/{pid}/constraints")
 def constraints(
     pid: int,
@@ -201,6 +202,7 @@ def constraints(
     db.commit()
     return {"ok": True, "removed": len(removed_ids)}
 
+
 @router.post("/api/projects/{pid}/session-locks")
 def save_session_locks(
     pid: int,
@@ -363,4 +365,3 @@ def save_session_locks(
             db.delete(lesson)
     db.commit()
     return {"ok": True, "sessions": session_keys, "removed": len(removed_ids)}
-

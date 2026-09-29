@@ -6,6 +6,7 @@ from app.services.auth import *
 from app.services.schedule_service import *
 from app.services.entities import *
 
+
 def ensure_school_for_name(db: Session, school_name: str) -> School:
     clean_name = bounded_text(school_name, "Tên trường", 200)
     school = db.scalar(select(School).where(School.name == clean_name))
@@ -15,6 +16,7 @@ def ensure_school_for_name(db: Session, school_name: str) -> School:
         db.flush()
     return school
 
+
 def get_project(pid: int, user: User, db: Session) -> Project:
     if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được thực hiện thao tác này")
@@ -22,6 +24,7 @@ def get_project(pid: int, user: User, db: Session) -> Project:
     if not p or not user_can_access_school(user, p.school_id, db):
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     return p
+
 
 def chatbot_ui_context(project: Project | None) -> dict:
     return {
@@ -31,6 +34,7 @@ def chatbot_ui_context(project: Project | None) -> dict:
         "chatbot_primary_model": os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip()
         or "gemini-3.7-flash",
     }
+
 
 def chatbot_project_for_user(
     user: User, db: Session, preferred_id: int | None = None
@@ -54,6 +58,7 @@ def chatbot_project_for_user(
         return db.scalar(query.order_by(Project.id.desc()).limit(1))
     return None
 
+
 def chatbot_project_data_for_user(
     pid: int, user: User, db: Session
 ) -> tuple[Project, dict]:
@@ -69,6 +74,7 @@ def chatbot_project_data_for_user(
         403, "Tài khoản không có quyền sử dụng chatbot cho bộ thời khóa biểu này"
     )
 
+
 def get_project_for_update(pid: int, user: User, db: Session) -> Project:
     """Khóa project đến hết transaction để tuần tự hóa mọi thay đổi lịch."""
     if not is_admin(user):
@@ -83,6 +89,7 @@ def get_project_for_update(pid: int, user: User, db: Session) -> Project:
     if not project:
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     return project
+
 
 def validate_clone_source(db: Session, pid: int) -> dict[str, list]:
     """Kiểm tra các tham chiếu nội bộ trước khi nhân bản project.
@@ -192,6 +199,7 @@ def validate_clone_source(db: Session, pid: int) -> dict[str, list]:
         )
     return rows
 
+
 def teacher_view_projects(user: User, db: Session) -> list[Project]:
     if user.role != "teacher":
         raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
@@ -203,6 +211,7 @@ def teacher_view_projects(user: User, db: Session) -> list[Project]:
         .where(Project.school_id.in_(school_ids))
         .order_by(Project.id.desc())
     ).all()
+
 
 def teacher_view_project(
     user: User, db: Session, project_id: Optional[int] = None
@@ -217,6 +226,7 @@ def teacher_view_project(
             return project
     raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
 
+
 def project_lessons_data(db: Session, project_id: int):
     project = db.get(Project, project_id)
     fixed_slots = fixed_coverage_slots(db, project) if project else {}
@@ -228,14 +238,14 @@ def project_lessons_data(db: Session, project_id: int):
             "block_id": row.block_id,
             "block_size": row.block_size,
             "locked": bool(
-                row.locked
-                or row.slot in fixed_slots.get(row.assignment_id, set())
+                row.locked or row.slot in fixed_slots.get(row.assignment_id, set())
             ),
         }
         for row in db.scalars(
             select(Lesson).where(Lesson.project_id == project_id)
         ).all()
     ]
+
 
 def project_data(db: Session, p: Project):
     deps = db.scalars(select(Department).where(Department.project_id == p.id)).all()
@@ -362,8 +372,7 @@ def project_data(db: Session, p: Project):
                 "block_id": x.block_id,
                 "block_size": x.block_size,
                 "locked": bool(
-                    x.locked
-                    or x.slot in fixed_slots.get(x.assignment_id, set())
+                    x.locked or x.slot in fixed_slots.get(x.assignment_id, set())
                 ),
             }
             for x in lessons
@@ -390,6 +399,7 @@ def project_data(db: Session, p: Project):
             ],
         },
     }
+
 
 def public_project_data(db: Session, p: Project):
     subjects = {
@@ -458,10 +468,16 @@ def public_project_data(db: Session, p: Project):
             for item in assignments
         ],
         "lessons": [
-            {"id": item.id, "assignment_id": item.assignment_id, "slot": item.slot, "block_id": item.block_id, "block_size": item.block_size}
+            {
+                "id": item.id,
+                "assignment_id": item.assignment_id,
+                "slot": item.slot,
+                "block_id": item.block_id,
+                "block_size": item.block_size,
+            }
             for item in lessons
         ],
     }
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

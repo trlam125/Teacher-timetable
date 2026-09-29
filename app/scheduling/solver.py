@@ -12,12 +12,23 @@ from sqlalchemy.orm import Session
 
 from app.logic import fixed_group_validation_error, pop_matching_fixed_task
 from app.models import (
-    Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher,
+    Assignment,
+    FixedLesson,
+    Lesson,
+    Project,
+    SchoolClass,
+    Subject,
+    Teacher,
 )
 from app.scheduling.rules import (
-    all_slots, assignment_groups, assignment_prefers_double,
-    assignment_requires_double, fixed_row_size, parse_slots,
-    pattern_completion_plan, preferred_double_pair_count,
+    all_slots,
+    assignment_groups,
+    assignment_prefers_double,
+    assignment_requires_double,
+    fixed_row_size,
+    parse_slots,
+    pattern_completion_plan,
+    preferred_double_pair_count,
     required_double_block_state,
 )
 
@@ -98,6 +109,7 @@ def ga_schedule(
 
     def deadline_hit(reserve: float = 0.0) -> bool:
         return time_left() <= reserve
+
     assignments = db.scalars(
         select(Assignment).where(Assignment.project_id == p.id)
     ).all()
@@ -271,7 +283,9 @@ def ga_schedule(
             existing_slots[assignment.id] if mode in {"missing", "rebuild"} else set()
         )
         plan = pattern_completion_plan(
-            p, assignment, current_slots,
+            p,
+            assignment,
+            current_slots,
             fixed_groups=fixed_rows_by_assignment[assignment.id],
         )
         if plan is None:
@@ -364,7 +378,9 @@ def ga_schedule(
         existing_teacher_slot[(assignment.teacher_id, lesson.slot)] += 1
         existing_class_slot[(assignment.class_id, lesson.slot)] += 1
         existing_teacher_day[(assignment.teacher_id, day)] += 1
-        existing_class_subject_day[(assignment.class_id, assignment.subject_id, day)] += 1
+        existing_class_subject_day[
+            (assignment.class_id, assignment.subject_id, day)
+        ] += 1
         existing_assignment_slots[assignment.id].add(lesson.slot)
         existing_class_subject_slots[(assignment.class_id, assignment.subject_id)].add(
             lesson.slot
@@ -379,8 +395,7 @@ def ga_schedule(
             pool = tuple(
                 slot
                 for slot in slots
-                if (slot % ppd) % p.periods_per_session + size
-                <= p.periods_per_session
+                if (slot % ppd) % p.periods_per_session + size <= p.periods_per_session
             )
             starts_by_size[size] = pool
         return pool
@@ -673,9 +688,13 @@ def ga_schedule(
                             1 if left in existing_assignment_slots[assignment.id] else 0
                         )
                         right_fixed = (
-                            1 if right in existing_assignment_slots[assignment.id] else 0
+                            1
+                            if right in existing_assignment_slots[assignment.id]
+                            else 0
                         )
-                        if not (left_fixed or left_vars) or not (right_fixed or right_vars):
+                        if not (left_fixed or left_vars) or not (
+                            right_fixed or right_vars
+                        ):
                             continue
 
                         previous = left - 1 if period > 0 else None
@@ -741,10 +760,12 @@ def ga_schedule(
                     possible = []
                     for period in range(p.periods_per_session):
                         slot = base + period
-                        possible.append(bool(
-                            existing_teacher_slot[(teacher_id, slot)]
-                            or slot_var_by_teacher[(teacher_id, slot)]
-                        ))
+                        possible.append(
+                            bool(
+                                existing_teacher_slot[(teacher_id, slot)]
+                                or slot_var_by_teacher[(teacher_id, slot)]
+                            )
+                        )
                     if sum(possible) < 2:
                         continue
 
@@ -774,9 +795,7 @@ def ga_schedule(
                         model.Add(gap <= before)
                         model.Add(gap <= after)
                         model.Add(gap + occupancy[period] <= 1)
-                        model.Add(
-                            gap >= before + after - occupancy[period] - 1
-                        )
+                        model.Add(gap >= before + after - occupancy[period] - 1)
                         objective_terms.append(2 * gap)
 
         total_budget = min(_solver_timeout_seconds(), time_left())
@@ -804,19 +823,31 @@ def ga_schedule(
                         1, task_rows[index][2] - len(task_rows[index][5])
                     )
                     continue
-                for start, new_slots, _group_slots, _day, _session, _period, var in rows:
+                for (
+                    start,
+                    new_slots,
+                    _group_slots,
+                    _day,
+                    _session,
+                    _period,
+                    var,
+                ) in rows:
                     if solver.Value(var):
                         chosen_starts[index] = start
                         for candidate in new_slots:
-                            lessons.append((assignment.id, candidate, forced is not None, f"task:{index}"))
+                            lessons.append(
+                                (
+                                    assignment.id,
+                                    candidate,
+                                    forced is not None,
+                                    f"task:{index}",
+                                )
+                            )
                             final_slots[assignment.id].add(candidate)
                         break
 
-            soft_score = (
-                unscheduled_count * 10000.0
-                + _schedule_soft_score(
-                    p, assignments, assignment_by_id, final_slots
-                )
+            soft_score = unscheduled_count * 10000.0 + _schedule_soft_score(
+                p, assignments, assignment_by_id, final_slots
             )
             return {
                 "lessons": lessons,
@@ -839,9 +870,7 @@ def ga_schedule(
         status = solver.Solve(model)
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             if status == cp_model.INFEASIBLE:
-                missing = sum(
-                    max(1, task[2] - len(task[5])) for task in task_rows
-                )
+                missing = sum(max(1, task[2] - len(task[5])) for task in task_rows)
                 return {
                     "lessons": [],
                     "unscheduled": missing,
@@ -931,9 +960,15 @@ def ga_schedule(
             )
 
         def feasible(index: int, row) -> bool:
-            assignment, _group_index, size, _explicit, _forced, anchor_slots, _planned = (
-                task_rows[index]
-            )
+            (
+                assignment,
+                _group_index,
+                size,
+                _explicit,
+                _forced,
+                anchor_slots,
+                _planned,
+            ) = task_rows[index]
             slot, _group_slots, new_slots, day, session, period = row
             missing_size = size - len(anchor_slots)
             if any(
@@ -971,8 +1006,7 @@ def ga_schedule(
             score = class_sub_day[
                 (assignment.class_id, assignment.subject_id, day)
             ] * 8 + sum(
-                (candidate % p.periods_per_session) * 0.15
-                for candidate in new_slots
+                (candidate % p.periods_per_session) * 0.15 for candidate in new_slots
             )
             neighbors = []
             if period > 0:
@@ -1007,7 +1041,9 @@ def ga_schedule(
                 class_sub_slots[(assignment.class_id, assignment.subject_id, day)].add(
                     candidate % ppd
                 )
-                placed.append((assignment.id, candidate, forced is not None, f"task:{index}"))
+                placed.append(
+                    (assignment.id, candidate, forced is not None, f"task:{index}")
+                )
             teacher_day[(assignment.teacher_id, day)] += len(new_slots)
             class_sub_day[(assignment.class_id, assignment.subject_id, day)] += len(
                 new_slots
@@ -1160,7 +1196,9 @@ def ga_schedule(
             ) = task_rows[index]
             missing_size = size - len(anchor_slots)
             options = []
-            for slot, group_slots, new_slots, day, session, period in task_candidates[index]:
+            for slot, group_slots, new_slots, day, session, period in task_candidates[
+                index
+            ]:
                 if any(
                     candidate in teacher_busy[assignment.teacher_id]
                     or candidate in class_busy[assignment.class_id]
@@ -1283,15 +1321,15 @@ def ga_schedule(
         lessons = []
         for index in range(len(task_rows)):
             assignment_id, new_slots, locked = placed_by_task[index]
-            lessons.extend((assignment_id, slot, locked, f"task:{index}") for slot in new_slots)
+            lessons.extend(
+                (assignment_id, slot, locked, f"task:{index}") for slot in new_slots
+            )
         final_slots = defaultdict(set)
         for lesson in existing:
             final_slots[lesson.assignment_id].add(lesson.slot)
         for assignment_id, slot, _locked, _block_token in lessons:
             final_slots[assignment_id].add(slot)
-        soft_score = _schedule_soft_score(
-            p, assignments, assignment_by_id, final_slots
-        )
+        soft_score = _schedule_soft_score(p, assignments, assignment_by_id, final_slots)
         return (
             {
                 "lessons": lessons,
@@ -1316,7 +1354,9 @@ def ga_schedule(
 
     seed_candidate = evaluate([None] * len(task_rows))
     best_candidate = seed_candidate
-    if cp_result is not None and candidate_key(cp_result) < candidate_key(best_candidate):
+    if cp_result is not None and candidate_key(cp_result) < candidate_key(
+        best_candidate
+    ):
         best_candidate = cp_result
 
     population = [genes_from_candidate(seed_candidate)]
@@ -1374,8 +1414,7 @@ def ga_schedule(
             attempts += 1
             if random.random() < immigrant_rate:
                 child = [
-                    random_gene(index, task)
-                    for index, task in enumerate(task_rows)
+                    random_gene(index, task) for index, task in enumerate(task_rows)
                 ]
             else:
                 parent1 = tournament_pick(evaluated)
@@ -1417,9 +1456,7 @@ def ga_schedule(
         # request-wide deadline instead of exploring hundreds of thousands of
         # nodes after the solver budget has already expired.
         exact_allowed = (
-            len(task_rows) <= 24
-            and missing_periods <= 36
-            and not deadline_hit(0.25)
+            len(task_rows) <= 24 and missing_periods <= 36 and not deadline_hit(0.25)
         )
         if exact_allowed:
             node_limit = min(100000, max(20000, tries * 400))
@@ -1433,6 +1470,7 @@ def ga_schedule(
             best_candidate["proven_infeasible"] = False
             best_candidate["search_limited"] = True
     return best_candidate
+
 
 def solve_missing(
     db: Session,
@@ -1451,11 +1489,11 @@ def solve_missing(
         deadline=deadline,
     )
 
-def solve_rebuild(
-    db: Session, p: Project, tries=220, deadline: float | None = None
-):
+
+def solve_rebuild(db: Session, p: Project, tries=220, deadline: float | None = None):
     """Giữ tiết cố định, xếp lại toàn bộ phần còn lại."""
     return ga_schedule(db, p, mode="rebuild", tries=tries, deadline=deadline)
+
 
 def solve(db: Session, p: Project, tries=80, deadline: float | None = None):
     return ga_schedule(db, p, mode="full", tries=tries, deadline=deadline)

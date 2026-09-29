@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/teacher", response_class=HTMLResponse)
 def teacher_portal(
     request: Request,
@@ -44,6 +45,7 @@ def teacher_portal(
         },
     )
 
+
 @router.get("/api/teacher/data")
 def api_teacher_data(
     project_id: Optional[int] = None,
@@ -54,6 +56,7 @@ def api_teacher_data(
     if not project:
         raise HTTPException(404, "Chưa có bộ thời khóa biểu nào")
     return public_project_data(db, project)
+
 
 @router.get("/teacher/account", response_class=HTMLResponse)
 def teacher_account_page(
@@ -80,6 +83,7 @@ def teacher_account_page(
             **chatbot_ui_context(project),
         },
     )
+
 
 @router.post("/teacher/account/password", response_class=HTMLResponse)
 def update_teacher_password(
@@ -135,6 +139,7 @@ def update_teacher_password(
     response = templates.TemplateResponse("teacher_account.html", context)
     set_session_cookie(response, user)
     return response
+
 
 @router.post("/teacher/preferences")
 def submit_teacher_preference(
@@ -202,12 +207,14 @@ def submit_teacher_preference(
         f"/teacher?project_id={project.id}&preference_saved=1#teacher-preferences", 303
     )
 
+
 @router.get("/api/projects/{pid}/preferences")
 def list_teacher_preferences(
     pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
 ):
     p = get_project(pid, user, db)
     return {"items": preference_payload(db, p)}
+
 
 @router.delete("/api/projects/{pid}/preferences/{preference_id}")
 def delete_teacher_preference(
@@ -231,6 +238,7 @@ def delete_teacher_preference(
     db.commit()
     return {"ok": True, "message": "Đã xóa nguyện vọng."}
 
+
 @router.delete("/api/projects/{pid}/preferences")
 def delete_all_teacher_preferences(
     pid: int,
@@ -250,8 +258,11 @@ def delete_all_teacher_preferences(
     return {
         "ok": True,
         "deleted": deleted,
-        "message": f"Đã xóa {deleted} nguyện vọng." if deleted else "Không có nguyện vọng để xóa.",
+        "message": f"Đã xóa {deleted} nguyện vọng."
+        if deleted
+        else "Không có nguyện vọng để xóa.",
     }
+
 
 @router.post("/api/projects/{pid}/preferences/{preference_id}/review")
 def review_teacher_preference(
@@ -290,4 +301,3 @@ def review_teacher_preference(
             else "Đã từ chối nguyện vọng; thời khóa biểu không bị thay đổi."
         ),
     }
-

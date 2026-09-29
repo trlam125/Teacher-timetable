@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.services.foundation import *
 from app.services.schedule_validation import *
 
+
 def assignment_feasibility_context(
     db: Session,
     project: Project,
@@ -17,12 +18,13 @@ def assignment_feasibility_context(
     if not teacher or not school_class or not subject:
         return None
 
-    assignments = {row.id: row for row in db.scalars(
-        select(Assignment).where(Assignment.project_id == project.id)
-    ).all()}
-    lessons = db.scalars(
-        select(Lesson).where(Lesson.project_id == project.id)
-    ).all()
+    assignments = {
+        row.id: row
+        for row in db.scalars(
+            select(Assignment).where(Assignment.project_id == project.id)
+        ).all()
+    }
+    lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
     forbidden = (
         parse_slots(project.blocked_slots_json)
         | parse_slots(teacher.unavailable_json)
@@ -44,10 +46,12 @@ def assignment_feasibility_context(
             if other.subject_id == assignment.subject_id:
                 subject_masks[lesson.slot // pps] |= 1 << (lesson.slot % pps)
 
-    fixed_rows = db.scalars(select(FixedLesson).where(
-        FixedLesson.project_id == project.id,
-        FixedLesson.assignment_id == assignment.id,
-    )).all()
+    fixed_rows = db.scalars(
+        select(FixedLesson).where(
+            FixedLesson.project_id == project.id,
+            FixedLesson.assignment_id == assignment.id,
+        )
+    ).all()
     same_lessons = [row for row in lessons if row.assignment_id == assignment.id]
     specs = [
         (row.slot, fixed_row_size(project, assignment, row, same_lessons))
@@ -156,7 +160,11 @@ def assignment_completion_feasible(
                                     cursor += size
                                 else:
                                     start = cursor
-                                    while cursor < pps and mask & (1 << cursor) and cursor not in forced:
+                                    while (
+                                        cursor < pps
+                                        and mask & (1 << cursor)
+                                        and cursor not in forced
+                                    ):
                                         cursor += 1
                                     singles += (cursor - start) % 2
                         if singles <= single_limit:
@@ -164,14 +172,20 @@ def assignment_completion_feasible(
                 if mask == 0:
                     break
                 mask = (mask - 1) & allowed
-            day_options = {(used + added, odd + extra)
-                           for used, odd in day_options for added, extra in options
-                           if used + added <= budget and odd + extra <= single_limit}
+            day_options = {
+                (used + added, odd + extra)
+                for used, odd in day_options
+                for added, extra in options
+                if used + added <= budget and odd + extra <= single_limit
+            }
             if not day_options:
                 return False
-        reachable = {(used + added, odd + extra)
-                     for used, odd in reachable for added, extra in day_options
-                     if used + added <= total and odd + extra <= single_limit}
+        reachable = {
+            (used + added, odd + extra)
+            for used, odd in reachable
+            for added, extra in day_options
+            if used + added <= total and odd + extra <= single_limit
+        }
         if not reachable:
             return False
     return (total, single_limit) in reachable
@@ -187,6 +201,7 @@ def assignment_pattern_label(assignment: Assignment):
     if assignment_prefers_double(assignment):
         return "ưu tiên tiết đôi"
     return "xếp tiết tự do"
+
 
 def new_schedule_block_id() -> str:
     """Return a compact opaque identity shared by every Lesson in one block."""
@@ -244,17 +259,36 @@ def reconcile_assignment_lesson_blocks(
             return rows, "Có block cũ có metadata kích thước không thống nhất."
         declared_size = declared.pop()
         if old_mode == "required_double" and declared_size != len(members):
-            return rows, "Có block bắt buộc tiết đôi bị thiếu tiết; hãy tạo lại lịch trước khi đổi chế độ."
+            return (
+                rows,
+                "Có block bắt buộc tiết đôi bị thiếu tiết; hãy tạo lại lịch trước khi đổi chế độ.",
+            )
         if len(members) > 2:
-            return rows, "Có block cũ lớn hơn 2 tiết; hãy tạo lại lịch trước khi đổi chế độ."
+            return (
+                rows,
+                "Có block cũ lớn hơn 2 tiết; hãy tạo lại lịch trước khi đổi chế độ.",
+            )
         if len(members) == 2:
             left, right = members
-            if slot_meta(project, left.slot)[:2] != slot_meta(project, right.slot)[:2] or right.slot != left.slot + 1:
+            if (
+                slot_meta(project, left.slot)[:2] != slot_meta(project, right.slot)[:2]
+                or right.slot != left.slot + 1
+            ):
                 return rows, "Có block đôi cũ không liên tiếp trong cùng buổi."
         locked_count = sum(1 for row in members if row.locked)
         if locked_count not in {0, len(members)}:
-            return rows, "Có block chỉ cố định một phần; hãy bỏ cố định trước khi đổi cấu trúc."
-        groups.append({"id": block_id, "members": members, "size": len(members), "locked": bool(locked_count)})
+            return (
+                rows,
+                "Có block chỉ cố định một phần; hãy bỏ cố định trước khi đổi cấu trúc.",
+            )
+        groups.append(
+            {
+                "id": block_id,
+                "members": members,
+                "size": len(members),
+                "locked": bool(locked_count),
+            }
+        )
 
     # Stable left-to-right reconciliation keeps mode/period edits deterministic
     # even when PostgreSQL returns Lesson rows in a different physical order.
@@ -272,7 +306,10 @@ def reconcile_assignment_lesson_blocks(
             continue
         size = group["size"]
         if used[size] >= desired[size]:
-            return rows, "Thay đổi mới không còn chỗ cho một block đang cố định. Hãy bỏ cố định block đó trước."
+            return (
+                rows,
+                "Thay đổi mới không còn chỗ cho một block đang cố định. Hãy bỏ cố định block đó trước.",
+            )
         used[size] += 1
         kept.append(group)
 
@@ -328,7 +365,9 @@ def reconcile_assignment_lesson_blocks(
         if not member.block_id:
             member.block_id = new_schedule_block_id()
         member.block_size = 1
-        kept.append({"id": member.block_id, "members": [member], "size": 1, "locked": False})
+        kept.append(
+            {"id": member.block_id, "members": [member], "size": 1, "locked": False}
+        )
         used[1] += 1
 
     # If a single is still required but all remaining material is a pair,
@@ -340,12 +379,16 @@ def reconcile_assignment_lesson_blocks(
         db.delete(drop)
         keep.block_id = new_schedule_block_id()
         keep.block_size = 1
-        kept.append({"id": keep.block_id, "members": [keep], "size": 1, "locked": False})
+        kept.append(
+            {"id": keep.block_id, "members": [keep], "size": 1, "locked": False}
+        )
         used[1] += 1
 
     # Any blocks that cannot belong to the new structure are returned to tray.
     kept_ids = {id(row) for group in kept for row in group["members"]}
-    kept_size_by_row = {id(row): group["size"] for group in kept for row in group["members"]}
+    kept_size_by_row = {
+        id(row): group["size"] for group in kept for row in group["members"]
+    }
     remaining = []
     for row in rows:
         if id(row) in kept_ids:
@@ -382,9 +425,7 @@ def normalize_assignment_fixed_rows(
             if locked_count:
                 replacement_rows.append((group["start"], group["size"]))
     else:
-        replacement_rows = [
-            (lesson.slot, 1) for lesson in lessons if lesson.locked
-        ]
+        replacement_rows = [(lesson.slot, 1) for lesson in lessons if lesson.locked]
 
     fixed_rows = db.scalars(
         select(FixedLesson).where(
@@ -405,6 +446,7 @@ def normalize_assignment_fixed_rows(
             )
         )
     return None
+
 
 def fixed_coverage_slots(db: Session, project: Project):
     """Trả về các ô phải khóa theo mọi FixedLesson của project."""
@@ -443,6 +485,7 @@ def fixed_coverage_slots(db: Session, project: Project):
         coverage[assignment.id].update(range(row.slot, row.slot + size))
     return coverage
 
+
 def add_generated_lessons(
     db: Session,
     project: Project,
@@ -480,6 +523,7 @@ def add_generated_lessons(
                 locked=bool(locked or slot in fixed_slots[assignment_id]),
             )
         )
+
 
 def _minimal_schedule_invalid_lesson_analysis(
     db: Session,
@@ -644,6 +688,7 @@ def minimal_schedule_invalid_lessons(
         )
     ]
 
+
 def schedule_ui_validation_report(
     db: Session,
     project: Project,
@@ -657,9 +702,7 @@ def schedule_ui_validation_report(
     assignments = db.scalars(
         select(Assignment).where(Assignment.project_id == project.id)
     ).all()
-    lessons = db.scalars(
-        select(Lesson).where(Lesson.project_id == project.id)
-    ).all()
+    lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
     fixed_rows = db.scalars(
         select(FixedLesson).where(FixedLesson.project_id == project.id)
     ).all()
@@ -696,9 +739,8 @@ def schedule_ui_validation_report(
                 "vượt số tiết/tuần đã cấu hình."
             )
         else:
-            message = (
-                "Cấu trúc block bắt buộc tiết đôi hiện không hợp lệ. "
-                + (block_state.get("reason") or "Hãy tạo lại hoặc xếp lại block.")
+            message = "Cấu trúc block bắt buộc tiết đôi hiện không hợp lệ. " + (
+                block_state.get("reason") or "Hãy tạo lại hoặc xếp lại block."
             )
         required_double_conflicts.append(
             {
@@ -716,6 +758,7 @@ def schedule_ui_validation_report(
         ],
         "required_double_conflicts": required_double_conflicts,
     }
+
 
 def schedule_integrity_report(
     db: Session,
@@ -736,9 +779,7 @@ def schedule_integrity_report(
     input_report = schedule_input_validation_report(
         db, project, assignments=assignments, classes=classes
     )
-    lessons = db.scalars(
-        select(Lesson).where(Lesson.project_id == project.id)
-    ).all()
+    lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
 
     invalid_lessons = minimal_schedule_invalid_lessons(
         db, project, assignments, lessons
@@ -855,6 +896,7 @@ def schedule_integrity_report(
         "fixed_errors": fixed_errors,
     }
 
+
 def lesson_slot_error(
     db: Session,
     project: Project,
@@ -927,4 +969,4 @@ def lesson_slot_error(
     return None
 
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+__all__ = [name for name in globals() if not name.startswith("__")]

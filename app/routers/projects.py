@@ -5,6 +5,7 @@ from app.services.runtime import *
 
 router = APIRouter()
 
+
 @router.get("/projects", response_class=HTMLResponse)
 def projects(
     request: Request,
@@ -36,6 +37,7 @@ def projects(
         },
     )
 
+
 @router.post("/projects")
 def create_project(
     name: str = Form(""),
@@ -52,9 +54,7 @@ def create_project(
     try:
         clean_name = bounded_text(name, "Tên bộ thời khóa biểu", 200)
     except HTTPException as exc:
-        return redirect_with_notice(
-            "/projects", str(exc.detail), open_create=1
-        )
+        return redirect_with_notice("/projects", str(exc.detail), open_create=1)
 
     if school_id not in (None, ""):
         try:
@@ -88,9 +88,7 @@ def create_project(
         validated_sessions = bounded_int(sessions, 2, 1, 2, "Số buổi mỗi ngày")
         validated_periods = bounded_int(periods, 5, 1, 8, "Số tiết mỗi buổi")
     except HTTPException as exc:
-        return redirect_with_notice(
-            "/projects", str(exc.detail), open_create=1
-        )
+        return redirect_with_notice("/projects", str(exc.detail), open_create=1)
     p = Project(
         owner_id=user.id,
         school_id=school.id,
@@ -103,6 +101,7 @@ def create_project(
     db.add(p)
     db.commit()
     return RedirectResponse(f"/projects/{p.id}", 303)
+
 
 @router.post("/projects/{pid}/rename")
 def rename_project(
@@ -140,6 +139,7 @@ def rename_project(
         "Đã đổi tên bộ thời khóa biểu",
         kind="success",
     )
+
 
 @router.post("/projects/{pid}/clone")
 def clone_project(
@@ -284,6 +284,7 @@ def clone_project(
     db.commit()
     return RedirectResponse(f"/projects/{p.id}", 303)
 
+
 @router.post("/projects/{pid}/delete")
 def delete_project(
     pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
@@ -314,6 +315,7 @@ def delete_project(
     db.commit()
     return RedirectResponse("/projects", 303)
 
+
 @router.get("/projects/{pid}", response_class=HTMLResponse)
 def project_page(
     pid: int,
@@ -336,4 +338,3 @@ def project_page(
             **chatbot_ui_context(p),
         },
     )
-
