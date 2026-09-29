@@ -32,6 +32,8 @@
     <link rel="stylesheet" href="/static/preferences.css?v=1">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
+    <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
+    <script src="/static/auth-buttons.js?v=1" defer></script>
 </head>
 
 <body class="teacher-surface">
@@ -44,7 +46,7 @@
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
         <a class="btn ghost" href="/teacher{% if p %}?project_id={{ p.id }}{% endif %}">Quay lại thời khóa biểu</a>
-        <a class="btn ghost" href="/logout">Đăng xuất</a>
+        {% include "_logout_button.html" %}
     </header>
     <main class="container account-page">
         <div class="section-head">

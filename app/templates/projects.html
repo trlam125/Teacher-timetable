@@ -23,7 +23,9 @@
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-effects.css?v=1">
+    <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <script src="/static/auth-effects.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=1" defer></script>
 </head>
 
 <body class="front-surface">
@@ -33,7 +35,7 @@
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
         <span>Xin chào, {{ greeting_name }}</span><a href="/admin/users">Quản lý tài
-            khoản</a><a href="/logout">Đăng xuất</a>
+            khoản</a>{% include "_logout_button.html" %}
     </header>
     <main class="container">
         <div class="page-title">

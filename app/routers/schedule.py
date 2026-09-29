@@ -34,7 +34,9 @@ def fixed(
     run_slots = {row.slot for row in members if row is not None}
     for lesson in lessons:
         if lesson.slot in run_slots:
-            error = lesson_slot_error(db, p, assignment, lesson.slot, lesson.id)
+            error = lesson_slot_error(
+                db, p, assignment, lesson.slot, lesson.id, target_locked=True
+            )
             if error:
                 raise HTTPException(409, error)
     # One user action pins exactly the persisted scheduling block. Required

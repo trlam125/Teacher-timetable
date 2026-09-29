@@ -140,7 +140,7 @@
     </form>
 </section>
 <script>
-    window.CHATBOT_PROJECT_ID = {{ chatbot_project_id }};
+    window.CHATBOT_PROJECT_ID = {{ chatbot_project_id | tojson }};
     window.CHATBOT_ENABLED = {{ chatbot_enabled | tojson }};
     window.CHATBOT_PRIMARY_MODEL = {{ chatbot_primary_model | tojson }};
 </script>

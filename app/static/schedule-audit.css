@@ -1081,6 +1081,33 @@
   background: var(--card-bg);
 }
 
+/* Mirror the timetable's horizontal scroll at the bottom of the browser viewport. */
+.schedule-view-bottom-scrollbar {
+  position: fixed;
+  bottom: 0;
+  z-index: 90;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--card-bg);
+  box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.12);
+  overscroll-behavior-x: contain;
+}
+
+.schedule-view-bottom-scrollbar[hidden] {
+  display: none;
+}
+
+.schedule-view-bottom-scrollbar-inner {
+  height: 1px;
+  pointer-events: none;
+}
+
+:root.dark-mode .schedule-view-bottom-scrollbar {
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.34);
+}
+
 .schedule-view-table {
   border-collapse: separate;
   border-spacing: 0;

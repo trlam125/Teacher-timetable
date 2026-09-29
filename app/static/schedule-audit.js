@@ -36,6 +36,10 @@ let scheduleAuditAiModel = "";
 let scheduleAuditActiveView = "timetable";
 let scheduleAuditManualEdits = 0;
 let scheduleAuditBulkTeacherRename = false;
+let scheduleAuditBottomScroller = null;
+let scheduleAuditBottomScrollerInner = null;
+let scheduleAuditBottomScrollerSource = null;
+let scheduleAuditBottomScrollSyncing = false;
 const SCHEDULE_AUDIT_MAX_BYTES = 15 * 1024 * 1024;
 const SCHEDULE_AUDIT_ALLOWED_EXTENSIONS = [
   "xlsx",
@@ -48,6 +52,98 @@ const SCHEDULE_AUDIT_ALLOWED_EXTENSIONS = [
 
 function scheduleAuditAiIsEnabled() {
   return $("#scheduleAuditAiButton")?.dataset?.enabled === "1";
+}
+
+function handleScheduleAuditSourceScroll() {
+  if (
+    scheduleAuditBottomScrollSyncing ||
+    !scheduleAuditBottomScroller ||
+    !scheduleAuditBottomScrollerSource
+  )
+    return;
+  scheduleAuditBottomScrollSyncing = true;
+  scheduleAuditBottomScroller.scrollLeft =
+    scheduleAuditBottomScrollerSource.scrollLeft;
+  scheduleAuditBottomScrollSyncing = false;
+}
+
+function ensureScheduleAuditBottomScroller() {
+  if (scheduleAuditBottomScroller) return scheduleAuditBottomScroller;
+  const scroller = document.createElement("div");
+  scroller.className = "schedule-view-bottom-scrollbar";
+  scroller.hidden = true;
+  scroller.setAttribute("aria-label", "Thanh cuộn ngang thời khóa biểu");
+  const inner = document.createElement("div");
+  inner.className = "schedule-view-bottom-scrollbar-inner";
+  scroller.appendChild(inner);
+  scroller.addEventListener("scroll", () => {
+    if (
+      scheduleAuditBottomScrollSyncing ||
+      !scheduleAuditBottomScrollerSource
+    )
+      return;
+    scheduleAuditBottomScrollSyncing = true;
+    scheduleAuditBottomScrollerSource.scrollLeft = scroller.scrollLeft;
+    scheduleAuditBottomScrollSyncing = false;
+  });
+  document.body.appendChild(scroller);
+  scheduleAuditBottomScroller = scroller;
+  scheduleAuditBottomScrollerInner = inner;
+  return scroller;
+}
+
+function hideScheduleAuditBottomScroller() {
+  if (scheduleAuditBottomScroller) scheduleAuditBottomScroller.hidden = true;
+  if (scheduleAuditBottomScrollerSource) {
+    scheduleAuditBottomScrollerSource.removeEventListener(
+      "scroll",
+      handleScheduleAuditSourceScroll,
+    );
+  }
+  scheduleAuditBottomScrollerSource = null;
+}
+
+function syncScheduleAuditBottomScroller() {
+  const panel = $("#scheduleAuditView-timetable"),
+    wrap = panel?.querySelector(".schedule-view-table-wrap");
+  if (
+    scheduleAuditActiveView !== "timetable" ||
+    !panel ||
+    panel.hidden ||
+    !wrap ||
+    wrap.scrollWidth <= wrap.clientWidth + 1
+  ) {
+    hideScheduleAuditBottomScroller();
+    return;
+  }
+
+  const scroller = ensureScheduleAuditBottomScroller();
+  if (scheduleAuditBottomScrollerSource !== wrap) {
+    if (scheduleAuditBottomScrollerSource)
+      scheduleAuditBottomScrollerSource.removeEventListener(
+        "scroll",
+        handleScheduleAuditSourceScroll,
+      );
+    scheduleAuditBottomScrollerSource = wrap;
+    wrap.addEventListener("scroll", handleScheduleAuditSourceScroll, {
+      passive: true,
+    });
+  }
+
+  const rect = wrap.getBoundingClientRect(),
+    left = Math.max(0, rect.left),
+    right = Math.min(window.innerWidth, rect.right),
+    width = Math.max(0, right - left);
+  if (width < 80) {
+    hideScheduleAuditBottomScroller();
+    return;
+  }
+
+  scroller.style.left = `${left}px`;
+  scroller.style.width = `${width}px`;
+  scheduleAuditBottomScrollerInner.style.width = `${wrap.scrollWidth}px`;
+  scroller.hidden = false;
+  scroller.scrollLeft = wrap.scrollLeft;
 }
 function scheduleAuditFileValidationError(file) {
   if (!file) return "Hãy chọn file thời khóa biểu trước khi kiểm tra.";
@@ -121,6 +217,7 @@ function clearScheduleAuditFile(resetResult = true) {
   if (resetResult && box)
     box.innerHTML =
       '<div class="empty-state">Chọn một file thời khóa biểu để hiển thị và kiểm tra.</div>';
+  hideScheduleAuditBottomScroller();
 }
 function selectScheduleAuditFile(file, { autoRun = true } = {}) {
   const error = scheduleAuditFileValidationError(file);
@@ -890,10 +987,19 @@ function renderScheduleAuditTable(report, ai = null) {
   const bulkTeacherChecked = scheduleAuditBulkTeacherRename ? " checked" : "";
   return `<div class="schedule-view-edit-hint"><span class="schedule-view-edit-icon">✎</span><div class="schedule-view-edit-copy"><b>Có thể sửa trực tiếp</b><small>Bấm vào <strong>tên môn</strong> hoặc <strong>tên giáo viên</strong> trong từng ô. Nhấn Enter hoặc bấm ra ngoài để lưu, Esc để hủy. Tên môn trùng vẫn đổi đồng bộ; tên giáo viên chỉ đổi hàng loạt khi bật công tắc.</small></div><label class="schedule-view-bulk-toggle" title="Bật để đổi tất cả giáo viên có cùng tên"><input type="checkbox"${bulkTeacherChecked} onchange="setScheduleAuditBulkTeacherRename(this.checked)"><span class="schedule-view-switch" aria-hidden="true"><i></i></span><span class="schedule-view-bulk-toggle-text">Đổi hàng loạt tên GV trùng</span></label></div><div class="schedule-view-table-wrap"><table class="schedule-view-table"><thead><tr><th class="schedule-view-meta day">Thứ</th><th class="schedule-view-meta session">Buổi</th><th class="schedule-view-meta period">Tiết</th>${classes.map((cls) => `<th class="schedule-view-class">${esc(cls.name)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+function scheduleAuditAlphabetCompare(a, b) {
+  return String(a || "").localeCompare(String(b || ""), "vi", {
+    sensitivity: "base",
+    numeric: true,
+  });
+}
 function scheduleAuditBreakdownHtml(items, emptyLabel = "Không có dữ liệu") {
   if (!items?.length)
     return `<span class="schedule-stat-empty">${esc(emptyLabel)}</span>`;
-  return `<div class="schedule-stat-breakdown">${items.map((item) => `<span>${esc(item.name)} <b>${Number(item.lessons || 0)}</b></span>`).join("")}</div>`;
+  const sortedItems = [...items].sort((a, b) =>
+    scheduleAuditAlphabetCompare(a?.name, b?.name),
+  );
+  return `<div class="schedule-stat-breakdown">${sortedItems.map((item) => `<span>${esc(item.name)} <b>${Number(item.lessons || 0)}</b></span>`).join("")}</div>`;
 }
 function scheduleAuditStatsOverview(statistics) {
   const overview = statistics?.overview || {};
@@ -943,7 +1049,10 @@ function scheduleAuditStatsTable(rows, type) {
     },
   }[type];
   if (!config) return "";
-  const body = (rows || [])
+  const sortedRows = [...(rows || [])].sort((a, b) =>
+    scheduleAuditAlphabetCompare(a?.name, b?.name),
+  );
+  const body = sortedRows
     .map(
       (item) =>
         `<tr data-stat-text="${esc(String(item.name || "").toLocaleLowerCase("vi-VN"))}"><td><b>${esc(item.name || "—")}</b></td><td class="schedule-stat-total">${Number(item.total_lessons || 0)}</td><td>${scheduleAuditBreakdownHtml(item[config.firstKey])}</td><td>${scheduleAuditBreakdownHtml(item[config.secondKey])}</td></tr>`,
@@ -982,6 +1091,7 @@ function switchScheduleAuditView(view) {
   document.querySelectorAll("[data-audit-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.auditPanel !== scheduleAuditActiveView;
   });
+  requestAnimationFrame(syncScheduleAuditBottomScroller);
 }
 function filterScheduleAuditStats(type, query) {
   const normalized = String(query || "")
@@ -1059,6 +1169,7 @@ function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis) {
 function renderScheduleAuditError(message) {
   const box = $("#scheduleAuditResult");
   if (!box) return;
+  hideScheduleAuditBottomScroller();
   box.innerHTML = `<div class="schedule-audit-report-head has-error"><div><span class="schedule-audit-status-icon">!</span></div><div><h2>Không thể kiểm tra file</h2><p>${esc(message || "Đã xảy ra lỗi khi đọc thời khóa biểu.")}</p></div></div>`;
 }
 function scheduleAuditCellLocation(cellKey, report) {
@@ -1304,3 +1415,9 @@ document.addEventListener("drop", (event) => {
   if (event.target?.closest?.("#scheduleAuditDropzone")) return;
   event.preventDefault();
 });
+
+window.addEventListener(
+  "resize",
+  () => requestAnimationFrame(syncScheduleAuditBottomScroller),
+  { passive: true },
+);

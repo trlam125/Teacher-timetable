@@ -124,6 +124,8 @@
     <link rel="stylesheet" href="/static/auth-extra.css?v=1">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
+    <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
+    <script src="/static/auth-buttons.js?v=1" defer></script>
 </head>
 
 <body>
@@ -137,8 +139,8 @@
             <span class="appbar-effects-text">Hiệu ứng: Bật</span>
         </button>
         {% include "_theme_switch.html" %}
-        <a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{ greeting_name }}</span><a href="/logout">Đăng
-            xuất</a>
+        <a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{ greeting_name }}</span>{% include
+        "_logout_button.html" %}
     </header>
     <main class="container">
         <div class="page-title">

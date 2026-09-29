@@ -50,6 +50,7 @@
   }
 
   card.addEventListener("submit", () => {
+    if (card.querySelector(".loginButton")) return;
     card.classList.add("is-submitting");
     const button = card.querySelector(".auth-submit");
     const label = card.querySelector(".auth-submit span");
