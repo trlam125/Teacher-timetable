@@ -142,3 +142,15 @@ ngrok.yaml
 tailscale.exe
 tailscaled.exe
 .tailscale/
+
+# =========================
+# Testing / coverage
+# =========================
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/

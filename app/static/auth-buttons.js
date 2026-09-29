@@ -244,7 +244,8 @@
   const logoutButtonStates = {
     default: {
       '--figure-duration': '100',
-      '--transform-figure': 'none',
+      '--transform-figure': 'translateX(-24px) scale(0.92)',
+      '--figure-opacity': '0',
       '--walking-duration': '100',
       '--transform-arm1': 'none',
       '--transform-wrist1': 'none',
@@ -257,21 +258,65 @@
     },
     hover: {
       '--figure-duration': '100',
-      '--transform-figure': 'translateX(1.5px)',
+      '--transform-figure': 'translateX(-24px) scale(0.92)',
+      '--figure-opacity': '0',
       '--walking-duration': '100',
-      '--transform-arm1': 'rotate(-5deg)',
-      '--transform-wrist1': 'rotate(-15deg)',
-      '--transform-arm2': 'rotate(5deg)',
-      '--transform-wrist2': 'rotate(6deg)',
-      '--transform-leg1': 'rotate(-10deg)',
-      '--transform-calf1': 'rotate(5deg)',
-      '--transform-leg2': 'rotate(20deg)',
-      '--transform-calf2': 'rotate(-20deg)'
+      '--transform-arm1': 'none',
+      '--transform-wrist1': 'none',
+      '--transform-arm2': 'none',
+      '--transform-wrist2': 'none',
+      '--transform-leg1': 'none',
+      '--transform-calf1': 'none',
+      '--transform-leg2': 'none',
+      '--transform-calf2': 'none'
+    },
+    emerge: {
+      '--figure-duration': '220',
+      '--transform-figure': 'translateX(-14px) scale(1)',
+      '--figure-opacity': '1',
+      '--walking-duration': '220',
+      '--transform-arm1': 'rotate(-42deg)',
+      '--transform-wrist1': 'rotate(-10deg)',
+      '--transform-arm2': 'rotate(38deg)',
+      '--transform-wrist2': 'rotate(8deg)',
+      '--transform-leg1': 'rotate(30deg)',
+      '--transform-calf1': 'rotate(-24deg)',
+      '--transform-leg2': 'rotate(-32deg)',
+      '--transform-calf2': 'rotate(20deg)'
+    },
+    step1: {
+      '--figure-duration': '240',
+      '--transform-figure': 'translateX(-5px) scale(0.98)',
+      '--figure-opacity': '1',
+      '--walking-duration': '240',
+      '--transform-arm1': 'rotate(45deg)',
+      '--transform-wrist1': 'rotate(-4deg)',
+      '--transform-arm2': 'rotate(-48deg)',
+      '--transform-wrist2': 'rotate(5deg)',
+      '--transform-leg1': 'rotate(-34deg)',
+      '--transform-calf1': 'rotate(20deg)',
+      '--transform-leg2': 'rotate(34deg)',
+      '--transform-calf2': 'rotate(-18deg)'
+    },
+    step2: {
+      '--figure-duration': '220',
+      '--transform-figure': 'translateX(3px) scale(0.96)',
+      '--figure-opacity': '1',
+      '--walking-duration': '220',
+      '--transform-arm1': 'rotate(-35deg)',
+      '--transform-wrist1': 'rotate(-8deg)',
+      '--transform-arm2': 'rotate(42deg)',
+      '--transform-wrist2': 'rotate(10deg)',
+      '--transform-leg1': 'rotate(26deg)',
+      '--transform-calf1': 'rotate(-20deg)',
+      '--transform-leg2': 'rotate(-28deg)',
+      '--transform-calf2': 'rotate(18deg)'
     },
     walking1: {
-      '--figure-duration': '300',
-      '--transform-figure': 'translateX(11px)',
-      '--walking-duration': '300',
+      '--figure-duration': '260',
+      '--transform-figure': 'translateX(11px) scale(1)',
+      '--figure-opacity': '1',
+      '--walking-duration': '260',
       '--transform-arm1': 'translateX(-4px) translateY(-2px) rotate(120deg)',
       '--transform-wrist1': 'rotate(-5deg)',
       '--transform-arm2': 'translateX(4px) rotate(-110deg)',
@@ -282,9 +327,10 @@
       '--transform-calf2': 'rotate(20deg)'
     },
     walking2: {
-      '--figure-duration': '400',
-      '--transform-figure': 'translateX(17px)',
-      '--walking-duration': '300',
+      '--figure-duration': '260',
+      '--transform-figure': 'translateX(17px) scale(1)',
+      '--figure-opacity': '1',
+      '--walking-duration': '240',
       '--transform-arm1': 'rotate(60deg)',
       '--transform-wrist1': 'rotate(-15deg)',
       '--transform-arm2': 'rotate(-45deg)',
@@ -315,7 +361,7 @@
       '--transform-leg2': 'rotate(-60deg)'
     },
     falling3: {
-      '--walking-duration': '500',
+      '--walking-duration': '300',
       '--transform-arm1': 'rotate(-30deg)',
       '--transform-wrist1': 'rotate(40deg)',
       '--transform-arm2': 'rotate(50deg)',
@@ -335,41 +381,53 @@
     }
   }
 
-  function triggerAnimatedLogout(button) {
+  async function triggerAnimatedLogout(button) {
     if (!button || button.dataset.loggingOut === 'true') return;
     button.dataset.loggingOut = 'true';
     button.style.pointerEvents = 'none';
 
+    // 1) Door opens and figure begins emerging from the text
     button.classList.add('clicked');
+    updateLogoutButtonState(button, 'emerge');
+    await sleep(220);
+
+    // 2) Person walks towards the door (step 1)
+    updateLogoutButtonState(button, 'step1');
+    await sleep(240);
+
+    // 3) Person reaches the doorway (step 2)
+    updateLogoutButtonState(button, 'step2');
+    await sleep(220);
+
+    // 4) Person walks through the doorway outside
     updateLogoutButtonState(button, 'walking1');
+    await sleep(260);
 
-    setTimeout(() => {
-      button.classList.add('door-slammed');
-      updateLogoutButtonState(button, 'walking2');
+    // 5) Door slams shut behind the person and person steps towards the edge
+    button.classList.add('door-slammed');
+    updateLogoutButtonState(button, 'walking2');
+    await sleep(260);
 
-      setTimeout(() => {
-        button.classList.add('falling');
-        updateLogoutButtonState(button, 'falling1');
+    // 6) Person falls off the edge
+    button.classList.add('falling');
+    updateLogoutButtonState(button, 'falling1');
+    await sleep(parseInt(logoutButtonStates['falling1']['--walking-duration'], 10) || 400);
 
-        setTimeout(() => {
-          updateLogoutButtonState(button, 'falling2');
+    updateLogoutButtonState(button, 'falling2');
+    await sleep(parseInt(logoutButtonStates['falling2']['--walking-duration'], 10) || 300);
 
-          setTimeout(() => {
-            updateLogoutButtonState(button, 'falling3');
+    updateLogoutButtonState(button, 'falling3');
+    await sleep(parseInt(logoutButtonStates['falling3']['--walking-duration'], 10) || 300);
 
-            setTimeout(() => {
-              const logoutUrl = button.dataset.logoutUrl || '/logout';
-              window.location.href = logoutUrl;
-            }, 300);
-          }, parseInt(logoutButtonStates['falling2']['--walking-duration'], 10));
-        }, parseInt(logoutButtonStates['falling1']['--walking-duration'], 10));
-      }, parseInt(logoutButtonStates['walking2']['--figure-duration'], 10));
-    }, parseInt(logoutButtonStates['walking1']['--figure-duration'], 10));
+    // 7) Redirect to logout route
+    const logoutUrl = button.dataset.logoutUrl || '/logout';
+    window.location.href = logoutUrl;
   }
 
   function initLogoutButtons() {
     document.querySelectorAll('.logoutButton').forEach((button) => {
       button.state = 'default';
+      updateLogoutButtonState(button, 'default');
 
       button.addEventListener('mouseenter', () => {
         if (button.state === 'default' && button.dataset.loggingOut !== 'true') {
