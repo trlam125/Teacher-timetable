@@ -67,12 +67,29 @@
                         </div>
                     </div>
                     <label id="scheduleAuditDropzone" class="schedule-audit-dropzone compact" for="scheduleAuditFile"
-                        tabindex="0" role="button" aria-describedby="scheduleAuditDropHint">
+                        tabindex="0" role="button">
                         <input id="scheduleAuditFile" type="file" accept=".xlsx,.xlsm,.xls,.docx,.csv,.tsv" hidden>
                         <span class="schedule-audit-import-icon" aria-hidden="true">⇪</span>
                         <span class="schedule-audit-drop-title">Kéo thả file vào đây</span>
-                        <span id="scheduleAuditDropHint" class="schedule-audit-drop-hint">hoặc bấm để chọn file</span>
-                        <span id="scheduleAuditFileName" class="schedule-audit-file-name">Chưa chọn file</span>
+                        <span id="scheduleAuditDropHint" class="schedule-audit-drop-hint" hidden></span>
+                        <span id="scheduleAuditFileName" class="schedule-audit-file-name" hidden></span>
+                        <div class="schedule-audit-drop-loader" aria-hidden="true">
+                            <div class="wifi-loader wifi-loader-sm">
+                                <svg class="circle-outer" viewBox="0 0 86 86">
+                                    <circle class="back" cx="43" cy="43" r="40"></circle>
+                                    <circle class="front" cx="43" cy="43" r="40"></circle>
+                                    <circle class="new" cx="43" cy="43" r="40"></circle>
+                                </svg>
+                                <svg class="circle-middle" viewBox="0 0 60 60">
+                                    <circle class="back" cx="30" cy="30" r="27"></circle>
+                                    <circle class="front" cx="30" cy="30" r="27"></circle>
+                                </svg>
+                                <svg class="circle-inner" viewBox="0 0 34 34">
+                                    <circle class="back" cx="17" cy="17" r="14"></circle>
+                                    <circle class="front" cx="17" cy="17" r="14"></circle>
+                                </svg>
+                            </div>
+                        </div>
                     </label>
                     <div class="schedule-audit-upload-actions">
                         <div id="scheduleAuditFileActions" class="schedule-audit-file-actions" hidden>

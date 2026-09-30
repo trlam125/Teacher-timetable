@@ -159,7 +159,6 @@ def ga_schedule(
         existing = []
     else:
         raise ValueError(f"Chế độ xếp lịch không hợp lệ: {mode}")
-    existing_counts = Counter(x.assignment_id for x in existing)
     existing_slots = defaultdict(set)
     locked_slots = defaultdict(set)
     all_existing_by_assignment = defaultdict(list)

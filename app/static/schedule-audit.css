@@ -59,6 +59,8 @@
   border-radius: 14px;
   background: var(--bg);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
   transition:
     border-color 0.18s ease,
     background 0.18s ease,
@@ -80,7 +82,35 @@
 
 .schedule-audit-dropzone.is-analyzing {
   cursor: progress;
-  opacity: 0.82;
+  border-color: #4f29f0;
+}
+
+.schedule-audit-drop-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+  z-index: 10;
+  border-radius: inherit;
+}
+
+:root.dark-mode .schedule-audit-drop-loader {
+  background: rgba(15, 23, 42, 0.94);
+}
+
+.schedule-audit-dropzone.is-analyzing .schedule-audit-drop-loader {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .schedule-audit-import-icon {
@@ -101,12 +131,9 @@
   transform: translateY(-4px) scale(1.05);
 }
 
-.schedule-audit-drop-hint {
-  margin-top: 5px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+.schedule-audit-drop-hint,
+.schedule-audit-file-name {
+  display: none !important;
 }
 
 .schedule-audit-file-actions {
@@ -425,20 +452,260 @@
 
 .schedule-audit-loading {
   display: flex;
-  min-height: 290px;
+  flex-direction: column;
+  min-height: 320px;
   align-items: center;
   justify-content: center;
-  gap: 11px;
+  padding: 40px 20px;
   color: var(--ink);
+  text-align: center;
 }
 
-.schedule-audit-loading span {
-  width: 22px;
-  height: 22px;
-  border: 3px solid rgba(37, 99, 235, 0.2);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: operation-status-spin 0.8s linear infinite;
+/* ========================================================
+   WiFi Loader (from uiverse.io/mobinkakei/pink-deer-76)
+   ======================================================== */
+.wifi-loader,
+#wifi-loader {
+  --background: #62abff;
+  --front-color: #4f29f0;
+  --back-color: #c3c8de;
+  --text-color: #414856;
+  width: 64px;
+  height: 64px;
+  border-radius: 50px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+:root.dark-mode .wifi-loader,
+:root.dark-mode #wifi-loader {
+  --front-color: #818cf8;
+  --back-color: rgba(148, 163, 184, 0.28);
+  --text-color: #cbd5e1;
+}
+
+.wifi-loader svg,
+#wifi-loader svg {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wifi-loader svg circle,
+#wifi-loader svg circle {
+  position: absolute;
+  fill: none;
+  stroke-width: 6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: rotate(-100deg);
+  transform-origin: center;
+}
+
+.wifi-loader svg circle.back,
+#wifi-loader svg circle.back {
+  stroke: var(--back-color);
+}
+
+.wifi-loader svg circle.front,
+#wifi-loader svg circle.front {
+  stroke: var(--front-color);
+}
+
+.wifi-loader svg.circle-outer,
+#wifi-loader svg.circle-outer {
+  height: 86px;
+  width: 86px;
+}
+
+.wifi-loader svg.circle-outer circle,
+#wifi-loader svg.circle-outer circle {
+  stroke-dasharray: 62.75 188.25;
+}
+
+.wifi-loader svg.circle-outer circle.back,
+#wifi-loader svg.circle-outer circle.back {
+  animation: circle-outer135 1.8s ease infinite 0.3s;
+}
+
+.wifi-loader svg.circle-outer circle.front,
+#wifi-loader svg.circle-outer circle.front {
+  animation: circle-outer135 1.8s ease infinite 0.15s;
+}
+
+.wifi-loader svg.circle-middle,
+#wifi-loader svg.circle-middle {
+  height: 60px;
+  width: 60px;
+}
+
+.wifi-loader svg.circle-middle circle,
+#wifi-loader svg.circle-middle circle {
+  stroke-dasharray: 42.5 127.5;
+}
+
+.wifi-loader svg.circle-middle circle.back,
+#wifi-loader svg.circle-middle circle.back {
+  animation: circle-middle6123 1.8s ease infinite 0.25s;
+}
+
+.wifi-loader svg.circle-middle circle.front,
+#wifi-loader svg.circle-middle circle.front {
+  animation: circle-middle6123 1.8s ease infinite 0.1s;
+}
+
+.wifi-loader svg.circle-inner,
+#wifi-loader svg.circle-inner {
+  height: 34px;
+  width: 34px;
+}
+
+.wifi-loader svg.circle-inner circle,
+#wifi-loader svg.circle-inner circle {
+  stroke-dasharray: 22 66;
+}
+
+.wifi-loader svg.circle-inner circle.back,
+#wifi-loader svg.circle-inner circle.back {
+  animation: circle-inner162 1.8s ease infinite 0.2s;
+}
+
+.wifi-loader svg.circle-inner circle.front,
+#wifi-loader svg.circle-inner circle.front {
+  animation: circle-inner162 1.8s ease infinite 0.05s;
+}
+
+.wifi-loader .text,
+#wifi-loader .text {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-transform: none;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.wifi-loader .text::before,
+.wifi-loader .text::after,
+#wifi-loader .text::before,
+#wifi-loader .text::after {
+  content: attr(data-text);
+  white-space: nowrap;
+}
+
+.wifi-loader .text::before,
+#wifi-loader .text::before {
+  color: var(--text-color);
+}
+
+.wifi-loader .text::after,
+#wifi-loader .text::after {
+  color: var(--front-color);
+  animation: text-animation76 3.6s ease infinite;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Scaled version inside the dropzone overlay */
+.wifi-loader.wifi-loader-sm {
+  transform: scale(0.68);
+  transform-origin: center center;
+  margin: -10px 0;
+}
+
+.wifi-loader.wifi-loader-sm .text {
+  font-size: 13px;
+  bottom: -36px;
+}
+
+@keyframes circle-outer135 {
+  0% {
+    stroke-dashoffset: 25;
+  }
+
+  25% {
+    stroke-dashoffset: 0;
+  }
+
+  65% {
+    stroke-dashoffset: 301;
+  }
+
+  80% {
+    stroke-dashoffset: 276;
+  }
+
+  100% {
+    stroke-dashoffset: 276;
+  }
+}
+
+@keyframes circle-middle6123 {
+  0% {
+    stroke-dashoffset: 17;
+  }
+
+  25% {
+    stroke-dashoffset: 0;
+  }
+
+  65% {
+    stroke-dashoffset: 204;
+  }
+
+  80% {
+    stroke-dashoffset: 187;
+  }
+
+  100% {
+    stroke-dashoffset: 187;
+  }
+}
+
+@keyframes circle-inner162 {
+  0% {
+    stroke-dashoffset: 9;
+  }
+
+  25% {
+    stroke-dashoffset: 0;
+  }
+
+  65% {
+    stroke-dashoffset: 106;
+  }
+
+  80% {
+    stroke-dashoffset: 97;
+  }
+
+  100% {
+    stroke-dashoffset: 97;
+  }
+}
+
+@keyframes text-animation76 {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  50% {
+    clip-path: inset(0);
+  }
+
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
 }
 
 .schedule-audit-convert {

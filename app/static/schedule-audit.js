@@ -1230,6 +1230,27 @@ function renderScheduleAuditAiResult(report, ai, model) {
       : '<div class="schedule-audit-ai-empty">✓ AI không phát hiện bất thường đáng chú ý ngoài các kiểm tra rule hiện có.</div>'
     }`;
 }
+function renderScheduleAuditWifiLoader() {
+  return `
+    <div class="schedule-audit-loading">
+      <div id="wifi-loader" class="wifi-loader">
+        <svg class="circle-outer" viewBox="0 0 86 86">
+          <circle class="back" cx="43" cy="43" r="40"></circle>
+          <circle class="front" cx="43" cy="43" r="40"></circle>
+          <circle class="new" cx="43" cy="43" r="40"></circle>
+        </svg>
+        <svg class="circle-middle" viewBox="0 0 60 60">
+          <circle class="back" cx="30" cy="30" r="27"></circle>
+          <circle class="front" cx="30" cy="30" r="27"></circle>
+        </svg>
+        <svg class="circle-inner" viewBox="0 0 34 34">
+          <circle class="back" cx="17" cy="17" r="14"></circle>
+          <circle class="front" cx="17" cy="17" r="14"></circle>
+        </svg>
+      </div>
+    </div>
+  `;
+}
 async function runScheduleAudit() {
   const input = $("#scheduleAuditFile"),
     button = $("#scheduleAuditButton"),
@@ -1249,9 +1270,7 @@ async function runScheduleAudit() {
   }
   if (drop) drop.classList.add("is-analyzing");
   const box = $("#scheduleAuditResult");
-  if (box)
-    box.innerHTML =
-      '<div class="schedule-audit-loading"><span></span><b>Đang đọc file và dựng thời khóa biểu…</b></div>';
+  if (box) box.innerHTML = renderScheduleAuditWifiLoader();
   try {
     const form = new FormData();
     form.append("file", file, file.name);

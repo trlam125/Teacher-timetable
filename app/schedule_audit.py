@@ -806,7 +806,6 @@ def _standalone_teacher_from_text(value: str, *, exclude: Iterable[str] = ()) ->
         and not _standalone_looks_like_class(remainder)
     ):
         return remainder
-    norm_text = normalize_text(text)
     parts = _standalone_split_parts(text)
     for part in reversed(parts):
         norm = normalize_text(part)
@@ -1135,7 +1134,6 @@ def _standalone_parse_wide(
         if sampled
         else False
     )
-    class_wide = not teacher_wide
 
     parsed: list[RawLesson] = []
     last_day = ""

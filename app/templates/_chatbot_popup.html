@@ -1,32 +1,23 @@
 {% set is_teacher_chat = user is defined and user and user.role == 'teacher' %}
 <button id="chatbotFab" class="chatbot-fab" type="button" aria-label="Mở Trợ lý AI" aria-controls="chatbotPopup"
-    aria-expanded="false">
+    aria-expanded="false" title="Mở Trợ lý AI">
     <span class="chatbot-fab-icon" aria-hidden="true">
-        <svg class="fab-icon-svg chatbot-icon-svg" viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <defs>
-                <linearGradient id="aiFabGradPrimary" x1="2" y1="2" x2="17" y2="20" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#2563eb" />
-                    <stop offset="50%" stop-color="#4f46e5" />
-                    <stop offset="100%" stop-color="#7c3aed" />
-                </linearGradient>
-                <linearGradient id="aiFabGradSecondary" x1="15" y1="2" x2="22" y2="9" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#0284c7" />
-                    <stop offset="100%" stop-color="#06b6d4" />
-                </linearGradient>
-            </defs>
-            <!-- Primary 4-point curved AI Star -->
-            <path
-                d="M9.5 2C9.5 6.97 5.97 11 2 11C5.97 11 9.5 15.03 9.5 20C9.5 15.03 13.03 11 17 11C13.03 11 9.5 6.97 9.5 2Z"
-                fill="url(#aiFabGradPrimary)" />
-            <!-- Satellite AI Sparkle -->
-            <path
-                d="M18.5 2C18.5 3.93 16.93 5.5 15 5.5C16.93 5.5 18.5 7.07 18.5 9C18.5 7.07 20.07 5.5 22 5.5C20.07 5.5 18.5 3.93 18.5 2Z"
-                fill="url(#aiFabGradSecondary)" />
-            <!-- Bottom-right accent star -->
-            <path
-                d="M17.5 15.5C17.5 16.88 16.38 18 15 18C16.38 18 17.5 19.12 17.5 20.5C17.5 19.12 18.62 18 20 18C18.62 18 17.5 16.88 17.5 15.5Z"
-                fill="#8b5cf6" fill-opacity="0.85" />
-        </svg>
+        <div class="loader walrus-loader" aria-hidden="true">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+                <defs>
+                    <mask id="clipping">
+                        <polygon points="0,0 100,0 100,100 0,100" fill="black"></polygon>
+                        <polygon points="25,25 75,25 50,75" fill="white"></polygon>
+                        <polygon points="50,25 75,75 25,75" fill="white"></polygon>
+                        <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                        <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                        <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                        <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                    </mask>
+                </defs>
+            </svg>
+            <div class="box"></div>
+        </div>
     </span>
 </button>
 <section id="chatbotPopup" class="chatbot-popup" aria-label="Trợ lý AI" aria-hidden="true">

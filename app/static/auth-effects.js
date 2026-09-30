@@ -53,16 +53,7 @@
     lastMoveTime: 0
   };
 
-  // Color palettes for iridescent rainbow bubbles & sparkles
-  const RAINBOW_STOPS = [
-    'rgba(244, 114, 182, 0.72)', // Pink
-    'rgba(251, 191, 36, 0.68)',  // Amber Gold
-    'rgba(52, 211, 153, 0.72)',  // Mint Green
-    'rgba(56, 189, 248, 0.76)',  // Sky Blue
-    'rgba(192, 132, 252, 0.72)', // Lavender Purple
-    'rgba(244, 114, 182, 0.72)'  // Loop back to Pink
-  ];
-
+  // Color palette for sparkles
   const SPARKLE_COLORS = [
     '#f472b6', '#fbbf24', '#34d399', '#38bdf8', '#c084fc', '#ffffff'
   ];

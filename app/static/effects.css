@@ -1262,7 +1262,11 @@ body.dark-mode .btn.ghost .button-ripple {
 }
 
 .help-tour-fab.is-stacked-behind::before,
-.help-tour-fab.is-stacked-behind::after {
+.help-tour-fab.is-stacked-behind::after,
+.general-chat-fab.is-stacked-behind::before,
+.general-chat-fab.is-stacked-behind::after,
+.chatbot-fab.is-stacked-behind::before,
+.chatbot-fab.is-stacked-behind::after {
   opacity: 0 !important;
   animation: none !important;
 }
@@ -1301,7 +1305,9 @@ html.help-tour-active .help-tour-fab.is-on-top {
 
 .help-tour-fab.fab-absorb-pulse .help-tour-fab-icon,
 .general-chat-fab.fab-absorb-pulse .general-chat-fab-icon,
-.chatbot-fab.fab-absorb-pulse .chatbot-fab-icon {
+.chatbot-fab.fab-absorb-pulse .chatbot-fab-icon,
+.chatbot-fab.fab-absorb-pulse .walrus-loader,
+.chatbot-fab.fab-absorb-pulse .loader {
   animation: fab-absorb-pulse 0.42s cubic-bezier(0.2, 0.9, 0.3, 1) !important;
 }
 

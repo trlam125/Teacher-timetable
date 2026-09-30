@@ -34,9 +34,9 @@
     },
     chatbotFab: {
       name: 'Trợ lý AI',
-      gradient: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
-      glow: 'rgba(14, 165, 233, 0.85)',
-      borderGlow: '#bae6fd'
+      gradient: 'linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #f43f5e 100%)',
+      glow: 'rgba(168, 85, 247, 0.75)',
+      borderGlow: '#e9d5ff'
     }
   };
 
