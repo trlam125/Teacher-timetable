@@ -1174,12 +1174,73 @@
   flex: 1 1 auto;
 }
 
+.schedule-view-edit-hint>.schedule-view-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.schedule-view-size-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #93c5fd;
+  border-radius: 9px;
+  background: #fff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.schedule-view-size-toggle:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+.schedule-view-size-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.schedule-view-size-toggle.active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.schedule-view-size-toggle>span:first-child {
+  display: inline-grid;
+  place-items: center;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+}
+
 .schedule-view-bulk-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
-  margin-left: auto;
+  margin-left: 0;
   padding-left: 10px;
   cursor: pointer;
   user-select: none;
@@ -1242,9 +1303,15 @@
     flex-wrap: wrap;
   }
 
-  .schedule-view-bulk-toggle {
+  .schedule-view-edit-hint>.schedule-view-toolbar {
     width: 100%;
     margin-left: 38px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .schedule-view-bulk-toggle {
+    margin-left: 0;
     padding-left: 0;
   }
 }
@@ -1340,9 +1407,26 @@
   background: rgba(22, 163, 74, 0.24);
 }
 
+:root.dark-mode .schedule-view-size-toggle {
+  border-color: #1d4ed8;
+  background: #172554;
+  color: #bfdbfe;
+}
+
+:root.dark-mode .schedule-view-size-toggle:hover {
+  background: #1e3a8a;
+  border-color: #3b82f6;
+}
+
+:root.dark-mode .schedule-view-size-toggle.active {
+  border-color: #60a5fa;
+  background: #2563eb;
+  color: #fff;
+}
+
 .schedule-view-table-wrap {
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: visible;
   padding: 14px 18px 20px;
   background: var(--card-bg);
@@ -1537,6 +1621,75 @@
   font-size: 10px;
 }
 
+/* Expanded mode restores the old wide timetable with horizontal scrolling. */
+.schedule-view-table-wrap.schedule-view-table-wrap--expanded {
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
+}
+
+.schedule-view-table.schedule-view-table--expanded {
+  table-layout: auto;
+  min-width: max-content;
+  width: 100%;
+  font-size: 12px;
+}
+
+.schedule-view-table.schedule-view-table--expanded thead th {
+  /* The horizontal wrapper becomes the sticky containing block in this mode.
+     Keeping top at 0 prevents the first data row from appearing above the header. */
+  top: 0;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  line-height: normal;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-class,
+.schedule-view-table.schedule-view-table--expanded .schedule-view-cell {
+  min-width: 150px;
+  max-width: 190px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-meta.day {
+  left: 0;
+  min-width: 70px;
+  width: 70px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-meta.session {
+  left: 70px;
+  min-width: 64px;
+  width: 64px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-meta.period {
+  left: 134px;
+  min-width: 52px;
+  width: 52px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-cell {
+  padding: 8px 9px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-lesson {
+  gap: 3px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-lesson b {
+  font-size: 12px;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-lesson small {
+  font-size: inherit;
+}
+
+.schedule-view-table.schedule-view-table--expanded .schedule-view-inline-input {
+  width: min(150px, 100%);
+  min-width: 64px;
+  font-size: 12px;
+}
+
 .schedule-view-cell.conflict {
   position: relative;
   background: #fff1f2;
@@ -1660,8 +1813,35 @@
     max-width: none;
   }
 
+  .schedule-view-table.schedule-view-table--expanded .schedule-view-class,
+  .schedule-view-table.schedule-view-table--expanded .schedule-view-cell {
+    min-width: 135px;
+    max-width: 160px;
+  }
+
+  .schedule-view-table.schedule-view-table--expanded .schedule-view-meta.day {
+    min-width: 62px;
+    width: 62px;
+  }
+
+  .schedule-view-table.schedule-view-table--expanded .schedule-view-meta.session {
+    left: 62px;
+    min-width: 58px;
+    width: 58px;
+  }
+
+  .schedule-view-table.schedule-view-table--expanded .schedule-view-meta.period {
+    left: 120px;
+    min-width: 46px;
+    width: 46px;
+  }
+
   .schedule-view-table {
     font-size: 10px;
+  }
+
+  .schedule-view-table.schedule-view-table--expanded {
+    font-size: 12px;
   }
 
   .schedule-view-table th,

@@ -40,6 +40,7 @@ let scheduleAuditBottomScroller = null;
 let scheduleAuditBottomScrollerInner = null;
 let scheduleAuditBottomScrollerSource = null;
 let scheduleAuditBottomScrollSyncing = false;
+let scheduleAuditTableExpanded = false;
 const SCHEDULE_AUDIT_MAX_BYTES = 15 * 1024 * 1024;
 const SCHEDULE_AUDIT_ALLOWED_EXTENSIONS = [
   "xlsx",
@@ -104,9 +105,88 @@ function hideScheduleAuditBottomScroller() {
 }
 
 function syncScheduleAuditBottomScroller() {
-  // The imported timetable is now fitted to the available width, so a
-  // mirrored horizontal scrollbar is intentionally unnecessary.
-  hideScheduleAuditBottomScroller();
+  const panel = $("#scheduleAuditView-timetable"),
+    wrap = panel?.querySelector(".schedule-view-table-wrap");
+  if (
+    !scheduleAuditTableExpanded ||
+    scheduleAuditActiveView !== "timetable" ||
+    !panel ||
+    panel.hidden ||
+    !wrap ||
+    wrap.scrollWidth <= wrap.clientWidth + 1
+  ) {
+    hideScheduleAuditBottomScroller();
+    return;
+  }
+
+  const scroller = ensureScheduleAuditBottomScroller();
+  if (scheduleAuditBottomScrollerSource !== wrap) {
+    if (scheduleAuditBottomScrollerSource)
+      scheduleAuditBottomScrollerSource.removeEventListener(
+        "scroll",
+        handleScheduleAuditSourceScroll,
+      );
+    scheduleAuditBottomScrollerSource = wrap;
+    wrap.addEventListener("scroll", handleScheduleAuditSourceScroll, {
+      passive: true,
+    });
+  }
+
+  const rect = wrap.getBoundingClientRect(),
+    left = Math.max(0, rect.left),
+    right = Math.min(window.innerWidth, rect.right),
+    width = Math.max(0, right - left);
+  if (width < 80) {
+    hideScheduleAuditBottomScroller();
+    return;
+  }
+
+  scroller.style.left = `${left}px`;
+  scroller.style.width = `${width}px`;
+  scheduleAuditBottomScrollerInner.style.width = `${wrap.scrollWidth}px`;
+  scroller.hidden = false;
+  scroller.scrollLeft = wrap.scrollLeft;
+}
+
+function setScheduleAuditTableExpanded(expanded) {
+  scheduleAuditTableExpanded = !!expanded;
+  const panel = $("#scheduleAuditView-timetable"),
+    wrap = panel?.querySelector(".schedule-view-table-wrap"),
+    table = panel?.querySelector(".schedule-view-table"),
+    button = panel?.querySelector("[data-schedule-size-toggle]");
+
+  wrap?.classList.toggle(
+    "schedule-view-table-wrap--expanded",
+    scheduleAuditTableExpanded,
+  );
+  table?.classList.toggle(
+    "schedule-view-table--expanded",
+    scheduleAuditTableExpanded,
+  );
+
+  if (button) {
+    button.classList.toggle("active", scheduleAuditTableExpanded);
+    button.setAttribute(
+      "aria-pressed",
+      scheduleAuditTableExpanded ? "true" : "false",
+    );
+    button.setAttribute(
+      "title",
+      scheduleAuditTableExpanded
+        ? "Thu thời khóa biểu vừa màn hình"
+        : "Phóng to thời khóa biểu và bật thanh kéo ngang",
+    );
+    button.innerHTML = scheduleAuditTableExpanded
+      ? '<span aria-hidden="true">↙</span><span>Vừa màn hình</span>'
+      : '<span aria-hidden="true">⛶</span><span>Phóng to</span>';
+  }
+
+  if (!scheduleAuditTableExpanded && wrap) wrap.scrollLeft = 0;
+  requestAnimationFrame(syncScheduleAuditBottomScroller);
+}
+
+function toggleScheduleAuditTableSize() {
+  setScheduleAuditTableExpanded(!scheduleAuditTableExpanded);
 }
 
 function scheduleAuditFileValidationError(file) {
@@ -160,6 +240,7 @@ function clearScheduleAuditFile(resetResult = true) {
   scheduleAuditAiRunId += 1;
   scheduleAuditLastReport = null;
   scheduleAuditManualEdits = 0;
+  scheduleAuditTableExpanded = false;
   resetScheduleAuditAiResult();
   const input = $("#scheduleAuditFile"),
     box = $("#scheduleAuditResult"),
@@ -194,6 +275,7 @@ function selectScheduleAuditFile(file, { autoRun = true } = {}) {
   scheduleAuditLastReport = null;
   scheduleAuditManualEdits = 0;
   scheduleAuditActiveView = "timetable";
+  scheduleAuditTableExpanded = false;
   resetScheduleAuditAiResult();
   setScheduleAuditFile(file);
   if (autoRun) runScheduleAudit();
@@ -954,7 +1036,16 @@ function renderScheduleAuditTable(report, ai = null) {
     : classes.length >= 9
       ? " schedule-view-table--compact"
       : "";
-  return `<div class="schedule-view-edit-hint"><span class="schedule-view-edit-icon">✎</span><div class="schedule-view-edit-copy"><b>Có thể sửa trực tiếp</b><small>Bấm vào <strong>tên môn</strong> hoặc <strong>tên giáo viên</strong> trong từng ô. Nhấn Enter hoặc bấm ra ngoài để lưu, Esc để hủy. Tên môn trùng vẫn đổi đồng bộ; tên giáo viên chỉ đổi hàng loạt khi bật công tắc.</small></div><label class="schedule-view-bulk-toggle" title="Bật để đổi tất cả giáo viên có cùng tên"><input type="checkbox"${bulkTeacherChecked} onchange="setScheduleAuditBulkTeacherRename(this.checked)"><span class="schedule-view-switch" aria-hidden="true"><i></i></span><span class="schedule-view-bulk-toggle-text">Đổi hàng loạt tên GV trùng</span></label></div><div class="schedule-view-table-wrap"><table class="schedule-view-table${densityClass}"><thead><tr><th class="schedule-view-meta day">Thứ</th><th class="schedule-view-meta session">Buổi</th><th class="schedule-view-meta period">Tiết</th>${classes.map((cls) => `<th class="schedule-view-class">${esc(cls.name)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  const expandedClass = scheduleAuditTableExpanded
+    ? " schedule-view-table--expanded"
+    : "";
+  const expandedWrapClass = scheduleAuditTableExpanded
+    ? " schedule-view-table-wrap--expanded"
+    : "";
+  const sizeButton = scheduleAuditTableExpanded
+    ? '<button type="button" class="schedule-view-size-toggle active" data-schedule-size-toggle aria-pressed="true" title="Thu thời khóa biểu vừa màn hình" onclick="toggleScheduleAuditTableSize()"><span aria-hidden="true">↙</span><span>Vừa màn hình</span></button>'
+    : '<button type="button" class="schedule-view-size-toggle" data-schedule-size-toggle aria-pressed="false" title="Phóng to thời khóa biểu và bật thanh kéo ngang" onclick="toggleScheduleAuditTableSize()"><span aria-hidden="true">⛶</span><span>Phóng to</span></button>';
+  return `<div class="schedule-view-edit-hint"><span class="schedule-view-edit-icon">✎</span><div class="schedule-view-edit-copy"><b>Có thể sửa trực tiếp</b><small>Bấm vào <strong>tên môn</strong> hoặc <strong>tên giáo viên</strong> trong từng ô. Nhấn Enter hoặc bấm ra ngoài để lưu, Esc để hủy. Tên môn trùng vẫn đổi đồng bộ; tên giáo viên chỉ đổi hàng loạt khi bật công tắc.</small></div><div class="schedule-view-toolbar">${sizeButton}<label class="schedule-view-bulk-toggle" title="Bật để đổi tất cả giáo viên có cùng tên"><input type="checkbox"${bulkTeacherChecked} onchange="setScheduleAuditBulkTeacherRename(this.checked)"><span class="schedule-view-switch" aria-hidden="true"><i></i></span><span class="schedule-view-bulk-toggle-text">Đổi hàng loạt tên GV trùng</span></label></div></div><div class="schedule-view-table-wrap${expandedWrapClass}"><table class="schedule-view-table${densityClass}${expandedClass}"><thead><tr><th class="schedule-view-meta day">Thứ</th><th class="schedule-view-meta session">Buổi</th><th class="schedule-view-meta period">Tiết</th>${classes.map((cls) => `<th class="schedule-view-class">${esc(cls.name)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function scheduleAuditAlphabetCompare(a, b) {
   return String(a || "").localeCompare(String(b || ""), "vi", {
