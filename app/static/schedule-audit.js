@@ -104,47 +104,11 @@ function hideScheduleAuditBottomScroller() {
 }
 
 function syncScheduleAuditBottomScroller() {
-  const panel = $("#scheduleAuditView-timetable"),
-    wrap = panel?.querySelector(".schedule-view-table-wrap");
-  if (
-    scheduleAuditActiveView !== "timetable" ||
-    !panel ||
-    panel.hidden ||
-    !wrap ||
-    wrap.scrollWidth <= wrap.clientWidth + 1
-  ) {
-    hideScheduleAuditBottomScroller();
-    return;
-  }
-
-  const scroller = ensureScheduleAuditBottomScroller();
-  if (scheduleAuditBottomScrollerSource !== wrap) {
-    if (scheduleAuditBottomScrollerSource)
-      scheduleAuditBottomScrollerSource.removeEventListener(
-        "scroll",
-        handleScheduleAuditSourceScroll,
-      );
-    scheduleAuditBottomScrollerSource = wrap;
-    wrap.addEventListener("scroll", handleScheduleAuditSourceScroll, {
-      passive: true,
-    });
-  }
-
-  const rect = wrap.getBoundingClientRect(),
-    left = Math.max(0, rect.left),
-    right = Math.min(window.innerWidth, rect.right),
-    width = Math.max(0, right - left);
-  if (width < 80) {
-    hideScheduleAuditBottomScroller();
-    return;
-  }
-
-  scroller.style.left = `${left}px`;
-  scroller.style.width = `${width}px`;
-  scheduleAuditBottomScrollerInner.style.width = `${wrap.scrollWidth}px`;
-  scroller.hidden = false;
-  scroller.scrollLeft = wrap.scrollLeft;
+  // The imported timetable is now fitted to the available width, so a
+  // mirrored horizontal scrollbar is intentionally unnecessary.
+  hideScheduleAuditBottomScroller();
 }
+
 function scheduleAuditFileValidationError(file) {
   if (!file) return "Hãy chọn file thời khóa biểu trước khi kiểm tra.";
   if (file.size > SCHEDULE_AUDIT_MAX_BYTES)
@@ -985,7 +949,12 @@ function renderScheduleAuditTable(report, ai = null) {
     previousSession = part.session;
   }
   const bulkTeacherChecked = scheduleAuditBulkTeacherRename ? " checked" : "";
-  return `<div class="schedule-view-edit-hint"><span class="schedule-view-edit-icon">✎</span><div class="schedule-view-edit-copy"><b>Có thể sửa trực tiếp</b><small>Bấm vào <strong>tên môn</strong> hoặc <strong>tên giáo viên</strong> trong từng ô. Nhấn Enter hoặc bấm ra ngoài để lưu, Esc để hủy. Tên môn trùng vẫn đổi đồng bộ; tên giáo viên chỉ đổi hàng loạt khi bật công tắc.</small></div><label class="schedule-view-bulk-toggle" title="Bật để đổi tất cả giáo viên có cùng tên"><input type="checkbox"${bulkTeacherChecked} onchange="setScheduleAuditBulkTeacherRename(this.checked)"><span class="schedule-view-switch" aria-hidden="true"><i></i></span><span class="schedule-view-bulk-toggle-text">Đổi hàng loạt tên GV trùng</span></label></div><div class="schedule-view-table-wrap"><table class="schedule-view-table"><thead><tr><th class="schedule-view-meta day">Thứ</th><th class="schedule-view-meta session">Buổi</th><th class="schedule-view-meta period">Tiết</th>${classes.map((cls) => `<th class="schedule-view-class">${esc(cls.name)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  const densityClass = classes.length >= 14
+    ? " schedule-view-table--dense"
+    : classes.length >= 9
+      ? " schedule-view-table--compact"
+      : "";
+  return `<div class="schedule-view-edit-hint"><span class="schedule-view-edit-icon">✎</span><div class="schedule-view-edit-copy"><b>Có thể sửa trực tiếp</b><small>Bấm vào <strong>tên môn</strong> hoặc <strong>tên giáo viên</strong> trong từng ô. Nhấn Enter hoặc bấm ra ngoài để lưu, Esc để hủy. Tên môn trùng vẫn đổi đồng bộ; tên giáo viên chỉ đổi hàng loạt khi bật công tắc.</small></div><label class="schedule-view-bulk-toggle" title="Bật để đổi tất cả giáo viên có cùng tên"><input type="checkbox"${bulkTeacherChecked} onchange="setScheduleAuditBulkTeacherRename(this.checked)"><span class="schedule-view-switch" aria-hidden="true"><i></i></span><span class="schedule-view-bulk-toggle-text">Đổi hàng loạt tên GV trùng</span></label></div><div class="schedule-view-table-wrap"><table class="schedule-view-table${densityClass}"><thead><tr><th class="schedule-view-meta day">Thứ</th><th class="schedule-view-meta session">Buổi</th><th class="schedule-view-meta period">Tiết</th>${classes.map((cls) => `<th class="schedule-view-class">${esc(cls.name)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function scheduleAuditAlphabetCompare(a, b) {
   return String(a || "").localeCompare(String(b || ""), "vi", {
