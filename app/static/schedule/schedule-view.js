@@ -516,12 +516,16 @@ function showToast(message, type = "info", duration = 3200) {
   }
   const toast = document.createElement("div");
   toast.className = `app-toast is-${type}`;
-  const icon =
-    type === "error" || type === "warning"
-      ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-      : type === "success"
-        ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
-        : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  let icon = "";
+  if (type === "success") {
+    icon = `<img class="app-toast-img" src="/static/tick.gif?v=1&play=${Date.now()}-${Math.random().toString(36).slice(2)}" width="20" height="20" alt="✓">`;
+  } else if (type === "error" || type === "delete") {
+    icon = `<img class="app-toast-img" src="/static/x-popup.gif?v=1&play=${Date.now()}-${Math.random().toString(36).slice(2)}" width="22" height="22" alt="✕">`;
+  } else if (type === "warning") {
+    icon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+  } else {
+    icon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  }
   toast.innerHTML = `<span class="app-toast-icon">${icon}</span><span class="app-toast-text">${esc(message)}</span>`;
   container.appendChild(toast);
   setTimeout(() => {

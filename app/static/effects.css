@@ -2327,7 +2327,7 @@ html.disable-effects canvas#authCanvas {
 }
 
 /* ==========================================================================
-   NÚT BẬT / TẮT TOÀN BỘ HIỆU ỨNG (EFFECTS TOGGLE BUTTON - GIỐNG NÚT CHIA SẺ)
+   NÚT BẬT / TẮT TOÀN BỘ HIỆU ỨNG (EFFECTS TOGGLE BUTTON)
    ========================================================================== */
 
 /* 1. Nút trên thanh Appbar */
@@ -2335,6 +2335,8 @@ html.disable-effects canvas#authCanvas {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-width: 140px;
+  justify-content: center;
   height: 34px;
   padding: 0 12px;
   margin-right: 8px;
@@ -2344,10 +2346,20 @@ html.disable-effects canvas#authCanvas {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  transition: all 0.22s ease;
+}
+
+.appbar-effects-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .appbar-effects-btn .appbar-effects-icon {
-  font-size: 13.5px;
+  font-size: 14px;
   display: inline-block;
   line-height: 1;
   transition: transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -2357,36 +2369,52 @@ html.disable-effects canvas#authCanvas {
   transform: rotate(18deg) scale(1.2);
 }
 
-/* 2. Nút trong phần Page-Title Actions (Quản lý tài khoản) */
-.page-title-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+/* GIF Animations on Effects Button */
+.appbar-effects-gif {
+  display: block;
+  object-fit: contain;
+  vertical-align: middle;
 }
 
-.effects-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  font-size: 13.5px;
-  font-weight: 700;
-  border-radius: 10px;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
+.appbar-effects-gif.is-on {
+  width: 20px;
+  height: 20px;
 }
 
-.effects-toggle-btn .effects-toggle-sparkle {
-  font-size: 14px;
-  display: inline-block;
-  line-height: 1;
-  transition: transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+.appbar-effects-gif.is-off {
+  width: 24px;
+  height: 24px;
 }
 
-.effects-toggle-btn:hover .effects-toggle-sparkle {
-  transform: rotate(18deg) scale(1.22);
+/* Feedback highlight state when toggling */
+.appbar-effects-btn.is-feedback-on {
+  color: #059669 !important;
+  border-color: #10b981 !important;
+  background: rgba(236, 253, 245, 0.95) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22), 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+}
+
+:root.dark-mode .appbar-effects-btn.is-feedback-on,
+body.dark-mode .appbar-effects-btn.is-feedback-on {
+  color: #6ee7b7 !important;
+  border-color: #059669 !important;
+  background: rgba(6, 78, 59, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.28), 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+.appbar-effects-btn.is-feedback-off {
+  color: #dc2626 !important;
+  border-color: #ef4444 !important;
+  background: rgba(254, 242, 242, 0.95) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22), 0 4px 12px rgba(239, 68, 68, 0.15) !important;
+}
+
+:root.dark-mode .appbar-effects-btn.is-feedback-off,
+body.dark-mode .appbar-effects-btn.is-feedback-off {
+  color: #fca5a5 !important;
+  border-color: #dc2626 !important;
+  background: rgba(127, 29, 29, 0.45) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.28), 0 4px 14px rgba(0, 0, 0, 0.35) !important;
 }
 
 /* Micro-animation khi bấm chuyển đổi (giống cảm giác tương tác của nút chia sẻ) */
@@ -2409,8 +2437,7 @@ html.disable-effects canvas#authCanvas {
 }
 
 /* Trạng thái KHI HIỆU ỨNG TẮT (disable-effects) */
-html.disable-effects .appbar-effects-btn,
-html.disable-effects .effects-toggle-btn {
+html.disable-effects .appbar-effects-btn {
   color: #64748b;
   border-color: rgba(203, 213, 225, 0.8);
   background: rgba(241, 245, 249, 0.85);
@@ -2418,17 +2445,14 @@ html.disable-effects .effects-toggle-btn {
 }
 
 :root.dark-mode.disable-effects .appbar-effects-btn,
-body.dark-mode.disable-effects .appbar-effects-btn,
-:root.dark-mode.disable-effects .effects-toggle-btn,
-body.dark-mode.disable-effects .effects-toggle-btn {
+body.dark-mode.disable-effects .appbar-effects-btn {
   color: #94a3b8;
   border-color: rgba(71, 85, 105, 0.7);
   background: rgba(30, 41, 59, 0.65);
   box-shadow: none;
 }
 
-html.disable-effects .appbar-effects-btn:hover,
-html.disable-effects .effects-toggle-btn:hover {
+html.disable-effects .appbar-effects-btn:hover {
   color: var(--ink, #0f172a);
   border-color: #94a3b8;
   background: #ffffff;
@@ -2437,9 +2461,7 @@ html.disable-effects .effects-toggle-btn:hover {
 }
 
 :root.dark-mode.disable-effects .appbar-effects-btn:hover,
-body.dark-mode.disable-effects .appbar-effects-btn:hover,
-:root.dark-mode.disable-effects .effects-toggle-btn:hover,
-body.dark-mode.disable-effects .effects-toggle-btn:hover {
+body.dark-mode.disable-effects .appbar-effects-btn:hover {
   color: #f1f5f9;
   border-color: #64748b;
   background: #1e293b;
@@ -2447,20 +2469,14 @@ body.dark-mode.disable-effects .effects-toggle-btn:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-@media (max-width: 640px) {
-  .page-title {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
+/* Giữ phản hồi xúc giác của nút toggle ngay cả khi tắt toàn bộ hiệu ứng */
+html.disable-effects .appbar-effects-btn,
+html.disable-effects .appbar-effects-btn *,
+html.disable-effects .btn-toggle-pop {
+  transition-duration: 0.2s !important;
+}
 
-  .page-title-actions {
-    width: 100%;
-  }
-
-  .effects-toggle-btn {
-    width: 100%;
-    justify-content: center;
-    box-sizing: border-box;
-  }
+html.disable-effects .btn-toggle-pop {
+  animation-duration: 0.32s !important;
+  animation-iteration-count: 1 !important;
 }

@@ -853,8 +853,9 @@ async function submitEntity(e) {
       success: "Đã lưu",
     });
     setEntityActionMessage("Đã lưu dữ liệu.", "success");
-    await wait(650);
+    await wait(350);
     entityModal.close();
+    showToast(entityType.endsWith("_edit") ? "Đã cập nhật dữ liệu thành công." : "Đã thêm dữ liệu thành công.", "success");
     await refreshAfterSuccessfulMutation();
   } catch (error) {
     entityActionError(
@@ -868,10 +869,21 @@ async function delEntity(type, id, button) {
     if (!(await confirmAction("Xóa mục này?", { confirmText: "Xóa" }))) return;
   }
 
-  setInlineActionState(button, "loading", {
-    idle: "Xóa",
-    loading: type === "assignment" ? "Đang kiểm tra..." : "Đang xóa...",
-  });
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-loading");
+  }
+
+  const typeLabels = {
+    grade: "khối",
+    class: "lớp",
+    subject: "môn học",
+    teacher: "giáo viên",
+    department: "tổ bộ môn",
+    room: "phòng học",
+    assignment: "phân công",
+  };
+  const typeLabel = typeLabels[type] || "mục";
 
   try {
     let confirmation = null;
@@ -898,7 +910,10 @@ async function delEntity(type, id, button) {
           },
         );
         if (!confirmed) {
-          setInlineActionState(button, "idle", { idle: "Xóa" });
+          if (button) {
+            button.disabled = false;
+            button.classList.remove("is-loading");
+          }
           return;
         }
         confirmation = {
@@ -908,30 +923,19 @@ async function delEntity(type, id, button) {
             ? result.fixed_lesson_ids
             : [],
         };
-        setInlineActionState(button, "loading", {
-          idle: "Xóa",
-          loading: "Đang xóa...",
-        });
         continue;
       }
 
       if (r.ok) {
-        setInlineActionState(button, "success", {
-          idle: "Xóa",
-          success: "Đã xóa",
-        });
-        await wait(450);
+        showToast(result?.message || `Đã xóa ${typeLabel} thành công.`, "delete");
         await refreshAfterSuccessfulMutation();
       } else {
-        setInlineActionState(
-          button,
-          "error",
-          { idle: "Xóa", error: "Không thể xóa" },
-          2200,
-        );
-        showInlineActionFeedback(
-          button,
-          apiErrorMessage(result, "Không thể xóa dữ liệu. Vui lòng thử lại."),
+        if (button) {
+          button.disabled = false;
+          button.classList.remove("is-loading");
+        }
+        showToast(
+          apiErrorMessage(result, `Không thể xóa ${typeLabel}. Vui lòng thử lại.`),
           "error",
           5000,
         );
@@ -940,12 +944,10 @@ async function delEntity(type, id, button) {
     }
     throw new Error("Dữ liệu lịch thay đổi trong lúc xác nhận. Hãy thử xóa lại.");
   } catch (error) {
-    setInlineActionState(
-      button,
-      "error",
-      { idle: "Xóa", error: "Chưa hoàn tất" },
-      2200,
-    );
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("is-loading");
+    }
     showToast(requestFailureMessage(error), "error", 5000);
   }
 }

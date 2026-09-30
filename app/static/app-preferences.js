@@ -67,10 +67,10 @@ async function deletePreference(id, button) {
     { title: "Xóa nguyện vọng", confirmText: "Xóa" },
   );
   if (!confirmed) return;
-  setInlineActionState(button, "loading", {
-    idle: "Xóa",
-    loading: "Đang xóa...",
-  });
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-loading");
+  }
   const projectId = window.PROJECT_ID || data?.project?.id || PROJECT_ID;
   try {
     const r = await fetch(`/api/projects/${projectId}/preferences/${id}`, {
@@ -79,20 +79,20 @@ async function deletePreference(id, button) {
     });
     const result = await readApiResponse(r);
     if (!r.ok) {
-      setInlineActionState(button, "error", { idle: "Xóa", error: "Không thể xóa" }, 2200);
-      showInlineActionFeedback(
-        button,
-        apiErrorMessage(result, "Không thể xóa nguyện vọng."),
-        "error",
-        5000,
-      );
+      if (button) {
+        button.disabled = false;
+        button.classList.remove("is-loading");
+      }
+      showToast(apiErrorMessage(result, "Không thể xóa nguyện vọng."), "error", 5000);
       return;
     }
-    setInlineActionState(button, "success", { idle: "Xóa", success: "Đã xóa" });
-    await wait(350);
+    showToast("Đã xóa nguyện vọng thành công.", "delete");
     await loadPreferenceInbox();
   } catch (error) {
-    setInlineActionState(button, "error", { idle: "Xóa", error: "Chưa xóa được" }, 2200);
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("is-loading");
+    }
     showToast(requestFailureMessage(error), "error", 5000);
   }
 }

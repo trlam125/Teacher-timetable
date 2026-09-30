@@ -20,81 +20,11 @@
             document.querySelectorAll('.theme-switch__checkbox').forEach(cb => cb.checked = d);
         }
 
-        function isEffectsDisabled() {
-            return document.documentElement.classList.contains('disable-effects') ||
-                localStorage.getItem('disable_effects') === 'true';
-        }
-
-        function updateEffectsUI(isOff) {
-            const pageBtn = document.querySelector('#pageEffectsToggle');
-            const label = document.querySelector('#effectsToggleStatus');
-            const appbarBtn = document.querySelector('#appbarEffectsToggle');
-            const appbarIcon = document.querySelector('.appbar-effects-icon');
-            const appbarText = document.querySelector('.appbar-effects-text');
-            const sparkle = document.querySelector('.effects-toggle-sparkle');
-
-            if (pageBtn) {
-                pageBtn.setAttribute('aria-checked', isOff ? 'false' : 'true');
-                pageBtn.setAttribute('title', isOff ? 'Hiệu ứng đang tắt - Bấm để bật' : 'Hiệu ứng đang bật - Bấm để tắt');
-            }
-            if (label) {
-                label.textContent = isOff ? 'Đã tắt' : 'Đang bật';
-            }
-            if (sparkle) {
-                sparkle.textContent = isOff ? '🚫' : '✨';
-            }
-            if (appbarBtn) {
-                appbarBtn.setAttribute('title', isOff ? 'Hiệu ứng đang tắt - Bấm để bật' : 'Hiệu ứng đang bật - Bấm để tắt');
-                appbarBtn.setAttribute('aria-label', isOff ? 'Bật hiệu ứng' : 'Tắt hiệu ứng');
-            }
-            if (appbarIcon) {
-                appbarIcon.textContent = isOff ? '🚫' : '✨';
-            }
-            if (appbarText) {
-                appbarText.textContent = isOff ? 'Hiệu ứng: Tắt' : 'Hiệu ứng: Bật';
-            }
-        }
-
-        function triggerBtnPop(el) {
-            if (!el) return;
-            el.classList.remove('btn-toggle-pop');
-            void el.offsetWidth;
-            el.classList.add('btn-toggle-pop');
-            setTimeout(function () { el.classList.remove('btn-toggle-pop'); }, 360);
-        }
-
-        function toggleEffects(callerBtn) {
-            const wasOff = isEffectsDisabled();
-            const isOff = !wasOff;
-
-            const appbarBtn = document.querySelector('#appbarEffectsToggle');
-            const pageBtn = document.querySelector('#pageEffectsToggle');
-            if (callerBtn) {
-                triggerBtnPop(callerBtn);
-            } else {
-                if (appbarBtn) triggerBtnPop(appbarBtn);
-                if (pageBtn) triggerBtnPop(pageBtn);
-            }
-
-            document.documentElement.classList.toggle('disable-effects', isOff);
-            localStorage.setItem('disable_effects', isOff ? 'true' : 'false');
-            updateEffectsUI(isOff);
-
-            window.dispatchEvent(new CustomEvent('effectsToggle', { detail: { disabled: isOff } }));
-
-            if (window.OperationStatus && window.OperationStatus.notify) {
-                if (isOff) {
-                    window.OperationStatus.notify('info', 'Hiệu ứng giao diện', 'Đã tắt toàn bộ hiệu ứng hoạt ảnh trên trang');
-                } else {
-                    window.OperationStatus.notify('success', 'Hiệu ứng giao diện', 'Đã bật lại toàn bộ hiệu ứng hoạt ảnh');
-                }
-            }
-        }
 
         /* Hiệu ứng gợn sóng nút bấm (button ripple effect - giống nút chia sẻ) */
         document.addEventListener('pointerdown', function (event) {
             if (document.documentElement.classList.contains('disable-effects')) return;
-            const target = event.target.closest('.btn, .nav, .appbar-effects-btn, .effects-toggle-btn');
+            const target = event.target.closest('.btn, .nav');
             if (!target || target.querySelector('.button-ripple')) return;
             const rect = target.getBoundingClientRect();
             const ripple = document.createElement('span');
@@ -103,10 +33,6 @@
             ripple.style.top = (event.clientY - rect.top) + 'px';
             target.appendChild(ripple);
             setTimeout(function () { ripple.remove(); }, 700);
-        });
-
-        document.addEventListener('DOMContentLoaded', function () {
-            updateEffectsUI(isEffectsDisabled());
         });
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -120,7 +46,10 @@
     <script src="/static/brand-motion.js?v=1" defer></script>
     <script src="/static/operation-status.js?v=1" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
+    <link rel="preload" href="/static/x.gif" as="image">
+    <link rel="preload" href="/static/tick.gif" as="image">
     <link rel="stylesheet" href="/static/effects.css?v=1">
+    <script src="/static/effects-toggle.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/auth-extra.css?v=1">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
@@ -133,11 +62,7 @@
         <a class="appbar-brand" href="/projects" aria-label="Smart TKB"><img src="/static/brand-logo.svg?v=1"
                 alt=""><span>Smart TKB</span></a>
         <div class="spacer"></div>
-        <button type="button" id="appbarEffectsToggle" class="btn ghost appbar-effects-btn"
-            onclick="toggleEffects(this)" title="Bật / Tắt toàn bộ hiệu ứng" aria-label="Bật / Tắt hiệu ứng">
-            <span class="appbar-effects-icon" aria-hidden="true">✨</span>
-            <span class="appbar-effects-text">Hiệu ứng: Bật</span>
-        </button>
+        {% include "_effects_toggle.html" %}
         {% include "_theme_switch.html" %}
         <a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{ greeting_name }}</span>{% include
         "_logout_button.html" %}
@@ -151,15 +76,6 @@
                     hạn
                     theo trường và chỉ gán thủ công tại trang này.
                 </p>
-            </div>
-            <div class="page-title-actions">
-                <button type="button" id="pageEffectsToggle" class="btn ghost effects-toggle-btn"
-                    onclick="toggleEffects(this)" aria-label="Bật hoặc tắt toàn bộ hiệu ứng" role="switch"
-                    aria-checked="true" title="Bấm để bật hoặc tắt toàn bộ hiệu ứng trên trang">
-                    <span class="effects-toggle-sparkle" aria-hidden="true">✨</span>
-                    <span class="effects-toggle-text">Hiệu ứng: <strong id="effectsToggleStatus">Đang
-                            bật</strong></span>
-                </button>
             </div>
         </div>
         {% if user.role == "super_admin" %}

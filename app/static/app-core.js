@@ -914,7 +914,7 @@ function bulkEntityTableShell(type, tableHtml) {
 function table(rows, cols, type) {
   if (!rows.length) return '<div class="empty-state">Chưa có dữ liệu.</div>';
   const canEdit = ["department", "subject", "teacher", "grade", "class"].includes(type);
-  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader(type)}${cols.map((c) => `<th>${c[0]}</th>`).join("")}<th></th></tr></thead><tbody>${rows.map((r) => `<tr>${bulkEntityCell(type, r.id)}${cols.map((c) => `<td>${esc(typeof c[1] === "function" ? c[1](r) : r[c[1]])}</td>`).join("")}<td><div class="row end">${canEdit ? `<button class="action-link" onclick="openEntityEdit('${type}',${r.id})">Sửa</button>` : ""}<button class="danger-link" onclick="delEntity('${type}',${r.id},this)">Xóa</button></div></td></tr>`).join("")}</tbody></table>`;
+  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader(type)}${cols.map((c) => `<th>${c[0]}</th>`).join("")}<th class="entity-actions-col"></th></tr></thead><tbody>${rows.map((r) => `<tr>${bulkEntityCell(type, r.id)}${cols.map((c) => `<td>${esc(typeof c[1] === "function" ? c[1](r) : r[c[1]])}</td>`).join("")}<td class="entity-actions-cell"><div class="entity-row-actions">${canEdit ? `<button class="action-link" onclick="openEntityEdit('${type}',${r.id})">Sửa</button>` : `<span class="action-link-placeholder"></span>`}<button class="danger-link" onclick="delEntity('${type}',${r.id},this)">Xóa</button></div></td></tr>`).join("")}</tbody></table>`;
   return bulkEntityTableShell(type, tableHtml);
 }
 function entityBulkRoot(type) {
@@ -1031,7 +1031,7 @@ async function deleteSelectedEntities(type, button) {
       });
       showToast(
         result.message || `Đã xóa ${Number(result.deleted || ids.length)} mục.`,
-        Array.isArray(result.skipped) && result.skipped.length ? "warning" : "success",
+        Array.isArray(result.skipped) && result.skipped.length ? "warning" : "delete",
         4800,
       );
       await wait(500);
@@ -1362,18 +1362,18 @@ function assignmentTable() {
     }
     if (!rows.length)
       return '<div class="assignment-filter-empty">Không có cặp lớp–môn nào lệch chương trình với bộ lọc hiện tại.</div>';
-    return `<table class="data-table"><thead><tr><th>Lớp</th><th>Khối</th><th>Môn</th><th>Giáo viên hiện tại</th><th>Chương trình chuẩn</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows
+    return `<table class="data-table"><thead><tr><th>Lớp</th><th>Khối</th><th>Môn</th><th>Giáo viên hiện tại</th><th>Chương trình chuẩn</th><th>Trạng thái</th><th class="entity-actions-col"></th></tr></thead><tbody>${rows
       .map((item) => {
         if (item.issue_type === "extra") {
           const current = `${item.assigned_periods} tiết/tuần · ${describeBlockMode(item.assigned_mode, item.assigned_periods)}`;
-          return `<tr><td><b>${esc(item.class_name)}</b></td><td>${esc(item.grade_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.assigned_teacher_name || "—")}</td><td>Không thuộc chương trình khối</td><td><span class="assignment-gap-badge">Môn dư: ${esc(current)}</span></td><td><button class="danger-link" onclick="delEntity('assignment',${item.assignment_id},this)">Xóa phân công</button></td></tr>`;
+          return `<tr><td><b>${esc(item.class_name)}</b></td><td>${esc(item.grade_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.assigned_teacher_name || "—")}</td><td>Không thuộc chương trình khối</td><td><span class="assignment-gap-badge">Môn dư: ${esc(current)}</span></td><td class="entity-actions-cell"><div class="entity-row-actions"><span class="action-link-placeholder"></span><button class="danger-link" title="Xóa phân công" onclick="delEntity('assignment',${item.assignment_id},this)">Xóa</button></div></td></tr>`;
         }
         const required = `${item.required_periods} tiết/tuần · ${describeBlockMode(item.required_mode, item.required_periods)}`;
         if (item.issue_type === "mismatch") {
           const current = `${item.assigned_periods} tiết/tuần · ${describeBlockMode(item.assigned_mode, item.assigned_periods)}`;
-          return `<tr><td><b>${esc(item.class_name)}</b></td><td>${esc(item.grade_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.assigned_teacher_name || "—")}</td><td>${esc(required)}</td><td><span class="assignment-gap-badge">Đang có: ${esc(current)}</span></td><td><button class="action-link" onclick="openAssignmentEdit(${item.assignment_id})">Sửa phân công</button></td></tr>`;
+          return `<tr><td><b>${esc(item.class_name)}</b></td><td>${esc(item.grade_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.assigned_teacher_name || "—")}</td><td>${esc(required)}</td><td><span class="assignment-gap-badge">Đang có: ${esc(current)}</span></td><td class="entity-actions-cell"><div class="entity-row-actions"><button class="action-link" title="Sửa phân công" onclick="openAssignmentEdit(${item.assignment_id})">Sửa</button><span class="action-link-placeholder"></span></div></td></tr>`;
         }
-        return `<tr><td><b>${esc(item.class_name)}</b></td><td>${esc(item.grade_name)}</td><td>${esc(item.subject_name)}</td><td>—</td><td>${esc(required)}</td><td><span class="assignment-gap-badge">Chưa phân công</span></td><td><button class="action-link" onclick="openEntity('assignment',{classId:${item.class_id},subjectId:${item.subject_id}})">+ Thêm phân công</button></td></tr>`;
+        return `<tr><td><b>${esc(item.class_name)}</b></td><td>${esc(item.grade_name)}</td><td>${esc(item.subject_name)}</td><td>—</td><td>${esc(required)}</td><td><span class="assignment-gap-badge">Chưa phân công</span></td><td class="entity-actions-cell"><div class="entity-row-actions"><button class="action-link" style="width:auto" onclick="openEntity('assignment',{classId:${item.class_id},subjectId:${item.subject_id}})">+ Thêm</button></div></td></tr>`;
       })
       .join("")}</tbody></table>`;
   }
@@ -1382,10 +1382,10 @@ function assignmentTable() {
     if (state.classId) rows = rows.filter((item) => item.id === state.classId);
     if (!rows.length)
       return '<div class="assignment-filter-empty">Không có lớp chưa phân công với bộ lọc hiện tại.</div>';
-    return `<table class="data-table"><thead><tr><th>Lớp</th><th>Khối</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows
+    return `<table class="data-table"><thead><tr><th>Lớp</th><th>Khối</th><th>Trạng thái</th><th class="entity-actions-col"></th></tr></thead><tbody>${rows
       .map((item) => {
         const grade = data.grades.find((g) => g.id === item.grade_id);
-        return `<tr><td><b>${esc(item.name)}</b></td><td>${esc(grade?.name || "—")}</td><td><span class="assignment-gap-badge">Chưa có phân công</span></td><td><button class="action-link" onclick="openEntity('assignment',{classId:${item.id}})">+ Thêm phân công</button></td></tr>`;
+        return `<tr><td><b>${esc(item.name)}</b></td><td>${esc(grade?.name || "—")}</td><td><span class="assignment-gap-badge">Chưa có phân công</span></td><td class="entity-actions-cell"><div class="entity-row-actions"><button class="action-link" style="width:auto" onclick="openEntity('assignment',{classId:${item.id}})">+ Thêm</button></div></td></tr>`;
       })
       .join("")}</tbody></table>`;
   }
@@ -1398,10 +1398,10 @@ function assignmentTable() {
     rows = rows.filter((item) => item.teacher_id === state.teacherId);
   if (!rows.length)
     return `<div class="assignment-filter-empty">${data.assignments?.length ? "Không có phân công phù hợp với bộ lọc hiện tại." : "Chưa có phân công. Hãy gắn lớp – môn – giáo viên và số tiết/tuần trước khi xếp lịch."}</div>`;
-  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader("assignment")}<th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Tiết/tuần</th><th>Tải giáo viên</th><th>Chế độ xếp</th><th></th></tr></thead><tbody>${rows
+  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader("assignment")}<th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Tiết/tuần</th><th>Tải giáo viên</th><th>Chế độ xếp</th><th class="entity-actions-col"></th></tr></thead><tbody>${rows
     .map((item) => {
       const teacher = data.teachers.find((row) => row.id === item.teacher_id);
-      return `<tr>${bulkEntityCell("assignment", item.id)}<td>${esc(item.class_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.teacher_name)}</td><td><b>${item.periods_per_week}</b></td><td>${teacherLoadCellHtml(teacher)}</td><td>${esc(describeBlockMode(item.block_mode, item.periods_per_week))}</td><td><div class="row end"><button class="action-link" onclick="openAssignmentEdit(${item.id})">Sửa phân công</button><button class="danger-link" onclick="delEntity('assignment',${item.id},this)">Xóa</button></div></td></tr>`;
+      return `<tr>${bulkEntityCell("assignment", item.id)}<td>${esc(item.class_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.teacher_name)}</td><td><b>${item.periods_per_week}</b></td><td>${teacherLoadCellHtml(teacher)}</td><td>${esc(describeBlockMode(item.block_mode, item.periods_per_week))}</td><td class="entity-actions-cell"><div class="entity-row-actions"><button class="action-link" title="Sửa phân công" onclick="openAssignmentEdit(${item.id})">Sửa</button><button class="danger-link" title="Xóa phân công" onclick="delEntity('assignment',${item.id},this)">Xóa</button></div></td></tr>`;
     })
     .join("")}</tbody></table>`;
   return bulkEntityTableShell("assignment", tableHtml);

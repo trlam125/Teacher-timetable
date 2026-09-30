@@ -134,14 +134,54 @@
       .replace(/"/g, "&quot;");
   }
 
+  const STATUS_GIF_VERSION = "1";
+  const STATUS_GIFS = {
+    success: "/static/tick.gif",
+    error: "/static/x-popup.gif",
+    delete: "/static/x-popup.gif",
+  };
+
+  function statusGifMarkup(kind) {
+    const path = STATUS_GIFS[kind];
+    if (!path) return "";
+    // Mỗi toast dùng URL riêng để GIF luôn phát lại từ frame đầu, kể cả khi
+    // cùng một loại thông báo xuất hiện liên tiếp hoặc trình duyệt đã cache file.
+    const replayToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const size = kind === "success" ? 24 : 28;
+    const alt = kind === "success" ? "✓" : "✕";
+    return `<img class="operation-toast-img" src="${path}?v=${STATUS_GIF_VERSION}&play=${replayToken}" width="${size}" height="${size}" alt="${alt}" loading="eager">`;
+  }
+
+  // Preload độc lập với nút Hiệu ứng. Trước đây việc preload nằm trong
+  // effects-toggle.js, nên khi bỏ nút khỏi các trang khác thì popup không nên
+  // phụ thuộc vào file đó nữa.
+  try {
+    new Set(Object.values(STATUS_GIFS)).forEach((src) => {
+      const image = new Image();
+      image.src = `${src}?v=${STATUS_GIF_VERSION}`;
+    });
+  } catch (_) {}
+
   function showToastNotification(kind, title, message) {
     const container = ensureToastContainer();
     const toast = document.createElement("div");
-    const duration = kind === "error" ? 4200 : kind === "warning" ? 3800 : 2800;
+    const duration = kind === "error" || kind === "delete" ? 4200 : kind === "warning" ? 3800 : 2800;
     toast.className = `operation-toast is-${kind}`;
+
+    let iconHtml = "";
+    if (kind === "success") {
+      iconHtml = statusGifMarkup("success");
+    } else if (kind === "error" || kind === "delete") {
+      iconHtml = statusGifMarkup(kind);
+    } else if (kind === "warning") {
+      iconHtml = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    } else {
+      iconHtml = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    }
+
     toast.innerHTML = `
       <div class="operation-toast-icon">
-        <span class="operation-status-result"></span>
+        ${iconHtml}
       </div>
       <div class="operation-toast-body">
         <strong class="operation-toast-title">${esc(title)}</strong>
@@ -176,8 +216,13 @@
   }
 
   function notificationKind(message, requestedKind) {
+    if (requestedKind === "delete" || requestedKind === "error") return requestedKind;
+    const normalized = String(message || "").toLowerCase();
+    if (
+      ["xóa", "hủy", "loại bỏ", "gỡ bỏ", "đã xóa"].some((word) => normalized.includes(word))
+    )
+      return "delete";
     if (requestedKind) return requestedKind;
-    const normalized = String(message).toLowerCase();
     if (
       ["lỗi", "thất bại", "không thể", "không được", "chưa hoàn tất"].some(
         (word) => normalized.includes(word),
@@ -284,6 +329,7 @@
 
     const titles = {
       success: "Hoàn tất",
+      delete: "Đã xóa",
       error: "Chưa hoàn tất",
       warning: "Cảnh báo",
       info: "Thông báo",
@@ -358,6 +404,19 @@
       resolveConfirmation(false);
   });
 
+  function promoteInlineErrorAlerts() {
+    document.querySelectorAll(".alert.error").forEach((alert) => {
+      if (alert.dataset.operationToastPromoted === "true") return;
+      const message = String(alert.textContent || "").trim();
+      if (!message) return;
+
+      alert.dataset.operationToastPromoted = "true";
+      alert.hidden = true;
+      alert.setAttribute("aria-hidden", "true");
+      notify(message, "error");
+    });
+  }
+
   window.OperationStatus = {
     begin,
     finish,
@@ -365,6 +424,12 @@
     confirm: confirmAction,
     reset,
   };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", promoteInlineErrorAlerts, { once: true });
+  } else {
+    promoteInlineErrorAlerts();
+  }
   window.addEventListener("pageshow", (event) => {
     if (event.persisted) reset({ clearQueue: true });
   });
