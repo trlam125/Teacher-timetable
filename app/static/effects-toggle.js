@@ -35,7 +35,10 @@
           btn.classList.remove('is-feedback-on');
           btn.classList.add('is-feedback', 'is-feedback-off');
           if (iconWrap) {
-            iconWrap.innerHTML = '<img class="appbar-effects-gif is-off" src="/static/x.gif?v=1&play=' + Date.now() + '" width="24" height="24" alt="✕">';
+            // Dùng dấu X tĩnh thay cho GIF khi vừa TẮT hiệu ứng. Khi class
+            // `disable-effects` được bật, toàn bộ animation CSS bị vô hiệu hóa;
+            // icon tĩnh bảo đảm phản hồi "Đã tắt hiệu ứng" luôn hiện rõ.
+            iconWrap.innerHTML = '<span class="appbar-effects-cross" aria-hidden="true">✕</span>';
           }
           if (textEl) {
             textEl.textContent = 'Đã tắt hiệu ứng';

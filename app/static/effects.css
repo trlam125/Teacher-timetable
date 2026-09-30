@@ -2386,6 +2386,32 @@ html.disable-effects canvas#authCanvas {
   height: 24px;
 }
 
+/* Dấu X phản hồi khi người dùng vừa tắt hiệu ứng.
+   Đây là icon tĩnh để vẫn hiển thị ngay cả trong chế độ disable-effects. */
+.appbar-effects-cross {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ef4444;
+  box-sizing: border-box;
+}
+
+html.disable-effects .appbar-effects-btn.is-feedback-off .appbar-effects-cross {
+  color: #ef4444 !important;
+}
+
+:root.dark-mode.disable-effects .appbar-effects-btn.is-feedback-off .appbar-effects-cross,
+body.dark-mode.disable-effects .appbar-effects-btn.is-feedback-off .appbar-effects-cross {
+  color: #f87171 !important;
+}
+
 /* Feedback highlight state when toggling */
 .appbar-effects-btn.is-feedback-on {
   color: #059669 !important;
