@@ -46,8 +46,8 @@
     <script src="/static/brand-motion.js?v=1" defer></script>
     <script src="/static/operation-status.js?v=1" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
-    <link rel="preload" href="/static/x.gif" as="image">
-    <link rel="preload" href="/static/tick.gif" as="image">
+    <link rel="preload" href="/static/x.gif?v=1" as="image">
+    <link rel="preload" href="/static/tick.gif?v=1" as="image">
     <link rel="stylesheet" href="/static/effects.css?v=1">
     <script src="/static/effects-toggle.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/auth-extra.css?v=1">
@@ -55,6 +55,8 @@
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/btn-tame-ape.js?v=1" defer></script>
+    <script src="/static/weather-widget.js?v=1" defer></script>
 </head>
 
 <body>
@@ -92,7 +94,13 @@
                     <span>Tên trường</span>
                     <input name="name" maxlength="200" required placeholder="Ví dụ: THPT A">
                 </label>
-                <button class="btn" type="submit">+ Thêm trường</button>
+                <button class="btn btn-tame-ape" type="submit"><span class="btn__text">Thêm trường</span><span
+                        class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                            viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                            stroke="currentColor" fill="none" class="svg">
+                            <line y2="19" y1="5" x2="12" x1="12"></line>
+                            <line y2="12" y1="12" x2="19" x1="5"></line>
+                        </svg></span></button>
             </form>
 
             {% if schools %}
@@ -232,7 +240,17 @@
                 {% if account.id != user.id %}
                 <form method="post" action="/admin/users/{{ account.id }}/delete"
                     onsubmit="event.preventDefault();window.OperationStatus.confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.',{title:'Xóa tài khoản',confirmText:'Xóa'}).then(ok=>{if(ok)this.submit();});">
-                    <button class="btn ghost wide danger-btn" type="submit">Xóa tài khoản</button>
+                    <button class="btn btn-tame-ape btn-tame-ape-danger wide" type="submit"><span class="btn__text">Xóa
+                            tài khoản</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" class="svg">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path
+                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                </path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg></span></button>
                 </form>
                 {% else %}<p class="muted">Tài khoản này không thể xóa từ giao diện.</p>{% endif %}
             </article>
@@ -255,7 +273,17 @@
                 {% if chatbot_error_logs %}
                 <form method="post" action="/admin/chatbot-logs/clear"
                     onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ log lỗi chatbot?', {title: 'Xóa log chatbot', confirmText: 'Xóa log'}).then(ok => { if (ok) this.submit(); });">
-                    <button class="btn ghost danger-btn" type="submit">Xóa log</button>
+                    <button class="btn btn-tame-ape btn-tame-ape-danger" type="submit"><span class="btn__text">Xóa
+                            log</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" class="svg">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path
+                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                </path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg></span></button>
                 </form>
                 {% endif %}
             </div>

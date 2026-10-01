@@ -22,11 +22,13 @@
     <link rel="stylesheet" href="/static/preferences.css?v=1">
     <link rel="stylesheet" href="/static/schedule/schedule-editor.css?v=1">
     <link rel="stylesheet" href="/static/workspace-layout.css?v=1">
-    <link rel="preload" href="/static/x.gif" as="image">
-    <link rel="preload" href="/static/tick.gif" as="image">
+    <link rel="preload" href="/static/x.gif?v=1" as="image">
+    <link rel="preload" href="/static/tick.gif?v=1" as="image">
     <link rel="stylesheet" href="/static/effects.css?v=1">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
+    <script src="/static/btn-tame-ape.js?v=1" defer></script>
+    <script src="/static/weather-widget.js?v=1" defer></script>
 </head>
 
 <body class="workspace-viewport">
@@ -207,7 +209,13 @@
                             <h1>Môn học</h1>
                             <p>Tên đầy đủ, tên rút gọn và số tiết liên tiếp tối đa.</p>
                         </div>
-                        <button class="btn" onclick="openEntity('subject')">+ Thêm môn</button>
+                        <button class="btn btn-tame-ape" onclick="openEntity('subject')"><span class="btn__text">Thêm
+                                môn</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                                    height="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round"
+                                    stroke-linecap="round" stroke="currentColor" fill="none" class="svg">
+                                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                                </svg></span></button>
                     </div>
                     <div id="subjectTable"></div>
                 </section>
@@ -217,7 +225,13 @@
                             <h1>Tổ chuyên môn</h1>
                             <p>Nhóm giáo viên theo chuyên môn.</p>
                         </div>
-                        <button class="btn" onclick="openEntity('department')">+ Thêm tổ</button>
+                        <button class="btn btn-tame-ape" onclick="openEntity('department')"><span class="btn__text">Thêm
+                                tổ</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                                    height="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round"
+                                    stroke-linecap="round" stroke="currentColor" fill="none" class="svg">
+                                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                                </svg></span></button>
                     </div>
                     <div id="departmentTable"></div>
                 </section>
@@ -227,7 +241,13 @@
                             <h1>Giáo viên</h1>
                             <p>Quản lý tải dạy và tổ chuyên môn.</p>
                         </div>
-                        <button class="btn" onclick="openEntity('teacher')">+ Thêm giáo viên</button>
+                        <button class="btn btn-tame-ape" onclick="openEntity('teacher')"><span class="btn__text">Thêm
+                                giáo viên</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                    width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round"
+                                    stroke-linecap="round" stroke="currentColor" fill="none" class="svg">
+                                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                                </svg></span></button>
                     </div>
                     <div id="teacherTable"></div>
                 </section>
@@ -238,7 +258,13 @@
                             <p>Nhóm các lớp có chương trình tương tự và cấu hình môn, số tiết/tuần chuẩn cho từng khối.
                             </p>
                         </div>
-                        <button class="btn" onclick="openEntity('grade')">+ Thêm khối</button>
+                        <button class="btn btn-tame-ape" onclick="openEntity('grade')"><span class="btn__text">Thêm
+                                khối</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                                    height="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round"
+                                    stroke-linecap="round" stroke="currentColor" fill="none" class="svg">
+                                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                                </svg></span></button>
                     </div>
                     <div id="gradeTable"></div>
                 </section>
@@ -248,7 +274,13 @@
                             <h1>Danh sách lớp</h1>
                             <p>Thiết lập các lớp thuộc từng khối.</p>
                         </div>
-                        <button class="btn" onclick="openEntity('class')">+ Thêm lớp</button>
+                        <button class="btn btn-tame-ape" onclick="openEntity('class')"><span class="btn__text">Thêm
+                                lớp</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                                    height="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round"
+                                    stroke-linecap="round" stroke="currentColor" fill="none" class="svg">
+                                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                                </svg></span></button>
                     </div>
                     <div id="classTable"></div>
                 </section>
@@ -259,7 +291,13 @@
                             <h1>Phân công giảng dạy</h1>
                             <p>Gán môn và số tiết mỗi tuần cho giáo viên ở từng lớp.</p>
                         </div>
-                        <button class="btn" onclick="openEntity('assignment')">+ Thêm phân công</button>
+                        <button class="btn btn-tame-ape" onclick="openEntity('assignment')"><span class="btn__text">Thêm
+                                phân công</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg"
+                                    width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round"
+                                    stroke-linecap="round" stroke="currentColor" fill="none" class="svg">
+                                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                                </svg></span></button>
                     </div>
                     <div class="assignment-explanation">
                         <h3>Cách hiểu số buổi và số tiết</h3>
@@ -361,7 +399,7 @@
                             </p>
                         </div>
                         <div class="row preference-head-actions">
-                            <button id="deleteAllPreferencesButton" class="btn ghost preference-delete-all"
+                            <button id="deleteAllPreferencesButton" class="btn btn-danger preference-delete-all"
                                 type="button" onclick="deleteAllPreferences(this)" disabled>Xóa tất cả</button>
                             <a class="btn" href="/register" target="_blank" rel="noopener">Mở trang đăng ký giáo
                                 viên</a>

@@ -541,16 +541,6 @@
   text-align: center;
 }
 
-.auth-error {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 16px;
-  border: 1px solid #fecaca;
-  font-size: 12px;
-  animation: auth-shake 0.45s ease both;
-}
-
 .panda {
   --eye-x: 0px;
   --eye-y: 0px;
@@ -762,20 +752,6 @@
   from {
     opacity: 0;
     transform: translateY(26px);
-  }
-}
-
-@keyframes auth-shake {
-  25% {
-    transform: translateX(-5px);
-  }
-
-  50% {
-    transform: translateX(5px);
-  }
-
-  75% {
-    transform: translateX(-3px);
   }
 }
 

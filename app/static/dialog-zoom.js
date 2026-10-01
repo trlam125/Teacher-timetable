@@ -19,13 +19,21 @@
   const states = new WeakMap();
   let lastTrigger = null;
   const OPEN_TRIGGER_TTL = 1800;
-  const OPEN_DURATION = 430;
-  const CLOSE_DURATION = 300;
+  const OPEN_DURATION = 320;
+  const CLOSE_DURATION = 320;
   const OPEN_EASING = "cubic-bezier(0.16, 1, 0.3, 1)";
-  const CLOSE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
+  const CLOSE_EASING = "cubic-bezier(0.2, 0.9, 0.3, 1)";
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+  function isEffectsDisabled() {
+    return (
+      Boolean(reducedMotion?.matches) ||
+      document.documentElement.classList.contains("disable-effects") ||
+      localStorage.getItem("disable_effects") === "true"
+    );
+  }
 
   function isEligible(dialog) {
     return dialog instanceof HTMLDialogElement && dialog.hasAttribute("data-app-zoom");
@@ -83,13 +91,24 @@
   }
 
   function getTriggerRadius(triggerElement) {
-    if (!triggerElement) return 9;
+    if (!triggerElement) return 12;
     try {
       const style = window.getComputedStyle(triggerElement);
       const r = parseFloat(style.borderRadius);
-      return Number.isFinite(r) && r > 0 ? r : 9;
+      return Number.isFinite(r) && r > 0 ? r : 12;
     } catch {
-      return 9;
+      return 12;
+    }
+  }
+
+  function getDialogRadius(dialog) {
+    if (!dialog) return 16;
+    try {
+      const style = window.getComputedStyle(dialog);
+      const r = parseFloat(style.borderRadius);
+      return Number.isFinite(r) && r > 0 ? r : 16;
+    } catch {
+      return 16;
     }
   }
 
@@ -124,7 +143,7 @@
     dialog.addEventListener("cancel", (event) => {
       if (!isEligible(dialog)) return;
       const state = states.get(dialog);
-      if (!state?.triggerRect || reducedMotion?.matches) return;
+      if (!state?.triggerRect || isEffectsDisabled()) return;
       event.preventDefault();
       dialog.close();
     });
@@ -138,7 +157,7 @@
   }
 
   proto.showModal = function (...args) {
-    if (!isEligible(this) || reducedMotion?.matches) {
+    if (!isEligible(this) || isEffectsDisabled()) {
       return nativeShowModal.apply(this, args);
     }
 
@@ -154,12 +173,13 @@
 
     const start = transformToTrigger(dialogRect, triggerRect);
     const btnRadius = getTriggerRadius(triggerElement);
-    const rx = Math.round(btnRadius / Math.max(start.scaleX, 0.01));
-    const ry = Math.round(btnRadius / Math.max(start.scaleY, 0.01));
+    const dialogRadius = getDialogRadius(this);
+    const rx = Math.round(btnRadius / Math.max(start.scaleX, 0.001));
+    const ry = Math.round(btnRadius / Math.max(start.scaleY, 0.001));
 
     this.classList.add("app-zoom-active");
     this.style.transformOrigin = "center center";
-    this.style.willChange = "transform, opacity, filter, border-radius";
+    this.style.willChange = "transform, opacity, border-radius";
     this.style.overflow = "hidden";
 
     const animation = this.animate(
@@ -168,18 +188,15 @@
           opacity: 0,
           transform: start.transform,
           borderRadius: `${rx}px / ${ry}px`,
-          filter: "blur(0.5px)",
         },
         {
           offset: 0.28,
-          opacity: 0.88,
-          filter: "blur(0px)",
+          opacity: 0.92,
         },
         {
           opacity: 1,
           transform: "translate3d(0, 0, 0) scale(1, 1)",
-          borderRadius: "16px",
-          filter: "blur(0px)",
+          borderRadius: `${dialogRadius}px`,
         },
       ],
       {
@@ -201,10 +218,13 @@
       () => {
         const state = states.get(this);
         if (!state || state.animation !== animation || state.closing) return;
-        animation.cancel();
-        state.animation = null;
+        this.classList.remove("app-zoom-active");
         this.style.removeProperty("overflow");
         this.style.removeProperty("will-change");
+        this.style.removeProperty("transform-origin");
+        this.style.removeProperty("border-radius");
+        animation.cancel();
+        state.animation = null;
       },
       { once: true },
     );
@@ -213,7 +233,7 @@
   };
 
   proto.close = function (returnValue = "") {
-    if (!isEligible(this) || !this.open || reducedMotion?.matches) {
+    if (!isEligible(this) || !this.open || isEffectsDisabled()) {
       return nativeClose.call(this, returnValue);
     }
 
@@ -239,30 +259,29 @@
     const dialogRect = this.getBoundingClientRect();
     const target = transformToTrigger(dialogRect, currentTriggerRect);
     const btnRadius = getTriggerRadius(state.triggerElement);
-    const rx = Math.round(btnRadius / Math.max(target.scaleX, 0.01));
-    const ry = Math.round(btnRadius / Math.max(target.scaleY, 0.01));
+    const dialogRadius = getDialogRadius(this);
+    const rx = Math.round(btnRadius / Math.max(target.scaleX, 0.001));
+    const ry = Math.round(btnRadius / Math.max(target.scaleY, 0.001));
 
     this.style.overflow = "hidden";
     this.style.transformOrigin = "center center";
+    this.style.willChange = "transform, opacity, border-radius";
 
     const animation = this.animate(
       [
         {
           opacity: Number.isFinite(currentOpacity) ? currentOpacity : 1,
           transform: currentTransform,
-          borderRadius: "16px",
-          filter: "blur(0px)",
+          borderRadius: `${dialogRadius}px`,
         },
         {
-          offset: 0.7,
+          offset: 0.72,
           opacity: 0.88,
-          filter: "blur(0px)",
         },
         {
           opacity: 0,
           transform: target.transform,
           borderRadius: `${rx}px / ${ry}px`,
-          filter: "blur(0.4px)",
         },
       ],
       {
@@ -279,7 +298,7 @@
       setTimeout(() => {
         triggerEl.classList.add("btn-absorb-pulse");
         setTimeout(() => triggerEl.classList.remove("btn-absorb-pulse"), 380);
-      }, Math.max(0, CLOSE_DURATION - 70));
+      }, Math.max(0, CLOSE_DURATION - 80));
     }
 
     const finishClose = () => {
@@ -291,9 +310,7 @@
     };
 
     animation.addEventListener("finish", finishClose, { once: true });
-    animation.addEventListener("cancel", () => {
-      // Cancellation is normally part of cleanup; do not force a second close.
-    }, { once: true });
+    animation.addEventListener("cancel", () => { }, { once: true });
 
     return undefined;
   };

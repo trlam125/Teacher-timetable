@@ -1026,12 +1026,6 @@ body.dark-mode .brand-sweep-text {
 /* -------------------------------------------------------------
    6. TƯƠNG THÍCH TRÌNH DUYỆT & GIẢM CHUYỂN ĐỘNG
    ------------------------------------------------------------- */
-.brand-name,
-.brand-name-reveal {
-  display: inline-block;
-  white-space: nowrap;
-  letter-spacing: normal;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .brand-motion-logo .logo-outline {

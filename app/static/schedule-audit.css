@@ -1,12 +1,6 @@
 /* Standalone schedule audit/import page. */
 
 /* ===== Kiểm tra thời khóa biểu từ file ===== */
-.schedule-audit-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-}
 
 .schedule-audit-upload-card,
 .schedule-audit-result {
@@ -235,15 +229,6 @@
   line-height: 1.45;
 }
 
-.schedule-audit-report-head .schedule-audit-detection {
-  margin-top: 5px;
-  font-size: 12px;
-}
-
-.schedule-audit-report-head .schedule-audit-detection b {
-  color: var(--ink);
-}
-
 .schedule-audit-status-icon {
   display: grid;
   place-items: center;
@@ -299,56 +284,6 @@
 :root.dark-mode .schedule-audit-report-head.has-warning {
   border-color: #78350f;
   background: rgba(245, 158, 11, 0.08);
-}
-
-.schedule-audit-stats {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(90px, 1fr));
-  gap: 10px;
-  margin: 14px 0;
-}
-
-.schedule-audit-stats article {
-  padding: 13px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-}
-
-.schedule-audit-stats strong {
-  display: block;
-  color: var(--ink);
-  font-size: 24px;
-}
-
-.schedule-audit-stats span {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.schedule-audit-clean {
-  padding: 18px;
-  border: 1px solid #86efac;
-  border-radius: 13px;
-  background: rgba(34, 197, 94, 0.07);
-  color: #166534;
-}
-
-.schedule-audit-clean p {
-  margin: 5px 0 0;
-  line-height: 1.45;
-}
-
-:root.dark-mode .schedule-audit-clean {
-  border-color: #166534;
-  color: #86efac;
-}
-
-.schedule-audit-issue-group {
-  margin-top: 16px;
 }
 
 .schedule-audit-group-head {
@@ -708,156 +643,20 @@
   }
 }
 
-.schedule-audit-convert {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 14px 0;
-  padding: 15px 16px;
-  border: 1px solid #bfdbfe;
-  border-radius: 13px;
-  background: rgba(37, 99, 235, 0.06);
-}
-
-.schedule-audit-convert b {
-  color: var(--ink);
-}
-
-.schedule-audit-convert p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  line-height: 1.45;
-  font-size: 13px;
-}
-
-.schedule-audit-convert .btn {
-  flex: 0 0 auto;
-}
-
-.schedule-import-editor {
-  margin-top: 20px;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--card-bg);
-}
-
-.schedule-import-editor[hidden] {
-  display: none;
-}
-
-.schedule-import-editor-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-  gap: 20px;
-  align-items: start;
-}
-
-.schedule-import-editor-head h2 {
-  margin: 8px 0 5px;
-  color: var(--ink);
-}
-
-.schedule-import-editor-head p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.schedule-import-save-panel {
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: var(--bg);
-}
-
-.schedule-import-save-panel label {
-  display: grid;
-  gap: 6px;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.schedule-import-save-panel input {
-  width: 100%;
-}
-
-.schedule-import-save-panel .row {
-  margin-top: 10px;
-}
-
-.schedule-import-status {
-  min-height: 20px;
-  margin: 12px 0 6px;
-  padding: 0 2px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.schedule-import-status.success {
-  color: #15803d;
-}
-
-.schedule-import-status.error {
-  color: #b91c1c;
-}
-
-.schedule-import-status.loading {
-  color: var(--primary);
-}
-
-:root.dark-mode .schedule-import-status.success {
-  color: #86efac;
-}
-
-:root.dark-mode .schedule-import-status.error {
-  color: #fca5a5;
-}
-
-.schedule-import-toolbar {
-  margin: 10px 0 12px;
-}
-
-.schedule-import-tray-panel {
-  margin-bottom: 14px;
-}
-
-.schedule-import-cell {
-  min-height: 74px;
-}
-
 .empty-state.compact {
   min-height: auto;
   padding: 12px;
 }
 
 @media (max-width: 1050px) {
-  .schedule-audit-layout {
-    grid-template-columns: 1fr;
-  }
 
   .schedule-audit-upload-card {
     position: static;
   }
 
-  .schedule-audit-stats {
-    grid-template-columns: repeat(3, minmax(90px, 1fr));
-  }
-}
-
-@media (max-width: 1050px) {
-  .schedule-import-editor-head {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 620px) {
-  .schedule-audit-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 
   .schedule-audit-result,
   .schedule-audit-upload-card {
@@ -878,23 +677,6 @@
     grid-template-columns: 30px minmax(0, 1fr);
   }
 
-  .schedule-audit-convert {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .schedule-import-editor {
-    padding: 14px;
-  }
-
-  .schedule-import-save-panel .row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .schedule-import-save-panel .btn {
-    width: 100%;
-  }
 }
 
 /* Standalone import / audit tool */
@@ -952,21 +734,6 @@
     flex-direction: column;
     gap: 5px;
   }
-}
-
-.schedule-import-save-panel label+label {
-  margin-top: 10px;
-}
-
-.schedule-import-structure {
-  margin-top: 10px;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--card-bg);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .schedule-audit-context.standalone>div {
@@ -1105,17 +872,6 @@
   border-radius: 5px;
   background: #fee2e2;
   border: 2px solid #ef4444;
-}
-
-.schedule-audit-inline-warning {
-  margin: 14px 18px 0;
-  padding: 10px 12px;
-  border: 1px solid #fde68a;
-  border-radius: 10px;
-  background: #fffbeb;
-  color: #92400e;
-  font-size: 13px;
-  line-height: 1.45;
 }
 
 .schedule-audit-inline-issues {
@@ -1725,12 +1481,6 @@
 
 .schedule-view-new-session:not(.schedule-view-new-day)>* {
   border-top: 1.5px solid #cbd5e1 !important;
-}
-
-:root.dark-mode .schedule-audit-inline-warning {
-  border-color: #78350f;
-  background: rgba(245, 158, 11, 0.09);
-  color: #fde68a;
 }
 
 :root.dark-mode .legend-conflict {

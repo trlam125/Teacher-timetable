@@ -93,49 +93,62 @@
     updateAllBaselines();
   }
 
+  function isEffectsDisabled() {
+    return (
+      document.documentElement.classList.contains('disable-effects') ||
+      localStorage.getItem('disable_effects') === 'true' ||
+      Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
+    );
+  }
+
   /**
-   * Spawn a single translucent ghost echo disc
+   * Spawn a single translucent ghost echo disc without forcing synchronous reflows
    */
-  function spawnGhostEcho(btn, profile) {
-    const rect = btn.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+  function spawnGhostEcho(rect, profile) {
+    if (!rect || !rect.width || !rect.height) return;
 
     const echo = document.createElement('div');
     echo.className = 'fab-ghost-echo';
-    echo.style.left = `${rect.left}px`;
-    echo.style.top = `${rect.top}px`;
-    echo.style.width = `${rect.width}px`;
-    echo.style.height = `${rect.height}px`;
+    echo.style.left = `${Math.round(rect.left)}px`;
+    echo.style.top = `${Math.round(rect.top)}px`;
+    echo.style.width = `${Math.round(rect.width)}px`;
+    echo.style.height = `${Math.round(rect.height)}px`;
     echo.style.background = profile?.gradient || 'linear-gradient(135deg, #4f46e5, #7c3aed)';
     echo.style.setProperty('--echo-glow', profile?.glow || 'rgba(99, 102, 241, 0.4)');
     echo.style.borderColor = profile?.borderGlow || 'rgba(255, 255, 255, 0.65)';
 
     document.body.appendChild(echo);
-    setTimeout(() => echo.remove(), 420);
+    setTimeout(() => echo.remove(), 320);
   }
 
   /**
-   * Continuous Ghost Trail Generator using requestAnimationFrame
+   * Performance-optimized Ghost Trail Generator (snapshots positions once; no layout thrashing)
    */
   function startGhostTrail(buttonList, durationMs, profileOverride = null) {
-    const startTime = performance.now();
-    let lastStamp = 0;
-    const stampInterval = 24;
+    if (isEffectsDisabled() || !buttonList.length) return;
 
-    function frameLoop(now) {
-      const elapsed = now - startTime;
-      if (elapsed > durationMs + 20) return;
+    // Snapshot button rects once to prevent layout thrashing
+    const snapshots = buttonList
+      .map(btn => {
+        const rect = btn.getBoundingClientRect();
+        return {
+          rect,
+          profile: profileOverride || PROFILES[btn.id] || PROFILES.generalChatFab
+        };
+      })
+      .filter(item => item.rect.width && item.rect.height);
 
-      if (now - lastStamp >= stampInterval) {
-        lastStamp = now;
-        buttonList.forEach(btn => {
-          const profile = profileOverride || PROFILES[btn.id] || PROFILES.generalChatFab;
-          spawnGhostEcho(btn, profile);
+    if (!snapshots.length) return;
+
+    // Spawn 2 lightweight echoes at key points along the motion instead of flooding the DOM
+    const delays = [40, Math.min(180, Math.round(durationMs * 0.4))];
+    delays.forEach(delay => {
+      setTimeout(() => {
+        snapshots.forEach(({ rect, profile }) => {
+          spawnGhostEcho(rect, profile);
         });
-      }
-      requestAnimationFrame(frameLoop);
-    }
-    requestAnimationFrame(frameLoop);
+      }, delay);
+    });
   }
 
   /**
@@ -178,6 +191,25 @@
   async function open(triggerFab, popupEl, options = {}) {
     if (isAnimating) return;
     isAnimating = true;
+
+    // Fast-path: if animations are disabled or reduced motion requested, open immediately without delay
+    if (isEffectsDisabled()) {
+      if (activePopup && activePopup !== popupEl) {
+        activePopup.classList.remove('is-open');
+        activePopup.setAttribute('aria-hidden', 'true');
+      }
+      activeFab = triggerFab;
+      activePopup = popupEl;
+      if (popupEl) {
+        popupEl.classList.add('is-open');
+        popupEl.setAttribute('aria-hidden', 'false');
+      }
+      triggerFab.setAttribute('aria-expanded', 'true');
+      triggerFab.classList.add('is-on-top');
+      if (typeof options.onOpened === 'function') options.onOpened();
+      isAnimating = false;
+      return;
+    }
 
     // If another popup is open, close its UI first without resetting layout
     if (activePopup && activePopup !== popupEl) {
@@ -298,6 +330,20 @@
   async function close(triggerFab, popupEl, options = {}) {
     if (isAnimating) return;
     isAnimating = true;
+
+    // Fast-path: if animations are disabled or reduced motion requested, close immediately without delay
+    if (isEffectsDisabled()) {
+      if (popupEl) {
+        popupEl.classList.remove('is-open');
+        popupEl.setAttribute('aria-hidden', 'true');
+      }
+      triggerFab.setAttribute('aria-expanded', 'false');
+      activeFab = null;
+      activePopup = null;
+      if (typeof options.onClosed === 'function') options.onClosed();
+      isAnimating = false;
+      return;
+    }
 
     updateAllBaselines();
     const fabs = getFabList();

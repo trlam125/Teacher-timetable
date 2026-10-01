@@ -100,12 +100,6 @@
   font-weight: 800;
 }
 
-.tray-complete {
-  margin: auto;
-  color: #067647;
-  font-weight: 700;
-}
-
 .scheduled-assignment-tray {
   margin-top: 14px;
 }
@@ -227,7 +221,6 @@
   line-height: 19px;
   padding: 0;
 }
-
 
 .lesson-action-icon {
   width: 14px;

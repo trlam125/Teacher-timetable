@@ -541,11 +541,11 @@ a:focus-visible,
     transform 0.25s ease;
 }
 
-dialog[open] {
+dialog[open]:not([data-app-zoom]) {
   animation: fx-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-dialog::backdrop {
+dialog:not([data-app-zoom])::backdrop {
   background: rgba(8, 26, 52, 0.38);
   backdrop-filter: blur(7px) saturate(120%);
   animation: fx-backdrop-in 0.25s ease both;
@@ -1213,28 +1213,20 @@ body.dark-mode .btn.ghost .button-ripple {
   pointer-events: none;
   z-index: 940;
   border: 1.5px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 2px 16px var(--echo-glow, rgba(99, 102, 241, 0.32));
-  will-change: transform, opacity, filter;
-  animation: fab-ghost-fade-out 380ms cubic-bezier(0.18, 0.8, 0.25, 1) forwards;
+  box-shadow: 0 2px 14px var(--echo-glow, rgba(99, 102, 241, 0.32));
+  will-change: transform, opacity;
+  animation: fab-ghost-fade-out 320ms cubic-bezier(0.18, 0.8, 0.25, 1) forwards;
 }
 
 @keyframes fab-ghost-fade-out {
   0% {
-    opacity: 0.52;
+    opacity: 0.48;
     transform: scale(0.98);
-    filter: blur(0.5px);
-  }
-
-  35% {
-    opacity: 0.28;
-    transform: scale(0.93);
-    filter: blur(1.5px);
   }
 
   100% {
     opacity: 0;
-    transform: scale(0.8);
-    filter: blur(5px);
+    transform: scale(0.84);
   }
 }
 
@@ -1625,7 +1617,7 @@ html.help-tour-active .help-tour-fab.is-on-top {
 }
 
 /* Modal scaling transitions */
-dialog[open] {
+dialog[open]:not([data-app-zoom]) {
   animation: fx-modal-zoom 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -1753,8 +1745,7 @@ dialog[open] {
   #teacherTable,
   #gradeTable,
   #classTable,
-  #assignmentTable,
-  #teacherAccountTable {
+  #assignmentTable {
     width: 100%;
     max-width: 100%;
     overflow-x: auto;
@@ -1767,8 +1758,7 @@ dialog[open] {
   #teacherTable .data-table,
   #gradeTable .data-table,
   #classTable .data-table,
-  #assignmentTable .data-table,
-  #teacherAccountTable .data-table {
+  #assignmentTable .data-table {
     min-width: 620px;
   }
 
@@ -1916,44 +1906,6 @@ dialog[open] {
 
 :root.dark-mode .inline-form-message.is-error {
   color: #fca5a5;
-}
-
-.tray-action-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 0 12px;
-  padding: 8px 11px;
-  border-radius: 999px;
-  background: var(--soft);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.tray-action-status[hidden] {
-  display: none;
-}
-
-.tray-action-status.is-success {
-  background: rgba(22, 163, 74, 0.1);
-  color: #15803d;
-}
-
-.tray-action-status.is-error {
-  background: rgba(220, 38, 38, 0.09);
-  color: #b91c1c;
-}
-
-.tray-status-spinner {
-  width: 13px;
-  height: 13px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: schedule-action-spin 0.75s linear infinite;
 }
 
 /* Constraint cells use the same vertical state transition as action buttons. */
@@ -2170,6 +2122,11 @@ body.workspace-viewport .content {
    Only dialogs explicitly marked with data-app-zoom participate. Navigation
    and full page loads are intentionally left untouched.
    -------------------------------------------------------------------------- */
+dialog[data-app-zoom],
+dialog[data-app-zoom][open] {
+  animation: none !important;
+}
+
 dialog[data-app-zoom].app-zoom-active[open] {
   animation: none !important;
   transform-origin: center center;
@@ -2324,9 +2281,6 @@ html.disable-effects .brand-settle-glow,
   display: none !important;
 }
 
-html.disable-effects .auth-mesh-spotlight,
-html.disable-effects .auth-ambient-orb,
-html.disable-effects .glowing-circle,
 html.disable-effects canvas#authCanvas {
   display: none !important;
   opacity: 0 !important;

@@ -18,8 +18,8 @@
     <script src="/static/brand-motion.js?v=1" defer></script>
     <script src="/static/operation-status.js?v=1" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
-    <link rel="preload" href="/static/x.gif" as="image">
-    <link rel="preload" href="/static/tick.gif" as="image">
+    <link rel="preload" href="/static/x.gif?v=1" as="image">
+    <link rel="preload" href="/static/tick.gif?v=1" as="image">
     <link rel="stylesheet" href="/static/effects.css?v=1">
     <link rel="stylesheet" href="/static/front.css?v=1">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
@@ -28,6 +28,8 @@
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <script src="/static/auth-effects.js?v=1" defer></script>
     <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/btn-tame-ape.js?v=1" defer></script>
+    <script src="/static/weather-widget.js?v=1" defer></script>
 </head>
 
 <body class="front-surface">
@@ -49,8 +51,14 @@
                 <a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import &amp; kiểm
                     tra TKB</a>
                 {% if assigned_schools %}
-                <button class="btn project-create-btn" onclick="document.querySelector('#newProject').showModal()">+ Tạo
-                    mới</button>
+                <button class="btn btn-tame-ape project-create-btn"
+                    onclick="document.querySelector('#newProject').showModal()"><span class="btn__text">Tạo
+                        mới</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                            viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                            stroke="currentColor" fill="none" class="svg">
+                            <line y2="19" y1="5" x2="12" x1="12"></line>
+                            <line y2="12" y1="12" x2="19" x1="5"></line>
+                        </svg></span></button>
                 {% endif %}
             </div>
         </div>

@@ -900,7 +900,7 @@ window.addEventListener("beforeunload", (event) => {
   event.returnValue = "";
 });
 function bulkEntityToolbar(type) {
-  return `<div class="entity-bulk-toolbar" data-bulk-toolbar="${type}"><span class="entity-bulk-count"><b data-bulk-count>0</b> mục được chọn</span><button class="btn ghost entity-bulk-delete" type="button" onclick="deleteSelectedEntities('${type}',this)" disabled>Xóa đã chọn</button></div>`;
+  return `<div class="entity-bulk-toolbar" data-bulk-toolbar="${type}"><span class="entity-bulk-count"><b data-bulk-count>0</b> mục được chọn</span><button class="btn btn-danger entity-bulk-delete" type="button" onclick="deleteSelectedEntities('${type}',this)" disabled>Xóa đã chọn</button></div>`;
 }
 function bulkEntityHeader(type) {
   return `<th class="entity-select-col"><input class="entity-select-all" type="checkbox" aria-label="Chọn tất cả" onchange="toggleAllEntityRows('${type}',this.checked)"></th>`;

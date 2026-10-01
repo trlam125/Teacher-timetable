@@ -58,34 +58,13 @@
   display: inline-block;
 }
 
-.preferred-dot,
-.preference-cell.preferred {
+.preferred-dot {
   background: #dcfce7 !important;
   border-color: #4ade80 !important;
 }
 
 .blocked-dot {
   background: #fee2e2;
-}
-
-.preference-grid {
-  display: grid;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: auto;
-}
-
-.preference-cell {
-  border: 0;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-  cursor: pointer;
-}
-
-.preference-cell:hover {
-  background: #eff6ff;
 }
 
 .preference-list {
@@ -139,7 +118,6 @@
   color: inherit;
 }
 
-
 .assignment-summary {
   display: grid;
   gap: 4px;
@@ -147,7 +125,6 @@
   background: #eff6ff;
   border-radius: 9px;
 }
-
 
 .preference-card {
   background: #fff;
@@ -253,14 +230,6 @@
 }
 
 @media (max-width: 700px) {
-  .preference-grid {
-    font-size: 12px;
-  }
-
-  .preference-grid .cell {
-    min-height: 58px;
-    padding: 4px;
-  }
 
   .preference-card-head {
     align-items: flex-start;
@@ -268,25 +237,9 @@
   }
 }
 
-
 /* --- DARK MODE OVERRIDES --- */
-:root.dark-mode .preference-grid {
-  background: #0f172a;
-  border-color: rgba(71, 85, 105, 0.4);
-}
 
-:root.dark-mode .preference-cell {
-  background: #1e293b;
-  border-right-color: rgba(71, 85, 105, 0.3);
-  border-bottom-color: rgba(71, 85, 105, 0.3);
-}
-
-:root.dark-mode .preference-cell:hover {
-  background: rgba(37, 99, 235, 0.15);
-}
-
-:root.dark-mode .preferred-dot,
-:root.dark-mode .preference-cell.preferred {
+:root.dark-mode .preferred-dot {
   background: #064e3b !important;
   border-color: #10b981 !important;
   color: #a7f3d0;
@@ -307,7 +260,6 @@
 :root.dark-mode .preference-edit-note span {
   color: #94a3b8;
 }
-
 
 :root.dark-mode .assignment-summary {
   background: #172554;

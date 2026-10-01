@@ -1170,8 +1170,7 @@
 }
 
 /* 3D Soccer Ball Scene Viewport */
-.ball-3d-scene,
-.pet-3d-scene {
+.ball-3d-scene {
   position: relative;
   width: 100%;
   height: 100%;
@@ -1183,8 +1182,7 @@
 }
 
 /* Dynamic Ground Contact Shadow - Nằm ngay ngắn trên viền của cửa sổ chatbot */
-.ball-3d-shadow,
-.pet-3d-shadow {
+.ball-3d-shadow {
   position: absolute;
   left: 50%;
   bottom: -1px;
@@ -1203,8 +1201,7 @@
 }
 
 /* 3D Soccer Ball Rig & Spherical Layering (Đường kính 20px) */
-.ball-3d-rig,
-.pet-3d-rig {
+.ball-3d-rig {
   position: relative;
   width: 20px;
   height: 20px;
@@ -1570,14 +1567,6 @@
   background: var(--soft);
   color: var(--ink);
   font-weight: 800;
-}
-
-.message-body .align-center {
-  text-align: center;
-}
-
-.message-body .align-right {
-  text-align: right;
 }
 
 .chatbot-popup .message-table-wrap {

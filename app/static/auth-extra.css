@@ -21,20 +21,6 @@
   background: #f8fafc;
 }
 
-.captcha-box .check-label {
-  display: flex;
-  grid-template-columns: none;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 12px;
-}
-
-.captcha-box .check-label input {
-  width: 20px;
-  height: 20px;
-  margin: 0;
-}
-
 .captcha-box label:last-of-type {
   margin: 0;
 }
@@ -45,14 +31,6 @@
   width: 1px !important;
   height: 1px !important;
   overflow: hidden !important;
-}
-
-.otp-resend-captcha {
-  margin-top: 10px;
-}
-
-.otp-resend-captcha p {
-  margin: 0 0 10px;
 }
 
 .dev-reset-box {
@@ -66,14 +44,6 @@
 .dev-reset-box p {
   font-size: 14px;
   color: var(--muted);
-}
-
-.account-select-label {
-  display: grid;
-  gap: 7px;
-  margin: 12px 0;
-  color: #344054;
-  font-weight: 600;
 }
 
 .account-card {
@@ -114,12 +84,12 @@
   width: 100%;
 }
 
-.danger-btn {
+.danger-btn:not(.btn-tame-ape) {
   color: #b91c1c;
   border-color: #fecaca;
 }
 
-.danger-btn:hover {
+.danger-btn:not(.btn-tame-ape):hover {
   background: #fef2f2;
 }
 
@@ -144,17 +114,16 @@
   background: rgba(30, 41, 59, 0.8);
 }
 
-:root.dark-mode .account-select-label,
 :root.dark-mode .account-edit-form label {
   color: #94a3b8;
 }
 
-:root.dark-mode .danger-btn {
+:root.dark-mode .danger-btn:not(.btn-tame-ape) {
   color: #f87171;
   border-color: #7f1d1d;
 }
 
-:root.dark-mode .danger-btn:hover {
+:root.dark-mode .danger-btn:not(.btn-tame-ape):hover {
   background: #7f1d1d;
 }
 
