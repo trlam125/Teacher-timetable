@@ -1,4 +1,5 @@
 {% include "_help_tour.html" %}
+
 <button id="generalChatFab" class="general-chat-fab" type="button" aria-label="Mở chat chung"
     aria-controls="generalChatPopup" aria-expanded="false">
     <span class="general-chat-fab-icon" aria-hidden="true">
@@ -26,9 +27,6 @@
     <div class="circle trail t2"></div>
     <div class="circle trail t1"></div>
 </div>
-
-
-
 
 <section id="generalChatPopup" class="general-chat-popup" aria-label="Chat chung" aria-hidden="true"
     data-current-user-id="{{ user.id }}" data-current-user-name="{{ user.name | e }}"
@@ -77,5 +75,6 @@
         </button>
     </form>
 </section>
+
 <script src="/static/fab-motion.js?v=1"></script>
-<script src="/static/realtime-chat.js?v=1"></script>
+<script type="module" src="/static/chat/realtime-chat.js?v=2"></script>

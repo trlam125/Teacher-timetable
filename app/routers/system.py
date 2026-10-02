@@ -57,7 +57,9 @@ def get_weather(
     if cache_key in _weather_cache:
         cached_data, timestamp = _weather_cache[cache_key]
         if now - timestamp < _WEATHER_CACHE_TTL:
-            return JSONResponse(cached_data, headers={"Cache-Control": "public, max-age=600"})
+            return JSONResponse(
+                cached_data, headers={"Cache-Control": "public, max-age=600"}
+            )
 
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
@@ -69,8 +71,7 @@ def get_weather(
 
     try:
         req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "TeacherTimetable/1.0 (Open-Meteo Integration)"}
+            url, headers={"User-Agent": "TeacherTimetable/1.0 (Open-Meteo Integration)"}
         )
         with urllib.request.urlopen(req, timeout=7) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -81,4 +82,3 @@ def get_weather(
             data, _ = _weather_cache[cache_key]
             return JSONResponse(data)
         return JSONResponse({"error": str(e)}, status_code=502)
-

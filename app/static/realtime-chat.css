@@ -913,3 +913,16 @@
     padding-bottom: max(160px, calc(120px + env(safe-area-inset-bottom)));
   }
 }
+
+/* Optimistic chat delivery states */
+.general-chat-message.is-pending .general-chat-message-card {
+  opacity: .76;
+}
+
+.general-chat-message.is-failed .general-chat-message-card {
+  opacity: .72;
+}
+
+.general-chat-message.is-failed .general-chat-message-footer {
+  font-weight: 600;
+}

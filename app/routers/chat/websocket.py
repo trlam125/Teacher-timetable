@@ -6,87 +6,23 @@ from app.services.runtime import *
 router = APIRouter()
 
 
-@router.get("/api/chat/schools")
-def chat_schools(
-    user: User = Depends(current_user),
-    db: Session = Depends(db_session),
-):
-    schools = user_schools(user, db)
-    return {
-        "schools": [{"id": school.id, "name": school.name} for school in schools],
-        "default_school_id": schools[0].id if schools else None,
-    }
+def _client_message_id(payload: dict) -> str | None:
+    value = str(payload.get("client_id") or "").strip()
+    if not value or len(value) > 80:
+        return None
+    return value
 
 
-@router.get("/api/chat/general/messages")
-def general_chat_messages(
-    school_id: int,
-    limit: int = 50,
-    user: User = Depends(current_user),
-    db: Session = Depends(db_session),
-):
-    school = db.get(School, school_id)
-    if not school or not user_can_access_school(user, school_id, db):
-        raise HTTPException(403, "Bạn không có quyền truy cập chat của trường này")
-
-    safe_limit = max(1, min(int(limit or 50), 100))
-    rows = db.scalars(
-        select(ChatMessage)
-        .where(ChatMessage.school_id == school_id)
-        .order_by(ChatMessage.id.desc())
-        .limit(safe_limit)
-    ).all()
-    ordered_rows = list(reversed(rows))
-    reply_ids = {
-        int(row.reply_to_id) for row in ordered_rows if row.reply_to_id is not None
-    }
-    reply_rows = {}
-    if reply_ids:
-        reply_rows = {
-            row.id: row
-            for row in db.scalars(
-                select(ChatMessage).where(
-                    ChatMessage.id.in_(reply_ids),
-                    ChatMessage.school_id == school_id,
-                )
-            ).all()
-        }
-
-    def reply_preview(row: ChatMessage) -> dict | None:
-        if row.reply_to_id is None:
-            return None
-        target = reply_rows.get(int(row.reply_to_id))
-        if target is None:
-            return {
-                "id": int(row.reply_to_id),
-                "user_name": "Tin nhắn không còn tồn tại",
-                "content": "Tin nhắn không còn tồn tại",
-                "deleted": True,
-            }
-        deleted = bool(target.deleted_at)
-        return {
-            "id": target.id,
-            "user_name": target.user_name or "Tài khoản đã xóa",
-            "content": "Tin nhắn đã bị xóa" if deleted else target.content,
-            "deleted": deleted,
-        }
-
-    messages = [
-        {
-            "id": row.id,
-            "school_id": row.school_id,
-            "user_id": row.user_id,
-            "user_name": row.user_name or "Tài khoản đã xóa",
-            "content": "Tin nhắn đã bị xóa" if row.deleted_at else row.content,
-            "created_at": row.created_at,
-            "edited_at": row.edited_at,
-            "deleted_at": row.deleted_at,
-            "reply_to_id": row.reply_to_id,
-            "reply": reply_preview(row),
-        }
-        for row in ordered_rows
-    ]
-    return {"school": {"id": school.id, "name": school.name}, "messages": messages}
+async def _send_chat_error(
+    websocket: WebSocket,
+    message: str,
+    *,
+    client_id: str | None = None,
+) -> None:
+    payload = {"type": "chat_error", "message": message}
+    if client_id:
+        payload["client_id"] = client_id
+    await websocket.send_json(payload)
 
 
 @router.websocket("/ws/realtime")
@@ -98,8 +34,11 @@ async def realtime_socket(websocket: WebSocket):
 
     await websocket.accept()
     connection_id = secrets.token_urlsafe(12)
+    # Register on the event-loop thread so the PostgreSQL listener captures
+    # the correct loop; registration itself only happens once per socket.
     first_connection = realtime_manager.add(account.id, connection_id, websocket)
     last_seen = touch_user_last_seen(account.id)
+    last_session_check_at = time.monotonic()
 
     db = SessionLocal()
     try:
@@ -108,23 +47,29 @@ async def realtime_socket(websocket: WebSocket):
     finally:
         db.close()
 
+    visible_online_ids = await asyncio.to_thread(
+        realtime_manager.online_user_ids_for, visible_user_ids
+    )
     await websocket.send_json(
         {
             "type": "ready",
             "user_id": account.id,
             "user_name": account.name,
-            "online_user_ids": realtime_manager.online_user_ids_for(visible_user_ids),
-            "online_count": realtime_manager.online_count_for(visible_user_ids),
+            "online_user_ids": visible_online_ids,
+            "online_count": len(visible_online_ids),
         }
     )
     if first_connection:
+        presence_online_ids = await asyncio.to_thread(
+            realtime_manager.online_user_ids_for, presence_recipients
+        )
         await realtime_manager.broadcast(
             {
                 "type": "presence",
                 "user_id": account.id,
                 "online": True,
                 "last_seen": last_seen,
-                "online_count": realtime_manager.online_count_for(presence_recipients),
+                "online_count": len(presence_online_ids),
             },
             only_user_ids=presence_recipients,
         )
@@ -132,44 +77,43 @@ async def realtime_socket(websocket: WebSocket):
 
     try:
         while True:
-            # Even an idle socket must expire. Revalidate before activity as
-            # well as chat events; never allow heartbeat to bypass revocation.
+            # Idle sockets still expire on a short interval. Active events are
+            # validated once below with the same DB row used by the event.
             try:
                 payload = await asyncio.wait_for(
                     websocket.receive_json(),
                     timeout=realtime_manager.SESSION_CHECK_INTERVAL_SECONDS,
                 )
             except asyncio.TimeoutError:
-                payload = None
-            refreshed = await asyncio.to_thread(websocket_session_user, websocket)
-            if refreshed is None:
-                await websocket.close(code=4401)
-                break
-            account = refreshed
+                # Idle sockets still expire/revoke promptly, but an active event
+                # no longer performs this query and then immediately queries the
+                # same user a second time below.
+                refreshed = await asyncio.to_thread(websocket_session_user, websocket)
+                if refreshed is None:
+                    await websocket.close(code=4401)
+                    break
+                account = refreshed
+                last_session_check_at = time.monotonic()
+                continue
+
             if not isinstance(payload, dict):
                 continue
-            event_type = str(payload.get("type") or "").strip()
 
-            if event_type == "activity":
-                touch_user_last_seen(account.id, min_interval_seconds=45)
-                realtime_manager.touch(account.id, connection_id)
-                presence_db = SessionLocal()
-                try:
-                    visible_user_ids = presence_visible_user_ids(presence_db, account)
-                finally:
-                    presence_db.close()
-                await websocket.send_json(
-                    {
-                        "type": "presence_sync",
-                        "online_user_ids": realtime_manager.online_user_ids_for(
-                            visible_user_ids
-                        ),
-                        "online_count": realtime_manager.online_count_for(
-                            visible_user_ids
-                        ),
-                    }
-                )
-                continue
+            # Active clients must not keep an expired cookie alive forever. Do
+            # the full signed-cookie check at most once per interval; ordinary
+            # events still need only the single account query below.
+            if (
+                time.monotonic() - last_session_check_at
+                >= realtime_manager.SESSION_CHECK_INTERVAL_SECONDS
+            ):
+                refreshed = await asyncio.to_thread(websocket_session_user, websocket)
+                if refreshed is None:
+                    await websocket.close(code=4401)
+                    break
+                account = refreshed
+                last_session_check_at = time.monotonic()
+
+            event_type = str(payload.get("type") or "").strip()
 
             db = SessionLocal()
             try:
@@ -177,6 +121,25 @@ async def realtime_socket(websocket: WebSocket):
                 if not current or current.session_version != account.session_version:
                     await websocket.close(code=4401)
                     break
+                account = current
+
+                if event_type == "activity":
+                    touch_user_last_seen(current.id, min_interval_seconds=45)
+                    await asyncio.to_thread(
+                        realtime_manager.touch, current.id, connection_id
+                    )
+                    visible_user_ids = presence_visible_user_ids(db, current)
+                    online_user_ids = await asyncio.to_thread(
+                        realtime_manager.online_user_ids_for, visible_user_ids
+                    )
+                    await websocket.send_json(
+                        {
+                            "type": "presence_sync",
+                            "online_user_ids": online_user_ids,
+                            "online_count": len(online_user_ids),
+                        }
+                    )
+                    continue
 
                 if event_type == "room_join":
                     school_id = _payload_school_id(payload)
@@ -192,17 +155,16 @@ async def realtime_socket(websocket: WebSocket):
                         )
                         continue
                     recipients = school_chat_user_ids(db, school_id)
+                    room_online_ids = await asyncio.to_thread(
+                        realtime_manager.online_user_ids_for, recipients
+                    )
                     await websocket.send_json(
                         {
                             "type": "room_ready",
                             "school_id": school.id,
                             "school_name": school.name,
-                            "online_user_ids": realtime_manager.online_user_ids_for(
-                                recipients
-                            ),
-                            "online_count": realtime_manager.online_count_for(
-                                recipients
-                            ),
+                            "online_user_ids": room_online_ids,
+                            "online_count": len(room_online_ids),
                         }
                     )
                     continue
@@ -231,27 +193,31 @@ async def realtime_socket(websocket: WebSocket):
                     continue
 
                 if event_type == "chat_send":
+                    client_id = _client_message_id(payload)
                     school_id = _payload_school_id(payload)
                     school = (
                         db.get(School, school_id) if school_id is not None else None
                     )
                     if not school or not user_can_access_school(current, school_id, db):
-                        await websocket.send_json(
-                            {
-                                "type": "chat_error",
-                                "message": "Bạn không có quyền gửi tin nhắn vào trường này.",
-                            }
+                        await _send_chat_error(
+                            websocket,
+                            "Bạn không có quyền gửi tin nhắn vào trường này.",
+                            client_id=client_id,
                         )
                         continue
                     content = str(payload.get("content") or "").strip()
                     if not content:
+                        await _send_chat_error(
+                            websocket,
+                            "Tin nhắn không được để trống.",
+                            client_id=client_id,
+                        )
                         continue
                     if len(content) > 2000:
-                        await websocket.send_json(
-                            {
-                                "type": "chat_error",
-                                "message": "Tin nhắn tối đa 2000 ký tự.",
-                            }
+                        await _send_chat_error(
+                            websocket,
+                            "Tin nhắn tối đa 2000 ký tự.",
+                            client_id=client_id,
                         )
                         continue
 
@@ -266,11 +232,10 @@ async def realtime_socket(websocket: WebSocket):
                     if reply_to_id is not None:
                         reply_target = db.get(ChatMessage, reply_to_id)
                         if reply_target is None or reply_target.school_id != school_id:
-                            await websocket.send_json(
-                                {
-                                    "type": "chat_error",
-                                    "message": "Tin nhắn được trả lời không còn tồn tại trong trường này.",
-                                }
+                            await _send_chat_error(
+                                websocket,
+                                "Tin nhắn được trả lời không còn tồn tại trong trường này.",
+                                client_id=client_id,
                             )
                             continue
 
@@ -287,7 +252,6 @@ async def realtime_socket(websocket: WebSocket):
                     current.last_seen = created_at
                     db.add(row)
                     db.commit()
-                    db.refresh(row)
                     reply_payload = None
                     if reply_target is not None:
                         reply_deleted = bool(reply_target.deleted_at)
@@ -304,6 +268,7 @@ async def realtime_socket(websocket: WebSocket):
                         {
                             "type": "chat_message",
                             "school_id": school_id,
+                            "client_id": client_id,
                             "message": {
                                 "id": row.id,
                                 "school_id": school_id,
@@ -430,7 +395,9 @@ async def realtime_socket(websocket: WebSocket):
     finally:
         # Remove this socket before broadcasting cleanup events, so a revoked
         # connection is not selected again while its close handler is running.
-        became_offline = realtime_manager.remove(account.id, connection_id)
+        became_offline = await asyncio.to_thread(
+            realtime_manager.remove, account.id, connection_id
+        )
         # Clear typing state in every school the account can access.
         db = SessionLocal()
         try:

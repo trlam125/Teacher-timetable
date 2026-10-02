@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.services.foundation import *
 from app.services.web import *
 from app.services.auth import *
+from .utils import _utc_now_iso
 
 
 class RealtimeConnectionManager:
@@ -12,14 +13,19 @@ class RealtimeConnectionManager:
     PRESENCE_TTL_SECONDS = 180
     PRESENCE_LOCK_BASE = 73120270000
     EVENT_TTL_SECONDS = 24 * 60 * 60
+    EVENT_CLEANUP_INTERVAL_SECONDS = 5 * 60
+    MAX_INLINE_NOTIFY_BYTES = 7000
     SESSION_CHECK_INTERVAL_SECONDS = 15
+    SEND_TIMEOUT_SECONDS = 2.0
 
     def __init__(self):
         self._lock = threading.RLock()
         self._connections: dict[int, dict[str, WebSocket]] = defaultdict(dict)
+        self._send_locks: dict[str, asyncio.Lock] = {}
         self._instance_id = secrets.token_hex(12)
         self._listener_started = False
         self._event_loop: asyncio.AbstractEventLoop | None = None
+        self._last_event_cleanup_at = 0.0
         self._psycopg_dsn = DATABASE_URL.replace(
             "postgresql+psycopg://", "postgresql://", 1
         )
@@ -123,8 +129,8 @@ class RealtimeConnectionManager:
     ) -> None:
         if only_user_ids is not None and not only_user_ids:
             return
+
         now = int(time.time())
-        event_id = secrets.token_hex(16)
         envelope = json.dumps(
             {
                 "source": self._instance_id,
@@ -139,25 +145,46 @@ class RealtimeConnectionManager:
             ensure_ascii=False,
             separators=(",", ":"),
         )
-        # Insert and notify in one transaction: another worker must never see
-        # a notification before the complete event has been committed.
+
+        monotonic_now = time.monotonic()
+        with self._lock:
+            cleanup_due = (
+                monotonic_now - self._last_event_cleanup_at
+                >= self.EVENT_CLEANUP_INTERVAL_SECONDS
+            )
+            if cleanup_due:
+                self._last_event_cleanup_at = monotonic_now
+
+        # PostgreSQL NOTIFY accepts payloads below 8 KB. Ordinary chat, typing
+        # and presence events are much smaller, so send them inline and avoid
+        # INSERT + remote SELECT entirely. Large future events retain the table
+        # fallback for compatibility.
+        inline = len(envelope.encode("utf-8")) <= self.MAX_INLINE_NOTIFY_BYTES
         with engine.begin() as connection:
-            connection.execute(
-                delete(RealtimeEvent).where(RealtimeEvent.expires_at <= now)
-            )
-            connection.execute(
-                RealtimeEvent.__table__.insert().values(
-                    id=event_id,
-                    envelope_json=envelope,
-                    expires_at=now + self.EVENT_TTL_SECONDS,
+            if cleanup_due:
+                connection.execute(
+                    delete(RealtimeEvent).where(RealtimeEvent.expires_at <= now)
                 )
-            )
+
+            if inline:
+                notification_payload = envelope
+            else:
+                event_id = secrets.token_hex(16)
+                connection.execute(
+                    RealtimeEvent.__table__.insert().values(
+                        id=event_id,
+                        envelope_json=envelope,
+                        expires_at=now + self.EVENT_TTL_SECONDS,
+                    )
+                )
+                notification_payload = json.dumps(
+                    {"source": self._instance_id, "event_id": event_id},
+                    separators=(",", ":"),
+                )
+
             connection.exec_driver_sql(
                 "SELECT pg_notify(%s, %s)",
-                (
-                    self.CHANNEL,
-                    json.dumps({"source": self._instance_id, "event_id": event_id}),
-                ),
+                (self.CHANNEL, notification_payload),
             )
 
     def add(self, user_id: int, connection_id: str, websocket: WebSocket) -> bool:
@@ -167,6 +194,7 @@ class RealtimeConnectionManager:
             pass
         with self._lock:
             self._connections[user_id][connection_id] = websocket
+            self._send_locks[connection_id] = asyncio.Lock()
 
         now = _utc_now_iso()
         db = SessionLocal()
@@ -222,6 +250,7 @@ class RealtimeConnectionManager:
                 sockets.pop(connection_id, None)
                 if not sockets:
                     self._connections.pop(user_id, None)
+            self._send_locks.pop(connection_id, None)
 
         db = SessionLocal()
         try:
@@ -300,33 +329,51 @@ class RealtimeConnectionManager:
         exclude_user_id: int | None = None,
         only_user_ids: set[int] | None = None,
     ) -> None:
+        """Deliver to local sockets concurrently.
+
+        Session revocation is checked by each socket loop (on incoming events and
+        every SESSION_CHECK_INTERVAL_SECONDS while idle), so broadcasting must not
+        re-query every connected account. A slow client is isolated by a timeout
+        instead of blocking delivery to every socket behind it.
+        """
         with self._lock:
             targets = [
-                (uid, cid, ws)
+                (uid, cid, ws, self._send_locks.get(cid))
                 for uid, sockets in self._connections.items()
                 if (exclude_user_id is None or uid != exclude_user_id)
                 and (only_user_ids is None or uid in only_user_ids)
                 for cid, ws in sockets.items()
             ]
-        dead: list[tuple[int, str]] = []
         if not targets:
             return
-        valid_connections = await asyncio.to_thread(valid_realtime_connections, targets)
-        for uid, cid, ws in targets:
-            if cid not in valid_connections:
-                # Let realtime_socket's finally block remove presence and
-                # announce offline, rather than removing it twice here.
-                try:
-                    await ws.close(code=4401)
-                except Exception:
-                    pass
-                continue
+
+        async def send_one(
+            uid: int, cid: str, ws: WebSocket, send_lock: asyncio.Lock | None
+        ):
             try:
-                await ws.send_json(payload)
+                if send_lock is None:
+                    await asyncio.wait_for(
+                        ws.send_json(payload), timeout=self.SEND_TIMEOUT_SECONDS
+                    )
+                else:
+                    async with send_lock:
+                        await asyncio.wait_for(
+                            ws.send_json(payload), timeout=self.SEND_TIMEOUT_SECONDS
+                        )
+                return None
             except Exception:
-                dead.append((uid, cid))
-        for uid, cid in dead:
-            self.remove(uid, cid)
+                return (uid, cid)
+
+        results = await asyncio.gather(
+            *(send_one(uid, cid, ws, send_lock) for uid, cid, ws, send_lock in targets),
+            return_exceptions=False,
+        )
+        dead = [item for item in results if item is not None]
+        if dead:
+            await asyncio.gather(
+                *(asyncio.to_thread(self.remove, uid, cid) for uid, cid in dead),
+                return_exceptions=True,
+            )
 
     async def broadcast(
         self,
@@ -334,181 +381,24 @@ class RealtimeConnectionManager:
         exclude_user_id: int | None = None,
         only_user_ids: set[int] | None = None,
     ) -> None:
-        await self._broadcast_local(payload, exclude_user_id, only_user_ids)
-        try:
-            await asyncio.to_thread(
-                self._publish_sync, payload, exclude_user_id, only_user_ids
+        """Broadcast locally and publish cross-worker at the same time."""
+        local_delivery = self._broadcast_local(payload, exclude_user_id, only_user_ids)
+        remote_publish = asyncio.to_thread(
+            self._publish_sync, payload, exclude_user_id, only_user_ids
+        )
+        local_result, remote_result = await asyncio.gather(
+            local_delivery, remote_publish, return_exceptions=True
+        )
+        if isinstance(local_result, Exception):
+            logger.error(
+                "Could not deliver realtime event to local sockets: %s", local_result
             )
-        except Exception:
-            logger.exception("Could not publish realtime event through PostgreSQL.")
+        if isinstance(remote_result, Exception):
+            logger.error(
+                "Could not publish realtime event through PostgreSQL: %s", remote_result
+            )
 
 
 realtime_manager = RealtimeConnectionManager()
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def touch_user_last_seen(user_id: int, min_interval_seconds: int = 0) -> str:
-    now = datetime.now(timezone.utc)
-    now_iso = now.isoformat(timespec="seconds")
-    db = SessionLocal()
-    try:
-        account = db.get(User, user_id)
-        if not account:
-            return now_iso
-        if min_interval_seconds > 0:
-            previous = _parse_iso_datetime(account.last_seen)
-            if (
-                previous is not None
-                and (now - previous).total_seconds() < min_interval_seconds
-            ):
-                return account.last_seen or now_iso
-        account.last_seen = now_iso
-        db.commit()
-        return now_iso
-    finally:
-        db.close()
-
-
-def valid_realtime_connections(targets: list[tuple[int, str, WebSocket]]) -> set[str]:
-    """Check cookie expiry and current account versions before every broadcast.
-
-    Cache accounts only within this call so a password change on any worker
-    takes effect on the next delivery, including receive-only connections.
-    """
-    valid: set[str] = set()
-    accounts: dict[int, User | None] = {}
-    with SessionLocal() as db:
-        for user_id, connection_id, websocket in targets:
-            raw = websocket.cookies.get("session")
-            if not raw:
-                continue
-            try:
-                data = signer.loads(raw, max_age=SESSION_TTL_SECONDS)
-                if int(data["uid"]) != user_id:
-                    continue
-                if user_id not in accounts:
-                    accounts[user_id] = db.get(User, user_id)
-                account = accounts[user_id]
-                if account and int(data.get("sv", -1)) == account.session_version:
-                    valid.add(connection_id)
-            except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
-                continue
-    return valid
-
-
-def websocket_session_user(websocket: WebSocket) -> User | None:
-    raw = websocket.cookies.get("session")
-    if not raw:
-        return None
-    db = SessionLocal()
-    try:
-        data = signer.loads(raw, max_age=SESSION_TTL_SECONDS)
-        account = db.get(User, int(data["uid"]))
-        if not account or int(data.get("sv", -1)) != account.session_version:
-            return None
-        return account
-    except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
-        return None
-    finally:
-        db.close()
-
-
-def school_chat_user_ids(db: Session, school_id: int) -> set[int]:
-    member_ids = set(
-        db.scalars(
-            select(UserSchool.user_id).where(UserSchool.school_id == school_id)
-        ).all()
-    )
-    member_ids.update(
-        db.scalars(select(User.id).where(User.role == "super_admin")).all()
-    )
-    return member_ids
-
-
-def presence_visible_user_ids(db: Session, viewer: User) -> set[int]:
-    """Users whose online state may be exposed to this viewer."""
-    if is_super_admin(viewer):
-        return set(db.scalars(select(User.id)).all())
-
-    visible = {viewer.id}
-    for school_id in user_school_ids(viewer, db):
-        visible.update(school_chat_user_ids(db, school_id))
-    # Super admins may manage school-less accounts, but ordinary users must not
-    # receive presence information from unrelated schools.
-    visible.update(db.scalars(select(User.id).where(User.role == "super_admin")).all())
-    return visible
-
-
-def presence_recipients_for_user(db: Session, subject: User) -> set[int]:
-    """Users allowed to receive a generic presence event for subject."""
-    if is_super_admin(subject):
-        return set(db.scalars(select(User.id)).all())
-
-    recipients = set(
-        db.scalars(select(User.id).where(User.role == "super_admin")).all()
-    )
-    for school_id in user_school_ids(subject, db):
-        recipients.update(school_chat_user_ids(db, school_id))
-    recipients.add(subject.id)
-    return recipients
-
-
-async def broadcast_school_presence(user: User, online: bool, last_seen: str) -> None:
-    db = SessionLocal()
-    try:
-        school_ids = user_school_ids(user, db)
-        for school_id in school_ids:
-            recipients = school_chat_user_ids(db, school_id)
-            await realtime_manager.broadcast(
-                {
-                    "type": "school_presence",
-                    "school_id": school_id,
-                    "user_id": user.id,
-                    "online": online,
-                    "last_seen": last_seen,
-                    "online_count": realtime_manager.online_count_for(recipients),
-                },
-                only_user_ids=recipients,
-            )
-    finally:
-        db.close()
-
-
-async def _broadcast_delayed_offline(user_id: int, last_seen: str) -> None:
-    # Avoid Online -> Offline -> Online flicker when the browser simply reloads.
-    await asyncio.sleep(4)
-    if realtime_manager.is_online(user_id):
-        return
-    db = SessionLocal()
-    try:
-        account = db.get(User, user_id)
-        if not account:
-            return
-        recipients = presence_recipients_for_user(db, account)
-        await realtime_manager.broadcast(
-            {
-                "type": "presence",
-                "user_id": user_id,
-                "online": False,
-                "last_seen": last_seen,
-                "online_count": realtime_manager.online_count_for(recipients),
-            },
-            only_user_ids=recipients,
-        )
-        await broadcast_school_presence(account, False, last_seen)
-    finally:
-        db.close()
-
-
-def _payload_school_id(payload: dict) -> int | None:
-    try:
-        value = payload.get("school_id")
-        return int(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
-
 
 __all__ = [name for name in globals() if not name.startswith("__")]

@@ -1,3 +1,12 @@
+import {
+  createClientId,
+  formatClock,
+  initials,
+  normalizeMessage,
+  readJsonResponse,
+  shortPreview,
+} from "./utils.js";
+
 (() => {
   const fab = document.getElementById("generalChatFab");
   const popup = document.getElementById("generalChatPopup");
@@ -43,24 +52,11 @@
   let activeSchoolName = "";
   const renderedMessageIds = new Set();
   const messageStore = new Map();
+  const pendingMessages = new Map();
 
   const isOpen = () => popup.classList.contains("is-open");
   const isSuperAdmin = () => String(currentUser.role || "") === "super_admin";
 
-  async function readJsonResponse(response) {
-    const raw = await response.text();
-    if (!raw) return {};
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
-      if (!response.ok)
-        return { detail: `Máy chủ trả về lỗi ${statusLabel} nhưng phản hồi không phải JSON hợp lệ.` };
-      const invalid = new Error(`Phản hồi chat từ máy chủ không hợp lệ (${statusLabel}).`);
-      invalid.cause = error;
-      throw invalid;
-    }
-  }
 
   function notifyChat(message, kind = "error") {
     if (window.OperationStatus?.notify) {
@@ -129,6 +125,7 @@
     historyLoading = false;
     renderedMessageIds.clear();
     messageStore.clear();
+    pendingMessages.clear();
     typingUsers.clear();
     roomOnlineUsers.clear();
     clearComposerContext();
@@ -472,44 +469,9 @@
     if (!event.target.closest?.(".general-chat-message-actions")) closeAllMenus();
   }, true);
 
-  function initials(name) {
-    const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
-    return (parts.slice(-2).map(part => part[0]?.toUpperCase() || "").join("") || "?").slice(0, 2);
-  }
 
-  function formatClock(value) {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(date);
-  }
 
-  function shortPreview(value, max = 90) {
-    const text = String(value || "").replace(/\s+/g, " ").trim();
-    if (text.length <= max) return text;
-    return `${text.slice(0, max - 1)}…`;
-  }
 
-  function normalizeMessage(message) {
-    return {
-      ...message,
-      id: Number(message?.id),
-      school_id: message?.school_id == null ? null : Number(message.school_id),
-      user_id: message?.user_id == null ? null : Number(message.user_id),
-      reply_to_id: message?.reply_to_id == null ? null : Number(message.reply_to_id),
-      content: String(message?.content || ""),
-      user_name: String(message?.user_name || "Tài khoản đã xóa"),
-      edited_at: message?.edited_at || null,
-      deleted_at: message?.deleted_at || null,
-      reply: message?.reply ? {
-        ...message.reply,
-        id: Number(message.reply.id),
-        user_name: String(message.reply.user_name || "Tài khoản đã xóa"),
-        content: String(message.reply.content || ""),
-        deleted: Boolean(message.reply.deleted)
-      } : null
-    };
-  }
 
   function closeAllMenus(exceptArticle = null) {
     messages.querySelectorAll(".general-chat-message.is-menu-open").forEach(article => {
@@ -527,7 +489,7 @@
   }
 
   function buildActions(message, own) {
-    if (message.deleted_at) return null;
+    if (message.deleted_at || message.pending || message.failed) return null;
     const wrapper = document.createElement("div");
     wrapper.className = "general-chat-message-actions";
 
@@ -580,7 +542,9 @@
     const parts = [];
     const time = formatClock(message.created_at);
     if (time) parts.push(time);
-    if (own && !message.deleted_at) parts.push("✓ Đã gửi");
+    if (message.failed) parts.push("Gửi thất bại");
+    else if (message.pending) parts.push("Đang gửi…");
+    else if (own && !message.deleted_at) parts.push("✓ Đã gửi");
     if (message.edited_at && !message.deleted_at) parts.push("Đã chỉnh sửa");
     if (message.deleted_at) parts.push("Đã xóa");
     footer.textContent = parts.join(" · ");
@@ -597,8 +561,9 @@
     document.getElementById("generalChatLoading")?.remove();
     const own = Number(message.user_id) === Number(currentUser.id);
     const article = document.createElement("article");
-    article.className = `general-chat-message${own ? " is-own" : ""}${message.deleted_at ? " is-deleted" : ""}`;
+    article.className = `general-chat-message${own ? " is-own" : ""}${message.deleted_at ? " is-deleted" : ""}${message.pending ? " is-pending" : ""}${message.failed ? " is-failed" : ""}`;
     if (id) article.dataset.messageId = String(id);
+    if (message.client_id) article.dataset.clientId = String(message.client_id);
 
     if (!own) {
       const avatar = document.createElement("div");
@@ -631,6 +596,46 @@
     messages.appendChild(article);
 
     if (!options.noScroll) messages.scrollTop = messages.scrollHeight;
+  }
+
+  function appendPendingMessage(clientId, content, reply) {
+    const optimistic = normalizeMessage({
+      id: null,
+      client_id: clientId,
+      school_id: activeSchoolId,
+      user_id: currentUser.id,
+      user_name: currentUser.name,
+      content,
+      created_at: new Date().toISOString(),
+      reply_to_id: reply?.id || null,
+      reply: reply || null,
+      pending: true,
+    });
+    pendingMessages.set(clientId, optimistic);
+    removeEmptyState();
+    appendMessage(optimistic);
+  }
+
+  function confirmPendingMessage(clientId, serverMessage) {
+    if (!clientId || !pendingMessages.has(clientId)) return false;
+    pendingMessages.delete(clientId);
+    messages.querySelector(`[data-client-id="${CSS.escape(String(clientId))}"]`)?.remove();
+    appendMessage(serverMessage);
+    return true;
+  }
+
+  function failPendingMessage(clientId) {
+    if (!clientId || !pendingMessages.has(clientId)) return;
+    const pending = pendingMessages.get(clientId);
+    pending.pending = false;
+    pending.failed = true;
+    pendingMessages.set(clientId, pending);
+    const article = messages.querySelector(`[data-client-id="${CSS.escape(String(clientId))}"]`);
+    if (!article) return;
+    article.classList.remove("is-pending");
+    article.classList.add("is-failed");
+    const footer = article.querySelector(".general-chat-message-footer");
+    if (footer) footer.textContent = `${formatClock(pending.created_at)} · Gửi thất bại`;
   }
 
   function rerenderMessage(messageId) {
@@ -949,7 +954,9 @@
       if (data.type === "chat_message" && data.message) {
         if (Number(data.school_id ?? data.message.school_id) !== Number(activeSchoolId)) return;
         removeEmptyState();
-        appendMessage(data.message);
+        const confirmed = Number(data.message.user_id) === Number(currentUser.id)
+          && confirmPendingMessage(String(data.client_id || ""), data.message);
+        if (!confirmed) appendMessage(data.message);
         typingUsers.delete(Number(data.message.user_id));
         renderTyping();
         if (!isOpen() && Number(data.message.user_id) !== Number(currentUser.id)) {
@@ -971,6 +978,7 @@
       }
 
       if (data.type === "chat_error") {
+        failPendingMessage(String(data.client_id || ""));
         notifyChat(data.message || "Không thực hiện được thao tác chat.", "error");
       }
     });
@@ -1041,12 +1049,21 @@
     if (editTarget) {
       sent = sendJson({ type: "chat_edit", school_id: activeSchoolId, message_id: editTarget.id, content });
     } else {
+      const clientId = createClientId();
+      const optimisticReply = replyTarget ? {
+        id: replyTarget.id,
+        user_name: replyTarget.user_name,
+        content: replyTarget.content,
+        deleted: Boolean(replyTarget.deleted_at),
+      } : null;
       sent = sendJson({
         type: "chat_send",
+        client_id: clientId,
         school_id: activeSchoolId,
         content,
         reply_to_id: replyTarget?.id || null
       });
+      if (sent) appendPendingMessage(clientId, content, optimisticReply);
     }
     if (!sent) return;
 
