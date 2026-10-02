@@ -42,6 +42,92 @@ _weather_cache: dict[str, tuple[dict, float]] = {}
 _WEATHER_CACHE_TTL = 600.0  # 10 minutes cache
 
 
+_location_name_cache: dict[str, tuple[str, float]] = {}
+_LOCATION_NAME_CACHE_TTL = 86400.0  # 24 hours
+
+
+def _clean_location_name(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.strip().split())
+
+
+def _pick_location_name(address: dict, display_name: str = "") -> str:
+    # Ưu tiên cấp thành phố/tỉnh vì tên này vừa đủ ngắn để hiển thị trên appbar.
+    for key in ("city", "municipality", "town", "state", "province", "county", "village"):
+        name = _clean_location_name(address.get(key))
+        if name:
+            if name == "Thành phố Hồ Chí Minh":
+                return "TP. Hồ Chí Minh"
+            return name
+
+    # Dự phòng cuối cùng: lấy phần đầu của display_name thay vì trả về
+    # chuỗi chung chung "Vị trí hiện tại".
+    first_part = _clean_location_name((display_name or "").split(",", 1)[0])
+    return first_part
+
+
+@router.get("/api/location-name")
+def get_location_name(
+    latitude: float = Query(..., ge=-90, le=90),
+    longitude: float = Query(..., ge=-180, le=180),
+):
+    """Resolve GPS coordinates to a short city/province name using OpenStreetMap Nominatim."""
+    import json
+    import urllib.parse
+    import urllib.request
+
+    cache_key = f"{round(latitude, 3)},{round(longitude, 3)}"
+    now = time.time()
+    cached = _location_name_cache.get(cache_key)
+    if cached and now - cached[1] < _LOCATION_NAME_CACHE_TTL:
+        return JSONResponse(
+            {"name": cached[0], "cached": True},
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
+
+    params = urllib.parse.urlencode(
+        {
+            "format": "jsonv2",
+            "lat": latitude,
+            "lon": longitude,
+            "zoom": 10,
+            "addressdetails": 1,
+            "accept-language": "vi",
+        }
+    )
+    url = f"https://nominatim.openstreetmap.org/reverse?{params}"
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "TeacherTimetable/1.0 (weather location resolver)",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+
+        address = payload.get("address") if isinstance(payload, dict) else {}
+        if not isinstance(address, dict):
+            address = {}
+        name = _pick_location_name(address, payload.get("display_name", ""))
+        if not name:
+            return JSONResponse({"name": ""}, status_code=404)
+
+        _location_name_cache[cache_key] = (name, now)
+        return JSONResponse(
+            {"name": name, "cached": False},
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
+    except Exception as exc:
+        # Reverse geocoding chỉ phục vụ nhãn hiển thị; lỗi không được làm hỏng widget thời tiết.
+        if cached:
+            return JSONResponse({"name": cached[0], "cached": True})
+        return JSONResponse({"name": "", "error": str(exc)}, status_code=502)
+
+
 @router.get("/api/weather")
 def get_weather(
     latitude: float = Query(21.0285, ge=-90, le=90),

@@ -24,6 +24,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.SslErrorHandler;
 import android.webkit.URLUtil;
@@ -49,12 +50,15 @@ public class MainActivity extends Activity {
     private static final String SERVER_URL = BuildConfig.APP_BASE_URL;
     private static final int STORAGE_PERMISSION_REQUEST = 41;
     private static final int FILE_CHOOSER_REQUEST = 42;
+    private static final int LOCATION_PERMISSION_REQUEST = 43;
 
     private WebView webView;
     private ProgressBar progressBar;
     private LinearLayout errorPanel;
     private PendingDownload pendingDownload;
     private ValueCallback<Uri[]> filePathCallback;
+    private GeolocationPermissions.Callback pendingGeolocationCallback;
+    private String pendingGeolocationOrigin;
     private boolean mainFrameLoadFailed;
     private volatile String currentServerUrl = "";
 
@@ -93,6 +97,7 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
+        settings.setGeolocationEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -113,6 +118,29 @@ public class MainActivity extends Activity {
             public void onProgressChanged(WebView view, int progress) {
                 progressBar.setProgress(progress);
                 progressBar.setVisibility(progress < 100 ? View.VISIBLE : View.GONE);
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(
+                    String origin,
+                    GeolocationPermissions.Callback callback
+            ) {
+                boolean granted = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                if (granted) {
+                    callback.invoke(origin, true, false);
+                    return;
+                }
+
+                pendingGeolocationOrigin = origin;
+                pendingGeolocationCallback = callback;
+                requestPermissions(
+                        new String[]{
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                        },
+                        LOCATION_PERMISSION_REQUEST
+                );
             }
 
             @Override
@@ -295,6 +323,26 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == LOCATION_PERMISSION_REQUEST) {
+            boolean granted = false;
+            for (int result : grantResults) {
+                if (result == PackageManager.PERMISSION_GRANTED) {
+                    granted = true;
+                    break;
+                }
+            }
+            if (pendingGeolocationCallback != null && pendingGeolocationOrigin != null) {
+                pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
+            }
+            pendingGeolocationCallback = null;
+            pendingGeolocationOrigin = null;
+            if (!granted) {
+                Toast.makeText(this, "Cần quyền vị trí để cập nhật thời tiết theo vị trí hiện tại.", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+
         if (requestCode == STORAGE_PERMISSION_REQUEST && pendingDownload != null) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 enqueueDownload(pendingDownload);

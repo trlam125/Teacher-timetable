@@ -114,11 +114,17 @@
   }
 
   const WEATHER_CACHE_TTL_MS = 10 * 60 * 1000;
-  const LOCATION_MAX_AGE_MS = 10 * 60 * 1000;
-  const LOCATION_TIMEOUT_MS = 5000;
-  const LOCATION_REUSE_DISTANCE_KM = 3;
+  const WEATHER_BACKGROUND_REFRESH_MS = 15 * 60 * 1000;
+  const LOCATION_MAX_AGE_MS = 30 * 1000;
+  const LOCATION_TIMEOUT_MS = 8000;
+  const LOCATION_WATCH_TIMEOUT_MS = 15000;
+  const LOCATION_UPDATE_DISTANCE_KM = 0.5;
+  const WEATHER_UPDATE_DISTANCE_KM = 2;
   const LAST_LOCATION_KEY = 'smart_tkb_weather_last_location';
   const FALLBACK_CITY_KEY = 'smart_tkb_weather_city';
+  const LOCATION_MODE_KEY = 'smart_tkb_weather_location_mode';
+  const LOCATION_NAME_CACHE_KEY = 'smart_tkb_weather_location_names';
+  const LOCATION_NAME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
   let currentWeatherState = null;
   let selectedCityKey = localStorage.getItem(FALLBACK_CITY_KEY) || 'hanoi';
@@ -129,6 +135,9 @@
 
   let locationSelectionRevision = 0;
   let weatherRequestRevision = 0;
+  let locationWatchId = null;
+  let lastWeatherLocation = null;
+  let lastWeatherUpdatedAt = 0;
 
   function parseStoredLocation() {
     try {
@@ -139,11 +148,14 @@
       const lon = Number(parsed.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
       if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+      const storedName = typeof parsed.name === 'string' ? parsed.name.trim() : '';
       return {
-        name: 'Vị trí gần nhất',
+        name: storedName || getNearestConfiguredCityName({ lat, lon }) || 'Vị trí gần nhất',
         lat,
         lon,
-        source: 'gps'
+        source: 'gps',
+        accuracy: Number.isFinite(Number(parsed.accuracy)) ? Number(parsed.accuracy) : null,
+        capturedAt: Number.isFinite(Number(parsed.timestamp)) ? Number(parsed.timestamp) : null
       };
     } catch (e) {
       return null;
@@ -151,7 +163,13 @@
   }
 
   const storedLocation = parseStoredLocation();
-  let activeLocation = storedLocation || { ...CITIES[selectedCityKey], source: 'city' };
+  const storedLocationMode = localStorage.getItem(LOCATION_MODE_KEY);
+  let locationMode = storedLocationMode === 'gps' || storedLocationMode === 'city'
+    ? storedLocationMode
+    : (storedLocation ? 'gps' : 'auto');
+  let activeLocation = locationMode === 'gps' && storedLocation
+    ? storedLocation
+    : { ...CITIES[selectedCityKey], source: 'city' };
 
   function getActiveCoords() {
     return activeLocation;
@@ -177,11 +195,124 @@
     return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
   }
 
+  function getNearestConfiguredCityName(coords, maxDistanceKm = 60) {
+    let nearest = null;
+    let nearestDistance = Infinity;
+
+    Object.values(CITIES).forEach(city => {
+      const d = distanceKm(coords, city);
+      if (d < nearestDistance) {
+        nearest = city;
+        nearestDistance = d;
+      }
+    });
+
+    return nearest && nearestDistance <= maxDistanceKm ? nearest.name : '';
+  }
+
+  function readLocationNameCache() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(LOCATION_NAME_CACHE_KEY) || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function getCachedLocationName(coords) {
+    const cache = readLocationNameCache();
+    const key = locationSignature(coords);
+    const item = cache[key];
+    if (!item || typeof item.name !== 'string' || !item.name.trim()) return '';
+    if (!Number.isFinite(Number(item.timestamp))) return '';
+    if (Date.now() - Number(item.timestamp) > LOCATION_NAME_CACHE_TTL_MS) return '';
+    return item.name.trim();
+  }
+
+  function cacheLocationName(coords, name) {
+    if (!name) return;
+    const cache = readLocationNameCache();
+    cache[locationSignature(coords)] = { name, timestamp: Date.now() };
+
+    // Giữ cache nhỏ gọn, tránh localStorage tăng mãi khi GPS thay đổi.
+    const entries = Object.entries(cache)
+      .sort((a, b) => Number(b[1]?.timestamp || 0) - Number(a[1]?.timestamp || 0))
+      .slice(0, 20);
+    localStorage.setItem(LOCATION_NAME_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  }
+
+  async function resolveLocationName(coords) {
+    const cached = getCachedLocationName(coords);
+    if (cached) return cached;
+
+    try {
+      const response = await fetch(`/api/location-name?latitude=${encodeURIComponent(coords.lat)}&longitude=${encodeURIComponent(coords.lon)}`, {
+        cache: 'no-store'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const name = typeof data?.name === 'string' ? data.name.trim() : '';
+        if (name) {
+          cacheLocationName(coords, name);
+          return name;
+        }
+      }
+    } catch (error) {
+      console.info('Smart TKB Weather: chưa lấy được tên vị trí từ máy chủ.', error);
+    }
+
+    return getNearestConfiguredCityName(coords) || '';
+  }
+
+  function refreshGpsLocationName(coords) {
+    const signature = locationSignature(coords);
+
+    resolveLocationName(coords).then(name => {
+      if (!name || locationMode !== 'gps') return;
+      if (locationSignature(getActiveCoords()) !== signature) return;
+      if (getActiveCoords().name === name) return;
+
+      activeLocation = { ...getActiveCoords(), name };
+      saveCurrentLocation(activeLocation);
+      syncLocationControls();
+      updateAllWeatherUI();
+    });
+  }
+
   function saveCurrentLocation(coords) {
     localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify({
+      name: typeof coords.name === 'string' ? coords.name : '',
       lat: coords.lat,
-      lon: coords.lon
+      lon: coords.lon,
+      accuracy: Number.isFinite(Number(coords.accuracy)) ? Number(coords.accuracy) : null,
+      timestamp: Date.now()
     }));
+  }
+
+  function setLocationMode(mode) {
+    locationMode = mode;
+    if (mode === 'gps' || mode === 'city') {
+      localStorage.setItem(LOCATION_MODE_KEY, mode);
+    }
+  }
+
+  function isWeatherStale() {
+    return !lastWeatherUpdatedAt || Date.now() - lastWeatherUpdatedAt >= WEATHER_CACHE_TTL_MS;
+  }
+
+  function positionToLocation(position) {
+    const lat = Number(position?.coords?.latitude);
+    const lon = Number(position?.coords?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return {
+      name: getCachedLocationName({ lat, lon }) || getNearestConfiguredCityName({ lat, lon }) || 'Đang xác định...',
+      lat,
+      lon,
+      source: 'gps',
+      accuracy: Number.isFinite(Number(position.coords.accuracy)) ? Number(position.coords.accuracy) : null,
+      capturedAt: Number.isFinite(Number(position.timestamp)) ? Number(position.timestamp) : Date.now()
+    };
   }
 
   function setLocationButtonBusy(isBusy) {
@@ -197,28 +328,101 @@
 
     const button = document.getElementById('weatherUseLocationBtn');
     if (button) {
-      const gpsActive = getActiveCoords().source === 'gps';
+      const gpsActive = locationMode === 'gps' && getActiveCoords().source === 'gps';
       button.classList.toggle('is-active', gpsActive);
       button.setAttribute('aria-pressed', gpsActive ? 'true' : 'false');
       button.title = gpsActive
-        ? (getActiveCoords().name === 'Vị trí gần nhất' ? 'Đang dùng vị trí gần nhất đã lưu' : 'Đang dùng vị trí hiện tại')
+        ? `Đang dùng vị trí GPS: ${getActiveCoords().name}`
         : 'Dùng vị trí hiện tại';
     }
+  }
+
+  function stopLocationWatch() {
+    if (locationWatchId === null || !navigator.geolocation) return;
+    navigator.geolocation.clearWatch(locationWatchId);
+    locationWatchId = null;
+  }
+
+  function shouldRefreshWeatherFor(nextLocation, previousLocation = null) {
+    if (!currentWeatherState || !lastWeatherLocation) return true;
+    if (previousLocation && previousLocation.source !== 'gps') return true;
+    if (distanceKm(lastWeatherLocation, nextLocation) >= WEATHER_UPDATE_DISTANCE_KM) return true;
+    return isWeatherStale();
+  }
+
+  function applyTrackedGpsPosition(position) {
+    if (locationMode !== 'gps') return;
+    const nextLocation = positionToLocation(position);
+    if (!nextLocation) return;
+
+    const previousLocation = getActiveCoords();
+    const movedKm = previousLocation.source === 'gps'
+      ? distanceKm(previousLocation, nextLocation)
+      : Infinity;
+
+    // Bỏ qua dao động GPS nhỏ để tránh UI/cache thay đổi liên tục.
+    if (movedKm < LOCATION_UPDATE_DISTANCE_KM) return;
+
+    activeLocation = nextLocation;
+    saveCurrentLocation(nextLocation);
+    syncLocationControls();
+    refreshGpsLocationName(nextLocation);
+
+    const needsWeatherRefresh = shouldRefreshWeatherFor(nextLocation, previousLocation);
+    if (needsWeatherRefresh) {
+      // Không hiển thị dữ liệu của địa điểm cũ nếu đã di chuyển đủ xa.
+      if (lastWeatherLocation && distanceKm(lastWeatherLocation, nextLocation) >= WEATHER_UPDATE_DISTANCE_KM) {
+        currentWeatherState = null;
+        updateAllWeatherUI();
+      }
+      fetchWeatherData(false);
+    } else {
+      updateAllWeatherUI();
+    }
+  }
+
+  function startLocationWatch() {
+    if (!navigator.geolocation || locationMode !== 'gps' || locationWatchId !== null || document.hidden) return;
+
+    locationWatchId = navigator.geolocation.watchPosition(
+      applyTrackedGpsPosition,
+      error => {
+        if (error.code === 1) {
+          // Quyền bị thu hồi trong lúc đang theo dõi: dừng watcher nhưng giữ dữ liệu hiện tại.
+          stopLocationWatch();
+        }
+        const reasons = {
+          1: 'người dùng từ chối quyền vị trí',
+          2: 'không xác định được vị trí',
+          3: 'hết thời gian chờ vị trí'
+        };
+        console.info(`Smart TKB Weather: theo dõi vị trí tạm dừng vì ${reasons[error.code] || 'lỗi định vị'}.`);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: LOCATION_WATCH_TIMEOUT_MS,
+        maximumAge: LOCATION_MAX_AGE_MS
+      }
+    );
   }
 
   function selectFallbackCity(cityKey) {
     if (!CITIES[cityKey]) return;
     locationSelectionRevision += 1;
+    stopLocationWatch();
+    setLocationMode('city');
     selectedCityKey = cityKey;
     localStorage.setItem(FALLBACK_CITY_KEY, selectedCityKey);
     activeLocation = { ...CITIES[selectedCityKey], source: 'city' };
     currentWeatherState = null;
+    lastWeatherLocation = null;
+    lastWeatherUpdatedAt = 0;
     syncLocationControls();
     updateAllWeatherUI();
     fetchWeatherData(false);
   }
 
-  function requestCurrentLocation() {
+  function requestCurrentLocation({ forceWeather = false, startWatch = true } = {}) {
     if (!navigator.geolocation) {
       console.warn('Smart TKB Weather: Trình duyệt không hỗ trợ định vị.');
       return Promise.resolve(false);
@@ -232,37 +436,43 @@
         position => {
           setLocationButtonBusy(false);
 
-          // Nếu người dùng vừa tự chọn tỉnh/thành trong lúc hộp quyền GPS đang mở,
-          // không tự động ghi đè lựa chọn đó. Nút định vị thủ công vẫn có thể ghi đè.
+          // Nếu người dùng chọn tỉnh/thành trong lúc hộp quyền GPS đang mở,
+          // lựa chọn thủ công luôn được ưu tiên.
           if (requestSelectionRevision !== locationSelectionRevision) {
             resolve(false);
             return;
           }
 
-          const nextLocation = {
-            name: 'Vị trí hiện tại',
-            lat: Number(position.coords.latitude),
-            lon: Number(position.coords.longitude),
-            source: 'gps'
-          };
-
-          const previousLocation = getActiveCoords();
-          const wasGps = previousLocation.source === 'gps';
-          const movedKm = distanceKm(previousLocation, nextLocation);
-
-          activeLocation = nextLocation;
-          saveCurrentLocation(nextLocation);
-          syncLocationControls();
-
-          // Nếu đang dùng GPS đã lưu và vị trí mới chỉ lệch rất ít, giữ dữ liệu đang hiển thị.
-          // Việc này tránh thêm một request không cần thiết khi vừa mở trang.
-          if (wasGps && movedKm < LOCATION_REUSE_DISTANCE_KM && currentWeatherState) {
-            updateAllWeatherUI();
-            resolve(true);
+          const nextLocation = positionToLocation(position);
+          if (!nextLocation) {
+            resolve(false);
             return;
           }
 
-          fetchWeatherData(false).finally(() => resolve(true));
+          const previousLocation = getActiveCoords();
+          const needsWeatherRefresh = forceWeather || shouldRefreshWeatherFor(nextLocation, previousLocation);
+          const movedFromWeatherKm = lastWeatherLocation
+            ? distanceKm(lastWeatherLocation, nextLocation)
+            : Infinity;
+
+          setLocationMode('gps');
+          activeLocation = nextLocation;
+          saveCurrentLocation(nextLocation);
+          syncLocationControls();
+          refreshGpsLocationName(nextLocation);
+
+          if (needsWeatherRefresh && currentWeatherState && movedFromWeatherKm >= WEATHER_UPDATE_DISTANCE_KM) {
+            currentWeatherState = null;
+          }
+          updateAllWeatherUI();
+
+          if (startWatch) startLocationWatch();
+
+          if (needsWeatherRefresh) {
+            fetchWeatherData(forceWeather).finally(() => resolve(true));
+          } else {
+            resolve(true);
+          }
         },
         error => {
           setLocationButtonBusy(false);
@@ -271,11 +481,14 @@
             2: 'không xác định được vị trí',
             3: 'hết thời gian chờ vị trí'
           };
-          console.info(`Smart TKB Weather: dùng địa điểm dự phòng vì ${reasons[error.code] || 'lỗi định vị'}.`);
+          console.info(`Smart TKB Weather: giữ địa điểm hiện tại vì ${reasons[error.code] || 'lỗi định vị'}.`);
+          if (locationMode === 'gps' && startWatch && error.code !== 1) {
+            startLocationWatch();
+          }
           resolve(false);
         },
         {
-          enableHighAccuracy: false,
+          enableHighAccuracy: true,
           timeout: LOCATION_TIMEOUT_MS,
           maximumAge: LOCATION_MAX_AGE_MS
         }
@@ -301,6 +514,8 @@
           if (now - parsed.timestamp < WEATHER_CACHE_TTL_MS) {
             if (requestSignature === locationSignature(getActiveCoords())) {
               currentWeatherState = parsed.data;
+              lastWeatherLocation = { ...coords };
+              lastWeatherUpdatedAt = Number(parsed.timestamp) || now;
               updateAllWeatherUI();
             }
             return;
@@ -329,10 +544,13 @@
         data = await omRes.json();
       }
 
-      localStorage.setItem(cacheKey, JSON.stringify({ timestamp: now, data }));
+      const fetchedAt = Date.now();
+      localStorage.setItem(cacheKey, JSON.stringify({ timestamp: fetchedAt, data }));
 
       if (requestRevision === weatherRequestRevision && requestSignature === locationSignature(getActiveCoords())) {
         currentWeatherState = data;
+        lastWeatherLocation = { ...coords };
+        lastWeatherUpdatedAt = fetchedAt;
         updateAllWeatherUI();
       }
     } catch (error) {
@@ -661,7 +879,7 @@
 
     const locationBtn = modal.querySelector('#weatherUseLocationBtn');
     locationBtn.onclick = function () {
-      requestCurrentLocation();
+      requestCurrentLocation({ forceWeather: false, startWatch: true });
     };
     syncLocationControls();
 
@@ -857,15 +1075,35 @@
       }, 400);
     }
 
-    // Hiển thị ngay bằng vị trí GPS đã lưu (nếu có), nếu không thì dùng tỉnh/thành dự phòng.
-    // Không chờ GPS nên phần còn lại của trang và weather cache không bị chặn.
+    // Render ngay dữ liệu/cache của vị trí đã chọn; không chặn phần còn lại của trang.
     fetchWeatherData(false);
 
-    // Xin vị trí mới song song. Khi GPS trả về, chỉ cập nhật weather nếu vị trí thực sự thay đổi.
-    requestCurrentLocation();
+    // Chỉ tự bật GPS nếu người dùng chưa chủ động chọn chế độ thành phố.
+    // Sau khi có fix đầu tiên, watchPosition tiếp tục theo dõi khi tab đang hiển thị.
+    if (locationMode !== 'city') {
+      requestCurrentLocation({ forceWeather: false, startWatch: true });
+    }
 
-    // Refresh dữ liệu thời tiết mỗi 15 phút. Cache phía client/backend vẫn tránh request dư thừa.
-    setInterval(() => fetchWeatherData(false), 15 * 60 * 1000);
+    // Weather được làm mới nền mỗi 15 phút nhưng không đánh thức request khi tab đang ẩn.
+    setInterval(() => {
+      if (!document.hidden) fetchWeatherData(false);
+    }, WEATHER_BACKGROUND_REFRESH_MS);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopLocationWatch();
+        return;
+      }
+
+      if (locationMode === 'gps') {
+        // Khi quay lại tab, lấy một fix mới để tránh dùng vị trí cũ do trình duyệt throttle nền.
+        requestCurrentLocation({ forceWeather: false, startWatch: true });
+      } else if (isWeatherStale()) {
+        fetchWeatherData(false);
+      }
+    });
+
+    window.addEventListener('pagehide', stopLocationWatch);
   }
 
   if (document.readyState === 'loading') {
