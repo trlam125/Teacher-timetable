@@ -6,6 +6,15 @@ from app.services.runtime import *
 router = APIRouter()
 
 
+@router.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
+def health():
+    return JSONResponse(
+        {"status": "ok"},
+        status_code=200,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/api/server-time")
 def server_time():
     """Return authoritative server time for the shared app-bar clock."""

@@ -6,6 +6,11 @@ from app.services.runtime import *
 router = APIRouter()
 
 
+@router.head("/", include_in_schema=False)
+def home_head():
+    return HTMLResponse(content="", status_code=200)
+
+
 @router.get("/", response_class=HTMLResponse)
 def home(request: Request, db: Session = Depends(db_session)):
     raw = request.cookies.get("session")
