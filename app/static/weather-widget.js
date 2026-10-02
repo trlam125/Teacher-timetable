@@ -113,6 +113,185 @@
     return '';
   }
 
+  // Daily weather codes from forecast APIs often represent the worst condition of
+  // the whole day. For the compact school dashboard that can be misleading: a
+  // short evening shower may make the entire day look stormy. The helpers below
+  // use hourly data to show the dominant daytime condition and surface rain in
+  // the period where it is actually expected.
+  function isWetWeatherCode(code) {
+    const value = Number(code);
+    return (value >= 51 && value <= 82) || value >= 95;
+  }
+
+  function weatherSeverity(code) {
+    const value = Number(code);
+    if (value >= 95) return 8;
+    if (value >= 80) return 7;
+    if (value >= 61) return 6;
+    if (value >= 51) return 5;
+    if (value === 45 || value === 48) return 4;
+    if (value === 3) return 3;
+    if (value === 2) return 2;
+    if (value === 1) return 1;
+    return 0;
+  }
+
+  function getHourFromApiTime(timeValue) {
+    if (typeof timeValue !== 'string') return null;
+    const hour = Number(timeValue.slice(11, 13));
+    return Number.isFinite(hour) ? hour : null;
+  }
+
+  function getCurrentForecastHour(weather) {
+    const apiHour = getHourFromApiTime(weather?.current?.time);
+    if (apiHour != null) return apiHour;
+    return new Date().getHours();
+  }
+
+  function getHourlyEntriesForDay(weather, dateStr, remainingOnly = false) {
+    const hourly = weather?.hourly;
+    if (!hourly || !Array.isArray(hourly.time)) return [];
+
+    const currentHour = remainingOnly ? getCurrentForecastHour(weather) : null;
+    const result = [];
+    for (let i = 0; i < hourly.time.length; i++) {
+      const time = hourly.time[i];
+      if (typeof time !== 'string' || !time.startsWith(dateStr)) continue;
+      const hour = getHourFromApiTime(time);
+      if (hour == null || (remainingOnly && hour < currentHour)) continue;
+      result.push({
+        time,
+        hour,
+        code: Number(hourly.weather_code?.[i] ?? 0),
+        probability: Number(hourly.precipitation_probability?.[i] ?? 0),
+        precipitation: Math.max(0, Number(hourly.precipitation?.[i] ?? 0)),
+        isDay: Number(hourly.is_day?.[i] ?? (hour >= 6 && hour < 18 ? 1 : 0))
+      });
+    }
+    return result;
+  }
+
+  function getPeriodForHour(hour) {
+    if (hour < 6) return { key: 'night', label: 'Đêm' };
+    if (hour < 12) return { key: 'morning', label: 'Sáng' };
+    if (hour < 18) return { key: 'afternoon', label: 'Chiều' };
+    return { key: 'evening', label: 'Tối' };
+  }
+
+  function getModeWeatherCode(entries) {
+    if (!entries.length) return 0;
+    const counts = new Map();
+    entries.forEach(entry => {
+      const code = Number(entry.code);
+      counts.set(code, (counts.get(code) || 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => (b[1] - a[1]) || (weatherSeverity(a[0]) - weatherSeverity(b[0])))[0][0];
+  }
+
+  function getRepresentativeDayCode(weather, dayIndex) {
+    const daily = weather?.daily;
+    const dateStr = daily?.time?.[dayIndex];
+    if (!dateStr) return Number(daily?.weather_code?.[dayIndex] ?? 0);
+
+    // "Hôm nay" should reflect what the user is experiencing now, not the
+    // worst hourly condition that may only happen later.
+    if (dayIndex === 0 && Number.isFinite(Number(weather?.current?.weather_code))) {
+      return Number(weather.current.weather_code);
+    }
+
+    const entries = getHourlyEntriesForDay(weather, dateStr, false);
+    const daytime = entries.filter(entry => entry.hour >= 6 && entry.hour < 18);
+    if (!daytime.length) return Number(daily?.weather_code?.[dayIndex] ?? 0);
+
+    const wetEntries = daytime.filter(entry => isWetWeatherCode(entry.code));
+    const rainAmount = wetEntries.reduce((sum, entry) => sum + entry.precipitation, 0);
+
+    // A brief low-volume shower should be mentioned as a timed rain risk, but
+    // should not turn the whole day's primary icon into a storm icon.
+    if (rainAmount < 0.5 && wetEntries.length <= 2) {
+      const dryEntries = daytime.filter(entry => !isWetWeatherCode(entry.code));
+      if (dryEntries.length) return getModeWeatherCode(dryEntries);
+    }
+    return getModeWeatherCode(daytime);
+  }
+
+  function summarizeRainForDay(weather, dayIndex) {
+    const daily = weather?.daily;
+    const dateStr = daily?.time?.[dayIndex];
+    if (!dateStr) return { significant: false, probability: 0, amount: 0, period: '' };
+
+    const entries = getHourlyEntriesForDay(weather, dateStr, dayIndex === 0);
+    if (!entries.length) {
+      const probability = Number(daily?.precipitation_probability_max?.[dayIndex] ?? 0);
+      const amount = Math.max(0, Number(daily?.precipitation_sum?.[dayIndex] ?? 0));
+      return {
+        significant: amount >= 0.5 || (amount >= 0.2 && probability >= 60),
+        probability,
+        amount,
+        period: '',
+        severe: Number(daily?.weather_code?.[dayIndex] ?? 0) >= 95
+      };
+    }
+
+    const buckets = new Map();
+    entries.forEach(entry => {
+      const period = getPeriodForHour(entry.hour);
+      if (!buckets.has(period.key)) {
+        buckets.set(period.key, {
+          key: period.key,
+          label: period.label,
+          probability: 0,
+          amount: 0,
+          severe: false,
+          wetHours: 0
+        });
+      }
+      const bucket = buckets.get(period.key);
+      bucket.probability = Math.max(bucket.probability, entry.probability);
+      bucket.amount += entry.precipitation;
+      bucket.severe = bucket.severe || entry.code >= 95;
+      if (isWetWeatherCode(entry.code)) bucket.wetHours += 1;
+    });
+
+    const candidates = [...buckets.values()].map(bucket => {
+      bucket.significant = bucket.amount >= 0.5
+        || (bucket.amount >= 0.2 && bucket.probability >= 60)
+        || (bucket.severe && bucket.probability >= 40);
+      bucket.score = bucket.amount * 12 + bucket.probability / 10 + (bucket.severe ? 12 : 0);
+      return bucket;
+    });
+
+    const best = candidates
+      .filter(bucket => bucket.significant)
+      .sort((a, b) => b.score - a.score)[0];
+
+    if (best) return best;
+
+    const maxProbability = candidates.reduce((max, bucket) => Math.max(max, bucket.probability), 0);
+    const totalAmount = candidates.reduce((sum, bucket) => sum + bucket.amount, 0);
+    return { significant: false, probability: maxProbability, amount: totalAmount, period: '', severe: false };
+  }
+
+  function formatRainAmount(amount) {
+    const value = Number(amount) || 0;
+    if (value <= 0) return '0 mm';
+    if (value < 10) return `${value.toFixed(1)} mm`;
+    return `${Math.round(value)} mm`;
+  }
+
+  function getCompactRainText(summary) {
+    if (!summary?.significant) return 'Khô ráo';
+    const period = summary.label || summary.period || 'Có mưa';
+    return `🌧 ${period} ${Math.round(summary.probability)}%`;
+  }
+
+  function getDetailedRainText(summary) {
+    if (!summary?.significant) return 'Thấp / không đáng kể';
+    const period = summary.label || summary.period || 'Có mưa';
+    return `${period} ${Math.round(summary.probability)}% · ~${formatRainAmount(summary.amount)}`;
+  }
+
   const WEATHER_CACHE_TTL_MS = 10 * 60 * 1000;
   const WEATHER_BACKGROUND_REFRESH_MS = 15 * 60 * 1000;
   const LOCATION_MAX_AGE_MS = 30 * 1000;
@@ -180,7 +359,7 @@
   }
 
   function getClientCacheKey(coords) {
-    return `smart_tkb_weather_cache_${locationSignature(coords)}`;
+    return `smart_tkb_weather_cache_v2_${locationSignature(coords)}`;
   }
 
   function distanceKm(a, b) {
@@ -538,7 +717,7 @@
       if (res && res.ok) {
         data = await res.json();
       } else {
-        const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=7`;
+        const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&hourly=weather_code,precipitation_probability,precipitation,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max&timezone=auto&forecast_days=7`;
         const omRes = await fetch(openMeteoUrl);
         if (!omRes.ok) throw new Error('Open-Meteo API error');
         data = await omRes.json();
@@ -600,31 +779,45 @@
     `;
   }
 
-  // School context analysis
+  // School context analysis. Chỉ coi là rủi ro mưa đáng kể khi hourly forecast
+  // đồng thời cho thấy xác suất và lượng mưa đủ lớn; tránh cảnh báo chỉ vì một
+  // giá trị precipitation_probability_max cao trong một giờ ngắn.
   function generateSchoolAdvice(weather) {
     if (!weather || !weather.daily) return '';
-    const codes = weather.daily.weather_code || [];
-    const maxProbs = weather.daily.precipitation_probability_max || [];
     const maxTemps = weather.daily.temperature_2m_max || [];
+    const summaries = (weather.daily.time || []).slice(0, 7).map((_, index) => ({
+      index,
+      rain: summarizeRainForDay(weather, index)
+    }));
 
-    const hasThunder = codes.some(c => c >= 95);
-    const highRainIdx = maxProbs.findIndex(p => p >= 65);
-    const hasHighRain = highRainIdx !== -1;
-    const maxTempWeek = Math.max(...maxTemps);
+    const thunderDay = summaries.find(item => item.rain.severe && item.rain.significant);
+    const rainDay = summaries
+      .filter(item => item.rain.significant && item.rain.probability >= 65 && item.rain.amount >= 0.5)
+      .sort((a, b) => (b.rain.amount - a.rain.amount) || (b.rain.probability - a.rain.probability))[0];
+    const maxTempWeek = maxTemps.length ? Math.max(...maxTemps) : 0;
 
-    if (hasThunder) {
+    if (thunderDay) {
+      const dayName = thunderDay.index === 0
+        ? 'hôm nay'
+        : `vào ${WEEKDAY_NAMES[new Date(weather.daily.time[thunderDay.index]).getDay()]}`;
+      const period = thunderDay.rain.label ? ` ${thunderDay.rain.label.toLowerCase()}` : '';
       return {
         icon: '⚡',
-        text: 'Có dự báo giông sét trong tuần. Ban giám hiệu và giáo viên thể dục cần lưu ý chuyển các tiết học ngoài trời vào nhà đa năng/phòng học có mái che khi thời tiết xấu.'
+        text: `Có khả năng giông sét${period} ${dayName}. Nên ưu tiên phương án học và hoạt động trong khu vực có mái che nếu thời tiết chuyển xấu.`
       };
     }
-    if (hasHighRain) {
-      const dayName = highRainIdx === 0 ? 'hôm nay' : `vào ${WEEKDAY_NAMES[new Date(weather.daily.time[highRainIdx]).getDay()]}`;
+
+    if (rainDay) {
+      const dayName = rainDay.index === 0
+        ? 'hôm nay'
+        : `vào ${WEEKDAY_NAMES[new Date(weather.daily.time[rainDay.index]).getDay()]}`;
+      const period = rainDay.rain.label ? `${rainDay.rain.label.toLowerCase()} ` : '';
       return {
         icon: '🌧️',
-        text: `Khả năng mưa lớn (${maxProbs[highRainIdx]}%) ${dayName}. Nhà trường nên chủ động chuẩn bị phương án sinh hoạt và tiết thể dục dự phòng trong phòng chức năng.`
+        text: `Dự báo mưa đáng kể ${period}${dayName}, xác suất khoảng ${Math.round(rainDay.rain.probability)}% và lượng mưa ước tính ~${formatRainAmount(rainDay.rain.amount)}. Nhà trường nên chuẩn bị phương án hoạt động trong nhà.`
       };
     }
+
     if (maxTempWeek >= 35) {
       return {
         icon: '☀️',
@@ -674,19 +867,23 @@
       const isToday = i === 0;
       const dayLabel = isToday ? 'Hôm nay' : WEEKDAY_SHORT[d.getDay()];
       const dateFormatted = `${d.getDate()}/${d.getMonth() + 1}`;
-      const code = daily.weather_code[i];
-      const icon = getWeatherIcon(code, 1);
+      const code = getRepresentativeDayCode(currentWeatherState, i);
+      const icon = getWeatherIcon(code, isToday ? (cur.is_day ?? 1) : 1);
       const maxT = Math.round(daily.temperature_2m_max[i]);
       const minT = Math.round(daily.temperature_2m_min[i]);
-      const rain = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : null;
+      const rain = summarizeRainForDay(currentWeatherState, i);
+      const rainText = getCompactRainText(rain);
+      const rainTitle = rain.significant
+        ? `${rain.label || 'Có mưa'}: xác suất ${Math.round(rain.probability)}%, lượng mưa ước tính ~${formatRainAmount(rain.amount)}`
+        : 'Không có mưa đáng kể trong khoảng thời gian còn lại';
 
       daysHtml += `
-        <div class="weather-col-card ${isToday ? 'is-today' : ''}" title="${getWeatherDesc(code)}">
+        <div class="weather-col-card ${isToday ? 'is-today' : ''}" title="${getWeatherDesc(code)} · ${rainTitle}">
           <span class="weather-col-day">${dayLabel}</span>
           <span class="weather-col-date">${dateFormatted}</span>
           <div class="weather-col-icon">${icon}</div>
           <div class="weather-col-temp">${maxT}° <span class="weather-col-min">${minT}°</span></div>
-          ${rain != null && rain > 20 ? `<span class="weather-col-rain">💧${rain}%</span>` : '<span class="weather-col-rain" style="opacity:0.4">—</span>'}
+          <span class="weather-col-rain ${rain.significant ? '' : 'is-dry'}">${rainText}</span>
         </div>
       `;
     }
@@ -929,6 +1126,7 @@
     const todayMax = Math.round(daily.temperature_2m_max[0]);
     const todayMin = Math.round(daily.temperature_2m_min[0]);
     const advice = generateSchoolAdvice(currentWeatherState);
+    const todayRain = summarizeRainForDay(currentWeatherState, 0);
 
     // 7 days forecast rows
     let rowsHtml = '';
@@ -939,12 +1137,15 @@
       const isToday = i === 0;
       const dayName = isToday ? 'Hôm nay' : WEEKDAY_NAMES[d.getDay()];
       const dateFormatted = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const code = daily.weather_code[i];
-      const icon = getWeatherIcon(code, 1);
+      const code = getRepresentativeDayCode(currentWeatherState, i);
+      const icon = getWeatherIcon(code, isToday ? (cur.is_day ?? 1) : 1);
+      const rain = summarizeRainForDay(currentWeatherState, i);
       const statusText = getWeatherDesc(code);
       const min = Math.round(daily.temperature_2m_min[i]);
       const max = Math.round(daily.temperature_2m_max[i]);
-      const rainProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0;
+      const rainText = rain.significant
+        ? `${rain.label || 'Mưa'} ${Math.round(rain.probability)}%`
+        : 'Khô ráo';
 
       rowsHtml += `
         <div class="weather-day-row ${isToday ? 'is-today' : ''}">
@@ -953,7 +1154,7 @@
             <span class="weather-day-date">${dateFormatted}</span>
           </div>
           <div class="weather-day-icon">${icon}</div>
-          <div class="weather-day-status">${statusText}</div>
+          <div class="weather-day-status" title="${statusText}">${statusText}</div>
           <div class="weather-temp-range">
             <span class="weather-min-temp">${min}°</span>
             <div class="weather-temp-bar-wrap">
@@ -961,8 +1162,8 @@
             </div>
             <span class="weather-max-temp">${max}°</span>
           </div>
-          <div class="weather-day-rain">
-            ${rainProb > 0 ? `<span>💧 ${rainProb}%</span>` : '<span style="opacity:0.4">—</span>'}
+          <div class="weather-day-rain ${rain.significant ? '' : 'is-dry'}" title="${rain.significant ? `Lượng mưa ước tính ~${formatRainAmount(rain.amount)}` : 'Không dự báo mưa đáng kể'}">
+            <span>${rainText}</span>
           </div>
         </div>
       `;
@@ -1010,8 +1211,8 @@
             <span class="weather-stat-value">${cur.precipitation || 0} mm</span>
           </div>
           <div class="weather-stat-item">
-            <span class="weather-stat-label">Mưa hôm nay</span>
-            <span class="weather-stat-value">${daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : 0}%</span>
+            <span class="weather-stat-label">Khả năng mưa</span>
+            <span class="weather-stat-value">${getDetailedRainText(todayRain)}</span>
           </div>
         </div>
       </div>

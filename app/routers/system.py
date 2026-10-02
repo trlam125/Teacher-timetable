@@ -137,7 +137,7 @@ def get_weather(
     import urllib.request
     import json
 
-    cache_key = f"{round(latitude, 3)},{round(longitude, 3)}"
+    cache_key = f"v2:{round(latitude, 3)},{round(longitude, 3)}"
     now = time.time()
 
     if cache_key in _weather_cache:
@@ -151,7 +151,8 @@ def get_weather(
         f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={latitude}&longitude={longitude}"
         f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m"
-        f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max"
+        f"&hourly=weather_code,precipitation_probability,precipitation,is_day"
+        f"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max"
         f"&timezone=auto&forecast_days=7"
     )
 
