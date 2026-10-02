@@ -32,7 +32,6 @@ let scheduleAuditRunId = 0;
 let scheduleAuditAiRunId = 0;
 let scheduleAuditLastReport = null;
 let scheduleAuditAiAnalysis = null;
-let scheduleAuditAiModel = "";
 let scheduleAuditActiveView = "timetable";
 let scheduleAuditManualEdits = 0;
 let scheduleAuditBulkTeacherRename = false;
@@ -228,7 +227,6 @@ function setScheduleAuditFile(file) {
 }
 function resetScheduleAuditAiResult() {
   scheduleAuditAiAnalysis = null;
-  scheduleAuditAiModel = "";
   const aiBox = $("#scheduleAuditAiResult");
   if (aiBox) {
     aiBox.hidden = true;
@@ -1265,7 +1263,7 @@ function renderScheduleAuditAiError(message) {
   box.hidden = false;
   box.innerHTML = `<div class="schedule-audit-ai-head error"><div><span class="schedule-audit-ai-icon">!</span></div><div><h2>AI chưa thể phân tích</h2><p>${esc(message || "Không thể kết nối tới AI.")}</p><small>Phần kiểm tra rule thường phía dưới vẫn sử dụng bình thường.</small></div></div>`;
 }
-function renderScheduleAuditAiResult(report, ai, model) {
+function renderScheduleAuditAiResult(report, ai) {
   const box = $("#scheduleAuditAiResult");
   if (!box) return;
   const issues = ai?.issues || [],
@@ -1417,13 +1415,11 @@ async function runScheduleAuditAI() {
       issues: [],
       summary: {},
     };
-    scheduleAuditAiModel = result.model || "";
     if (scheduleAuditLastReport)
       renderScheduleAudit(scheduleAuditLastReport, scheduleAuditAiAnalysis);
     renderScheduleAuditAiResult(
       scheduleAuditLastReport,
       scheduleAuditAiAnalysis,
-      scheduleAuditAiModel,
     );
   } catch (error) {
     if (runId === scheduleAuditAiRunId)

@@ -13,27 +13,21 @@
 
   const CONFIG = {
     durationConverge: 360,
-    durationGlide: 480,
-    easeConverge: 'cubic-bezier(0.22, 1, 0.36, 1)',
-    easeGlide: 'cubic-bezier(0.19, 1, 0.22, 1)',
-    easePanel: 'cubic-bezier(0.19, 1, 0.22, 1)'
+    durationGlide: 480
   };
 
   const PROFILES = {
     helpTourFab: {
-      name: 'Trợ giúp',
       gradient: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 52%, #a855f7 100%)',
       glow: 'rgba(99, 102, 241, 0.82)',
       borderGlow: '#c7d2fe'
     },
     generalChatFab: {
-      name: 'Chat chung',
       gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
       glow: 'rgba(99, 102, 241, 0.85)',
       borderGlow: '#c7d2fe'
     },
     chatbotFab: {
-      name: 'Trợ lý AI',
       gradient: 'linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #f43f5e 100%)',
       glow: 'rgba(168, 85, 247, 0.75)',
       borderGlow: '#e9d5ff'
@@ -353,7 +347,6 @@
     }
 
     const lastIndex = fabs.length - 1;
-    const lastFab = fabs[lastIndex];
     const k = fabs.indexOf(triggerFab);
     const targetTop = getBaselineTop(triggerFab);
     const profile = PROFILES[triggerFab.id] || PROFILES.generalChatFab;

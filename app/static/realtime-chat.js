@@ -17,7 +17,6 @@
   const schoolSelect = document.getElementById("generalChatSchoolSelect");
   const socketState = document.getElementById("generalChatSocketState");
   const messages = document.getElementById("generalChatMessages");
-  const loading = document.getElementById("generalChatLoading");
   const typingLine = document.getElementById("generalChatTyping");
   const contextBar = document.getElementById("generalChatComposerContext");
   const contextTitle = document.getElementById("generalChatContextTitle");
@@ -410,9 +409,6 @@
         }
       });
     } else {
-      if (window.FabMotion?.alignPopupToFab) {
-        window.FabMotion.alignPopupToFab(popup, fab);
-      }
       if (assistantFab) {
         await dockDown(true);
       }
@@ -440,9 +436,6 @@
     if (window.FabMotion) {
       await window.FabMotion.close(fab, popup);
     } else {
-      if (window.FabMotion?.alignPopupToFab) {
-        window.FabMotion.alignPopupToFab(popup, fab);
-      }
       popup.classList.remove("is-open");
       popup.setAttribute("aria-hidden", "true");
       fab.setAttribute("aria-expanded", "false");

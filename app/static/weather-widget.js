@@ -27,49 +27,49 @@
 
   const WEEKDAY_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
-  // Weather Icons SVG Generators
+  // Weather Icons SVG Generators (with animated components)
   function getWeatherIcon(code, isDay = 1) {
     // Clear
     if (code === 0) {
       if (isDay) {
-        return `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/></svg>`;
+        return `<svg class="wx-icon wx-sun" viewBox="0 0 24 24" fill="none"><circle class="wx-sun-core" cx="12" cy="12" r="5" fill="#f59e0b" stroke="#d97706" stroke-width="1.2"><animate attributeName="r" values="4.9;5.3;4.9" dur="3s" repeatCount="indefinite"/></circle><g class="wx-sun-rays"><line x1="12" y1="1.5" x2="12" y2="4" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="22.5" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="1.5" y1="12" x2="4" y2="12" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="12" x2="22.5" y2="12" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="4.6" y1="4.6" x2="6.4" y2="6.4" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="17.6" y1="17.6" x2="19.4" y2="19.4" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="4.6" y1="19.4" x2="6.4" y2="17.6" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><line x1="17.6" y1="6.4" x2="19.4" y2="4.6" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="20s" repeatCount="indefinite"/></g></svg>`;
       }
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="#38bdf8" stroke="#0284c7" stroke-width="1.5"/></svg>`;
+      return `<svg class="wx-icon wx-moon" viewBox="0 0 24 24" fill="none"><path class="wx-moon-body" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="#38bdf8" stroke="#0284c7" stroke-width="1.4"/><circle class="wx-star wx-star-1" cx="7" cy="5" r="0.8" fill="#38bdf8"/><circle class="wx-star wx-star-2" cx="16" cy="4" r="0.6" fill="#38bdf8"/></svg>`;
     }
     // Partly Cloudy
     if (code === 1 || code === 2) {
-      return `<svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="9" r="4" fill="#f59e0b"/><path d="M7 17h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 17z" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/></svg>`;
+      return `<svg class="wx-icon wx-partly-cloudy" viewBox="0 0 24 24" fill="none"><circle class="wx-sun-bg" cx="9" cy="9" r="4.2" fill="#f59e0b"><animate attributeName="r" values="4;4.4;4" dur="3.2s" repeatCount="indefinite"/></circle><g class="wx-sun-rays-mini"><line x1="9" y1="1.8" x2="9" y2="3.8" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/><line x1="1.8" y1="9" x2="3.8" y2="9" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/><line x1="3.9" y1="3.9" x2="5.3" y2="5.3" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/><animate attributeName="opacity" values="0.7;1;0.7" dur="3.2s" repeatCount="indefinite"/></g><path class="wx-cloud-front" d="M7 17h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 17z" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.5"/></svg>`;
     }
     // Overcast / Cloudy
     if (code === 3) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M17.5 19H6.5A4.5 4.5 0 0 1 6.5 10a6 6 0 0 1 11.7-1.4A4 4 0 0 1 17.5 19z" fill="#94a3b8" stroke="#64748b" stroke-width="1.5"/></svg>`;
+      return `<svg class="wx-icon wx-cloudy" viewBox="0 0 24 24" fill="none"><path class="wx-cloud-back" d="M14 14h6a3.5 3.5 0 0 0 0-7 4.8 4.8 0 0 0-9.2 1.6A3 3 0 0 0 14 14z" fill="#cbd5e1" opacity="0.65"/><path class="wx-cloud-front" d="M17.5 19H6.5A4.5 4.5 0 0 1 6.5 10a6 6 0 0 1 11.7-1.4A4 4 0 0 1 17.5 19z" fill="#94a3b8" stroke="#64748b" stroke-width="1.5"/></svg>`;
     }
     // Fog
     if (code === 45 || code === 48) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M4 10h16M3 14h18M5 18h14" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>`;
+      return `<svg class="wx-icon wx-fog" viewBox="0 0 24 24" fill="none"><path class="wx-fog-line wx-fog-1" d="M4 9h16" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/><path class="wx-fog-line wx-fog-2" d="M2.5 13.5h19" stroke="#64748b" stroke-width="2" stroke-linecap="round"/><path class="wx-fog-line wx-fog-3" d="M5 18h14" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>`;
     }
     // Drizzle
     if (code >= 51 && code <= 57) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M7 14h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 14z" fill="#94a3b8"/><line x1="8" y1="17" x2="7" y2="20" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="11" y2="20" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="17" x2="15" y2="20" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/></svg>`;
+      return `<svg class="wx-icon wx-drizzle" viewBox="0 0 24 24" fill="none"><path class="wx-cloud-front" d="M7 14h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 14z" fill="#94a3b8"/><line class="wx-drop wx-drop-1" x1="8" y1="16" x2="6.8" y2="19.5" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/><line class="wx-drop wx-drop-2" x1="12" y1="16" x2="10.8" y2="19.5" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/><line class="wx-drop wx-drop-3" x1="16" y1="16" x2="14.8" y2="19.5" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/></svg>`;
     }
     // Rain
     if (code >= 61 && code <= 67) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M7 13h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 13z" fill="#64748b"/><line x1="8" y1="16" x2="6.5" y2="21" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/><line x1="12" y1="16" x2="10.5" y2="21" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/><line x1="16" y1="16" x2="14.5" y2="21" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+      return `<svg class="wx-icon wx-rain" viewBox="0 0 24 24" fill="none"><path class="wx-cloud-front" d="M7 13h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 13z" fill="#64748b"/><line class="wx-drop wx-drop-1" x1="8" y1="15" x2="6.2" y2="20.5" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/><line class="wx-drop wx-drop-2" x1="12" y1="15" x2="10.2" y2="20.5" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/><line class="wx-drop wx-drop-3" x1="16" y1="15" x2="14.2" y2="20.5" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/></svg>`;
     }
     // Snow
     if (code >= 71 && code <= 77) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M7 13h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 13z" fill="#94a3b8"/><circle cx="8" cy="18" r="1.5" fill="#38bdf8"/><circle cx="12" cy="19" r="1.5" fill="#38bdf8"/><circle cx="16" cy="18" r="1.5" fill="#38bdf8"/></svg>`;
+      return `<svg class="wx-icon wx-snow" viewBox="0 0 24 24" fill="none"><path class="wx-cloud-front" d="M7 13h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 13z" fill="#94a3b8"/><circle class="wx-flake wx-flake-1" cx="8" cy="18" r="1.5" fill="#38bdf8"/><circle class="wx-flake wx-flake-2" cx="12" cy="19" r="1.5" fill="#38bdf8"/><circle class="wx-flake wx-flake-3" cx="16" cy="18" r="1.5" fill="#38bdf8"/></svg>`;
     }
     // Showers
     if (code >= 80 && code <= 82) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M7 13h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 13z" fill="#475569"/><line x1="7" y1="16" x2="5" y2="21" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/><line x1="11" y1="16" x2="9" y2="21" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/><line x1="15" y1="16" x2="13" y2="21" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+      return `<svg class="wx-icon wx-showers" viewBox="0 0 24 24" fill="none"><path class="wx-cloud-front" d="M7 13h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.5 3.5 0 0 0 7 13z" fill="#475569"/><line class="wx-drop wx-drop-heavy wx-drop-1" x1="7" y1="15" x2="4.8" y2="21" stroke="#0284c7" stroke-width="2.4" stroke-linecap="round"/><line class="wx-drop wx-drop-heavy wx-drop-2" x1="11" y1="15" x2="8.8" y2="21" stroke="#0284c7" stroke-width="2.4" stroke-linecap="round"/><line class="wx-drop wx-drop-heavy wx-drop-3" x1="15" y1="15" x2="12.8" y2="21" stroke="#0284c7" stroke-width="2.4" stroke-linecap="round"/></svg>`;
     }
     // Thunderstorm
     if (code >= 95) {
-      return `<svg viewBox="0 0 24 24" fill="none"><path d="M17.5 14H6.5A4.5 4.5 0 0 1 6.5 5a6 6 0 0 1 11.7-1.4A4 4 0 0 1 17.5 14z" fill="#334155"/><polygon points="13 13 9 19 13 19 11 23 16 16 12 16" fill="#f59e0b" stroke="#d97706" stroke-width="1.2"/></svg>`;
+      return `<svg class="wx-icon wx-thunder" viewBox="0 0 24 24" fill="none"><path class="wx-cloud-storm" d="M17.5 14H6.5A4.5 4.5 0 0 1 6.5 5a6 6 0 0 1 11.7-1.4A4 4 0 0 1 17.5 14z" fill="#334155"/><polygon class="wx-bolt" points="13 13 9 19 13 19 11 23 16 16 12 16" fill="#f59e0b" stroke="#d97706" stroke-width="1.2"/></svg>`;
     }
-    // Default
-    return `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" fill="#f59e0b"/></svg>`;
+    // Unknown conditions use the same clear-day icon.
+    return getWeatherIcon(0);
   }
 
   function getWeatherDesc(code) {
@@ -463,7 +463,7 @@
       const rain = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : null;
 
       daysHtml += `
-        <div class="weather-col-card ${isToday ? 'is-today' : ''}" onclick="window.openWeatherModal()" title="${getWeatherDesc(code)}">
+        <div class="weather-col-card ${isToday ? 'is-today' : ''}" title="${getWeatherDesc(code)}">
           <span class="weather-col-day">${dayLabel}</span>
           <span class="weather-col-date">${dateFormatted}</span>
           <div class="weather-col-icon">${icon}</div>
@@ -479,9 +479,6 @@
           <h3>Thời tiết tuần &amp; Hoạt động trường học</h3>
           <span class="weather-overview-badge">${coords.name} · ${cur.temperature_2m ? Math.round(cur.temperature_2m) + '°C' : ''}</span>
         </div>
-        <div class="row" style="gap:8px">
-          <button class="btn ghost" style="padding:6px 12px;font-size:12.5px" type="button" onclick="window.openWeatherModal()">Xem chi tiết 7 ngày &amp; Đổi tỉnh/thành</button>
-        </div>
       </div>
       <div class="weather-overview-grid">
         ${daysHtml}
@@ -493,6 +490,124 @@
         </div>
       ` : ''}
     `;
+
+    const grid = panel.querySelector('.weather-overview-grid');
+    if (grid) {
+      setupWeatherDockMagnification(grid);
+    }
+  }
+
+  /* --------------------------------------------------------------------------
+     HIỆU ỨNG DOCK MAGNIFICATION (PHÓNG TO DẠNG SÓNG PARABOL KIỂU MACOS)
+     -------------------------------------------------------------------------- */
+  function setupWeatherDockMagnification(grid) {
+    if (!grid) return;
+
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    let rafId = null;
+    let cardData = [];
+
+    function cacheCardCenters() {
+      const cards = Array.from(grid.querySelectorAll('.weather-col-card'));
+      cardData = cards.map(card => {
+        const rect = card.getBoundingClientRect();
+        return {
+          card,
+          cx: rect.left + rect.width / 2,
+          cy: rect.top + rect.height / 2,
+          width: rect.width
+        };
+      });
+    }
+
+    function resetAllCards() {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      grid.querySelectorAll('.weather-col-card').forEach(card => {
+        card.style.transform = '';
+        card.style.zIndex = '';
+        card.style.boxShadow = '';
+        card.style.borderColor = '';
+      });
+    }
+
+    grid.addEventListener('mouseenter', () => {
+      cacheCardCenters();
+    });
+
+    grid.addEventListener('mousemove', (e) => {
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      if (rafId) cancelAnimationFrame(rafId);
+
+      rafId = requestAnimationFrame(() => {
+        if (!cardData.length) cacheCardCenters();
+        if (!cardData.length) return;
+
+        const isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
+        const cardW = cardData[0].width || 100;
+        // Bán kính sóng parabol (khoảng 1.8 đến 2.0 lần bề rộng thẻ để tạo độ dốc hình chuông đẹp mắt)
+        const radius = Math.max(cardW * 1.85, 150);
+        const maxScale = 1.18; // Tỉ lệ đỉnh sóng phóng to 18%
+        const maxLift = 10;    // Đỉnh sóng nhấc lên 10px
+
+        cardData.forEach(({ card, cx, cy }) => {
+          const dist = Math.hypot(mouseX - cx, mouseY - cy);
+
+          if (dist < radius) {
+            // Hàm Cosine tạo sóng Parabol đối xứng kinh điển của macOS Dock
+            const factor = Math.cos((dist / radius) * (Math.PI / 2));
+            const scale = 1 + (maxScale - 1) * factor;
+            const lift = maxLift * factor;
+            const zIndex = Math.round(factor * 20) + 2;
+
+            card.style.transform = `scale(${scale.toFixed(3)}) translateY(-${lift.toFixed(1)}px)`;
+            card.style.zIndex = String(zIndex);
+
+            if (isDark) {
+              card.style.boxShadow = factor > 0.05
+                ? `0 ${Math.round(4 + 8 * factor)}px ${Math.round(14 + 16 * factor)}px rgba(0, 0, 0, ${(0.35 + 0.35 * factor).toFixed(2)})`
+                : '';
+              if (factor > 0.45 && !card.classList.contains('is-today')) {
+                card.style.borderColor = 'rgba(59, 130, 246, 0.45)';
+              } else if (!card.classList.contains('is-today')) {
+                card.style.borderColor = '';
+              }
+            } else {
+              card.style.boxShadow = factor > 0.05
+                ? `0 ${Math.round(4 + 8 * factor)}px ${Math.round(12 + 14 * factor)}px rgba(37, 99, 235, ${(0.08 + 0.14 * factor).toFixed(2)})`
+                : '';
+              if (factor > 0.45 && !card.classList.contains('is-today')) {
+                card.style.borderColor = 'rgba(37, 99, 235, 0.35)';
+              } else if (!card.classList.contains('is-today')) {
+                card.style.borderColor = '';
+              }
+            }
+          } else {
+            card.style.transform = 'scale(1) translateY(0)';
+            card.style.zIndex = '1';
+            card.style.boxShadow = '';
+            if (!card.classList.contains('is-today')) {
+              card.style.borderColor = '';
+            }
+          }
+        });
+      });
+    });
+
+    grid.addEventListener('mouseleave', () => {
+      resetAllCards();
+    });
+
+    window.addEventListener('resize', () => {
+      cardData = [];
+    }, { passive: true });
   }
 
   // Ensure Modal exists in DOM
@@ -612,7 +727,6 @@
       const min = Math.round(daily.temperature_2m_min[i]);
       const max = Math.round(daily.temperature_2m_max[i]);
       const rainProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : 0;
-      const windSpeed = daily.wind_speed_10m_max ? Math.round(daily.wind_speed_10m_max[i]) : 0;
 
       rowsHtml += `
         <div class="weather-day-row ${isToday ? 'is-today' : ''}">

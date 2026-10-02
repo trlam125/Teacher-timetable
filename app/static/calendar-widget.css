@@ -1,0 +1,897 @@
+/* ==========================================================================
+   Smart TKB - Perpetual Calendar & Clock (Lịch Vạn Niên & Đồng Hồ Việt Nam)
+   Neo-glassmorphism, live clock, solar & lunar calendar grid, dark mode
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. DIALOG MODAL BASE & BACKDROP
+   -------------------------------------------------------------------------- */
+.calendar-modal {
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 880px;
+  width: calc(100vw - 32px);
+  height: min(92vh, 760px);
+  max-height: 92vh;
+  overflow: hidden;
+  background: var(--panel, #ffffff);
+  color: var(--ink, #0f172a);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  font-family: var(--font-sans, "Plus Jakarta Sans", sans-serif);
+  box-sizing: border-box;
+}
+
+.calendar-modal::backdrop {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  will-change: opacity;
+}
+
+:root.dark-mode .calendar-modal,
+html.dark-mode .calendar-modal {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
+.calendar-modal-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. MODAL HEADER
+   -------------------------------------------------------------------------- */
+.calendar-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  flex: 0 0 auto;
+}
+
+:root.dark-mode .calendar-modal-head,
+html.dark-mode .calendar-modal-head {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+.calendar-head-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-head-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.calendar-head-title h2 {
+  font-size: 17px;
+  font-weight: 750;
+  margin: 0;
+  color: var(--ink, #0f172a);
+  letter-spacing: -0.01em;
+}
+
+:root.dark-mode .calendar-head-title h2,
+html.dark-mode .calendar-head-title h2 {
+  color: #f8fafc;
+}
+
+.calendar-head-sub {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  display: block;
+  margin-top: 2px;
+}
+
+.calendar-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: transparent;
+  color: var(--muted, #64748b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 15px;
+}
+
+.calendar-icon-btn:hover {
+  background: var(--soft, #f1f5f9);
+  color: var(--ink, #0f172a);
+  border-color: var(--line-strong, #cbd5e1);
+}
+
+:root.dark-mode .calendar-icon-btn,
+html.dark-mode .calendar-icon-btn {
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+:root.dark-mode .calendar-icon-btn:hover,
+html.dark-mode .calendar-icon-btn:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   3. MODAL BODY (TWO COLUMNS: SPOTLIGHT + CALENDAR GRID)
+   -------------------------------------------------------------------------- */
+.calendar-modal-body {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .calendar-modal-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. CỘT TRÁI: CLOCK & DAY SPOTLIGHT
+   -------------------------------------------------------------------------- */
+.calendar-spotlight-col {
+  padding: 20px;
+  background: var(--card-bg, #f8fafc);
+  border-right: 1px solid var(--line, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+:root.dark-mode .calendar-spotlight-col,
+html.dark-mode .calendar-spotlight-col {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+/* Đồng hồ thời gian thực */
+.calendar-clock-card {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+  border-radius: 16px;
+  padding: 16px;
+  color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.calendar-clock-dial-wrap {
+  width: 68px;
+  height: 68px;
+  flex-shrink: 0;
+}
+
+.calendar-analog-clock {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.clock-face {
+  fill: rgba(255, 255, 255, 0.15);
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 2.5;
+}
+
+.clock-tick-major {
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.clock-hand {
+  stroke-linecap: round;
+}
+
+.clock-hour {
+  stroke: #ffffff;
+  stroke-width: 3.5;
+}
+
+.clock-minute {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+}
+
+.clock-second {
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+}
+
+.clock-pin {
+  fill: #f59e0b;
+}
+
+.calendar-digital-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-digital-time {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+.calendar-digital-date {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 550;
+  line-height: 1.3;
+}
+
+/* Thẻ tiêu điểm ngày đang chọn */
+.calendar-day-detail-card {
+  background: var(--panel, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+:root.dark-mode .calendar-day-detail-card,
+html.dark-mode .calendar-day-detail-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.spotlight-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spotlight-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spotlight-today-tag {
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.1));
+  color: var(--primary, #2563eb);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+:root.dark-mode .spotlight-today-tag,
+html.dark-mode .spotlight-today-tag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.spotlight-solar-date {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.solar-day-num {
+  font-size: 46px;
+  font-weight: 850;
+  line-height: 1;
+  color: var(--primary, #2563eb);
+  letter-spacing: -0.04em;
+}
+
+:root.dark-mode .solar-day-num,
+html.dark-mode .solar-day-num {
+  color: #38bdf8;
+}
+
+.solar-month-year {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.solar-my-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .solar-my-text,
+html.dark-mode .solar-my-text {
+  color: #f8fafc;
+}
+
+.solar-y-text {
+  font-size: 12.5px;
+  color: var(--muted, #64748b);
+}
+
+.spotlight-lunar-banner {
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, rgba(244, 63, 94, 0.12) 100%);
+  border: 1px solid rgba(225, 29, 72, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  position: relative;
+}
+
+:root.dark-mode .spotlight-lunar-banner,
+html.dark-mode .spotlight-lunar-banner {
+  background: rgba(225, 29, 72, 0.14);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.lunar-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #e11d48;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+:root.dark-mode .lunar-tag,
+html.dark-mode .lunar-tag {
+  color: #fb7185;
+}
+
+.lunar-large-date {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--ink, #0f172a);
+  margin-bottom: 2px;
+}
+
+:root.dark-mode .lunar-large-date,
+html.dark-mode .lunar-large-date {
+  color: #f8fafc;
+}
+
+.lunar-large-date b {
+  color: #e11d48;
+  font-size: 16px;
+}
+
+:root.dark-mode .lunar-large-date b,
+html.dark-mode .lunar-large-date b {
+  color: #fb7185;
+}
+
+.lunar-canchi-line {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  line-height: 1.4;
+}
+
+:root.dark-mode .lunar-canchi-line,
+html.dark-mode .lunar-canchi-line {
+  color: #cbd5e1;
+}
+
+.spotlight-holiday-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  color: #b45309;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+:root.dark-mode .spotlight-holiday-pill,
+html.dark-mode .spotlight-holiday-pill {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.holiday-star {
+  font-size: 14px;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.spotlight-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.spotlight-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-weight: 650;
+  color: var(--muted, #64748b);
+}
+
+.meta-value {
+  font-weight: 600;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .meta-value,
+html.dark-mode .meta-value {
+  color: #f8fafc;
+}
+
+.auspicious-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.auspicious-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  background: var(--soft, #f1f5f9);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .auspicious-pill,
+html.dark-mode .auspicious-pill {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+/* --------------------------------------------------------------------------
+   5. CỘT PHẢI: LƯỚI LỊCH VẠN NIÊN THEO THÁNG
+   -------------------------------------------------------------------------- */
+.calendar-grid-col {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.calendar-nav-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.calendar-month-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-btn-nav {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  color: var(--ink, #0f172a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.calendar-btn-nav:hover {
+  background: var(--soft, #f1f5f9);
+  border-color: var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+}
+
+#calendarPrevMonthBtn:hover {
+  transform: translateX(-2px);
+}
+
+#calendarPrevMonthBtn:active {
+  transform: translateX(-4px) scale(0.92);
+}
+
+#calendarNextMonthBtn:hover {
+  transform: translateX(2px);
+}
+
+#calendarNextMonthBtn:active {
+  transform: translateX(4px) scale(0.92);
+}
+
+:root.dark-mode .calendar-btn-nav,
+html.dark-mode .calendar-btn-nav {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+:root.dark-mode .calendar-btn-nav:hover,
+html.dark-mode .calendar-btn-nav:hover {
+  border-color: #3b82f6;
+  color: #38bdf8;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}
+
+.calendar-month-display {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-month-label {
+  font-size: 17px;
+  font-weight: 750;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .calendar-month-label,
+html.dark-mode .calendar-month-label {
+  color: #f8fafc;
+}
+
+.calendar-lunar-month-label {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  font-weight: 550;
+}
+
+.calendar-btn-today {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.08));
+  color: var(--primary, #2563eb);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.calendar-btn-today:hover {
+  background: var(--primary-focus, rgba(37, 99, 235, 0.16));
+  border-color: var(--primary, #2563eb);
+}
+
+:root.dark-mode .calendar-btn-today,
+html.dark-mode .calendar-btn-today {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+/* Hàng tiêu đề thứ */
+.calendar-weekday-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+.weekday-item {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--muted, #64748b);
+  padding: 6px 0;
+}
+
+.weekday-item.is-weekend {
+  color: #0284c7;
+}
+
+.weekday-item.is-sunday {
+  color: #e11d48;
+}
+
+/* Viewport bao bọc lưới lịch có hiệu ứng lướt ngang */
+.calendar-grid-viewport {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 366px;
+  border-radius: 12px;
+  touch-action: pan-y;
+}
+
+/* Lưới các ô ngày */
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 56px;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Trạng thái lướt trượt mượt mà (animation lướt) */
+.calendar-days-grid.is-leaving {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.calendar-days-grid.is-entering {
+  position: relative;
+  width: 100%;
+  z-index: 2;
+}
+
+/* Slide Next (Tháng sau): Cũ lướt sang trái, Mới lướt vào từ bên phải */
+.calendar-days-grid.slide-out-left {
+  animation: calendarGridSlideOutLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.calendar-days-grid.slide-in-right {
+  animation: calendarGridSlideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Slide Prev (Tháng trước): Cũ lướt sang phải, Mới lướt vào từ bên trái */
+.calendar-days-grid.slide-out-right {
+  animation: calendarGridSlideOutRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.calendar-days-grid.slide-in-left {
+  animation: calendarGridSlideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes calendarGridSlideOutLeft {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0.08;
+  }
+}
+
+@keyframes calendarGridSlideInRight {
+  0% {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0.08;
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes calendarGridSlideOutRight {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0.08;
+  }
+}
+
+@keyframes calendarGridSlideInLeft {
+  0% {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0.08;
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+/* Hiệu ứng lướt nhẹ cho nhãn tiêu đề tháng khi đổi tháng */
+.calendar-month-display.slide-month-next {
+  animation: calendarMonthSlideNext 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.calendar-month-display.slide-month-prev {
+  animation: calendarMonthSlidePrev 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes calendarMonthSlideNext {
+  0% {
+    opacity: 0.25;
+    transform: translate3d(12px, 0, 0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes calendarMonthSlidePrev {
+  0% {
+    opacity: 0.25;
+    transform: translate3d(-12px, 0, 0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .calendar-days-grid.slide-out-left,
+  .calendar-days-grid.slide-in-right,
+  .calendar-days-grid.slide-out-right,
+  .calendar-days-grid.slide-in-left,
+  .calendar-month-display.slide-month-next,
+  .calendar-month-display.slide-month-prev {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+.calendar-day-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  padding: 4px;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-day-cell:hover {
+  background: var(--soft, rgba(15, 23, 42, 0.05));
+  border-color: var(--line, #e2e8f0);
+  transform: translateY(-1px);
+}
+
+:root.dark-mode .calendar-day-cell:hover,
+html.dark-mode .calendar-day-cell:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #334155;
+}
+
+.cell-solar {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+  line-height: 1;
+}
+
+:root.dark-mode .cell-solar,
+html.dark-mode .cell-solar {
+  color: #f8fafc;
+}
+
+.cell-lunar {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  line-height: 1;
+}
+
+/* Ngày khác tháng */
+.calendar-day-cell.is-other-month {
+  opacity: 0.35;
+}
+
+/* Mùng 1 & Rằm 15 */
+.calendar-day-cell.is-major-lunar .cell-lunar {
+  color: #e11d48;
+  font-weight: 750;
+}
+
+/* Ngày lễ có dấu sao */
+.cell-holiday-dot {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  color: #d97706;
+}
+
+/* Ngày hôm nay */
+.calendar-day-cell.is-today {
+  border-color: var(--primary, #2563eb);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.08));
+}
+
+.calendar-day-cell.is-today .cell-solar {
+  color: var(--primary, #2563eb);
+}
+
+:root.dark-mode .calendar-day-cell.is-today,
+html.dark-mode .calendar-day-cell.is-today {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.16);
+}
+
+:root.dark-mode .calendar-day-cell.is-today .cell-solar,
+html.dark-mode .calendar-day-cell.is-today .cell-solar {
+  color: #38bdf8;
+}
+
+/* Ngày đang được chọn xem chi tiết */
+.calendar-day-cell.is-selected {
+  background: var(--primary, #2563eb) !important;
+  border-color: var(--primary, #2563eb) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  transform: scale(1.02);
+}
+
+.calendar-day-cell.is-selected .cell-solar,
+.calendar-day-cell.is-selected .cell-lunar,
+.calendar-day-cell.is-selected .cell-holiday-dot {
+  color: #ffffff !important;
+}
+
+.calendar-grid-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--muted, #64748b);
+  padding-top: 6px;
+  border-top: 1px dashed var(--line, #e2e8f0);
+}
+
+:root.dark-mode .calendar-grid-legend,
+html.dark-mode .calendar-grid-legend {
+  border-color: #1e293b;
+}

@@ -45,11 +45,21 @@
     let target = appbar.querySelector('.appbar-datetime');
     if (target) return target;
 
-    target = document.createElement('span');
+    target = document.createElement('button');
+    target.type = 'button';
     target.className = 'appbar-datetime';
-    target.setAttribute('aria-label', 'Thứ, ngày và giờ Việt Nam hiện tại');
+    target.dataset.calendarTriggerBound = '1';
+    target.setAttribute('aria-label', 'Thứ, ngày và giờ Việt Nam hiện tại. Bấm để xem Đồng hồ & Lịch Vạn Niên');
+    target.setAttribute('title', 'Xem Đồng hồ & Lịch Vạn Niên (Âm Dương đối chiếu)');
     target.setAttribute('role', 'status');
     target.setAttribute('aria-live', 'off');
+
+    target.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (typeof window.openCalendarModal === 'function') {
+        window.openCalendarModal();
+      }
+    });
 
     const themeButton = appbar.querySelector('.theme-toggle-btn');
     if (themeButton) {
@@ -103,7 +113,7 @@
   }
 
   function startAppbarClock() {
-    const appbars = Array.from(document.querySelectorAll('header.appbar, header.landing-top'));
+    const appbars = Array.from(document.querySelectorAll('header.appbar'));
     if (!appbars.length) return;
 
     const targets = appbars.map(ensureDateTimeElement);

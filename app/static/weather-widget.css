@@ -117,8 +117,6 @@ html.dark-mode .appbar-weather-city {
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
   font-family: var(--font-sans, "Plus Jakarta Sans", sans-serif);
   box-sizing: border-box;
-  contain: paint;
-  transform: translateZ(0);
 }
 
 .weather-modal::backdrop {
@@ -782,6 +780,8 @@ html.dark-mode .weather-overview-title h3 {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 10px;
+  padding: 14px 6px 6px 6px;
+  /* Chừa không gian để sóng parabol nhô lên không bị che khuất */
 }
 
 @media (max-width: 1024px) {
@@ -806,14 +806,17 @@ html.dark-mode .weather-overview-title h3 {
   background: var(--card-bg, #f8fafc);
   text-align: center;
   gap: 6px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  cursor: pointer;
-}
-
-.weather-col-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--primary, #2563eb);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  line-height: inherit;
+  user-select: none;
+  position: relative;
+  transform-origin: 50% 90%;
+  will-change: transform, box-shadow;
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.14s ease, border-color 0.15s ease;
 }
 
 :root.dark-mode .weather-col-card,
@@ -822,15 +825,16 @@ html.dark-mode .weather-col-card {
   border-color: #334155;
 }
 
-:root.dark-mode .weather-col-card:hover,
-html.dark-mode .weather-col-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
 .weather-col-card.is-today {
   border-color: var(--primary, #2563eb);
   background: var(--primary-subtle, rgba(37, 99, 235, 0.06));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weather-col-card {
+    transform: none !important;
+    transition: none !important;
+  }
 }
 
 .weather-col-day {
@@ -887,4 +891,271 @@ html.dark-mode .weather-col-temp {
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   7. ANIMATED WEATHER ICONS (SVG MICRO-ANIMATIONS)
+   Mây trôi bồng bềnh, giọt mưa rơi chéo so le, tia nắng xoay,
+   trăng sao đêm lấp lánh, tuyết rơi chầm chậm, sương mù lướt, sấm sét chớp
+   -------------------------------------------------------------------------- */
+.wx-icon {
+  overflow: visible;
+  display: block;
+}
+
+/* 1. Mây bồng bềnh (Cloud floating) */
+.wx-cloud-front {
+  animation: wxCloudFloat 3.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.wx-cloud-back {
+  animation: wxCloudFloat 4.6s ease-in-out infinite reverse;
+  transform-origin: center;
+}
+
+@keyframes wxCloudFloat {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(1.4px, -1.2px);
+  }
+}
+
+/* 2. Mặt trăng đung đưa & sao đêm lấp lánh (Moon & Stars) */
+.wx-moon-body {
+  animation: wxMoonFloat 4s ease-in-out infinite;
+}
+
+@keyframes wxMoonFloat {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-0.8px, -1px);
+  }
+}
+
+.wx-star-1 {
+  animation: wxStarBlink 2.2s ease-in-out infinite;
+  transform-origin: 7px 5px;
+}
+
+.wx-star-2 {
+  animation: wxStarBlink 2.8s ease-in-out infinite 0.9s;
+  transform-origin: 16px 4px;
+}
+
+@keyframes wxStarBlink {
+
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+/* 4. Giọt mưa rơi liên tục so le (Rainfall drops) */
+.wx-drop {
+  animation: wxRainFall 1.05s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: center;
+}
+
+.wx-drop-1 {
+  animation-delay: 0s;
+}
+
+.wx-drop-2 {
+  animation-delay: 0.35s;
+}
+
+.wx-drop-3 {
+  animation-delay: 0.7s;
+}
+
+.wx-drop-heavy {
+  animation-duration: 0.82s;
+}
+
+@keyframes wxRainFall {
+  0% {
+    transform: translate(1.6px, -4px);
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-1.8px, 4.5px);
+    opacity: 0;
+  }
+}
+
+/* 5. Tuyết rơi chầm chậm lắc lư (Snowfall flakes) */
+.wx-flake {
+  animation: wxSnowFall 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.wx-flake-1 {
+  animation-delay: 0s;
+}
+
+.wx-flake-2 {
+  animation-delay: 0.8s;
+}
+
+.wx-flake-3 {
+  animation-delay: 1.6s;
+}
+
+@keyframes wxSnowFall {
+  0% {
+    transform: translateY(-3.5px) translateX(0);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(0.5px) translateX(1px);
+  }
+
+  80% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translateY(4.5px) translateX(-1px);
+    opacity: 0;
+  }
+}
+
+/* 6. Sương mù trôi lướt so le (Fog drift) */
+.wx-fog-1 {
+  animation: wxFogDrift 3.4s ease-in-out infinite;
+}
+
+.wx-fog-2 {
+  animation: wxFogDrift 2.8s ease-in-out infinite reverse;
+}
+
+.wx-fog-3 {
+  animation: wxFogDrift 3.8s ease-in-out infinite 0.6s;
+}
+
+@keyframes wxFogDrift {
+
+  0%,
+  100% {
+    transform: translateX(-1.5px);
+  }
+
+  50% {
+    transform: translateX(1.5px);
+  }
+}
+
+/* 7. Mây giông rung giật & tia sét chớp sáng (Thunderstorm & Lightning) */
+.wx-cloud-storm {
+  animation: wxStormShake 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes wxStormShake {
+
+  0%,
+  82%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  85% {
+    transform: translate(-1px, 0.6px);
+  }
+
+  88% {
+    transform: translate(1px, -0.6px);
+  }
+
+  91% {
+    transform: translate(-0.6px, 0.2px);
+  }
+}
+
+.wx-bolt {
+  animation: wxBoltStrike 2.8s ease-in-out infinite;
+  transform-origin: 12px 16px;
+}
+
+@keyframes wxBoltStrike {
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.95);
+    filter: none;
+  }
+
+  83%,
+  87% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 4px #f59e0b) drop-shadow(0 0 8px #f59e0b);
+  }
+
+  85% {
+    opacity: 0.35;
+  }
+
+  90% {
+    opacity: 1;
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 4px #f59e0b);
+  }
+
+  93% {
+    opacity: 0.2;
+  }
+}
+
+/* Tôn trọng người dùng bật chế độ giảm chuyển động */
+@media (prefers-reduced-motion: reduce) {
+
+  .wx-cloud-front,
+  .wx-cloud-back,
+  .wx-moon-body,
+  .wx-star-1,
+  .wx-star-2,
+  .wx-drop,
+  .wx-flake,
+  .wx-fog-1,
+  .wx-fog-2,
+  .wx-fog-3,
+  .wx-cloud-storm,
+  .wx-bolt {
+    animation: none !important;
+    transform: none !important;
+  }
 }

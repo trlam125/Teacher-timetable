@@ -48,8 +48,6 @@
       top: rect.top,
       width: rect.width,
       height: rect.height,
-      right: rect.right,
-      bottom: rect.bottom,
       centerX: rect.left + rect.width / 2,
       centerY: rect.top + rect.height / 2,
     };
@@ -60,7 +58,7 @@
     if (!target) return;
 
     const trigger = target.closest(
-      'button, [role="button"], input[type="button"], input[type="submit"], summary',
+      'button, [role="button"], input[type="button"], input[type="submit"], summary, .appbar-datetime',
     );
     if (!trigger || trigger.closest("dialog")) return;
 
@@ -90,41 +88,19 @@
     return { ...lastTrigger.rect };
   }
 
-  function getTriggerRadius(triggerElement) {
-    if (!triggerElement) return 12;
-    try {
-      const style = window.getComputedStyle(triggerElement);
-      const r = parseFloat(style.borderRadius);
-      return Number.isFinite(r) && r > 0 ? r : 12;
-    } catch {
-      return 12;
-    }
-  }
-
-  function getDialogRadius(dialog) {
-    if (!dialog) return 16;
-    try {
-      const style = window.getComputedStyle(dialog);
-      const r = parseFloat(style.borderRadius);
-      return Number.isFinite(r) && r > 0 ? r : 16;
-    } catch {
-      return 16;
-    }
-  }
-
   function transformToTrigger(dialogRect, triggerRect) {
     const dx = triggerRect.centerX - (dialogRect.left + dialogRect.width / 2);
     const dy = triggerRect.centerY - (dialogRect.top + dialogRect.height / 2);
 
-    const scaleX = triggerRect.width / Math.max(dialogRect.width, 1);
-    const scaleY = triggerRect.height / Math.max(dialogRect.height, 1);
+    let rawScaleX = triggerRect.width / Math.max(dialogRect.width, 1);
+    let rawScaleY = triggerRect.height / Math.max(dialogRect.height, 1);
+
+    // Keep scale proportional so narrow pill buttons don't brutally squash dialog into 4% height
+    const scaleX = clamp(rawScaleX, 0.12, 0.95);
+    const scaleY = clamp(Math.max(rawScaleY, scaleX * 0.42), 0.12, 0.95);
 
     return {
       transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scaleX}, ${scaleY})`,
-      scaleX,
-      scaleY,
-      dx,
-      dy,
     };
   }
 
@@ -133,7 +109,7 @@
     dialog.style.removeProperty("transform-origin");
     dialog.style.removeProperty("will-change");
     dialog.style.removeProperty("overflow");
-    dialog.style.removeProperty("border-radius");
+    dialog.style.removeProperty("opacity");
   }
 
   function attachCancelHandler(dialog) {
@@ -164,39 +140,40 @@
     attachCancelHandler(this);
     const triggerRect = recentTriggerRect();
     const triggerElement = lastTrigger?.element || null;
+
+    // Prevent any 1-frame unstyled flash before Web Animation takes over
+    this.style.opacity = "0";
     const result = nativeShowModal.apply(this, args);
 
-    if (!triggerRect) return result;
+    if (!triggerRect) {
+      this.style.removeProperty("opacity");
+      return result;
+    }
 
     const dialogRect = this.getBoundingClientRect();
-    if (!dialogRect.width || !dialogRect.height) return result;
+    if (!dialogRect.width || !dialogRect.height) {
+      this.style.removeProperty("opacity");
+      return result;
+    }
 
     const start = transformToTrigger(dialogRect, triggerRect);
-    const btnRadius = getTriggerRadius(triggerElement);
-    const dialogRadius = getDialogRadius(this);
-    const rx = Math.round(btnRadius / Math.max(start.scaleX, 0.001));
-    const ry = Math.round(btnRadius / Math.max(start.scaleY, 0.001));
 
     this.classList.add("app-zoom-active");
     this.style.transformOrigin = "center center";
-    this.style.willChange = "transform, opacity, border-radius";
+    this.style.willChange = "transform, opacity";
     this.style.overflow = "hidden";
+    this.style.removeProperty("opacity");
 
+    // Pure GPU composited transform & opacity: zero CPU rasterization repaints per frame
     const animation = this.animate(
       [
         {
           opacity: 0,
           transform: start.transform,
-          borderRadius: `${rx}px / ${ry}px`,
-        },
-        {
-          offset: 0.28,
-          opacity: 0.92,
         },
         {
           opacity: 1,
           transform: "translate3d(0, 0, 0) scale(1, 1)",
-          borderRadius: `${dialogRadius}px`,
         },
       ],
       {
@@ -222,7 +199,6 @@
         this.style.removeProperty("overflow");
         this.style.removeProperty("will-change");
         this.style.removeProperty("transform-origin");
-        this.style.removeProperty("border-radius");
         animation.cancel();
         state.animation = null;
       },
@@ -258,30 +234,21 @@
 
     const dialogRect = this.getBoundingClientRect();
     const target = transformToTrigger(dialogRect, currentTriggerRect);
-    const btnRadius = getTriggerRadius(state.triggerElement);
-    const dialogRadius = getDialogRadius(this);
-    const rx = Math.round(btnRadius / Math.max(target.scaleX, 0.001));
-    const ry = Math.round(btnRadius / Math.max(target.scaleY, 0.001));
 
     this.style.overflow = "hidden";
     this.style.transformOrigin = "center center";
-    this.style.willChange = "transform, opacity, border-radius";
+    this.style.willChange = "transform, opacity";
 
+    // Pure GPU composited closing animation
     const animation = this.animate(
       [
         {
           opacity: Number.isFinite(currentOpacity) ? currentOpacity : 1,
           transform: currentTransform,
-          borderRadius: `${dialogRadius}px`,
-        },
-        {
-          offset: 0.72,
-          opacity: 0.88,
         },
         {
           opacity: 0,
           transform: target.transform,
-          borderRadius: `${rx}px / ${ry}px`,
         },
       ],
       {

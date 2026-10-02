@@ -26,10 +26,6 @@
   opacity: 1;
 }
 
-.general-chat-fab.is-moving {
-  transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.18s ease !important;
-}
-
 .general-chat-fab.is-docked {
   transform: translateY(var(--gc-dock-y, 64px)) !important;
 }

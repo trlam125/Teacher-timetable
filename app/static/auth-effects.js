@@ -105,7 +105,7 @@
       this.pulseSpeed = 0.02 + Math.random() * 0.03;
     }
 
-    update(time, windOffset) {
+    update(windOffset) {
       this.phase += this.swaySpeed;
       this.pulse += this.pulseSpeed;
       this.rot += this.rotSpeed;
@@ -244,7 +244,7 @@
       this.isPopping = false;
     }
 
-    update(time, onPop) {
+    update(onPop) {
       this.phase += this.swaySpeed;
       this.wobblePhase += this.wobbleSpeed;
       this.rotation += this.rotSpeed;
@@ -597,11 +597,8 @@
   }
 
   // Main Render Loop
-  let lastTime = performance.now();
-  let animationFrameId = null;
-
   function loop(currentTime) {
-    animationFrameId = requestAnimationFrame(loop);
+    requestAnimationFrame(loop);
 
     // Skip drawing if tab hidden or effects disabled
     if (document.hidden || document.documentElement.classList.contains('disable-effects')) {
@@ -610,9 +607,6 @@
       }
       return;
     }
-
-    const delta = Math.min(currentTime - lastTime, 64);
-    lastTime = currentTime;
 
     // Cross-fade opacity between modes
     if (isDarkMode) {
@@ -634,7 +628,7 @@
     if (snowOpacity > 0.005) {
       for (let i = 0; i < snowflakes.length; i++) {
         const flake = snowflakes[i];
-        flake.update(currentTime, totalWind);
+        flake.update(totalWind);
         flake.draw(ctx, snowOpacity);
       }
     }
@@ -643,7 +637,7 @@
     if (bubbleOpacity > 0.005) {
       for (let i = 0; i < bubbles.length; i++) {
         const bubble = bubbles[i];
-        bubble.update(currentTime, handleBubblePop);
+        bubble.update(handleBubblePop);
         bubble.draw(ctx, bubbleOpacity);
       }
     }
@@ -677,6 +671,6 @@
   // Initialize
   onResize();
   window.addEventListener('resize', onResize);
-  animationFrameId = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 
 })();
