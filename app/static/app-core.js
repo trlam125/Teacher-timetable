@@ -325,7 +325,7 @@ function scheduleActionMarkup(state) {
     return `<svg class="schedule-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span>Đã xếp xong</span>`;
   if (state === "error")
     return `<svg class="schedule-action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v5"></path><path d="M12 17h.01"></path><circle cx="12" cy="12" r="9"></circle></svg><span>Chưa xếp được</span>`;
-  return '<span class="text">Xếp tự động</span><span aria-hidden="true" class="marquee">Xếp tự động</span>';
+  return '<span class="schedule-action-label">Xếp tự động</span>';
 }
 function setScheduleActionState(state, resetAfter = 0) {
   scheduleActionVersion += 1;

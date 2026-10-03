@@ -403,80 +403,15 @@ html.dark-mode .btn-23:disabled {
   will-change: transform, opacity;
 }
 
-/* Base text in Happy Moth 17 */
-.schedule-action-content .text,
-.btn-23 .text {
-  display: grid;
-  inset: 0;
-  place-items: center;
-  position: absolute;
-  transition: opacity 0.2s ease;
+.schedule-action-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap;
   font-weight: 800;
   color: inherit;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-}
-
-/* Marquee text in Happy Moth 17 */
-.schedule-action-content .marquee,
-.btn-23 .marquee {
-  --spacing: 9em;
-  --start: 0em;
-  --end: 9em;
-  display: grid;
-  inset: 0;
-  place-items: center;
-  position: relative;
-  white-space: nowrap;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: inherit;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  -webkit-animation: happy-moth-marquee 1.8s linear infinite;
-  animation: happy-moth-marquee 1.8s linear infinite;
-  -webkit-animation-play-state: paused;
-  animation-play-state: paused;
-  text-shadow:
-    currentColor var(--spacing) 0,
-    currentColor calc(var(--spacing) * 2) 0,
-    currentColor calc(var(--spacing) * -1) 0,
-    currentColor calc(var(--spacing) * -2) 0;
-}
-
-/* Hover activates running marquee & hides static text */
-.schedule-action-btn:hover:not(:disabled) .schedule-action-content .marquee,
-.btn-23:hover:not(:disabled) .marquee {
-  -webkit-animation-play-state: running;
-  animation-play-state: running;
-  opacity: 1;
-}
-
-.schedule-action-btn:hover:not(:disabled) .schedule-action-content .text,
-.btn-23:hover:not(:disabled) .text {
-  opacity: 0;
-}
-
-@-webkit-keyframes happy-moth-marquee {
-  0% {
-    transform: translateX(var(--start));
-  }
-
-  to {
-    transform: translateX(var(--end));
-  }
-}
-
-@keyframes happy-moth-marquee {
-  0% {
-    transform: translateX(var(--start));
-  }
-
-  to {
-    transform: translateX(var(--end));
-  }
 }
 
 .schedule-action-enter {
@@ -549,36 +484,6 @@ html.dark-mode .schedule-action-error {
   to {
     transform: rotate(360deg);
   }
-}
-
-/* Reduced motion accessibility */
-@media (prefers-reduced-motion: reduce) {
-
-  .schedule-action-content .marquee,
-  .btn-23 .marquee {
-    animation: none !important;
-    display: none !important;
-  }
-
-  .schedule-action-content .text,
-  .btn-23 .text {
-    opacity: 1 !important;
-  }
-}
-
-:root.disable-effects .schedule-action-content .marquee,
-html.disable-effects .schedule-action-content .marquee,
-:root.disable-effects .btn-23 .marquee,
-html.disable-effects .btn-23 .marquee {
-  animation: none !important;
-  display: none !important;
-}
-
-:root.disable-effects .schedule-action-content .text,
-html.disable-effects .schedule-action-content .text,
-:root.disable-effects .btn-23 .text,
-html.disable-effects .btn-23 .text {
-  opacity: 1 !important;
 }
 
 .btn.ghost {
