@@ -187,10 +187,10 @@
                             <p>{{ p.school_name }} · {{ p.days }} ngày · {{ p.sessions }} buổi/ngày</p>
                         </div>
                         <div class="action-feedback-stack">
-                            <button class="btn schedule-action-btn" data-schedule-action
+                            <button class="btn schedule-action-btn btn-23" data-schedule-action
                                 onclick="generateSchedule()"><span class="schedule-action-stage"><span
-                                        class="schedule-action-content">Xếp tự
-                                        động</span></span></button>
+                                        class="schedule-action-content"><span class="text">Xếp tự động</span><span
+                                            aria-hidden="true" class="marquee">Xếp tự động</span></span></span></button>
                         </div>
                     </div>
                     <div class="stats">
@@ -426,10 +426,11 @@
                             </select>
                             <select id="viewEntity" hidden disabled aria-label="Đối tượng lọc thời khóa biểu"></select>
                             <div class="action-feedback-stack">
-                                <button class="btn schedule-action-btn" data-schedule-action
+                                <button class="btn schedule-action-btn btn-23" data-schedule-action
                                     onclick="generateSchedule()">
-                                    <span class="schedule-action-stage"><span class="schedule-action-content">Xếp tự
-                                            động</span></span>
+                                    <span class="schedule-action-stage"><span class="schedule-action-content"><span
+                                                class="text">Xếp tự động</span><span aria-hidden="true"
+                                                class="marquee">Xếp tự động</span></span></span>
                                 </button>
                             </div>
                         </div>

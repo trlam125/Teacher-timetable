@@ -28,7 +28,6 @@ from app.scheduling.rules import (
     fixed_row_size,
     parse_slots,
     pattern_completion_plan,
-    preferred_double_pair_count,
     required_double_block_state,
 )
 

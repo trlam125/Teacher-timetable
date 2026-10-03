@@ -259,23 +259,135 @@ h3,
   box-shadow: 0 5px 12px rgba(37, 99, 235, 0.2);
 }
 
-.schedule-action-btn {
-  min-width: 142px;
+/* ==========================================================================
+   BUTTON HAPPY MOTH 17 (uiverse.io/doniaskima/happy-moth-17)
+   Signature Pill Silhouette + Hover Marquee Scrolling Text
+   High-Contrast Adaptive: Solid Black on Light Mode / Crisp Luminous White on Dark Mode
+   ========================================================================== */
+.schedule-action-btn,
+.schedule-action-btn.btn-23,
+button.btn-23,
+.btn-23 {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: button;
+  box-sizing: border-box;
+  background-color: #000000 !important;
+  background: #000000 !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 800 !important;
+  line-height: 1.4;
+  margin: 0;
+  -webkit-mask-image: -webkit-radial-gradient(#000, #fff);
+  padding: 0.62rem 2.2rem !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 99rem !important;
+  border: 2px solid #000000 !important;
+  overflow: hidden;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 146px;
+  min-height: 40px;
   white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+  user-select: none;
 }
 
-.schedule-action-btn:disabled {
+.schedule-action-btn::after,
+.btn-23::after {
+  display: none !important;
+}
+
+.schedule-action-btn:hover:not(:disabled),
+.btn-23:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background-color: #18181b !important;
+  background: #18181b !important;
+  border-color: #27272a !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42), 0 2px 8px rgba(0, 0, 0, 0.24);
+}
+
+.schedule-action-btn:active:not(:disabled),
+.btn-23:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.schedule-action-btn:disabled,
+.btn-23:disabled {
   cursor: wait;
-  opacity: 1;
+  opacity: 0.96;
+  transform: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================================================================
+   DARK MODE: High-Contrast Inversion (Vercel / Apple Style)
+   Pure luminous white pill button on dark background with deep black text
+   ========================================================================== */
+:root.dark-mode .schedule-action-btn,
+html.dark-mode .schedule-action-btn,
+:root.dark-mode .btn-23,
+html.dark-mode .btn-23 {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #09090b !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.32), 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+}
+
+:root.dark-mode .schedule-action-btn:hover:not(:disabled),
+html.dark-mode .schedule-action-btn:hover:not(:disabled),
+:root.dark-mode .btn-23:hover:not(:disabled),
+html.dark-mode .btn-23:hover:not(:disabled) {
+  background-color: #f4f4f5 !important;
+  background: #f4f4f5 !important;
+  border-color: #f4f4f5 !important;
+  box-shadow: 0 0 32px rgba(255, 255, 255, 0.5), 0 8px 24px rgba(0, 0, 0, 0.75) !important;
+  transform: translateY(-2px);
+}
+
+:root.dark-mode .schedule-action-btn:active:not(:disabled),
+html.dark-mode .schedule-action-btn:active:not(:disabled),
+:root.dark-mode .btn-23:active:not(:disabled),
+html.dark-mode .btn-23:active:not(:disabled) {
+  background-color: #e4e4e7 !important;
+  background: #e4e4e7 !important;
+  border-color: #e4e4e7 !important;
+  transform: translateY(0) scale(0.97);
+}
+
+:root.dark-mode .schedule-action-btn:disabled,
+html.dark-mode .schedule-action-btn:disabled,
+:root.dark-mode .btn-23:disabled,
+html.dark-mode .btn-23:disabled {
+  background-color: #f1f5f9 !important;
+  background: #f1f5f9 !important;
+  color: #09090b !important;
+  border-color: #f1f5f9 !important;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.2);
 }
 
 .schedule-action-stage {
   position: relative;
   display: grid;
   place-items: center;
-  height: 1.3em;
-  min-width: 112px;
+  height: 1.4em;
+  min-width: 108px;
   overflow: hidden;
+  -webkit-mask-image: -webkit-radial-gradient(#000, #fff);
 }
 
 .schedule-action-content {
@@ -283,9 +395,88 @@ h3,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
   gap: 7px;
-  line-height: 1.3;
+  line-height: 1.4;
   will-change: transform, opacity;
+}
+
+/* Base text in Happy Moth 17 */
+.schedule-action-content .text,
+.btn-23 .text {
+  display: grid;
+  inset: 0;
+  place-items: center;
+  position: absolute;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+  font-weight: 800;
+  color: inherit;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Marquee text in Happy Moth 17 */
+.schedule-action-content .marquee,
+.btn-23 .marquee {
+  --spacing: 9em;
+  --start: 0em;
+  --end: 9em;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  position: relative;
+  white-space: nowrap;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: inherit;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  -webkit-animation: happy-moth-marquee 1.8s linear infinite;
+  animation: happy-moth-marquee 1.8s linear infinite;
+  -webkit-animation-play-state: paused;
+  animation-play-state: paused;
+  text-shadow:
+    currentColor var(--spacing) 0,
+    currentColor calc(var(--spacing) * 2) 0,
+    currentColor calc(var(--spacing) * -1) 0,
+    currentColor calc(var(--spacing) * -2) 0;
+}
+
+/* Hover activates running marquee & hides static text */
+.schedule-action-btn:hover:not(:disabled) .schedule-action-content .marquee,
+.btn-23:hover:not(:disabled) .marquee {
+  -webkit-animation-play-state: running;
+  animation-play-state: running;
+  opacity: 1;
+}
+
+.schedule-action-btn:hover:not(:disabled) .schedule-action-content .text,
+.btn-23:hover:not(:disabled) .text {
+  opacity: 0;
+}
+
+@-webkit-keyframes happy-moth-marquee {
+  0% {
+    transform: translateX(var(--start));
+  }
+
+  to {
+    transform: translateX(var(--end));
+  }
+}
+
+@keyframes happy-moth-marquee {
+  0% {
+    transform: translateX(var(--start));
+  }
+
+  to {
+    transform: translateX(var(--end));
+  }
 }
 
 .schedule-action-enter {
@@ -303,7 +494,7 @@ h3,
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -313,11 +504,21 @@ h3,
 }
 
 .schedule-action-success {
-  color: #fff;
+  color: #34d399;
+}
+
+:root.dark-mode .schedule-action-success,
+html.dark-mode .schedule-action-success {
+  color: #047857;
 }
 
 .schedule-action-error {
-  color: #fff;
+  color: #f87171;
+}
+
+:root.dark-mode .schedule-action-error,
+html.dark-mode .schedule-action-error {
+  color: #b91c1c;
 }
 
 @keyframes schedule-action-in {
@@ -348,6 +549,36 @@ h3,
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+
+  .schedule-action-content .marquee,
+  .btn-23 .marquee {
+    animation: none !important;
+    display: none !important;
+  }
+
+  .schedule-action-content .text,
+  .btn-23 .text {
+    opacity: 1 !important;
+  }
+}
+
+:root.disable-effects .schedule-action-content .marquee,
+html.disable-effects .schedule-action-content .marquee,
+:root.disable-effects .btn-23 .marquee,
+html.disable-effects .btn-23 .marquee {
+  animation: none !important;
+  display: none !important;
+}
+
+:root.disable-effects .schedule-action-content .text,
+html.disable-effects .schedule-action-content .text,
+:root.disable-effects .btn-23 .text,
+html.disable-effects .btn-23 .text {
+  opacity: 1 !important;
 }
 
 .btn.ghost {

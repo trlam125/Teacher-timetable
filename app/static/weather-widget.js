@@ -302,7 +302,7 @@
   const LAST_LOCATION_KEY = 'smart_tkb_weather_last_location';
   const FALLBACK_CITY_KEY = 'smart_tkb_weather_city';
   const LOCATION_MODE_KEY = 'smart_tkb_weather_location_mode';
-  const LOCATION_NAME_CACHE_KEY = 'smart_tkb_weather_location_names';
+  const LOCATION_NAME_CACHE_KEY = 'smart_tkb_weather_location_names_v1';
   const LOCATION_NAME_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
   let currentWeatherState = null;
@@ -359,7 +359,7 @@
   }
 
   function getClientCacheKey(coords) {
-    return `smart_tkb_weather_cache_v2_${locationSignature(coords)}`;
+    return `smart_tkb_weather_cache_v1_${locationSignature(coords)}`;
   }
 
   function distanceKm(a, b) {

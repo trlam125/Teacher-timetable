@@ -77,7 +77,7 @@ def get_location_name(
     import urllib.parse
     import urllib.request
 
-    cache_key = f"{round(latitude, 3)},{round(longitude, 3)}"
+    cache_key = f"v1:{round(latitude, 3)},{round(longitude, 3)}"
     now = time.time()
     cached = _location_name_cache.get(cache_key)
     if cached and now - cached[1] < _LOCATION_NAME_CACHE_TTL:
@@ -137,7 +137,7 @@ def get_weather(
     import urllib.request
     import json
 
-    cache_key = f"v2:{round(latitude, 3)},{round(longitude, 3)}"
+    cache_key = f"v1:{round(latitude, 3)},{round(longitude, 3)}"
     now = time.time()
 
     if cache_key in _weather_cache:

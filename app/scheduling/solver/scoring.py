@@ -1,39 +1,10 @@
 from __future__ import annotations
 
-import logging
 import os
-import random
-import time
 from collections import Counter, defaultdict
-from typing import Optional
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
-from app.logic import fixed_group_validation_error, pop_matching_fixed_task
-from app.models import (
-    Assignment,
-    FixedLesson,
-    Lesson,
-    Project,
-    SchoolClass,
-    Subject,
-    Teacher,
-)
-from app.scheduling.rules import (
-    all_slots,
-    assignment_groups,
-    assignment_prefers_double,
-    assignment_requires_double,
-    fixed_row_size,
-    parse_slots,
-    pattern_completion_plan,
-    preferred_double_pair_count,
-    required_double_block_state,
-)
-
-logger = logging.getLogger("smart_tkb")
-
+from app.models import Assignment, Project
+from app.scheduling.rules import assignment_prefers_double, preferred_double_pair_count
 
 def _teacher_idle_gaps(p: Project, busy_slots) -> int:
     """Count idle periods inside each day/session, never across sessions."""
@@ -93,4 +64,4 @@ def _solver_timeout_seconds() -> float:
     return max(3.0, min(60.0, value))
 
 
-__all__ = [name for name in globals() if not name.startswith("__")]
+__all__ = ["_teacher_idle_gaps", "_schedule_soft_score", "_solver_timeout_seconds"]
