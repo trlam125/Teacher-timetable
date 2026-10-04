@@ -1,0 +1,491 @@
+/**
+ * Export Button Animation & Theme Styles
+ * Supports Light Mode & Dark Mode perfectly
+ * States: idle -> downloading -> done
+ */
+
+.export-btn,
+.download-btn {
+  --btn-h: 36px;
+  --btn-w: 154px;
+  --radius: calc(var(--btn-h) / 2);
+
+  /* Light mode palette (harmonious with header buttons) */
+  --btn-bg: rgba(255, 255, 255, 0.88);
+  --btn-border: rgba(148, 163, 184, 0.38);
+  --btn-text: #0f172a;
+  --btn-hover-bg: #ffffff;
+  --btn-hover-border: rgba(16, 124, 65, 0.45);
+  --btn-hover-text: #107c41;
+  --btn-shadow: 0 2px 10px rgba(15, 39, 71, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --btn-hover-shadow: 0 4px 16px rgba(16, 124, 65, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+  /* Excel Brand Accent */
+  --color-excel: #107c41;
+  --color-excel-dark: #0d6535;
+  --color-excel-glow: rgba(16, 124, 65, 0.32);
+
+  /* Success Done Feedback */
+  --color-success: #16a34a;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+  --color-success-text: #047857;
+  --color-success-glow: rgba(22, 163, 74, 0.3);
+
+  --progress: 0%;
+
+  position: relative;
+  width: var(--btn-w);
+  height: var(--btn-h);
+  border-radius: var(--radius);
+  background-color: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  padding: 0;
+  margin: 0;
+  outline: none;
+  cursor: pointer;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--btn-text);
+  vertical-align: middle;
+  box-shadow: var(--btn-shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+  will-change: transform, box-shadow;
+  isolation: isolate;
+  contain: paint;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ==========================================================================
+   Dark Mode Tokens
+   ========================================================================== */
+
+:root.dark-mode .export-btn,
+body.dark-mode .export-btn,
+html.dark-mode .export-btn,
+:root.dark-mode .download-btn,
+body.dark-mode .download-btn,
+html.dark-mode .download-btn {
+  --btn-bg: rgba(30, 41, 59, 0.85);
+  --btn-border: rgba(71, 85, 105, 0.6);
+  --btn-text: #f8fafc;
+  --btn-hover-bg: rgba(30, 41, 59, 0.98);
+  --btn-hover-border: rgba(52, 211, 153, 0.45);
+  --btn-hover-text: #6ee7b7;
+  --btn-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  --btn-hover-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 12px rgba(22, 163, 74, 0.22);
+
+  --color-excel: #15803d;
+  --color-excel-dark: #166534;
+  --color-excel-glow: rgba(22, 163, 74, 0.45);
+
+  --color-success: #10b981;
+  --color-success-bg: rgba(6, 78, 59, 0.6);
+  --color-success-border: rgba(52, 211, 153, 0.45);
+  --color-success-text: #a7f3d0;
+  --color-success-glow: rgba(16, 185, 129, 0.35);
+}
+
+/* Sheen sweep animation on hover */
+.export-btn::after,
+.download-btn::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 24%,
+    rgba(16, 124, 65, 0.1) 40%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(16, 124, 65, 0.1) 60%,
+    transparent 76%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+
+:root.dark-mode .export-btn::after,
+body.dark-mode .export-btn::after,
+html.dark-mode .export-btn::after,
+:root.dark-mode .download-btn::after,
+body.dark-mode .download-btn::after,
+html.dark-mode .download-btn::after {
+  background: linear-gradient(
+    105deg,
+    transparent 24%,
+    rgba(52, 211, 153, 0.15) 40%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(52, 211, 153, 0.15) 60%,
+    transparent 76%
+  );
+}
+
+.export-btn[data-state="idle"]:hover::after,
+.download-btn[data-state="idle"]:hover::after {
+  transform: translateX(120%);
+}
+
+/* Hover effects when idle */
+.export-btn[data-state="idle"]:hover,
+.download-btn[data-state="idle"]:hover {
+  transform: translateY(-1.5px);
+  background-color: var(--btn-hover-bg);
+  border-color: var(--btn-hover-border);
+  color: var(--btn-hover-text);
+  box-shadow: var(--btn-hover-shadow);
+}
+
+.export-btn[data-state="idle"]:active,
+.download-btn[data-state="idle"]:active {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   State 2: Downloading
+   ========================================================================== */
+
+.export-btn[data-state="downloading"],
+.download-btn[data-state="downloading"] {
+  cursor: default;
+  transform: none;
+  box-shadow: 0 4px 18px var(--color-excel-glow);
+  border-color: var(--color-excel);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   State 3: Done
+   ========================================================================== */
+
+.export-btn[data-state="done"],
+.download-btn[data-state="done"] {
+  cursor: pointer;
+  background-color: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-text);
+  box-shadow: 0 3px 14px var(--color-success-glow);
+}
+
+/* ==========================================================================
+   Morphing Background Layer (.progress-bg)
+   Expands from left circle to full width, then collapses to right circle
+   ========================================================================== */
+
+.export-btn .progress-bg,
+.download-btn .progress-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--btn-h);
+  border-radius: var(--radius);
+  background-color: var(--color-excel);
+  pointer-events: none;
+  z-index: 1;
+  will-change: width, left, background-color, border-radius;
+  transition:
+    width 450ms cubic-bezier(0.65, 0, 0.35, 1),
+    left 450ms cubic-bezier(0.65, 0, 0.35, 1),
+    background-color 350ms ease,
+    border-radius 450ms ease,
+    box-shadow 350ms ease;
+}
+
+/* 1. Idle: Green circle at left edge */
+.export-btn[data-state="idle"] .progress-bg,
+.download-btn[data-state="idle"] .progress-bg {
+  left: 0;
+  width: var(--btn-h);
+  border-radius: 50%;
+  background-color: var(--color-excel);
+  box-shadow: 0 0 10px var(--color-excel-glow);
+}
+
+/* 2. Downloading: Green expanded to full pill */
+.export-btn[data-state="downloading"] .progress-bg,
+.download-btn[data-state="downloading"] .progress-bg {
+  left: 0;
+  width: 100%;
+  border-radius: var(--radius);
+  background-color: var(--color-excel);
+  box-shadow: 0 0 18px var(--color-excel-glow);
+}
+
+/* 3. Done: Success green circle at right edge */
+.export-btn[data-state="done"] .progress-bg,
+.download-btn[data-state="done"] .progress-bg {
+  left: calc(100% - var(--btn-h));
+  width: var(--btn-h);
+  border-radius: 50%;
+  background-color: var(--color-success);
+  box-shadow: 0 0 12px var(--color-success-glow);
+}
+
+/* ==========================================================================
+   Progress Fill Layer (.progress-fill)
+   Sweeps across while downloading with --progress
+   ========================================================================== */
+
+.export-btn .progress-fill,
+.download-btn .progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--progress, 0%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.15),
+    rgba(255, 255, 255, 0.38)
+  );
+  border-radius: var(--radius);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  will-change: width, opacity;
+  transition: width 60ms linear, opacity 180ms ease;
+}
+
+.export-btn[data-state="downloading"] .progress-fill,
+.download-btn[data-state="downloading"] .progress-fill {
+  opacity: 1;
+}
+
+.export-btn[data-state="done"] .progress-fill,
+.download-btn[data-state="done"] .progress-fill {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+/* ==========================================================================
+   Icon Circles & SVG Icons
+   ========================================================================== */
+
+.export-btn .icon-circle,
+.download-btn .icon-circle {
+  position: absolute;
+  top: 0;
+  width: var(--btn-h);
+  height: var(--btn-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.export-btn .icon-circle.icon-start,
+.download-btn .icon-circle.icon-start {
+  left: 0;
+}
+
+.export-btn .icon-circle.icon-end,
+.download-btn .icon-circle.icon-end {
+  right: 0;
+  color: #ffffff;
+}
+
+.export-btn .icon-circle svg,
+.download-btn .icon-circle svg {
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Excel Logo in left circle */
+.export-btn .icon-excel,
+.download-btn .icon-excel {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 200ms ease;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+
+.export-btn[data-state="downloading"] .icon-excel,
+.export-btn[data-state="done"] .icon-excel,
+.download-btn[data-state="downloading"] .icon-excel,
+.download-btn[data-state="done"] .icon-excel {
+  opacity: 0;
+  transform: scale(0.35) translateY(4px);
+  pointer-events: none;
+}
+
+/* Arrow icon (Right edge while downloading) */
+.export-btn .icon-arrow,
+.download-btn .icon-arrow {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0) translateX(-8px);
+  color: #ffffff;
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 180ms ease;
+}
+
+.export-btn[data-state="downloading"] .icon-arrow,
+.download-btn[data-state="downloading"] .icon-arrow {
+  opacity: 1;
+  transform: scale(1) translateX(0);
+  transition-delay: 150ms;
+}
+
+.export-btn[data-state="done"] .icon-arrow,
+.download-btn[data-state="done"] .icon-arrow {
+  opacity: 0;
+  transform: scale(0.3) translateX(8px);
+  transition-delay: 0ms;
+}
+
+/* Check icon (Right circle when done) */
+.export-btn .icon-check,
+.download-btn .icon-check {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0) rotate(-15deg);
+  color: #ffffff;
+  transition:
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 200ms ease;
+}
+
+.export-btn[data-state="done"] .icon-check,
+.download-btn[data-state="done"] .icon-check {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  transition-delay: 200ms;
+}
+
+/* ==========================================================================
+   Button Label & Percentage Display
+   ========================================================================== */
+
+.export-btn .button-label,
+.download-btn .button-label {
+  position: relative;
+  z-index: 4;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1;
+  color: inherit;
+  will-change: opacity, transform;
+}
+
+/* In Idle: aligned to the right of the green circle */
+.export-btn[data-state="idle"] .button-label,
+.download-btn[data-state="idle"] .button-label {
+  padding-left: calc(var(--btn-h) - 4px);
+  padding-right: 12px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 220ms ease 120ms,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1) 120ms;
+}
+
+/* In Downloading: label fades out */
+.export-btn[data-state="downloading"] .button-label,
+.download-btn[data-state="downloading"] .button-label {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+/* In Done: aligned to the left of the green circle */
+.export-btn[data-state="done"] .button-label,
+.download-btn[data-state="done"] .button-label {
+  padding-left: 14px;
+  padding-right: calc(var(--btn-h) - 4px);
+  opacity: 1;
+  transform: translateY(0);
+  color: var(--color-success-text);
+  transition:
+    opacity 240ms ease 200ms,
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1) 200ms;
+}
+
+/* Percentage text in center */
+.export-btn .button-percent,
+.download-btn .button-percent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: scale(0.85);
+  will-change: opacity, transform;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.export-btn[data-state="downloading"] .button-percent,
+.download-btn[data-state="downloading"] .button-percent {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 200ms ease 150ms,
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1) 150ms;
+}
+
+.export-btn[data-state="done"] .button-percent,
+.download-btn[data-state="done"] .button-percent {
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+/* ==========================================================================
+   Reduced Motion & Disabled Effects
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .export-btn,
+  .export-btn *,
+  .export-btn *::before,
+  .export-btn *::after,
+  .download-btn,
+  .download-btn *,
+  .download-btn *::before,
+  .download-btn *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html.disable-effects .export-btn,
+html.disable-effects .export-btn *,
+html.disable-effects .export-btn *::before,
+html.disable-effects .export-btn *::after,
+html.disable-effects .download-btn,
+html.disable-effects .download-btn *,
+html.disable-effects .download-btn *::before,
+html.disable-effects .download-btn *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}

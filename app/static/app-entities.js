@@ -962,45 +962,208 @@ function exportFilenameFromResponse(response) {
   const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
   return plainMatch?.[1]?.trim() || "thoi-khoa-bieu.xlsx";
 }
+function resetExportButton(btn) {
+  if (!btn) return;
+  if (btn._resetTimer) {
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = null;
+  }
+  if (btn._progressRaf) {
+    cancelAnimationFrame(btn._progressRaf);
+    btn._progressRaf = null;
+  }
+  btn.dataset.state = "idle";
+  btn.style.removeProperty("--progress");
+  btn.removeAttribute("aria-busy");
+  btn.setAttribute("aria-label", "Xuất Excel");
+  delete btn.dataset.exportBusy;
+
+  const label = btn.querySelector(".button-label");
+  if (label) label.textContent = btn.dataset.idleText || "Xuất Excel";
+  const percent = btn.querySelector(".button-percent");
+  if (percent) percent.textContent = "0%";
+}
+const resetDownloadButton = resetExportButton;
+
+function simulateDownloadProgress(btn, fetchPromise, isReduced) {
+  if (isReduced) {
+    return fetchPromise.then((res) => {
+      btn.style.setProperty("--progress", "100%");
+      const percentEl = btn.querySelector(".button-percent");
+      if (percentEl) percentEl.textContent = "100%";
+      return res;
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    let progress = 0;
+    let fetchDone = false;
+    let fetchResult = null;
+    let fetchError = null;
+
+    fetchPromise
+      .then((res) => {
+        fetchResult = res;
+        fetchDone = true;
+      })
+      .catch((err) => {
+        fetchError = err;
+        fetchDone = true;
+      });
+
+    const percentEl = btn.querySelector(".button-percent");
+
+    function step() {
+      if (fetchError) {
+        btn._progressRaf = null;
+        return reject(fetchError);
+      }
+
+      if (!fetchDone) {
+        // Natural easing curve as specified in plan.md Section 9:
+        // 0 -> 25%: fast
+        // 25 -> 70%: steady pace
+        // 70 -> 92%: slow down while waiting for server response
+        if (progress < 25) {
+          progress += 1.6 + Math.random() * 0.9;
+        } else if (progress < 65) {
+          progress += 0.9 + Math.random() * 0.6;
+        } else if (progress < 88) {
+          progress += 0.4 + Math.random() * 0.3;
+        } else if (progress < 93) {
+          progress += 0.08 + Math.random() * 0.05;
+        }
+      } else {
+        // Server response received: smoothly accelerate to 100%
+        const remaining = 100 - progress;
+        if (remaining > 0.5) {
+          progress += Math.max(remaining * 0.24, 2.2);
+        } else {
+          progress = 100;
+        }
+      }
+
+      progress = Math.min(progress, 100);
+      const displayVal = Math.floor(progress);
+
+      btn.style.setProperty("--progress", `${progress.toFixed(1)}%`);
+      if (percentEl) percentEl.textContent = `${displayVal}%`;
+      btn.setAttribute("aria-label", `Đang xuất Excel ${displayVal}%`);
+
+      if (progress >= 100 && fetchDone) {
+        btn._progressRaf = null;
+        resolve(fetchResult);
+      } else {
+        btn._progressRaf = requestAnimationFrame(step);
+      }
+    }
+
+    btn._progressRaf = requestAnimationFrame(step);
+  });
+}
+
 async function handleExportExcel(event, link) {
   if (!link) return;
   event?.preventDefault?.();
+
+  // Find export button target (could be link itself, an ancestor, or header button #exportExcelBtn)
+  const exportBtn =
+    (link?.classList?.contains("export-btn") || link?.classList?.contains("download-btn") ? link : null) ||
+    link?.closest?.(".export-btn, .download-btn") ||
+    document.getElementById("exportExcelBtn");
+
+  // If in done state and user clicks, reset to idle
+  if (exportBtn && exportBtn.dataset.state === "done") {
+    resetExportButton(exportBtn);
+    return;
+  }
+
+  // Prevent multiple concurrent clicks during animation
+  if (exportBtn && exportBtn.dataset.state && exportBtn.dataset.state !== "idle") {
+    return;
+  }
   if (link.dataset.exportBusy === "1") return;
 
-  const originalHtml = link.innerHTML;
-  link.dataset.exportBusy = "1";
-  link.innerHTML = '<span class="btn-spinner"></span> Đang tạo tệp...';
-  link.style.pointerEvents = "none";
-  link.setAttribute("aria-busy", "true");
+  const exportUrl =
+    link.href ||
+    link.dataset?.href ||
+    exportBtn?.dataset?.href ||
+    exportBtn?.href ||
+    `/projects/${window.PROJECT_ID || ""}/export.xlsx`;
+
+  const isReduced =
+    document.documentElement.classList.contains("disable-effects") ||
+    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+
+  if (exportBtn) {
+    if (exportBtn._resetTimer) {
+      clearTimeout(exportBtn._resetTimer);
+      exportBtn._resetTimer = null;
+    }
+    exportBtn.dataset.exportBusy = "1";
+    exportBtn.dataset.state = "downloading";
+    exportBtn.setAttribute("aria-busy", "true");
+    exportBtn.setAttribute("aria-label", "Đang xuất Excel 0%");
+    exportBtn.style.setProperty("--progress", "0%");
+    const percentEl = exportBtn.querySelector(".button-percent");
+    if (percentEl) percentEl.textContent = "0%";
+  } else {
+    link.dataset.exportBusy = "1";
+    link.innerHTML = '<span class="btn-spinner"></span> Đang tạo tệp...';
+    link.style.pointerEvents = "none";
+    link.setAttribute("aria-busy", "true");
+  }
 
   try {
-    const response = await fetch(link.href, {
-      method: "GET",
-      headers: operationHeaders({
-        Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "X-Requested-With": "XMLHttpRequest",
-      }),
-    });
-    if (response.status === 401 ||
-      (response.redirected && new URL(response.url, location.href).pathname === "/login")) {
-      location.href = "/login";
-      throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để xuất Excel.");
-    }
-    if (!response.ok) {
-      const result = await readApiResponse(response);
-      throw new Error(
-        apiErrorMessage(result, `Không thể xuất Excel (HTTP ${response.status}).`),
-      );
+    // Start fetch in parallel
+    const fetchPromise = (async () => {
+      const response = await fetch(exportUrl, {
+        method: "GET",
+        headers: operationHeaders({
+          Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "X-Requested-With": "XMLHttpRequest",
+        }),
+      });
+      if (
+        response.status === 401 ||
+        (response.redirected && new URL(response.url, location.href).pathname === "/login")
+      ) {
+        location.href = "/login";
+        throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại để xuất Excel.");
+      }
+      if (!response.ok) {
+        const result = await readApiResponse(response);
+        throw new Error(
+          apiErrorMessage(result, `Không thể xuất Excel (HTTP ${response.status}).`),
+        );
+      }
+      const contentType = (response.headers.get("Content-Type") || "")
+        .split(";")[0]
+        .trim()
+        .toLowerCase();
+      if (contentType !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+        throw new Error("Máy chủ không trả về tệp Excel hợp lệ. Hãy tải lại trang và thử lại.");
+      }
+      const blob = await response.blob();
+      if (!blob.size) throw new Error("Máy chủ trả về tệp Excel rỗng.");
+
+      return { response, blob };
+    })();
+
+    let resultData;
+    if (exportBtn) {
+      // Small start delay (120ms) for initial circle expansion feedback
+      if (!isReduced) {
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      resultData = await simulateDownloadProgress(exportBtn, fetchPromise, isReduced);
+    } else {
+      resultData = await fetchPromise;
     }
 
-    const contentType = (response.headers.get("Content-Type") || "")
-      .split(";")[0].trim().toLowerCase();
-    if (contentType !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-      throw new Error("Máy chủ không trả về tệp Excel hợp lệ. Hãy tải lại trang và thử lại.");
-    }
-    const blob = await response.blob();
-    if (!blob.size) throw new Error("Máy chủ trả về tệp Excel rỗng.");
+    const { response, blob } = resultData;
 
+    // Trigger file download
     const downloadUrl = URL.createObjectURL(blob);
     const downloadLink = document.createElement("a");
     downloadLink.href = downloadUrl;
@@ -1011,19 +1174,47 @@ async function handleExportExcel(event, link) {
     downloadLink.remove();
     setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 
-    showToast("Đã tạo file Excel và bắt đầu tải xuống.", "success", 3200);
+    // Transition to DONE state (Section 10 of plan.md)
+    if (exportBtn) {
+      // Hold 100% briefly (180ms)
+      if (!isReduced) {
+        await new Promise((r) => setTimeout(r, 180));
+      }
+      exportBtn.dataset.state = "done";
+      exportBtn.removeAttribute("aria-busy");
+      exportBtn.setAttribute("aria-label", "Xuất file hoàn tất");
+      const labelEl = exportBtn.querySelector(".button-label");
+      if (labelEl) labelEl.textContent = exportBtn.dataset.doneText || "Hoàn tất";
+
+      // Auto reset after 3s
+      exportBtn._resetTimer = setTimeout(() => {
+        resetExportButton(exportBtn);
+      }, 3000);
+    }
+
+    // Notice: As requested by the user, the existing popup notification
+    // (showToast) has been removed. The button animation provides full feedback.
   } catch (error) {
+    if (exportBtn) {
+      resetExportButton(exportBtn);
+    }
     showToast(
       error?.message || "Không thể xuất Excel. Vui lòng thử lại.",
       "error",
       5000,
     );
   } finally {
-    link.innerHTML = originalHtml;
-    link.style.pointerEvents = "";
-    link.removeAttribute("aria-busy");
-    delete link.dataset.exportBusy;
+    if (exportBtn) {
+      delete exportBtn.dataset.exportBusy;
+    } else {
+      link.innerHTML = "Xuất Excel";
+      link.style.pointerEvents = "";
+      link.removeAttribute("aria-busy");
+      delete link.dataset.exportBusy;
+    }
   }
 }
 window.handleExportExcel = handleExportExcel;
+window.resetExportButton = resetExportButton;
+window.resetDownloadButton = resetExportButton;
 

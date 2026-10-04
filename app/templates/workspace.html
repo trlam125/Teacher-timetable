@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/send-button.css?v=1">
+    <link rel="stylesheet" href="/static/export-button.css?v=1">
     <script src="/static/weather-widget.js?v=1" defer></script>
 </head>
 
@@ -73,8 +74,38 @@
                     <span class="send-button__text send-button__text--error">Sao chép thủ công</span>
                 </span>
             </button>
-            <a class="btn ghost" id="exportExcelBtn" href="/projects/{{ p.id }}/export.xlsx"
-                onclick="handleExportExcel(event, this)">Xuất Excel</a>
+            <button class="export-btn" id="exportExcelBtn" data-state="idle" type="button"
+                data-href="/projects/{{ p.id }}/export.xlsx" onclick="handleExportExcel(event, this)"
+                aria-label="Xuất Excel" title="Xuất thời khóa biểu ra Excel" data-idle-text="Xuất Excel"
+                data-done-text="Hoàn tất">
+                <span class="progress-bg" aria-hidden="true"></span>
+                <span class="progress-fill" aria-hidden="true"></span>
+                <span class="icon-circle icon-start" aria-hidden="true">
+                    <svg class="icon-excel" viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+                        <path d="M14 2.5H7C5.9 2.5 5 3.4 5 4.5V7H14V2.5Z" fill="#ffffff" fill-opacity="0.45"></path>
+                        <path d="M14 7H20.5V19.5C20.5 20.6 19.6 21.5 18.5 21.5H14V7Z" fill="#ffffff"
+                            fill-opacity="0.45"></path>
+                        <path d="M16 11H18.5M16 14H18.5M16 17H18.5" stroke="#ffffff" stroke-width="1.3"
+                            stroke-linecap="round"></path>
+                        <rect x="2.5" y="5.5" width="12" height="12" rx="2.5" fill="#ffffff"></rect>
+                        <path
+                            d="M5.3 8.3L7.3 11.5L5.3 14.7H6.7L7.9 12.6L9.1 14.7H10.5L8.5 11.5L10.5 8.3H9.1L7.9 10.4L6.7 8.3H5.3Z"
+                            fill="#107C41"></path>
+                    </svg>
+                </span>
+                <span class="button-label">Xuất Excel</span>
+                <span class="button-percent" aria-hidden="true">0%</span>
+                <span class="icon-circle icon-end" aria-hidden="true">
+                    <svg class="icon-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14m-5-5l5 5-5 5"></path>
+                    </svg>
+                    <svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                        stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </span>
+            </button>
         </div>
         <details class="workspace-mobile-actions">
             <summary class="workspace-mobile-menu-button" aria-label="Mở menu thao tác" title="Thao tác">
