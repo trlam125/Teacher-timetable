@@ -1,0 +1,394 @@
+.muted {
+  color: var(--muted);
+}
+
+.success {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.preference-page {
+  max-width: 1250px;
+}
+
+.preference-form {
+  display: grid;
+  gap: 18px;
+}
+
+.preference-form>label {
+  display: grid;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.preference-form textarea {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+  resize: vertical;
+}
+
+.preference-form h2 {
+  margin: 12px 0 -10px;
+}
+
+.preference-form p {
+  margin: 0;
+}
+
+.preference-legend {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.preference-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preference-legend i {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+.preferred-dot {
+  background: #dcfce7 !important;
+  border-color: #4ade80 !important;
+}
+
+.blocked-dot {
+  background: #fee2e2;
+}
+
+.preference-list {
+  display: grid;
+  gap: 16px;
+}
+
+.preference-edit-note {
+  display: grid;
+  gap: 5px;
+  margin: -10px 0 18px;
+  padding: 15px 17px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #eff6ff, #ecfeff);
+  color: #1e3a8a;
+}
+
+.preference-edit-note span {
+  color: #475467;
+}
+
+.account-page {
+  max-width: 760px;
+}
+
+.account-form {
+  display: grid;
+  gap: 14px;
+}
+
+.account-form h2 {
+  margin: 12px 0 0;
+}
+
+.account-form>label {
+  display: grid;
+  gap: 7px;
+  font-weight: 500;
+}
+
+.account-form input {
+  font: inherit;
+  padding: 11px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 9px;
+}
+
+.account-form input[readonly] {
+  background: var(--soft, #f8fafc);
+  color: inherit;
+}
+
+.assignment-summary {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: #eff6ff;
+  border-radius: 9px;
+}
+
+.preference-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 8px 25px rgba(16, 24, 40, 0.05);
+}
+
+.preference-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.preference-card-head h3 {
+  margin: 0 0 5px;
+}
+
+.preference-card-head small {
+  color: var(--muted);
+}
+
+.status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f2f4f7;
+  color: #475467;
+}
+
+.status-pending {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.status-accepted {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.status-rejected {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.preference-detail {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.slot-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.slot-chip {
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.slot-chip.preferred {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.slot-chip.blocked {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.preference-note {
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 9px;
+  white-space: pre-wrap;
+}
+
+.preference-head-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.preference-delete-btn,
+.preference-delete-all {
+  color: var(--danger) !important;
+}
+
+.preference-delete-all:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.preference-card-actions {
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+
+  .preference-card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* --- DARK MODE OVERRIDES --- */
+
+:root.dark-mode .preferred-dot {
+  background: #064e3b !important;
+  border-color: #10b981 !important;
+  color: #a7f3d0;
+}
+
+:root.dark-mode .blocked-dot {
+  background: #7f1d1d;
+}
+
+:root.dark-mode .preference-edit-note {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: linear-gradient(120deg,
+      rgba(30, 41, 59, 0.8),
+      rgba(15, 23, 42, 0.8));
+  color: #93c5fd;
+}
+
+:root.dark-mode .preference-edit-note span {
+  color: #94a3b8;
+}
+
+:root.dark-mode .assignment-summary {
+  background: #172554;
+  color: #93c5fd;
+}
+
+:root.dark-mode .preference-card {
+  background: #1e293b;
+  border-color: rgba(71, 85, 105, 0.4);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+:root.dark-mode .status {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+:root.dark-mode .status-pending {
+  background: #78350f;
+  color: #fef3c7;
+}
+
+:root.dark-mode .status-accepted {
+  background: #064e3b;
+  color: #d1fae5;
+}
+
+:root.dark-mode .status-rejected {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+:root.dark-mode .slot-chip.preferred {
+  background: #064e3b;
+  color: #d1fae5;
+}
+
+:root.dark-mode .slot-chip.blocked {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+:root.dark-mode .preference-note {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.teacher-preference-section {
+  margin-top: 22px;
+}
+
+.teacher-preference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.teacher-preference-day {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.teacher-preference-day small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.teacher-preference-periods {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(36px, 1fr));
+  gap: 6px;
+}
+
+.teacher-preference-slot {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.teacher-preference-slot:hover {
+  background: #eff6ff;
+}
+
+.teacher-preference-slot.preferred {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.teacher-preference-slot.blocked {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.teacher-preference-history {
+  margin-top: 28px;
+}
+
+.preference-card.compact {
+  padding: 16px;
+}
+
+:root.dark-mode .teacher-preference-day,
+:root.dark-mode .teacher-preference-slot {
+  background: #1e293b;
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+:root.dark-mode .teacher-preference-slot:hover {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+:root.dark-mode .teacher-preference-slot.preferred {
+  background: #064e3b;
+  border-color: #10b981;
+  color: #a7f3d0;
+}
+
+:root.dark-mode .teacher-preference-slot.blocked {
+  background: #7f1d1d;
+  border-color: #ef4444;
+  color: #fecaca;
+}

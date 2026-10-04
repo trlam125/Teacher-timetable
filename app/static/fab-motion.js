@@ -1,0 +1,471 @@
+/**
+ * FabMotion - Floating Action Buttons Convergence & Glide Orchestrator
+ *
+ * Choreography:
+ * 1. Target button clicked: Other buttons converge to target's position (target stays on top).
+ * 2. Entire stack glides down to the bottom-most button's position.
+ * 3. Concurrently, the respective panel/popup opens smoothly in sync with the downward glide.
+ * 4. Closing reverses the effects: panel collapses while stack moves up, then buttons disperse.
+ * 5. Multi-frame Ghost Trail (ảo ảnh từng frame) follows every movement with subtle, elegant opacity.
+ */
+(function () {
+  if (window.FabMotion) return;
+
+  const CONFIG = {
+    durationConverge: 360,
+    durationGlide: 480
+  };
+
+  const PROFILES = {
+    helpTourFab: {
+      gradient: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 52%, #a855f7 100%)',
+      glow: 'rgba(99, 102, 241, 0.82)',
+      borderGlow: '#c7d2fe'
+    },
+    generalChatFab: {
+      gradient: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+      glow: 'rgba(99, 102, 241, 0.85)',
+      borderGlow: '#c7d2fe'
+    },
+    chatbotFab: {
+      gradient: 'linear-gradient(135deg, #38bdf8 0%, #a855f7 50%, #f43f5e 100%)',
+      glow: 'rgba(168, 85, 247, 0.75)',
+      borderGlow: '#e9d5ff'
+    }
+  };
+
+  let isAnimating = false;
+  let activeFab = null;
+  let activePopup = null;
+  let baselineTops = new Map();
+
+  function getFabList() {
+    const list = [];
+    const helpFab = document.getElementById('helpTourFab');
+    const generalFab = document.getElementById('generalChatFab');
+    const chatbotFab = document.getElementById('chatbotFab');
+    if (helpFab) list.push(helpFab);
+    if (generalFab) list.push(generalFab);
+    if (chatbotFab) list.push(chatbotFab);
+
+    // Sort from top to bottom based on physical baseline
+    return list.sort((a, b) => {
+      const topA = getBaselineTop(a);
+      const topB = getBaselineTop(b);
+      return topA - topB;
+    });
+  }
+
+  function getBaselineTop(el) {
+    if (baselineTops.has(el)) return baselineTops.get(el);
+    const rect = el.getBoundingClientRect();
+    const currentY = parseFloat(el.dataset.motionY || 0);
+    const baseline = rect.top - currentY;
+    baselineTops.set(el, baseline);
+    return baseline;
+  }
+
+  function updateAllBaselines() {
+    baselineTops.clear();
+    const fabs = [
+      document.getElementById('helpTourFab'),
+      document.getElementById('generalChatFab'),
+      document.getElementById('chatbotFab')
+    ].filter(Boolean);
+
+    fabs.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      const currentY = parseFloat(el.dataset.motionY || 0);
+      baselineTops.set(el, rect.top - currentY);
+    });
+  }
+
+  window.addEventListener('resize', updateAllBaselines);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateAllBaselines);
+  } else {
+    updateAllBaselines();
+  }
+
+  function isEffectsDisabled() {
+    return (
+      document.documentElement.classList.contains('disable-effects') ||
+      localStorage.getItem('disable_effects') === 'true' ||
+      Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)
+    );
+  }
+
+  /**
+   * Spawn a single translucent ghost echo disc without forcing synchronous reflows
+   */
+  function spawnGhostEcho(rect, profile) {
+    if (!rect || !rect.width || !rect.height) return;
+
+    const echo = document.createElement('div');
+    echo.className = 'fab-ghost-echo';
+    echo.style.left = `${Math.round(rect.left)}px`;
+    echo.style.top = `${Math.round(rect.top)}px`;
+    echo.style.width = `${Math.round(rect.width)}px`;
+    echo.style.height = `${Math.round(rect.height)}px`;
+    echo.style.background = profile?.gradient || 'linear-gradient(135deg, #4f46e5, #7c3aed)';
+    echo.style.setProperty('--echo-glow', profile?.glow || 'rgba(99, 102, 241, 0.4)');
+    echo.style.borderColor = profile?.borderGlow || 'rgba(255, 255, 255, 0.65)';
+
+    document.body.appendChild(echo);
+    setTimeout(() => echo.remove(), 320);
+  }
+
+  /**
+   * Performance-optimized Ghost Trail Generator (snapshots positions once; no layout thrashing)
+   */
+  function startGhostTrail(buttonList, durationMs, profileOverride = null) {
+    if (isEffectsDisabled() || !buttonList.length) return;
+
+    // Snapshot button rects once to prevent layout thrashing
+    const snapshots = buttonList
+      .map(btn => {
+        const rect = btn.getBoundingClientRect();
+        return {
+          rect,
+          profile: profileOverride || PROFILES[btn.id] || PROFILES.generalChatFab
+        };
+      })
+      .filter(item => item.rect.width && item.rect.height);
+
+    if (!snapshots.length) return;
+
+    // Spawn 2 lightweight echoes at key points along the motion instead of flooding the DOM
+    const delays = [40, Math.min(180, Math.round(durationMs * 0.4))];
+    delays.forEach(delay => {
+      setTimeout(() => {
+        snapshots.forEach(({ rect, profile }) => {
+          spawnGhostEcho(rect, profile);
+        });
+      }, delay);
+    });
+  }
+
+  /**
+   * Dynamically aligns popup's transform-origin to the exact center of the trigger FAB.
+   * This guarantees that when shrinking/closing (or expanding/opening), the popup
+   * converges precisely into the button disc without any misalignment.
+   */
+  function alignPopupToFab(popupEl, triggerFab, targetTopOverride = null) {
+    if (!popupEl || !triggerFab) return;
+    if (window.innerWidth <= 768 && popupEl.id === 'chatbotPopup') return;
+
+    const computed = window.getComputedStyle(popupEl);
+    const right = parseFloat(computed.right) || 24;
+    const bottom = parseFloat(computed.bottom) || 104;
+    const popupWidth = popupEl.offsetWidth || 420;
+    const popupHeight = popupEl.offsetHeight || 600;
+
+    const unscaledLeft = window.innerWidth - right - popupWidth;
+    const unscaledTop = window.innerHeight - bottom - popupHeight;
+
+    const fabRect = triggerFab.getBoundingClientRect();
+    const fabCenterX = fabRect.left + fabRect.width / 2;
+
+    const currentFabTop = (targetTopOverride !== null && targetTopOverride !== undefined)
+      ? targetTopOverride
+      : fabRect.top;
+    const fabCenterY = currentFabTop + fabRect.height / 2;
+
+    const originX = Math.round(fabCenterX - unscaledLeft);
+    const originY = Math.round(fabCenterY - unscaledTop);
+
+    popupEl.style.transformOrigin = `${originX}px ${originY}px`;
+    popupEl.style.setProperty('--fab-origin-x', `${originX}px`);
+    popupEl.style.setProperty('--fab-origin-y', `${originY}px`);
+  }
+
+  /**
+   * MASTER OPEN CHOREOGRAPHY
+   */
+  async function open(triggerFab, popupEl, options = {}) {
+    if (isAnimating) return;
+    isAnimating = true;
+
+    // Fast-path: if animations are disabled or reduced motion requested, open immediately without delay
+    if (isEffectsDisabled()) {
+      if (activePopup && activePopup !== popupEl) {
+        activePopup.classList.remove('is-open');
+        activePopup.setAttribute('aria-hidden', 'true');
+      }
+      activeFab = triggerFab;
+      activePopup = popupEl;
+      if (popupEl) {
+        popupEl.classList.add('is-open');
+        popupEl.setAttribute('aria-hidden', 'false');
+      }
+      triggerFab.setAttribute('aria-expanded', 'true');
+      triggerFab.classList.add('is-on-top');
+      if (typeof options.onOpened === 'function') options.onOpened();
+      isAnimating = false;
+      return;
+    }
+
+    // If another popup is open, close its UI first without resetting layout
+    if (activePopup && activePopup !== popupEl) {
+      if (activeFab) alignPopupToFab(activePopup, activeFab);
+      activePopup.classList.remove('is-open');
+      activePopup.setAttribute('aria-hidden', 'true');
+    }
+
+    updateAllBaselines();
+    const fabs = getFabList();
+    if (fabs.length === 0) {
+      isAnimating = false;
+      return;
+    }
+
+    const lastIndex = fabs.length - 1;
+    const lastFab = fabs[lastIndex];
+    const k = fabs.indexOf(triggerFab);
+    activeFab = triggerFab;
+    activePopup = popupEl;
+
+    const targetTop = getBaselineTop(triggerFab);
+    const lastTop = getBaselineTop(lastFab);
+    const profile = PROFILES[triggerFab.id] || PROFILES.generalChatFab;
+
+    // SPECIAL CASE: Trigger button is ALREADY the bottom-most button
+    if (k === lastIndex) {
+      const subordinates = fabs.filter(b => b !== triggerFab);
+      startGhostTrail(subordinates, CONFIG.durationGlide, profile);
+
+      // Precisely anchor popup expansion to triggerFab's current center
+      if (popupEl) {
+        alignPopupToFab(popupEl, triggerFab);
+        popupEl.classList.add('is-open');
+        popupEl.setAttribute('aria-hidden', 'false');
+      }
+      triggerFab.setAttribute('aria-expanded', 'true');
+      triggerFab.classList.add('is-on-top');
+      subordinates.forEach(b => {
+        b.classList.remove('is-on-top', 'is-glowing');
+        b.setAttribute('aria-expanded', 'false');
+      });
+
+      subordinates.forEach(btn => {
+        btn.classList.add('anim-motion');
+        const delta = lastTop - getBaselineTop(btn);
+        btn.style.transform = `translateY(${delta}px) scale(0.92)`;
+        btn.dataset.motionY = `${delta}`;
+        btn.classList.add('is-stacked-behind');
+      });
+
+      triggerFab.classList.add('anim-motion');
+      triggerFab.style.transform = 'translateY(0px)';
+      triggerFab.dataset.motionY = '0';
+      triggerFab.classList.remove('is-stacked-behind');
+
+      await new Promise(r => setTimeout(r, CONFIG.durationGlide));
+      if (typeof options.onOpened === 'function') options.onOpened();
+      isAnimating = false;
+      return;
+    }
+
+    // GENERAL CASE: Trigger button is above the bottom button (e.g. generalChatFab)
+    // Step 1: Convergence
+    const subordinates = fabs.filter(b => b !== triggerFab);
+    startGhostTrail(subordinates, CONFIG.durationConverge, profile);
+
+    triggerFab.classList.add('is-on-top');
+    triggerFab.classList.remove('is-stacked-behind');
+    triggerFab.classList.add('anim-motion-fast');
+    triggerFab.style.transform = 'translateY(0px)';
+    triggerFab.dataset.motionY = '0';
+
+    subordinates.forEach(btn => {
+      btn.classList.remove('is-on-top', 'is-glowing');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.classList.add('is-stacked-behind');
+      btn.classList.add('anim-motion-fast');
+      const delta = targetTop - getBaselineTop(btn);
+      btn.style.transform = `translateY(${delta}px) scale(0.92)`;
+      btn.dataset.motionY = `${delta}`;
+    });
+
+    // Continuous velocity transfer: begin gliding slightly before convergence ends
+    const overlapDelay = 35;
+    await new Promise(r => setTimeout(r, CONFIG.durationConverge - overlapDelay));
+
+    // Step 2: Downward Glide of the whole stack + Synchronized Popup Opening
+    if (popupEl) {
+      alignPopupToFab(popupEl, triggerFab, lastTop);
+      popupEl.classList.add('is-open');
+      popupEl.setAttribute('aria-hidden', 'false');
+    }
+    triggerFab.setAttribute('aria-expanded', 'true');
+
+    startGhostTrail([triggerFab], CONFIG.durationGlide, profile);
+
+    fabs.forEach(btn => {
+      btn.classList.remove('anim-motion-fast');
+      btn.classList.add('anim-motion');
+      const finalDelta = lastTop - getBaselineTop(btn);
+      if (btn === triggerFab) {
+        btn.style.transform = `translateY(${finalDelta}px) scale(1)`;
+      } else {
+        btn.style.transform = `translateY(${finalDelta}px) scale(0.92)`;
+      }
+      btn.dataset.motionY = `${finalDelta}`;
+    });
+
+    await new Promise(r => setTimeout(r, CONFIG.durationGlide + overlapDelay));
+    if (typeof options.onOpened === 'function') options.onOpened();
+    isAnimating = false;
+  }
+
+  /**
+   * MASTER CLOSE CHOREOGRAPHY (REVERSE EFFECT)
+   */
+  async function close(triggerFab, popupEl, options = {}) {
+    if (isAnimating) return;
+    isAnimating = true;
+
+    // Fast-path: if animations are disabled or reduced motion requested, close immediately without delay
+    if (isEffectsDisabled()) {
+      if (popupEl) {
+        popupEl.classList.remove('is-open');
+        popupEl.setAttribute('aria-hidden', 'true');
+      }
+      triggerFab.setAttribute('aria-expanded', 'false');
+      activeFab = null;
+      activePopup = null;
+      if (typeof options.onClosed === 'function') options.onClosed();
+      isAnimating = false;
+      return;
+    }
+
+    updateAllBaselines();
+    const fabs = getFabList();
+    if (fabs.length === 0) {
+      isAnimating = false;
+      return;
+    }
+
+    const lastIndex = fabs.length - 1;
+    const k = fabs.indexOf(triggerFab);
+    const targetTop = getBaselineTop(triggerFab);
+    const profile = PROFILES[triggerFab.id] || PROFILES.generalChatFab;
+
+    // SPECIAL CASE: Closing from bottom button (chatbotFab)
+    if (k === lastIndex) {
+      if (popupEl) {
+        alignPopupToFab(popupEl, triggerFab);
+        popupEl.classList.remove('is-open');
+        popupEl.setAttribute('aria-hidden', 'true');
+      }
+      triggerFab.setAttribute('aria-expanded', 'false');
+
+      // Visual absorb reaction on button when popup shrinks into it
+      setTimeout(() => {
+        triggerFab.classList.add('fab-absorb-pulse');
+        setTimeout(() => triggerFab.classList.remove('fab-absorb-pulse'), 450);
+      }, 300);
+
+      const subordinates = fabs.filter(b => b !== triggerFab);
+      startGhostTrail(subordinates, CONFIG.durationGlide, profile);
+
+      subordinates.forEach(btn => {
+        btn.classList.remove('anim-motion-fast');
+        btn.classList.add('anim-motion');
+        btn.style.transform = 'translateY(0px) scale(1)';
+        btn.dataset.motionY = '0';
+        btn.classList.remove('is-stacked-behind', 'is-on-top', 'is-glowing');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+
+      triggerFab.classList.remove('is-on-top', 'is-glowing');
+      triggerFab.style.transform = 'translateY(0px)';
+      triggerFab.dataset.motionY = '0';
+
+      await new Promise(r => setTimeout(r, CONFIG.durationGlide));
+      fabs.forEach(btn => btn.classList.remove('anim-motion', 'anim-motion-fast'));
+      activeFab = null;
+      activePopup = null;
+      if (typeof options.onClosed === 'function') options.onClosed();
+      isAnimating = false;
+      return;
+    }
+
+    // GENERAL CASE: Closing from upper button (e.g. generalChatFab)
+    // Align shrink origin to destination position of triggerFab
+    if (popupEl) {
+      alignPopupToFab(popupEl, triggerFab, targetTop);
+      popupEl.classList.remove('is-open');
+      popupEl.setAttribute('aria-hidden', 'true');
+    }
+    triggerFab.setAttribute('aria-expanded', 'false');
+
+    // Visual absorb reaction on button when meeting popup at targetTop
+    setTimeout(() => {
+      triggerFab.classList.add('fab-absorb-pulse');
+      setTimeout(() => triggerFab.classList.remove('fab-absorb-pulse'), 450);
+    }, 360);
+
+    // Phase A: Stack glides back UP to triggerFab's baseline position with upward ghost trail
+    startGhostTrail([triggerFab], CONFIG.durationGlide, profile);
+
+    fabs.forEach(btn => {
+      btn.classList.remove('anim-motion-fast');
+      btn.classList.add('anim-motion');
+      const delta = targetTop - getBaselineTop(btn);
+      if (btn === triggerFab) {
+        btn.style.transform = 'translateY(0px) scale(1)';
+      } else {
+        btn.style.transform = `translateY(${delta}px) scale(0.92)`;
+      }
+      btn.dataset.motionY = (btn === triggerFab) ? '0' : `${delta}`;
+    });
+
+    const overlapDelay = 35;
+    await new Promise(r => setTimeout(r, CONFIG.durationGlide - overlapDelay));
+
+    // Phase B: Other buttons disperse back down to their resting positions
+    const subordinates = fabs.filter(b => b !== triggerFab);
+    startGhostTrail(subordinates, CONFIG.durationConverge, profile);
+
+    subordinates.forEach(btn => {
+      btn.classList.remove('anim-motion');
+      btn.classList.add('anim-motion-fast');
+      btn.style.transform = 'translateY(0px) scale(1)';
+      btn.dataset.motionY = '0';
+      btn.classList.remove('is-stacked-behind', 'is-on-top', 'is-glowing');
+      btn.setAttribute('aria-expanded', 'false');
+    });
+
+    triggerFab.classList.remove('is-on-top', 'is-glowing');
+    triggerFab.style.transform = 'translateY(0px)';
+    triggerFab.dataset.motionY = '0';
+
+    await new Promise(r => setTimeout(r, CONFIG.durationConverge + overlapDelay));
+    fabs.forEach(btn => btn.classList.remove('anim-motion', 'anim-motion-fast'));
+
+    activeFab = null;
+    activePopup = null;
+    if (typeof options.onClosed === 'function') options.onClosed();
+    isAnimating = false;
+  }
+
+  // Update popup transform-origin on window resize
+  window.addEventListener('resize', () => {
+    updateAllBaselines();
+    if (activePopup && activeFab) {
+      alignPopupToFab(activePopup, activeFab);
+    }
+  });
+
+  // Export Global API
+  window.FabMotion = {
+    open,
+    close,
+    alignPopupToFab,
+    isAnimating: () => isAnimating,
+    getActiveFab: () => activeFab,
+    getActivePopup: () => activePopup,
+    startGhostTrail
+  };
+})();

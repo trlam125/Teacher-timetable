@@ -1,0 +1,189 @@
+# ==============================================================================
+# .gitignore for Smart TKB (Teacher-timetable)
+# Comprehensive ignore rules for Python, Android WebView, Node, OS, and Secrets.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Python & Virtual Environments
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Packaging & Distribution
+build/
+dist/
+.eggs/
+*.egg
+*.egg-info/
+*.whl
+pip-wheel-metadata/
+
+# Testing & Linting
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# ------------------------------------------------------------------------------
+# Environment Variables, Secrets & Credentials (NEVER COMMIT)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+!**/.env.example
+!**/.env.template
+
+# Certificates, Keys & Signing
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+client_secret*.json
+credentials*.json
+service-account*.json
+firebase-adminsdk*.json
+google-services.json
+secrets.json
+
+# ------------------------------------------------------------------------------
+# Local Tunnel Tools & Standalone Binaries (Cloudflare, ngrok, Tailscale)
+# ------------------------------------------------------------------------------
+ngrok.exe
+ngrok
+.ngrok2/
+ngrok.yml
+ngrok.yaml
+cloudflared.exe
+cloudflared
+cloudflared-windows-*.exe
+cloudflared-linux-*
+cloudflared-darwin-*
+.cloudflare/
+cert.pem
+tailscale.exe
+tailscaled.exe
+.tailscale/
+
+# ------------------------------------------------------------------------------
+# Node.js / Vercel Mail Proxy (vercel-mail-proxy/)
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.vercel/
+.next/
+out/
+
+# ------------------------------------------------------------------------------
+# Android / Gradle (android-webview/)
+# ------------------------------------------------------------------------------
+.gradle/
+**/build/
+android-webview/.gradle/
+android-webview/**/build/
+android-webview/local.properties
+android-webview/.idea/
+android-webview/.cxx/
+android-webview/captures/
+android-webview/.externalNativeBuild/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+*.apk
+*.aab
+*.apks
+*.aar
+*.dex
+mapping.txt
+native-debug-symbols.zip
+
+# ------------------------------------------------------------------------------
+# Runtime Logs, Temporary Files & Data Exports
+# ------------------------------------------------------------------------------
+*.log
+logs/
+*.pid
+*.seed
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+uploads/
+exports/
+
+# ------------------------------------------------------------------------------
+# Local Databases
+# ------------------------------------------------------------------------------
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# ------------------------------------------------------------------------------
+# IDEs & Operating Systems
+# ------------------------------------------------------------------------------
+# JetBrains (PyCharm, Android Studio, IntelliJ IDEA)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Editor swap files
+*.swp
+*.swo
+*~
+*.bak

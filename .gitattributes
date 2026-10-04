@@ -1,0 +1,140 @@
+# ==============================================================================
+# Git Attributes configuration for Smart TKB (Teacher-timetable)
+# Normalizes line endings across Windows, Linux, and macOS.
+# ==============================================================================
+
+# Auto-detect text files and normalize line endings to LF on commit
+* text=auto
+
+# Git configuration files
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# ------------------------------------------------------------------------------
+# Source code and config files: enforce LF in Git repository
+# ------------------------------------------------------------------------------
+# Python
+*.py          text eol=lf
+*.pyi         text eol=lf
+*.toml        text eol=lf
+*.ini         text eol=lf
+*.cfg         text eol=lf
+
+# Web / Frontend
+*.html        text eol=lf
+*.htm         text eol=lf
+*.css         text eol=lf
+*.scss        text eol=lf
+*.js          text eol=lf
+*.mjs         text eol=lf
+*.cjs         text eol=lf
+*.ts          text eol=lf
+*.tsx         text eol=lf
+*.json        text eol=lf
+*.xml         text eol=lf
+*.svg         text eol=lf
+
+# Android / Kotlin / Java
+*.java        text eol=lf
+*.kt          text eol=lf
+*.kts         text eol=lf
+*.gradle      text eol=lf
+*.pro         text eol=lf
+*.properties  text eol=lf
+
+# Documentation & data
+*.md          text eol=lf
+*.txt         text eol=lf
+*.rst         text eol=lf
+*.csv         text eol=lf
+*.tsv         text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+*.sql         text eol=lf
+
+# Shell scripts (Linux / macOS)
+*.sh          text eol=lf
+*.bash        text eol=lf
+*.zsh         text eol=lf
+gradlew       text eol=lf
+android-webview/gradlew text eol=lf
+
+# ------------------------------------------------------------------------------
+# Windows scripts: keep CRLF for native Windows Command Prompt / PowerShell
+# ------------------------------------------------------------------------------
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+gradlew.bat   text eol=crlf
+android-webview/gradlew.bat text eol=crlf
+
+# ------------------------------------------------------------------------------
+# Binary files: never convert line endings, never diff as text
+# ------------------------------------------------------------------------------
+# Images
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.ico         binary
+*.webp        binary
+*.bmp         binary
+
+# Documents & Spreadsheets
+*.pdf         binary
+*.xlsx        binary
+*.xls         binary
+*.docx        binary
+*.pptx        binary
+
+# Fonts
+*.woff        binary
+*.woff2       binary
+*.ttf         binary
+*.otf         binary
+*.eot         binary
+
+# Archives & Packages
+*.zip         binary
+*.7z          binary
+*.rar         binary
+*.tar         binary
+*.gz          binary
+*.bz2         binary
+*.xz          binary
+
+# Executables & Native libraries
+*.exe         binary
+*.dll         binary
+*.so          binary
+*.dylib       binary
+*.pyd         binary
+
+# JVM / Android build artifacts & Keystores
+*.jar         binary
+*.aar         binary
+*.apk         binary
+*.aab         binary
+*.apks        binary
+*.dex         binary
+*.class       binary
+*.jks         binary
+*.keystore    binary
+*.p12         binary
+*.pfx         binary
+
+# Local databases
+*.db          binary
+*.sqlite      binary
+*.sqlite3     binary
+
+# ------------------------------------------------------------------------------
+# Export-ignore: exclude from git archive releases
+# ------------------------------------------------------------------------------
+.gitattributes              export-ignore
+.gitignore                 export-ignore
+ngrok.exe                  export-ignore
+cloudflared.exe            export-ignore
+cloudflared-windows-*.exe  export-ignore
+cloudflared-linux-*        export-ignore
+cloudflared-darwin-*       export-ignore

@@ -1,0 +1,12 @@
+{
+  "name": "smart-tkb-mail-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "nodemailer": "^10.0.13"
+  }
+}

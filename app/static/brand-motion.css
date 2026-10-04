@@ -1,0 +1,1128 @@
+/* ==========================================================================
+   Smart TKB - Brand Motion Design System
+   Đồng bộ hoá chuyển động 100% giữa Logo & Dòng chữ "Smart TKB" (Chu kỳ 5.6s):
+   - 0% - 2%:   Khởi đầu chuẩn bị (sạch sẽ, reset đồng thời)
+   - 2% - 34%:  Giai đoạn 1: Bắt đầu xuất hiện đồng thời
+                + Logo: vẽ nét viền, đổ màu nền, dựng lịch, tích checkmark, nảy huy hiệu
+                + Chữ: từng ký tự S-m-a-r-t-T-K-B hạ cánh so le có độ nảy đàn hồi
+                + Cả hai hoàn tất 100% hình thái tại mốc 34%
+   - 36% - 62%: Giai đoạn 2: Quét tia sáng liền mạch (Seamless Sweep)
+                + 36% - 48%: Vệt sáng lướt chéo qua Logo bên trái
+                + 44% - 62%: Tia sáng (Flare Beam) tiếp nối lướt qua dòng chữ bên phải
+                + 58% - 70%: Hào quang lắng đọng dịu êm (Settle Glow)
+   - 64% - 86%: Giai đoạn 3: Trạng thái hiển thị hoàn hảo & tĩnh lặng, dễ đọc nhất
+   - 86% - 96%: Giai đoạn 4: Kết thúc đồng thời (Synchronized Exit)
+                + Cả Logo và các ký tự bắt đầu thu hồi tại 86%
+                + Biến mất êm ái hoàn toàn tại 95% - 96%
+   - 96% - 100%: Nghỉ ngắn trước khi lặp lại vòng tuần hoàn mới
+   ========================================================================== */
+
+/* -------------------------------------------------------------
+   1. ĐỒNG BỘ HOÁ BIỂU TƯỢNG LOGO TRONG DOM
+   ------------------------------------------------------------- */
+.brand-motion-logo {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: block;
+  filter: drop-shadow(0 7px 14px rgba(37, 99, 235, 0.20));
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.35s ease;
+  will-change: transform, filter;
+  overflow: visible;
+}
+
+.appbar-brand:hover .brand-motion-logo,
+.brand-with-logo:hover .brand-motion-logo,
+.landing-brand:hover .brand-motion-logo {
+  transform: translateY(-2px) scale(1.05);
+  filter: drop-shadow(0 12px 24px rgba(37, 99, 235, 0.45)) drop-shadow(0 0 14px rgba(125, 232, 255, 0.5));
+}
+
+.brand-motion-logo .logo-base {
+  opacity: 0;
+  animation: baseReveal 5.6s ease infinite;
+}
+
+.brand-motion-logo .logo-outline {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 175;
+  stroke-dashoffset: 175;
+  opacity: 0;
+  animation: outlineDraw 5.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.brand-motion-logo .draw-stroke {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  opacity: 0;
+}
+
+.brand-motion-logo .calendar-box {
+  animation: drawCalendar 5.6s ease infinite;
+}
+
+.brand-motion-logo .calendar-divider {
+  animation: drawDivider 5.6s ease infinite;
+}
+
+.brand-motion-logo .calendar-rings {
+  animation: drawRings 5.6s ease infinite;
+}
+
+.brand-motion-logo .calendar-slots {
+  animation: drawSlots 5.6s ease infinite;
+}
+
+.brand-motion-logo .checkmark {
+  animation: drawCheck 5.6s ease infinite;
+}
+
+.brand-motion-logo .badge-halo {
+  transform-origin: 51px 13px;
+  transform-box: view-box;
+  opacity: 0;
+  animation: badgeHalo 5.6s ease infinite;
+}
+
+.brand-motion-logo .badge {
+  transform-origin: 51px 13px;
+  transform-box: view-box;
+  opacity: 0;
+  animation: badgePop 5.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.brand-motion-logo .shine {
+  opacity: 0;
+  animation: shinePass 5.6s ease-in-out infinite;
+}
+
+/* Keyframes Logo đồng bộ */
+@keyframes outlineDraw {
+
+  0%,
+  2% {
+    opacity: 0;
+    stroke-dashoffset: 175;
+  }
+
+  5% {
+    opacity: 1;
+  }
+
+  22% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  26% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+
+  86% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+
+  88% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  94% {
+    opacity: 1;
+    stroke-dashoffset: 175;
+  }
+
+  96%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 175;
+  }
+}
+
+@keyframes baseReveal {
+
+  0%,
+  6% {
+    opacity: 0;
+  }
+
+  18%,
+  86% {
+    opacity: 1;
+  }
+
+  93%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes drawCalendar {
+
+  0%,
+  8% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+
+  11% {
+    opacity: 1;
+  }
+
+  24%,
+  86% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  93% {
+    opacity: 1;
+    stroke-dashoffset: 120;
+  }
+
+  96%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes drawDivider {
+
+  0%,
+  12% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  26%,
+  86% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  92% {
+    opacity: 1;
+    stroke-dashoffset: 120;
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes drawRings {
+
+  0%,
+  15% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+
+  17% {
+    opacity: 1;
+  }
+
+  28%,
+  86% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  91% {
+    opacity: 1;
+    stroke-dashoffset: 120;
+  }
+
+  94%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes drawSlots {
+
+  0%,
+  18% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  30%,
+  86% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  90% {
+    opacity: 1;
+    stroke-dashoffset: 120;
+  }
+
+  93%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes drawCheck {
+
+  0%,
+  22% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+
+  24% {
+    opacity: 1;
+  }
+
+  33%,
+  86% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  89% {
+    opacity: 1;
+    stroke-dashoffset: 120;
+  }
+
+  92%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes badgePop {
+
+  0%,
+  26% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+
+  34%,
+  86% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  88% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+
+  91% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(0.15);
+  }
+}
+
+@keyframes badgeHalo {
+
+  0%,
+  28% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+
+  31% {
+    opacity: 0.72;
+    transform: scale(0.8);
+  }
+
+  35% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+
+  36%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes shinePass {
+
+  0%,
+  36% {
+    opacity: 0;
+    transform: translate(-80px, -80px);
+  }
+
+  39% {
+    opacity: 1;
+  }
+
+  46% {
+    opacity: 1;
+    transform: translate(80px, 80px);
+  }
+
+  48%,
+  100% {
+    opacity: 0;
+    transform: translate(80px, 80px);
+  }
+}
+
+/* -------------------------------------------------------------
+   2. KHUNG CHỨA DÒNG CHỮ THƯƠNG HIỆU
+   ------------------------------------------------------------- */
+.brand-motion-sweep {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  user-select: none;
+  overflow: visible !important;
+  line-height: inherit;
+  vertical-align: middle;
+}
+
+.brand-motion-sweep .brand-word {
+  display: inline-flex;
+  align-items: baseline;
+  overflow: visible !important;
+}
+
+.brand-motion-sweep .brand-char-space {
+  display: inline-block;
+  width: 0.32em;
+}
+
+/* -------------------------------------------------------------
+   3. GIAI ĐOẠN 1: TỪNG CHỮ HẠ XUỐNG ĐỒNG BỘ VỚI LOGO (2% - 34%)
+   VÀ KẾT THÚC ĐỒNG BỘ VỚI LOGO (86% - 96%)
+   ------------------------------------------------------------- */
+.brand-motion-sweep .brand-char {
+  display: inline-block;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  will-change: transform, opacity;
+  opacity: 0;
+  transform: translateY(-36px);
+  filter: blur(2px);
+}
+
+/* Char 0: 'S' */
+.brand-motion-sweep .brand-char-0 {
+  animation: charDrop0 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop0 {
+
+  0%,
+  2% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  10% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  13% {
+    transform: translateY(-1px);
+  }
+
+  15% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  88% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 1: 'm' */
+.brand-motion-sweep .brand-char-1 {
+  animation: charDrop1 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop1 {
+
+  0%,
+  5% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  13% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  16% {
+    transform: translateY(-1px);
+  }
+
+  18% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  88.5% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  94.5%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 2: 'a' */
+.brand-motion-sweep .brand-char-2 {
+  animation: charDrop2 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop2 {
+
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  16% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  19% {
+    transform: translateY(-1px);
+  }
+
+  21% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  88.5% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 3: 'r' */
+.brand-motion-sweep .brand-char-3 {
+  animation: charDrop3 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop3 {
+
+  0%,
+  11% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  19% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  22% {
+    transform: translateY(-1px);
+  }
+
+  24% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  89% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  95%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 4: 't' */
+.brand-motion-sweep .brand-char-4 {
+  animation: charDrop4 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop4 {
+
+  0%,
+  14% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  22% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  25% {
+    transform: translateY(-1px);
+  }
+
+  27% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  89% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  95.5%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 5: 'T' */
+.brand-motion-sweep .brand-char-5 {
+  animation: charDrop5 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop5 {
+
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  26% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  29% {
+    transform: translateY(-1px);
+  }
+
+  31% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  89.5% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  95.5%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 6: 'K' */
+.brand-motion-sweep .brand-char-6 {
+  animation: charDrop6 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop6 {
+
+  0%,
+  21% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  29% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  32% {
+    transform: translateY(-1px);
+  }
+
+  34% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  89.5% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* Char 7+: 'B' và các ký tự tiếp sau */
+.brand-motion-sweep .brand-char-7,
+.brand-motion-sweep .brand-char:nth-child(n+8) {
+  animation: charDrop7 5.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+}
+
+@keyframes charDrop7 {
+
+  0%,
+  24% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+
+  32% {
+    opacity: 1;
+    transform: translateY(3.5px);
+    filter: blur(0);
+  }
+
+  35% {
+    transform: translateY(-1px);
+  }
+
+  37% {
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    animation-timing-function: ease-out;
+  }
+
+  90% {
+    opacity: 1;
+    transform: translateY(2.5px);
+    filter: blur(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(-36px);
+    filter: blur(2.5px);
+  }
+}
+
+/* -------------------------------------------------------------
+   4. GIAI ĐOẠN 2: QUÉT TIA SÁNG TIẾP NỐI TỪ LOGO SANG CHỮ (44% - 62%)
+   ------------------------------------------------------------- */
+.brand-sweep-text {
+  --text-base: #10233f;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  color: var(--text-base);
+}
+
+:root.dark-mode .brand-sweep-text,
+body.dark-mode .brand-sweep-text {
+  --text-base: #f8fafc;
+}
+
+.brand-sweep-text::after {
+  content: attr(data-brand-text);
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  white-space: pre;
+  pointer-events: none;
+  color: transparent;
+  background: linear-gradient(100deg,
+      transparent 0%,
+      transparent 36%,
+      #1d63ed 45%,
+      #38bdf8 50%,
+      #ffffff 52%,
+      #38bdf8 54%,
+      #1d63ed 59%,
+      transparent 68%,
+      transparent 100%);
+  background-size: 320% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0;
+  animation: textShimmerSweep 5.6s ease-in-out infinite;
+}
+
+@keyframes textShimmerSweep {
+
+  0%,
+  42% {
+    opacity: 0;
+    background-position: 100% 0;
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  59% {
+    opacity: 1;
+    background-position: 0% 0;
+  }
+
+  63% {
+    opacity: 0;
+    background-position: 0% 0;
+  }
+
+  65%,
+  100% {
+    opacity: 0;
+    background-position: 100% 0;
+  }
+}
+
+/* Đốm sáng mờ quét ngang qua dòng chữ (Soft Subtle Gleam Spot) */
+.brand-flare-beam {
+  position: absolute;
+  top: 50%;
+  left: -15px;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  animation: beamTravel 5.6s cubic-bezier(0.36, 0, 0.24, 1) infinite;
+}
+
+/* Tâm đốm sáng mờ nhẹ */
+.brand-flare-beam::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(255, 255, 255, 0.75) 0%,
+      rgba(125, 232, 255, 0.45) 45%,
+      transparent 75%);
+  box-shadow: 0 0 10px 3px rgba(125, 232, 255, 0.45),
+    0 0 18px 6px rgba(47, 128, 237, 0.25);
+  filter: blur(1px);
+}
+
+/* Hào quang mờ ảo bao quanh đốm sáng */
+.brand-flare-beam::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(125, 232, 255, 0.35) 0%,
+      rgba(47, 128, 237, 0.12) 50%,
+      transparent 70%);
+  filter: blur(2px);
+}
+
+@keyframes beamTravel {
+
+  0%,
+  42% {
+    left: -15px;
+    opacity: 0;
+  }
+
+  45% {
+    opacity: 0.75;
+  }
+
+  58% {
+    opacity: 0.8;
+  }
+
+  62%,
+  100% {
+    left: calc(100% + 15px);
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------
+   5. GIAI ĐOẠN 3: LẮNG ĐỌNG HÀO QUANG DỊU ÊM (58% - 70%)
+   ------------------------------------------------------------- */
+.brand-settle-glow {
+  position: absolute;
+  inset: -6px -12px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 75% 50%, rgba(0, 210, 255, 0.20), transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  animation: settleGlow 5.6s ease-out infinite;
+}
+
+@keyframes settleGlow {
+
+  0%,
+  58% {
+    opacity: 0;
+  }
+
+  62% {
+    opacity: 0.8;
+  }
+
+  66% {
+    opacity: 0.4;
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------
+   6. TƯƠNG THÍCH TRÌNH DUYỆT & GIẢM CHUYỂN ĐỘNG
+   ------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-motion-logo .logo-outline {
+    display: none !important;
+  }
+
+  .brand-motion-logo .logo-base {
+    opacity: 1 !important;
+    animation: none !important;
+  }
+
+  .brand-motion-logo .draw-stroke {
+    opacity: 1 !important;
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+
+  .brand-motion-logo .badge {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .brand-motion-logo .badge-halo,
+  .brand-motion-logo .shine {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .brand-motion-sweep .brand-char {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+  }
+
+  .brand-sweep-text::after {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .brand-flare-beam,
+  .brand-settle-glow {
+    display: none !important;
+  }
+}
+
+html.disable-effects .brand-motion-logo .logo-outline,
+.disable-effects .brand-motion-logo .logo-outline {
+  display: none !important;
+}
+
+html.disable-effects .brand-motion-logo .logo-base,
+.disable-effects .brand-motion-logo .logo-base {
+  opacity: 1 !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-logo .draw-stroke,
+.disable-effects .brand-motion-logo .draw-stroke {
+  opacity: 1 !important;
+  stroke-dashoffset: 0 !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-logo .badge,
+.disable-effects .brand-motion-logo .badge {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-logo .badge-halo,
+html.disable-effects .brand-motion-logo .shine,
+.disable-effects .brand-motion-logo .badge-halo,
+.disable-effects .brand-motion-logo .shine {
+  display: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-motion-sweep .brand-char,
+.disable-effects .brand-motion-sweep .brand-char {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-sweep-text::after,
+.disable-effects .brand-sweep-text::after {
+  display: none !important;
+  animation: none !important;
+}
+
+html.disable-effects .brand-flare-beam,
+html.disable-effects .brand-settle-glow,
+.disable-effects .brand-flare-beam,
+.disable-effects .brand-settle-glow {
+  display: none !important;
+}

@@ -1,0 +1,1184 @@
+/* ==========================================================================
+   Smart TKB - Weather Information & 7-Day Forecast (Open-Meteo)
+   Neo-glassmorphic styling, responsive cards, 7-day forecast grid & modal
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. APPBAR WEATHER BADGE
+   -------------------------------------------------------------------------- */
+.appbar-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  margin: 0 8px;
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.08));
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 999px;
+  color: var(--ink, #0f172a);
+  font-family: var(--font-sans, "Be Vietnam Pro", sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+}
+
+.appbar-weather:hover {
+  background: var(--primary-focus, rgba(37, 99, 235, 0.16));
+  border-color: var(--primary, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.appbar-weather:active {
+  transform: translateY(0);
+}
+
+.appbar-weather-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.appbar-weather-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.appbar-weather-temp {
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+}
+
+.appbar-weather-city {
+  color: var(--muted, #64748b);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+:root.dark-mode .appbar-weather,
+html.dark-mode .appbar-weather {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+:root.dark-mode .appbar-weather:hover,
+html.dark-mode .appbar-weather:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: var(--primary, #3b82f6);
+}
+
+:root.dark-mode .appbar-weather-temp,
+html.dark-mode .appbar-weather-temp {
+  color: #60a5fa;
+}
+
+:root.dark-mode .appbar-weather-city,
+html.dark-mode .appbar-weather-city {
+  color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+  .appbar-weather-city {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .appbar-weather {
+    padding: 0 8px;
+    margin: 0 4px;
+    font-size: 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. WEATHER FORECAST MODAL DIALOG
+   -------------------------------------------------------------------------- */
+.weather-modal {
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 740px;
+  width: calc(100vw - 32px);
+  height: min(90vh, 840px);
+  max-height: 90vh;
+  overflow: hidden;
+  background: var(--panel, #ffffff);
+  color: var(--ink, #0f172a);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  font-family: var(--font-sans, "Be Vietnam Pro", sans-serif);
+  box-sizing: border-box;
+}
+
+.weather-modal::backdrop {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  will-change: opacity;
+}
+
+:root.dark-mode .weather-modal,
+html.dark-mode .weather-modal {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
+.weather-modal-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.weather-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  flex: 0 0 auto;
+}
+
+:root.dark-mode .weather-modal-head,
+html.dark-mode .weather-modal-head {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+.weather-head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weather-head-title h2 {
+  font-size: 17px;
+  font-weight: 750;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.weather-city-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weather-city-select {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #cbd5e1);
+  background: var(--panel, #ffffff);
+  color: var(--ink, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+:root.dark-mode .weather-city-select,
+html.dark-mode .weather-city-select {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.weather-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weather-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: transparent;
+  color: var(--muted, #64748b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+}
+
+.weather-icon-btn:hover {
+  background: var(--soft, #f1f5f9);
+  color: var(--ink, #0f172a);
+  border-color: var(--line-strong, #cbd5e1);
+}
+
+:root.dark-mode .weather-icon-btn,
+html.dark-mode .weather-icon-btn {
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+:root.dark-mode .weather-icon-btn:hover,
+html.dark-mode .weather-icon-btn:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.weather-icon-btn.is-spinning svg {
+  animation: spinWeather 0.8s linear infinite;
+}
+
+.weather-location-btn.is-active {
+  color: var(--primary, #2563eb);
+  border-color: var(--primary, #2563eb);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.08));
+}
+
+.weather-location-btn.is-locating svg {
+  animation: weatherLocationPulse 0.9s ease-in-out infinite alternate;
+}
+
+.weather-location-btn:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+@keyframes weatherLocationPulse {
+  from {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+
+  to {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes spinWeather {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.weather-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* --------------------------------------------------------------------------
+   3. CURRENT WEATHER HERO BANNER
+   -------------------------------------------------------------------------- */
+.weather-hero-card {
+  position: relative;
+  border-radius: 18px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #38bdf8 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.weather-hero-card.theme-cloudy {
+  background: linear-gradient(135deg, #334155 0%, #475569 50%, #64748b 100%);
+  box-shadow: 0 10px 25px -5px rgba(71, 85, 105, 0.35);
+}
+
+.weather-hero-card.theme-rainy {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%);
+  box-shadow: 0 10px 25px -5px rgba(3, 105, 161, 0.35);
+}
+
+.weather-hero-card.theme-sunny {
+  background: linear-gradient(135deg, #b45309 0%, #ea580c 50%, #f59e0b 100%);
+  box-shadow: 0 10px 25px -5px rgba(234, 88, 12, 0.35);
+}
+
+.weather-hero-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.weather-hero-location-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.weather-hero-location-name {
+  font-size: 14px;
+  font-weight: 750;
+  color: #ffffff;
+}
+
+.weather-hero-condition-tag {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
+  padding-left: 8px;
+}
+
+.weather-hero-time-badge {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 550;
+}
+
+.weather-hero-body-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 2px 0;
+  min-height: 0;
+}
+
+.weather-hero-temp-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.weather-hero-icon {
+  width: 58px;
+  height: 58px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+  flex-shrink: 0;
+}
+
+.weather-hero-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.weather-hero-temp {
+  font-size: 44px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.weather-hero-chips-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .weather-hero-chips-wrap {
+    align-items: flex-start;
+    width: 100%;
+  }
+}
+
+.weather-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 12.5px;
+  color: #ffffff;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.weather-hero-chip b {
+  font-weight: 750;
+  color: #ffffff;
+}
+
+/* Dedicated translucent stats container - completely avoids clipping */
+.weather-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px 16px;
+  margin-top: 2px;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.weather-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.weather-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.weather-stat-value {
+  font-size: 15px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .weather-hero-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. 7-DAY FORECAST SECTION (Dự báo cả tuần)
+   -------------------------------------------------------------------------- */
+.weather-forecast-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.weather-forecast-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.weather-forecast-heading h3 {
+  font-size: 15px;
+  font-weight: 750;
+  margin: 0;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .weather-forecast-heading h3,
+html.dark-mode .weather-forecast-heading h3 {
+  color: #f8fafc;
+}
+
+.weather-forecast-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weather-day-row {
+  display: grid;
+  grid-template-columns: 140px 40px 1fr 140px 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--card-bg, #f8fafc);
+  border: 1px solid var(--line, #e2e8f0);
+  transition: all 0.2s ease;
+}
+
+.weather-day-row:hover {
+  background: var(--soft, #f1f5f9);
+  border-color: var(--line-strong, #cbd5e1);
+  transform: translateX(2px);
+}
+
+:root.dark-mode .weather-day-row,
+html.dark-mode .weather-day-row {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+:root.dark-mode .weather-day-row:hover,
+html.dark-mode .weather-day-row:hover {
+  background: #273549;
+  border-color: #475569;
+}
+
+.weather-day-row.is-today {
+  border-color: var(--primary, #2563eb);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.05));
+}
+
+:root.dark-mode .weather-day-row.is-today,
+html.dark-mode .weather-day-row.is-today {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: #3b82f6;
+}
+
+.weather-day-name {
+  display: flex;
+  flex-direction: column;
+}
+
+.weather-day-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .weather-day-title,
+html.dark-mode .weather-day-title {
+  color: #f8fafc;
+}
+
+.weather-day-date {
+  font-size: 11.5px;
+  color: var(--muted, #64748b);
+}
+
+.weather-day-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weather-day-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.weather-day-status {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink-secondary, #334155);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root.dark-mode .weather-day-status,
+html.dark-mode .weather-day-status {
+  color: #cbd5e1;
+}
+
+.weather-temp-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weather-min-temp {
+  font-size: 13px;
+  font-weight: 650;
+  color: #0284c7;
+  min-width: 28px;
+  text-align: right;
+}
+
+.weather-temp-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--line, #e2e8f0);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+:root.dark-mode .weather-temp-bar-wrap,
+html.dark-mode .weather-temp-bar-wrap {
+  background: #334155;
+}
+
+.weather-temp-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8 0%, #f97316 100%);
+}
+
+.weather-max-temp {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ea580c;
+  min-width: 28px;
+}
+
+.weather-day-rain {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 650;
+  color: #0284c7;
+  white-space: nowrap;
+}
+
+.weather-day-rain.is-dry {
+  color: var(--muted, #64748b);
+  font-weight: 550;
+}
+
+:root.dark-mode .weather-day-rain,
+html.dark-mode .weather-day-rain {
+  color: #38bdf8;
+}
+
+:root.dark-mode .weather-day-rain.is-dry,
+html.dark-mode .weather-day-rain.is-dry {
+  color: #94a3b8;
+}
+
+@media (max-width: 680px) {
+  .weather-day-row {
+    grid-template-columns: 100px 32px 1fr 100px;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .weather-day-rain {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. SCHOOL CONTEXT / ACTIVITIES NOTICE
+   -------------------------------------------------------------------------- */
+.weather-school-tip {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--soft, #f1f5f9);
+  border: 1px solid var(--line, #e2e8f0);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-secondary, #334155);
+}
+
+:root.dark-mode .weather-school-tip,
+html.dark-mode .weather-school-tip {
+  background: #111827;
+  border-color: #1e293b;
+  color: #cbd5e1;
+}
+
+.weather-school-tip-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.weather-modal-foot {
+  padding: 12px 20px;
+  border-top: 1px solid var(--line, #e2e8f0);
+  background: var(--card-bg, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted, #64748b);
+}
+
+:root.dark-mode .weather-modal-foot,
+html.dark-mode .weather-modal-foot {
+  background: #111827;
+  border-color: #1e293b;
+}
+
+
+/* --------------------------------------------------------------------------
+   6. WORKSPACE OVERVIEW WEATHER CARD
+   -------------------------------------------------------------------------- */
+.weather-overview-panel {
+  margin-top: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--panel, #ffffff);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+:root.dark-mode .weather-overview-panel,
+html.dark-mode .weather-overview-panel {
+  background: #111827;
+  border-color: #1e293b;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.weather-overview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.weather-overview-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weather-overview-title h3 {
+  font-size: 16px;
+  font-weight: 750;
+  margin: 0;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .weather-overview-title h3,
+html.dark-mode .weather-overview-title h3 {
+  color: #f8fafc;
+}
+
+.weather-overview-badge {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--primary, #2563eb);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.08));
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.weather-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px;
+  padding: 14px 6px 6px 6px;
+  /* Chừa không gian để sóng parabol nhô lên không bị che khuất */
+}
+
+@media (max-width: 1024px) {
+  .weather-overview-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .weather-overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.weather-col-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line, #e2e8f0);
+  background: var(--card-bg, #f8fafc);
+  text-align: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  line-height: inherit;
+  user-select: none;
+  position: relative;
+  transform-origin: 50% 90%;
+  will-change: transform, box-shadow;
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.14s ease, border-color 0.15s ease;
+}
+
+:root.dark-mode .weather-col-card,
+html.dark-mode .weather-col-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.weather-col-card.is-today {
+  border-color: var(--primary, #2563eb);
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.06));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weather-col-card {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+.weather-col-day {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--ink, #0f172a);
+}
+
+:root.dark-mode .weather-col-day,
+html.dark-mode .weather-col-day {
+  color: #f8fafc;
+}
+
+.weather-col-date {
+  font-size: 11px;
+  color: var(--muted, #64748b);
+}
+
+.weather-col-icon {
+  width: 32px;
+  height: 32px;
+  margin: 4px 0;
+}
+
+.weather-col-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.weather-col-temp {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--ink, #0f172a);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+:root.dark-mode .weather-col-temp,
+html.dark-mode .weather-col-temp {
+  color: #f8fafc;
+}
+
+.weather-col-min {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  font-weight: 550;
+}
+
+.weather-col-rain {
+  font-size: 11px;
+  font-weight: 650;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 14px;
+  white-space: nowrap;
+}
+
+.weather-col-rain.is-dry {
+  color: var(--muted, #64748b);
+  font-weight: 550;
+  opacity: 0.8;
+}
+
+/* --------------------------------------------------------------------------
+   7. ANIMATED WEATHER ICONS (SVG MICRO-ANIMATIONS)
+   Mây trôi bồng bềnh, giọt mưa rơi chéo so le, tia nắng xoay,
+   trăng sao đêm lấp lánh, tuyết rơi chầm chậm, sương mù lướt, sấm sét chớp
+   -------------------------------------------------------------------------- */
+.wx-icon {
+  overflow: visible;
+  display: block;
+}
+
+/* 1. Mây bồng bềnh (Cloud floating) */
+.wx-cloud-front {
+  animation: wxCloudFloat 3.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.wx-cloud-back {
+  animation: wxCloudFloat 4.6s ease-in-out infinite reverse;
+  transform-origin: center;
+}
+
+@keyframes wxCloudFloat {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(1.4px, -1.2px);
+  }
+}
+
+/* 2. Mặt trăng đung đưa & sao đêm lấp lánh (Moon & Stars) */
+.wx-moon-body {
+  animation: wxMoonFloat 4s ease-in-out infinite;
+}
+
+@keyframes wxMoonFloat {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-0.8px, -1px);
+  }
+}
+
+.wx-star-1 {
+  animation: wxStarBlink 2.2s ease-in-out infinite;
+  transform-origin: 7px 5px;
+}
+
+.wx-star-2 {
+  animation: wxStarBlink 2.8s ease-in-out infinite 0.9s;
+  transform-origin: 16px 4px;
+}
+
+@keyframes wxStarBlink {
+
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+/* 4. Giọt mưa rơi liên tục so le (Rainfall drops) */
+.wx-drop {
+  animation: wxRainFall 1.05s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transform-origin: center;
+}
+
+.wx-drop-1 {
+  animation-delay: 0s;
+}
+
+.wx-drop-2 {
+  animation-delay: 0.35s;
+}
+
+.wx-drop-3 {
+  animation-delay: 0.7s;
+}
+
+.wx-drop-heavy {
+  animation-duration: 0.82s;
+}
+
+@keyframes wxRainFall {
+  0% {
+    transform: translate(1.6px, -4px);
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-1.8px, 4.5px);
+    opacity: 0;
+  }
+}
+
+/* 5. Tuyết rơi chầm chậm lắc lư (Snowfall flakes) */
+.wx-flake {
+  animation: wxSnowFall 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.wx-flake-1 {
+  animation-delay: 0s;
+}
+
+.wx-flake-2 {
+  animation-delay: 0.8s;
+}
+
+.wx-flake-3 {
+  animation-delay: 1.6s;
+}
+
+@keyframes wxSnowFall {
+  0% {
+    transform: translateY(-3.5px) translateX(0);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  50% {
+    transform: translateY(0.5px) translateX(1px);
+  }
+
+  80% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translateY(4.5px) translateX(-1px);
+    opacity: 0;
+  }
+}
+
+/* 6. Sương mù trôi lướt so le (Fog drift) */
+.wx-fog-1 {
+  animation: wxFogDrift 3.4s ease-in-out infinite;
+}
+
+.wx-fog-2 {
+  animation: wxFogDrift 2.8s ease-in-out infinite reverse;
+}
+
+.wx-fog-3 {
+  animation: wxFogDrift 3.8s ease-in-out infinite 0.6s;
+}
+
+@keyframes wxFogDrift {
+
+  0%,
+  100% {
+    transform: translateX(-1.5px);
+  }
+
+  50% {
+    transform: translateX(1.5px);
+  }
+}
+
+/* 7. Mây giông rung giật & tia sét chớp sáng (Thunderstorm & Lightning) */
+.wx-cloud-storm {
+  animation: wxStormShake 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes wxStormShake {
+
+  0%,
+  82%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  85% {
+    transform: translate(-1px, 0.6px);
+  }
+
+  88% {
+    transform: translate(1px, -0.6px);
+  }
+
+  91% {
+    transform: translate(-0.6px, 0.2px);
+  }
+}
+
+.wx-bolt {
+  animation: wxBoltStrike 2.8s ease-in-out infinite;
+  transform-origin: 12px 16px;
+}
+
+@keyframes wxBoltStrike {
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.95);
+    filter: none;
+  }
+
+  83%,
+  87% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 4px #f59e0b) drop-shadow(0 0 8px #f59e0b);
+  }
+
+  85% {
+    opacity: 0.35;
+  }
+
+  90% {
+    opacity: 1;
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 4px #f59e0b);
+  }
+
+  93% {
+    opacity: 0.2;
+  }
+}
+
+/* Tôn trọng người dùng bật chế độ giảm chuyển động */
+@media (prefers-reduced-motion: reduce) {
+
+  .wx-cloud-front,
+  .wx-cloud-back,
+  .wx-moon-body,
+  .wx-star-1,
+  .wx-star-2,
+  .wx-drop,
+  .wx-flake,
+  .wx-fog-1,
+  .wx-fog-2,
+  .wx-fog-3,
+  .wx-cloud-storm,
+  .wx-bolt {
+    animation: none !important;
+    transform: none !important;
+  }
+}

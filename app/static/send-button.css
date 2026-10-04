@@ -1,0 +1,654 @@
+.send-button {
+  --btn-w: 110px;
+  --btn-h: 36px;
+  --button-color: rgba(255, 255, 255, 0.82);
+  --button-border: rgba(148, 163, 184, 0.35);
+  --button-hover-bg: #ffffff;
+  --button-hover-border: rgba(37, 99, 235, 0.35);
+  --button-text: #0f172a;
+  --button-hover-text: #2563eb;
+  --button-radius: 9px;
+  --button-shadow: 0 4px 14px rgba(15, 39, 71, 0.06);
+  --button-hover-shadow: 0 6px 18px rgba(15, 39, 71, 0.12);
+
+  /* Origami Paper Plane 3D Shading */
+  --plane-main: #3b82f6;
+  --plane-left: #2563eb;
+  --plane-fold: #1d4ed8;
+  --plane-crease: #ffffff;
+  --trail-color: rgba(37, 99, 235, 0.45);
+
+  /* Feedback Themes */
+  --success-bg: rgba(236, 253, 245, 0.95);
+  --success-border: #10b981;
+  --success-text: #059669;
+
+  --error-bg: rgba(254, 242, 242, 0.95);
+  --error-border: #ef4444;
+  --error-text: #dc2626;
+
+  position: relative;
+  width: var(--btn-w);
+  height: var(--btn-h);
+  border: 1px solid var(--button-border);
+  padding: 0;
+  background: var(--button-color);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--button-text);
+  font-family: var(--font-sans, inherit);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.012em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  border-radius: var(--button-radius);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  contain: paint;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  vertical-align: middle;
+  box-sizing: border-box;
+  box-shadow: var(--button-shadow);
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Light Reflect Sheen Sweep across Ghost button on hover */
+.send-button::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+      transparent 24%,
+      rgba(37, 99, 235, 0.12) 42%,
+      rgba(255, 255, 255, 0.72) 50%,
+      rgba(37, 99, 235, 0.12) 58%,
+      transparent 76%);
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+
+.send-button[data-state="idle"]:hover::after {
+  transform: translateX(120%);
+}
+
+/* Dark Mode Tokens */
+:root.dark-mode .send-button,
+body.dark-mode .send-button,
+html.dark-mode .send-button {
+  --button-color: rgba(30, 41, 59, 0.82);
+  --button-border: rgba(71, 85, 105, 0.6);
+  --button-hover-bg: rgba(30, 41, 59, 0.95);
+  --button-hover-border: rgba(96, 165, 250, 0.35);
+  --button-text: #f8fafc;
+  --button-hover-text: #60a5fa;
+  --button-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  --button-hover-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+
+  --plane-main: #93c5fd;
+  --plane-left: #60a5fa;
+  --plane-fold: #2563eb;
+  --plane-crease: #ffffff;
+  --trail-color: rgba(147, 197, 253, 0.6);
+
+  --success-bg: rgba(6, 78, 59, 0.82);
+  --success-border: #10b981;
+  --success-text: #34d399;
+
+  --error-bg: rgba(127, 29, 29, 0.82);
+  --error-border: #ef4444;
+  --error-text: #fca5a5;
+}
+
+:root.dark-mode .send-button::after,
+body.dark-mode .send-button::after,
+html.dark-mode .send-button::after {
+  background: linear-gradient(105deg,
+      transparent 24%,
+      rgba(56, 189, 248, 0.18) 42%,
+      rgba(255, 255, 255, 0.45) 50%,
+      rgba(56, 189, 248, 0.18) 58%,
+      transparent 76%);
+}
+
+/* Hover & Active Feedback in Idle */
+.send-button[data-state="idle"]:hover {
+  transform: translateY(-1.5px);
+  background-color: var(--button-hover-bg);
+  border-color: var(--button-hover-border);
+  box-shadow: var(--button-hover-shadow);
+  color: var(--button-hover-text);
+}
+
+.send-button[data-state="idle"]:hover .send-button__text--send {
+  color: var(--button-hover-text);
+}
+
+.send-button[data-state="idle"]:active {
+  transform: translateY(0.5px);
+}
+
+.send-button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  border-color: var(--button-hover-border);
+}
+
+.send-button[data-state="success"] {
+  background: var(--success-bg) !important;
+  border-color: var(--success-border) !important;
+  box-shadow: 0 2px 14px rgba(16, 185, 129, 0.25);
+}
+
+.send-button[data-state="error"] {
+  background: var(--error-bg) !important;
+  border-color: var(--error-border) !important;
+  box-shadow: 0 2px 14px rgba(239, 68, 68, 0.25);
+}
+
+/* State Lock: Disallow clicks while animating */
+.send-button:not([data-state="idle"]) {
+  cursor: default;
+}
+
+/* -------------------------------------------------------------
+ * 1. Background Morphing Element (.send-button__background)
+ * Smooth translucent morphing wash contained inside the button
+ * ------------------------------------------------------------- */
+.send-button__background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border-radius: var(--button-radius);
+  z-index: 1;
+  pointer-events: none;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  box-sizing: border-box;
+  transform-origin: center center;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+/* Morph: Frosted wash -> Rightward Wedge/Arrow (0ms -> 460ms) */
+.send-button[data-state="sending"] .send-button__background,
+.send-button[data-state="morphing"] .send-button__background {
+  background: rgba(37, 99, 235, 0.12);
+  animation: morphBackground 460ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+:root.dark-mode .send-button[data-state="sending"] .send-button__background,
+:root.dark-mode .send-button[data-state="morphing"] .send-button__background {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+@keyframes morphBackground {
+  0% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+    transform: scaleX(1);
+    opacity: 1;
+  }
+
+  30% {
+    clip-path: polygon(8% 4%, 88% 25%, 88% 75%, 8% 96%);
+    transform: scaleX(0.88);
+    opacity: 1;
+  }
+
+  65% {
+    clip-path: polygon(18% 12%, 76% 42%, 76% 58%, 18% 88%);
+    transform: scaleX(0.7);
+    opacity: 1;
+  }
+
+  85% {
+    clip-path: polygon(26% 18%, 70% 50%, 70% 50%, 26% 82%);
+    transform: scaleX(0.55);
+    opacity: 0.9;
+  }
+
+  100% {
+    clip-path: polygon(30% 22%, 65% 50%, 65% 50%, 30% 78%);
+    transform: scaleX(0.48);
+    opacity: 0;
+  }
+}
+
+/* Invisible during plane flight */
+.send-button[data-state="plane"] .send-button__background,
+.send-button[data-state="flying"] .send-button__background {
+  opacity: 0;
+}
+
+/* Success Pop-in */
+.send-button[data-state="success"] .send-button__background {
+  opacity: 1;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  border-radius: var(--button-radius);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  transform: scale(1);
+  animation: successExpand 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Error Pop-in */
+.send-button[data-state="error"] .send-button__background {
+  opacity: 1;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  border-radius: var(--button-radius);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  animation: successExpand 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes successExpand {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+
+  65% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* -------------------------------------------------------------
+ * 2. Send Text (.send-button__text--send)
+ * ------------------------------------------------------------- */
+.send-button__text--send {
+  position: relative;
+  z-index: 2;
+  color: var(--button-text);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.012em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.send-button:not([data-state="idle"]) .send-button__text--send {
+  opacity: 0;
+  transform: scale(0.8) translateY(-6px);
+}
+
+/* -------------------------------------------------------------
+ * 3. Origami Paper Plane (.send-button__plane)
+ * - Proportioned (32x32) to stay neatly inside the 40px button
+ * - Flown horizontally across the inside of the button
+ * - Dissolves cleanly at the inner right edge without overflowing
+ * ------------------------------------------------------------- */
+.send-button__plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.send-button__plane svg.paper-plane {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.send-button__plane .plane-main {
+  fill: var(--plane-main);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.16));
+}
+
+.send-button__plane .plane-left {
+  fill: var(--plane-left);
+}
+
+.send-button__plane .plane-fold {
+  fill: var(--plane-fold);
+}
+
+.send-button__plane .plane-crease {
+  stroke: var(--plane-crease);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+/* Unified GPU Choreography (Starts at 330ms, ends at 1250ms) */
+.send-button[data-state="sending"] .send-button__plane {
+  animation: planeContinuousFlight 920ms 330ms cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+
+/* Discrete states compatibility */
+.send-button[data-state="plane"] .send-button__plane {
+  opacity: 1;
+  animation: planeFold 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.send-button[data-state="flying"] .send-button__plane {
+  animation: planeTakeoff 620ms cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes planeContinuousFlight {
+  0% {
+    opacity: 0;
+    /* Appears nicely inside the left-center of the button */
+    transform: translate(calc(-50% - 20px), -50%) scale(0.85);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(calc(-50% - 20px), -50%) scale(1);
+  }
+
+  30% {
+    opacity: 1;
+    /* Anticipation: gentle pullback to the left, safely inside button */
+    transform: translate(calc(-50% - 28px), -50%) scale(1.04);
+  }
+
+  55% {
+    opacity: 1;
+    /* Smooth acceleration across the button center */
+    transform: translate(calc(-50% + 4px), -50%) scale(1.03);
+  }
+
+  80% {
+    opacity: 1;
+    /* Glides towards the inner right boundary */
+    transform: translate(calc(-50% + 28px), -50%) scale(0.98);
+  }
+
+  95% {
+    opacity: 0.6;
+    /* Nose reaches inner right margin */
+    transform: translate(calc(-50% + 44px), -50%) scale(0.88);
+  }
+
+  100% {
+    opacity: 0;
+    /* Smoothly dissolves right at the right edge */
+    transform: translate(calc(-50% + 52px), -50%) scale(0.7);
+  }
+}
+
+@keyframes planeFold {
+  0% {
+    opacity: 0;
+    transform: translate(calc(-50% - 20px), -50%) scale(0.85);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(calc(-50% - 28px), -50%) scale(1.04);
+  }
+}
+
+@keyframes planeTakeoff {
+  0% {
+    opacity: 1;
+    transform: translate(calc(-50% - 28px), -50%) scale(1.04);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate(calc(-50% + 15px), -50%) scale(1.03);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + 52px), -50%) scale(0.7);
+  }
+}
+
+/* -------------------------------------------------------------
+ * 4. Speed Trails (.send-button__trail)
+ * Contained speed streaks projecting within the button bounds
+ * ------------------------------------------------------------- */
+.send-button__trail {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+}
+
+.send-button__trail .trail {
+  position: absolute;
+  height: 2px;
+  background: var(--trail-color);
+  border-radius: 99px;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.send-button__trail .trail--1 {
+  top: -5px;
+  left: -8px;
+  width: 18px;
+}
+
+.send-button__trail .trail--2 {
+  top: 0px;
+  left: -12px;
+  width: 24px;
+}
+
+.send-button__trail .trail--3 {
+  top: 5px;
+  left: -9px;
+  width: 18px;
+}
+
+/* Triggers at 600ms when horizontal forward surge commences */
+.send-button[data-state="sending"] .send-button__trail,
+.send-button[data-state="flying"] .send-button__trail {
+  opacity: 1;
+}
+
+.send-button[data-state="sending"] .trail--1,
+.send-button[data-state="flying"] .trail--1 {
+  animation: streakTrail 460ms 600ms cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+
+.send-button[data-state="sending"] .trail--2,
+.send-button[data-state="flying"] .trail--2 {
+  animation: streakTrail 460ms 640ms cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+
+.send-button[data-state="sending"] .trail--3,
+.send-button[data-state="flying"] .trail--3 {
+  animation: streakTrail 460ms 680ms cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes streakTrail {
+  0% {
+    transform: translateX(0) scaleX(0.1);
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 0.85;
+  }
+
+  100% {
+    transform: translateX(-24px) scaleX(1.1);
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------
+ * 5. Success Container (.send-button__success)
+ * ------------------------------------------------------------- */
+.send-button__success {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--success-text);
+  font-weight: 700;
+  font-size: 13.5px;
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+  z-index: 3;
+  will-change: transform, opacity;
+}
+
+.send-button[data-state="success"] .send-button__success {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 200ms ease,
+    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.send-button__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+  transform: scale(0) rotate(-30deg);
+  will-change: transform, opacity;
+}
+
+.send-button__check-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.send-button[data-state="success"] .send-button__check {
+  animation: checkSpring 340ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms forwards;
+}
+
+@keyframes checkSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-30deg);
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1.35) rotate(6deg);
+  }
+
+  85% {
+    transform: scale(0.95) rotate(-2deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.send-button__text--sent {
+  opacity: 0;
+  transform: translateY(6px);
+  will-change: transform, opacity;
+}
+
+.send-button[data-state="success"] .send-button__text--sent {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease 120ms,
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1) 120ms;
+}
+
+/* -------------------------------------------------------------
+ * 6. Error Container (.send-button__error)
+ * ------------------------------------------------------------- */
+.send-button__error {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--error-text);
+  font-weight: 700;
+  font-size: 12px;
+  opacity: 0;
+  transform: scale(0.92);
+  pointer-events: none;
+  z-index: 3;
+  will-change: transform, opacity;
+}
+
+.send-button[data-state="error"] .send-button__error {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 200ms ease,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.send-button__error-icon {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* -------------------------------------------------------------
+ * Accessibility & Reduced Motion
+ * ------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+
+  .send-button,
+  .send-button * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html.disable-effects .send-button,
+html.disable-effects .send-button * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}

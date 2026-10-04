@@ -1,0 +1,324 @@
+.btn-tame-ape,
+button.btn-tame-ape,
+a.btn-tame-ape {
+  --btn-font-color: #ffffff;
+  --btn-bg: #2563eb;
+  --btn-bg-sub: #1d4ed8;
+  --btn-border: #1d4ed8;
+  --btn-shadow: #1e40af;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 124px;
+  height: 38px;
+  min-height: 38px;
+  cursor: pointer;
+  border: 1.5px solid var(--btn-border) !important;
+  box-shadow: 2px 2px 0 var(--btn-shadow) !important;
+  background-color: var(--btn-bg) !important;
+  background: var(--btn-bg) !important;
+  border-radius: 9px !important;
+  overflow: hidden;
+  padding: 0 42px 0 16px !important;
+  text-decoration: none;
+  font-family: var(--font-sans, "Be Vietnam Pro", sans-serif);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--btn-font-color) !important;
+  box-sizing: border-box;
+  user-select: none;
+  line-height: 1;
+  outline: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --------------------------------------------------------------------------
+   2. ADD BUTTON (DARK MODE)
+   Luminous sky-blue border, electric blue background, vibrant on dark panels
+   -------------------------------------------------------------------------- */
+:root.dark-mode .btn-tame-ape,
+html.dark-mode .btn-tame-ape,
+:root.dark-mode button.btn-tame-ape,
+html.dark-mode button.btn-tame-ape,
+:root.dark-mode a.btn-tame-ape,
+html.dark-mode a.btn-tame-ape {
+  --btn-font-color: #ffffff;
+  --btn-bg: #2563eb;
+  --btn-bg-sub: #1d4ed8;
+  --btn-border: #60a5fa;
+  --btn-shadow: #1e3a8a;
+
+  border: 2px solid var(--btn-border) !important;
+  box-shadow: 4px 4px 0 var(--btn-shadow) !important;
+  background-color: var(--btn-bg) !important;
+  background: var(--btn-bg) !important;
+  color: var(--btn-font-color) !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. DANGER BUTTON (100% HOÀN TOÀN MÀU ĐỎ) - LIGHT MODE
+   Vivid Red button body, rich red compartment, solid red 3D shadow
+   -------------------------------------------------------------------------- */
+.btn-tame-ape.btn-tame-ape-danger,
+button.btn-tame-ape.btn-tame-ape-danger,
+a.btn-tame-ape.btn-tame-ape-danger,
+.btn-tame-ape-danger,
+button.btn-tame-ape-danger,
+.danger-btn.btn-tame-ape {
+  --btn-font-color: #ffffff !important;
+  --btn-bg: #ef4444 !important;
+  --btn-bg-sub: #dc2626 !important;
+  --btn-border: #dc2626 !important;
+  --btn-shadow: #b91c1c !important;
+
+  background: #ef4444 !important;
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  border: 2px solid #dc2626 !important;
+  box-shadow: 4px 4px 0 #b91c1c !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. DANGER BUTTON (100% HOÀN TOÀN MÀU ĐỎ) - DARK MODE
+   Pure vivid red, glowing red border, deep red 3D shadow, NEVER brown/black/pink!
+   -------------------------------------------------------------------------- */
+:root.dark-mode .btn-tame-ape.btn-tame-ape-danger,
+html.dark-mode .btn-tame-ape.btn-tame-ape-danger,
+:root.dark-mode button.btn-tame-ape.btn-tame-ape-danger,
+html.dark-mode button.btn-tame-ape.btn-tame-ape-danger,
+:root.dark-mode .btn-tame-ape-danger,
+html.dark-mode .btn-tame-ape-danger,
+:root.dark-mode .danger-btn.btn-tame-ape,
+html.dark-mode .danger-btn.btn-tame-ape {
+  --btn-font-color: #ffffff !important;
+  --btn-bg: #dc2626 !important;
+  --btn-bg-sub: #b91c1c !important;
+  --btn-border: #f87171 !important;
+  --btn-shadow: #991b1b !important;
+
+  background: #dc2626 !important;
+  background-color: #dc2626 !important;
+  color: #ffffff !important;
+  border: 2px solid #f87171 !important;
+  box-shadow: 4px 4px 0 #991b1b !important;
+}
+
+/* Text Element */
+.btn-tame-ape .btn__text {
+  color: var(--btn-font-color, #ffffff) !important;
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+  white-space: nowrap !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transform: translateX(0);
+  pointer-events: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Icon Chamber Element (pinned to the right) */
+.btn-tame-ape .btn__icon {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  height: 100%;
+  width: 36px;
+  background-color: var(--btn-bg-sub) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Specific Chamber Colors for Danger Buttons */
+.btn-tame-ape.btn-tame-ape-danger .btn__icon,
+button.btn-tame-ape-danger .btn__icon,
+.danger-btn.btn-tame-ape .btn__icon {
+  background-color: #dc2626 !important;
+}
+
+:root.dark-mode .btn-tame-ape.btn-tame-ape-danger .btn__icon,
+html.dark-mode .btn-tame-ape.btn-tame-ape-danger .btn__icon,
+:root.dark-mode button.btn-tame-ape-danger .btn__icon,
+html.dark-mode button.btn-tame-ape-danger .btn__icon {
+  background-color: #b91c1c !important;
+}
+
+/* SVG Inside Icon Chamber */
+.btn-tame-ape .svg {
+  width: 20px;
+  height: 20px;
+  stroke: #ffffff !important;
+  stroke-width: 2.2;
+  transition: transform 0.3s ease;
+}
+
+/* --------------------------------------------------------------------------
+   HOVER & ACTIVE STATES (Uiverse tame-ape-82 Animation)
+   -------------------------------------------------------------------------- */
+.btn-tame-ape:hover {
+  background: var(--btn-bg) !important;
+  background-color: var(--btn-bg) !important;
+}
+
+.btn-tame-ape:hover .btn__text {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+
+.btn-tame-ape:hover .btn__icon {
+  width: 100% !important;
+  background-color: var(--btn-bg-sub) !important;
+}
+
+.btn-tame-ape.btn-tame-ape-danger:hover .btn__icon,
+button.btn-tame-ape-danger:hover .btn__icon,
+.danger-btn.btn-tame-ape:hover .btn__icon {
+  background-color: #dc2626 !important;
+}
+
+:root.dark-mode .btn-tame-ape.btn-tame-ape-danger:hover .btn__icon,
+html.dark-mode .btn-tame-ape.btn-tame-ape-danger:hover .btn__icon,
+:root.dark-mode button.btn-tame-ape-danger:hover .btn__icon,
+html.dark-mode button.btn-tame-ape-danger:hover .btn__icon {
+  background-color: #b91c1c !important;
+}
+
+.btn-tame-ape:hover .svg {
+  transform: scale(1.18);
+}
+
+/* Mechanical Click / Press down */
+.btn-tame-ape:active {
+  transform: translate(3px, 3px) !important;
+  box-shadow: 0px 0px 0 var(--btn-shadow) !important;
+}
+
+/* Wide variant */
+.btn-tame-ape.wide {
+  width: 100%;
+}
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+
+  .btn-tame-ape,
+  .btn-tame-ape .btn__icon,
+  .btn-tame-ape .btn__text,
+  .btn-tame-ape .svg {
+    transition: none !important;
+  }
+}
+
+.disable-effects .btn-tame-ape,
+.disable-effects .btn-tame-ape .btn__icon,
+.disable-effects .btn-tame-ape .btn__text,
+.disable-effects .btn-tame-ape .svg {
+  transition: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   7. TIMETABLE BULK DELETE BUTTONS (HOÀN TOÀN MÀU ĐỎ - 100% SOLID RED)
+   -------------------------------------------------------------------------- */
+.entity-bulk-delete,
+.preference-delete-all {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  background-color: #ef4444 !important;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  border: 1.5px solid #dc2626 !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.28) !important;
+  font-family: var(--font-sans, "Be Vietnam Pro", sans-serif) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+  line-height: 1 !important;
+  letter-spacing: 0.01em !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.entity-bulk-delete:hover:not(:disabled),
+.preference-delete-all:hover:not(:disabled) {
+  background-color: #dc2626 !important;
+  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45) !important;
+}
+
+.entity-bulk-delete:active:not(:disabled),
+.preference-delete-all:active:not(:disabled) {
+  transform: translateY(0) !important;
+  background: #b91c1c !important;
+}
+
+.entity-bulk-delete:disabled,
+.preference-delete-all:disabled {
+  background-color: #ef4444 !important;
+  background: #ef4444 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+:root.dark-mode .entity-bulk-delete,
+:root.dark-mode .preference-delete-all,
+html.dark-mode .entity-bulk-delete,
+html.dark-mode .preference-delete-all {
+  background-color: #dc2626 !important;
+  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45) !important;
+}
+
+:root.dark-mode .entity-bulk-delete:hover:not(:disabled),
+:root.dark-mode .preference-delete-all:hover:not(:disabled),
+html.dark-mode .entity-bulk-delete:hover:not(:disabled),
+html.dark-mode .preference-delete-all:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.55) !important;
+}
+
+:root.dark-mode .entity-bulk-delete:disabled,
+:root.dark-mode .preference-delete-all:disabled,
+html.dark-mode .entity-bulk-delete:disabled,
+html.dark-mode .preference-delete-all:disabled {
+  background: #991b1b !important;
+  background-color: #991b1b !important;
+  border-color: #b91c1c !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  opacity: 0.5 !important;
+}
