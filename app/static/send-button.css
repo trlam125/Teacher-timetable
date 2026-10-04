@@ -1,15 +1,15 @@
 .send-button {
-  --btn-w: 110px;
+  --btn-w: 116px;
   --btn-h: 36px;
-  --button-color: rgba(255, 255, 255, 0.82);
+  --button-color: rgba(255, 255, 255, 0.85);
   --button-border: rgba(148, 163, 184, 0.35);
   --button-hover-bg: #ffffff;
   --button-hover-border: rgba(37, 99, 235, 0.35);
   --button-text: #0f172a;
   --button-hover-text: #2563eb;
   --button-radius: 9px;
-  --button-shadow: 0 4px 14px rgba(15, 39, 71, 0.06);
-  --button-hover-shadow: 0 6px 18px rgba(15, 39, 71, 0.12);
+  --button-shadow: 0 3px 12px rgba(15, 39, 71, 0.05);
+  --button-hover-shadow: 0 4px 16px rgba(15, 39, 71, 0.1);
 
   /* Origami Paper Plane 3D Shading */
   --plane-main: #3b82f6;
@@ -19,13 +19,17 @@
   --trail-color: rgba(37, 99, 235, 0.45);
 
   /* Feedback Themes */
-  --success-bg: rgba(236, 253, 245, 0.95);
-  --success-border: #10b981;
-  --success-text: #059669;
+  --success-bg: #ecfdf5;
+  --success-border: #a7f3d0;
+  --success-text: #047857;
+  --success-shadow: 0 3px 12px rgba(16, 185, 129, 0.16);
+  --success-badge-bg: #d1fae5;
+  --success-badge-color: #059669;
 
-  --error-bg: rgba(254, 242, 242, 0.95);
-  --error-border: #ef4444;
-  --error-text: #dc2626;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #b91c1c;
+  --error-shadow: 0 3px 12px rgba(239, 68, 68, 0.16);
 
   position: relative;
   width: var(--btn-w);
@@ -106,13 +110,17 @@ html.dark-mode .send-button {
   --plane-crease: #ffffff;
   --trail-color: rgba(147, 197, 253, 0.6);
 
-  --success-bg: rgba(6, 78, 59, 0.82);
-  --success-border: #10b981;
-  --success-text: #34d399;
+  --success-bg: rgba(6, 78, 59, 0.6);
+  --success-border: rgba(52, 211, 153, 0.45);
+  --success-text: #a7f3d0;
+  --success-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 10px rgba(16, 185, 129, 0.2);
+  --success-badge-bg: rgba(16, 185, 129, 0.28);
+  --success-badge-color: #34d399;
 
-  --error-bg: rgba(127, 29, 29, 0.82);
-  --error-border: #ef4444;
+  --error-bg: rgba(127, 29, 29, 0.6);
+  --error-border: rgba(248, 113, 113, 0.45);
   --error-text: #fca5a5;
+  --error-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 :root.dark-mode .send-button::after,
@@ -151,13 +159,13 @@ html.dark-mode .send-button::after {
 .send-button[data-state="success"] {
   background: var(--success-bg) !important;
   border-color: var(--success-border) !important;
-  box-shadow: 0 2px 14px rgba(16, 185, 129, 0.25);
+  box-shadow: var(--success-shadow) !important;
 }
 
 .send-button[data-state="error"] {
   background: var(--error-bg) !important;
   border-color: var(--error-border) !important;
-  box-shadow: 0 2px 14px rgba(239, 68, 68, 0.25);
+  box-shadow: var(--error-shadow) !important;
 }
 
 /* State Lock: Disallow clicks while animating */
@@ -241,7 +249,7 @@ html.dark-mode .send-button::after {
   clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
   border-radius: var(--button-radius);
   background: var(--success-bg);
-  border: 1px solid var(--success-border);
+  border: none;
   transform: scale(1);
   animation: successExpand 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
@@ -252,7 +260,7 @@ html.dark-mode .send-button::after {
   clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
   border-radius: var(--button-radius);
   background: var(--error-bg);
-  border: 1px solid var(--error-border);
+  border: none;
   animation: successExpand 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
@@ -527,77 +535,82 @@ html.dark-mode .send-button::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 6px;
   color: var(--success-text);
-  font-weight: 700;
-  font-size: 13.5px;
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1;
+  letter-spacing: 0.012em;
   opacity: 0;
-  transform: scale(0.92);
+  transform: scale(0.95);
   pointer-events: none;
   z-index: 3;
   will-change: transform, opacity;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .send-button[data-state="success"] .send-button__success {
   opacity: 1;
   transform: scale(1);
   transition: opacity 200ms ease,
-    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .send-button__check {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--success-badge-bg);
+  color: var(--success-badge-color);
+  flex-shrink: 0;
   opacity: 0;
-  transform: scale(0) rotate(-30deg);
+  transform: scale(0.4);
   will-change: transform, opacity;
 }
 
 .send-button__check-svg {
-  width: 100%;
-  height: 100%;
+  width: 10.5px;
+  height: 10.5px;
   display: block;
 }
 
 .send-button[data-state="success"] .send-button__check {
-  animation: checkSpring 340ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms forwards;
+  animation: checkSpring 300ms cubic-bezier(0.34, 1.56, 0.64, 1) 60ms forwards;
 }
 
 @keyframes checkSpring {
   0% {
     opacity: 0;
-    transform: scale(0) rotate(-30deg);
+    transform: scale(0.4);
   }
 
-  65% {
+  70% {
     opacity: 1;
-    transform: scale(1.35) rotate(6deg);
-  }
-
-  85% {
-    transform: scale(0.95) rotate(-2deg);
+    transform: scale(1.15);
   }
 
   100% {
     opacity: 1;
-    transform: scale(1) rotate(0deg);
+    transform: scale(1);
   }
 }
 
 .send-button__text--sent {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(4px);
   will-change: transform, opacity;
+  white-space: nowrap;
 }
 
 .send-button[data-state="success"] .send-button__text--sent {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 200ms ease 120ms,
-    transform 260ms cubic-bezier(0.16, 1, 0.3, 1) 120ms;
+  transition: opacity 180ms ease 90ms,
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1) 90ms;
 }
 
 /* -------------------------------------------------------------
@@ -612,15 +625,18 @@ html.dark-mode .send-button::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--error-text);
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: 600;
+  font-size: 11.5px;
+  line-height: 1;
   opacity: 0;
-  transform: scale(0.92);
+  transform: scale(0.95);
   pointer-events: none;
   z-index: 3;
   will-change: transform, opacity;
+  padding: 0 6px;
+  box-sizing: border-box;
 }
 
 .send-button[data-state="error"] .send-button__error {
@@ -631,8 +647,16 @@ html.dark-mode .send-button::after {
 }
 
 .send-button__error-icon {
-  font-size: 13px;
-  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15);
+  font-size: 10.5px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* -------------------------------------------------------------
