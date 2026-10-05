@@ -556,7 +556,9 @@ def forgot_password(
             status_code=503,
         )
 
-    account = db.scalar(select(User).where(User.email == normalized_email))
+    account = db.scalar(
+        select(User).where(func.lower(func.trim(User.email)) == normalized_email)
+    )
     if account:
         nonce = secrets.token_urlsafe(32)
         account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
@@ -569,18 +571,41 @@ def forgot_password(
         email_sent = False
         if email_configured:
             try:
-                email_sent = send_password_reset_email(account.email, reset_url)
+                email_sent = send_password_reset_email(account.email.strip(), reset_url)
                 if email_sent:
                     logger.info(
                         "Password-reset email sent successfully to %s", account.email
                     )
-            except (OSError, smtplib.SMTPException, ValueError) as exc:
+                else:
+                    logger.error(
+                        "Password-reset email transport returned False for %s",
+                        account.email,
+                    )
+            except Exception as exc:
                 email_sent = False
                 logger.exception(
                     "Could not send password-reset email to %s: %s", account.email, exc
                 )
+
         if allow_local_link and not email_sent:
             dev_reset_link = reset_url
+        elif email_configured and not email_sent:
+            account.reset_token_hash = None
+            account.reset_token_expires_at = None
+            db.commit()
+            fresh_challenge, fresh_token = new_captcha()
+            return templates.TemplateResponse(
+                "forgot_password.html",
+                {
+                    "request": request,
+                    "captcha_challenge": fresh_challenge,
+                    "captcha_token": fresh_token,
+                    "error": "Ch\u01b0a th\u1ec3 g\u1eedi li\u00ean k\u1ebft \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u. Vui l\u00f2ng th\u1eed l\u1ea1i sau.",
+                    "submitted": False,
+                    "dev_reset_link": None,
+                },
+                status_code=503,
+            )
     fresh_challenge, fresh_token = new_captcha()
     return templates.TemplateResponse(
         "forgot_password.html",

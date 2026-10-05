@@ -1,0 +1,206 @@
+:root {
+  color-scheme: light;
+  --ink: #17213c;
+  --muted: #71809f;
+  --blue: #2f80ed;
+  --violet: #7c3aed;
+  --dot: #6676f4;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100svh;
+  overflow: hidden;
+  font-family: "Be Vietnam Pro", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(100, 123, 255, 0.13), transparent 28rem),
+    linear-gradient(180deg, #fbfcff 0%, #f5f7ff 58%, #f8f9ff 100%);
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(2px);
+  opacity: 0.55;
+}
+
+body::before {
+  width: 32rem;
+  height: 32rem;
+  top: -20rem;
+  left: -13rem;
+  background: radial-gradient(circle, rgba(47, 128, 237, 0.16), transparent 67%);
+}
+
+body::after {
+  width: 34rem;
+  height: 34rem;
+  right: -16rem;
+  bottom: -21rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.14), transparent 67%);
+}
+
+.launcher {
+  position: relative;
+  z-index: 1;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 22px calc(28px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.brand-wrap {
+  position: relative;
+  width: 82px;
+  height: 82px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 28px;
+}
+
+.brand-glow {
+  position: absolute;
+  inset: 7px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(47, 128, 237, 0.28), rgba(124, 58, 237, 0.27));
+  filter: blur(17px);
+  transform: scale(1.05);
+  animation: glow 2.3s ease-in-out infinite;
+}
+
+.brand-logo {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  display: block;
+  filter: drop-shadow(0 12px 26px rgba(62, 84, 182, 0.18));
+}
+
+.loader-dots {
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 19px;
+}
+
+.loader-dots i {
+  width: 7px;
+  height: 7px;
+  display: block;
+  border-radius: 50%;
+  background: var(--dot);
+  opacity: 0.2;
+  transform: translateY(0) scale(0.78);
+  animation: dot 1.25s ease-in-out infinite;
+}
+
+.loader-dots i:nth-child(2) { animation-delay: 0.1s; }
+.loader-dots i:nth-child(3) { animation-delay: 0.2s; }
+.loader-dots i:nth-child(4) { animation-delay: 0.3s; }
+.loader-dots i:nth-child(5) { animation-delay: 0.4s; }
+.loader-dots i:nth-child(6) { animation-delay: 0.5s; }
+
+h1 {
+  margin: 0;
+  font-size: clamp(20px, 4vw, 25px);
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+
+p {
+  max-width: 410px;
+  margin: 9px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.retry {
+  margin-top: 22px;
+  padding: 11px 17px;
+  border: 1px solid rgba(91, 103, 189, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.83);
+  color: #33406c;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(44, 54, 113, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.retry:hover { transform: translateY(-1px); }
+.retry:active { transform: translateY(0); }
+
+body.is-ready .loader-dots i {
+  animation: ready-dot 0.45s ease forwards;
+}
+
+body.is-ready .brand-logo {
+  animation: ready-logo 0.48s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes dot {
+  0%, 60%, 100% { opacity: 0.18; transform: translateY(0) scale(0.75); }
+  30% { opacity: 1; transform: translateY(-3px) scale(1); }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.48; transform: scale(0.94); }
+  50% { opacity: 0.86; transform: scale(1.12); }
+}
+
+@keyframes ready-dot {
+  to { opacity: 0; transform: scale(0.35); }
+}
+
+@keyframes ready-logo {
+  0% { transform: scale(1); }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 480px) {
+  .brand-wrap { width: 76px; height: 76px; margin-bottom: 25px; }
+  .brand-logo { width: 72px; height: 72px; }
+  .loader-dots { margin-bottom: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-dots i,
+  .brand-glow,
+  body.is-ready .brand-logo { animation-duration: 2.6s; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #eef2ff; --muted: #9ba8c8; --dot: #94a3ff; }
+  body {
+    background:
+      radial-gradient(circle at 50% 35%, rgba(91, 98, 246, 0.16), transparent 28rem),
+      linear-gradient(180deg, #101527 0%, #0d1222 100%);
+  }
+  .retry {
+    color: #d9e0ff;
+    background: rgba(30, 38, 66, 0.88);
+    border-color: rgba(154, 166, 232, 0.16);
+  }
+}

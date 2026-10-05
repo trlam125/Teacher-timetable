@@ -1,0 +1,214 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Smart TKB</title>
+  <desc id="desc">Biểu tượng lịch học thông minh có hiệu ứng động</desc>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F80ED"/>
+      <stop offset="0.55" stop-color="#4F6BF6"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="21" y1="35" x2="44" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7DE8FF"/>
+      <stop offset="1" stop-color="#C4B5FD"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <clipPath id="logoClip">
+      <rect x="5" y="5" width="54" height="54" rx="17"/>
+    </clipPath>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      /* Exact final logo background */
+      .logo-base {
+        opacity: 0;
+        animation: baseReveal 5.6s ease infinite;
+      }
+
+      /* Temporary drawing guide: brand gradient outline */
+      .logo-outline {
+        fill: none;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 175;
+        stroke-dashoffset: 175;
+        opacity: 0;
+        animation: outlineDraw 5.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+
+      .draw-stroke {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 120;
+        stroke-dashoffset: 120;
+        opacity: 0;
+      }
+
+      .calendar-box {
+        animation: drawCalendar 5.6s ease infinite;
+      }
+
+      .calendar-divider {
+        animation: drawDivider 5.6s ease infinite;
+      }
+
+      .calendar-rings {
+        animation: drawRings 5.6s ease infinite;
+      }
+
+      .calendar-slots {
+        animation: drawSlots 5.6s ease infinite;
+      }
+
+      .checkmark {
+        animation: drawCheck 5.6s ease infinite;
+      }
+
+      .badge-halo {
+        transform-origin: 51px 13px;
+        transform-box: view-box;
+        opacity: 0;
+        animation: badgeHalo 5.6s ease infinite;
+      }
+
+      .badge {
+        transform-origin: 51px 13px;
+        transform-box: view-box;
+        opacity: 0;
+        animation: badgePop 5.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+      }
+
+      .shine {
+        opacity: 0;
+        animation: shinePass 5.6s ease-in-out infinite;
+      }
+
+      @keyframes outlineDraw {
+        0%, 2% { opacity: 0; stroke-dashoffset: 175; }
+        5% { opacity: 1; }
+        22% { opacity: 1; stroke-dashoffset: 0; }
+        26% { opacity: 0; stroke-dashoffset: 0; }
+        86% { opacity: 0; stroke-dashoffset: 0; }
+        88% { opacity: 1; stroke-dashoffset: 0; }
+        94% { opacity: 1; stroke-dashoffset: 175; }
+        96%, 100% { opacity: 0; stroke-dashoffset: 175; }
+      }
+
+      @keyframes baseReveal {
+        0%, 6% { opacity: 0; }
+        18%, 86% { opacity: 1; }
+        93%, 100% { opacity: 0; }
+      }
+
+      @keyframes drawCalendar {
+        0%, 8% { opacity: 0; stroke-dashoffset: 120; }
+        11% { opacity: 1; }
+        24%, 86% { opacity: 1; stroke-dashoffset: 0; }
+        93% { opacity: 1; stroke-dashoffset: 120; }
+        96%, 100% { opacity: 0; stroke-dashoffset: 120; }
+      }
+
+      @keyframes drawDivider {
+        0%, 12% { opacity: 0; stroke-dashoffset: 120; }
+        14% { opacity: 1; }
+        26%, 86% { opacity: 1; stroke-dashoffset: 0; }
+        92% { opacity: 1; stroke-dashoffset: 120; }
+        95%, 100% { opacity: 0; stroke-dashoffset: 120; }
+      }
+
+      @keyframes drawRings {
+        0%, 15% { opacity: 0; stroke-dashoffset: 120; }
+        17% { opacity: 1; }
+        28%, 86% { opacity: 1; stroke-dashoffset: 0; }
+        91% { opacity: 1; stroke-dashoffset: 120; }
+        94%, 100% { opacity: 0; stroke-dashoffset: 120; }
+      }
+
+      @keyframes drawSlots {
+        0%, 18% { opacity: 0; stroke-dashoffset: 120; }
+        20% { opacity: 1; }
+        30%, 86% { opacity: 1; stroke-dashoffset: 0; }
+        90% { opacity: 1; stroke-dashoffset: 120; }
+        93%, 100% { opacity: 0; stroke-dashoffset: 120; }
+      }
+
+      @keyframes drawCheck {
+        0%, 22% { opacity: 0; stroke-dashoffset: 120; }
+        24% { opacity: 1; }
+        33%, 86% { opacity: 1; stroke-dashoffset: 0; }
+        89% { opacity: 1; stroke-dashoffset: 120; }
+        92%, 100% { opacity: 0; stroke-dashoffset: 120; }
+      }
+
+      @keyframes badgePop {
+        0%, 26% { opacity: 0; transform: scale(0.15); }
+        30% { opacity: 1; transform: scale(1.2); }
+        34%, 86% { opacity: 1; transform: scale(1); }
+        88% { opacity: 1; transform: scale(1.15); }
+        91% { opacity: 0; transform: scale(0.15); }
+        92%, 100% { opacity: 0; transform: scale(0.15); }
+      }
+
+      @keyframes badgeHalo {
+        0%, 28% { opacity: 0; transform: scale(0.7); }
+        31% { opacity: 0.72; transform: scale(0.8); }
+        35% { opacity: 0; transform: scale(2.2); }
+        36%, 100% { opacity: 0; transform: scale(2.2); }
+      }
+
+      @keyframes shinePass {
+        0%, 36% { opacity: 0; transform: translate(-80px, -80px); }
+        39% { opacity: 1; }
+        46% { opacity: 1; transform: translate(80px, 80px); }
+        48%, 100% { opacity: 0; transform: translate(80px, 80px); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, ::before, ::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          animation: none !important;
+        }
+        .logo-outline { display: none; }
+        .logo-base { opacity: 1 !important; }
+        .draw-stroke { opacity: 1 !important; stroke-dashoffset: 0 !important; }
+        .badge { opacity: 1 !important; transform: none !important; }
+        .badge-halo { display: none; }
+        .shine { display: none; }
+      }
+    </style>
+  </defs>
+
+  <!-- Outline guide drawn first -->
+  <rect class="logo-outline" x="5" y="5" width="54" height="54" rx="17" stroke="url(#bg)"/>
+
+  <!-- Base filled container reveals -->
+  <rect class="logo-base" x="5" y="5" width="54" height="54" rx="17" fill="url(#bg)"/>
+
+  <!-- Light shine sweep clipped to rounded container -->
+  <g clip-path="url(#logoClip)">
+    <rect class="shine" x="-30" y="-30" width="120" height="120" fill="url(#shine)"/>
+  </g>
+
+  <!-- Calendar card and lines drawing in sequence -->
+  <rect class="draw-stroke calendar-box" x="14.5" y="17.5" width="35" height="32" rx="7" stroke="#FFFFFF" stroke-width="3"/>
+  <path class="draw-stroke calendar-divider" d="M15 27h34" stroke="#FFFFFF" stroke-width="3"/>
+  <path class="draw-stroke calendar-rings" d="M23 14v7M41 14v7" stroke="#FFFFFF" stroke-width="3"/>
+  <path class="draw-stroke calendar-slots" d="M22 35h7M35 35h7M22 42h7" stroke="#FFFFFF" stroke-width="3"/>
+  <path class="draw-stroke checkmark" d="m34.5 42 3.8 3.6 7.2-8.4" stroke="url(#accent)" stroke-width="3.4"/>
+
+  <!-- Notification halo and badge pop -->
+  <circle class="badge-halo" cx="51" cy="13" r="4.2" fill="#7DE8FF"/>
+  <circle class="badge" cx="51" cy="13" r="4.2" fill="#7DE8FF" stroke="#FFFFFF" stroke-width="2"/>
+</svg>

@@ -187,3 +187,7 @@ $RECYCLE.BIN/
 *.swo
 *~
 *.bak
+
+# Vercel local project metadata
+.vercel/
+**/.vercel/
