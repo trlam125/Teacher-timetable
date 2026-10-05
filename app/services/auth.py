@@ -375,7 +375,7 @@ def _running_on_render() -> bool:
 def email_delivery_configured() -> bool:
     """Return whether the active email transport is configured for this environment.
 
-    Render uses the private Vercel mail proxy over HTTPS. Every other
+    Render uses the private Netlify mail proxy over HTTPS. Every other
     environment keeps the original direct SMTP transport.
     """
     if _running_on_render():
@@ -387,12 +387,12 @@ def email_delivery_configured() -> bool:
 
 
 def _send_email_via_mail_proxy(recipient: str, subject: str, body: str) -> bool:
-    """Send email through the private Vercel SMTP proxy over HTTPS."""
+    """Send email through the private Netlify SMTP proxy over HTTPS."""
     api_url = os.getenv("MAIL_API_URL", "").strip()
     api_secret = os.getenv("MAIL_API_SECRET", "").strip()
     if not api_url or not api_secret:
         logger.error(
-            "Vercel mail proxy is not configured. Missing MAIL_API_URL or MAIL_API_SECRET"
+            "Netlify mail proxy is not configured. Missing MAIL_API_URL or MAIL_API_SECRET"
         )
         return False
 
@@ -420,10 +420,10 @@ def _send_email_via_mail_proxy(recipient: str, subject: str, body: str) -> bool:
         with urllib_request.urlopen(request, timeout=timeout) as response:
             response_body = response.read().decode("utf-8", errors="replace")
             if 200 <= response.status < 300:
-                logger.info("Email sent to %s via Vercel mail proxy", recipient)
+                logger.info("Email sent to %s via Netlify mail proxy", recipient)
                 return True
             logger.error(
-                "Vercel mail proxy returned HTTP %s for %s: %s",
+                "Netlify mail proxy returned HTTP %s for %s: %s",
                 response.status,
                 recipient,
                 response_body,
@@ -435,7 +435,7 @@ def _send_email_via_mail_proxy(recipient: str, subject: str, body: str) -> bool:
         except Exception:
             error_body = ""
         logger.error(
-            "Vercel mail proxy HTTP error %s for %s: %s",
+            "Netlify mail proxy HTTP error %s for %s: %s",
             exc.code,
             recipient,
             error_body,
@@ -443,7 +443,7 @@ def _send_email_via_mail_proxy(recipient: str, subject: str, body: str) -> bool:
         return False
     except (urllib_error.URLError, TimeoutError, OSError, ValueError) as exc:
         logger.exception(
-            "Could not send email to %s via Vercel mail proxy: %s", recipient, exc
+            "Could not send email to %s via Netlify mail proxy: %s", recipient, exc
         )
         return False
 
@@ -493,7 +493,7 @@ def _send_email_via_smtp(recipient: str, subject: str, body: str) -> bool:
 
 
 def send_email_message(recipient: str, subject: str, body: str) -> bool:
-    """Use the Vercel SMTP proxy on Render; use SMTP everywhere else."""
+    """Use the Netlify SMTP proxy on Render; use SMTP everywhere else."""
     if _running_on_render():
         return _send_email_via_mail_proxy(recipient, subject, body)
     return _send_email_via_smtp(recipient, subject, body)

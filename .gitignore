@@ -89,7 +89,7 @@ tailscaled.exe
 .tailscale/
 
 # ------------------------------------------------------------------------------
-# Node.js / Vercel Mail Proxy (vercel-mail-proxy/)
+# Node.js / Netlify Mail Proxy (netlify-mail-proxy/)
 # ------------------------------------------------------------------------------
 node_modules/
 **/node_modules/
@@ -97,7 +97,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-.vercel/
+.netlify/
 .next/
 out/
 

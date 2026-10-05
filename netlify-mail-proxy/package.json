@@ -1,5 +1,5 @@
 {
-  "name": "smart-tkb-mail-proxy",
+  "name": "smart-tkb-netlify-mail-proxy",
   "private": true,
   "version": "1.0.0",
   "type": "module",
