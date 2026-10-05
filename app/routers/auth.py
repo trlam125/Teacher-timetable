@@ -531,10 +531,17 @@ def forgot_password(
             status_code=400,
         )
 
+    reset_log_id = secrets.token_hex(4)
     dev_reset_link = None
     allow_local_link = development_reset_links_enabled(request)
     email_configured = email_delivery_configured()
     base_url = public_base_url(request)
+    logger.info(
+        "[forgot:%s] captcha accepted; email_transport_configured=%s base_url_configured=%s",
+        reset_log_id,
+        email_configured,
+        bool(base_url),
+    )
     # Check service configuration before looking up the account, so the response
     # cannot disclose whether an email exists and missing config never looks successful.
     if not base_url or not (email_configured or allow_local_link):
@@ -559,6 +566,7 @@ def forgot_password(
     account = db.scalar(
         select(User).where(func.lower(func.trim(User.email)) == normalized_email)
     )
+    logger.info("[forgot:%s] account_match=%s", reset_log_id, account is not None)
     if account:
         nonce = secrets.token_urlsafe(32)
         account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
@@ -570,21 +578,31 @@ def forgot_password(
         reset_url = f"{base_url}/reset-password/{token}"
         email_sent = False
         if email_configured:
+            mail_started_at = time.monotonic()
+            logger.info("[forgot:%s] sending reset email via configured transport", reset_log_id)
             try:
                 email_sent = send_password_reset_email(account.email.strip(), reset_url)
+                elapsed = time.monotonic() - mail_started_at
                 if email_sent:
                     logger.info(
-                        "Password-reset email sent successfully to %s", account.email
+                        "[forgot:%s] reset email accepted by transport in %.2fs",
+                        reset_log_id,
+                        elapsed,
                     )
                 else:
                     logger.error(
-                        "Password-reset email transport returned False for %s",
-                        account.email,
+                        "[forgot:%s] reset email transport returned False after %.2fs",
+                        reset_log_id,
+                        elapsed,
                     )
             except Exception as exc:
                 email_sent = False
+                elapsed = time.monotonic() - mail_started_at
                 logger.exception(
-                    "Could not send password-reset email to %s: %s", account.email, exc
+                    "[forgot:%s] reset email raised after %.2fs: %s",
+                    reset_log_id,
+                    elapsed,
+                    exc,
                 )
 
         if allow_local_link and not email_sent:

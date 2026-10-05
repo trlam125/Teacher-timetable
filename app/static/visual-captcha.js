@@ -25,9 +25,8 @@
           .map((tile) => tile.dataset.captchaValue)
           .sort()
           .join(",");
-        status.textContent = selected.length
-          ? `Đã chọn ${selected.length}/${requiredCount} hình.`
-          : "Chưa chọn hình nào.";
+        status.textContent = "";
+        status.classList.remove("is-error");
         status.classList.toggle("is-ready", selected.length === requiredCount);
       };
       tiles.forEach((tile) => {
@@ -117,7 +116,7 @@
           : 0;
         if (selectedCount !== requiredCount) {
           event.preventDefault();
-          status.textContent = `Hãy chọn đúng ${requiredCount} hình trước khi tiếp tục.`;
+          status.textContent = "Lựa chọn hình chưa đúng. Vui lòng kiểm tra lại.";
           status.classList.add("is-error");
           captcha.scrollIntoView({ behavior: "smooth", block: "center" });
         }

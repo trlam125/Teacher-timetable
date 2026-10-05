@@ -17,7 +17,6 @@
         </button>
         {% endfor %}
     </div>
-    <p class="captcha-help">Chọn đủ {{ captcha_challenge.required_count }} hình phù hợp.</p>
     {% else %}
     <div class="captcha-puzzle" role="group" aria-label="{{ captcha_challenge.prompt }}">
         {% for piece in captcha_challenge.pieces %}

@@ -120,6 +120,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("smart_tkb")
+logger.setLevel(logging.INFO)
 
 ADMIN_ROLES = frozenset({"admin", "super_admin"})
 MAX_CHATBOT_ERROR_LOGS = 500

@@ -199,7 +199,10 @@ def new_captcha(purpose: str = "password_reset") -> tuple[dict, str]:
         target = secrets.choice(categories)
         system_random = random.SystemRandom()
         distractors = [item for item in categories if item != target]
-        tile_kinds = [target, target] + system_random.sample(distractors, 4)
+        required_count = secrets.randbelow(4) + 1
+        tile_kinds = [target] * required_count + system_random.sample(
+            distractors, 6 - required_count
+        )
         system_random.shuffle(tile_kinds)
         tiles = []
         correct_ids = []
