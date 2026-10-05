@@ -567,6 +567,21 @@ def forgot_password(
         select(User).where(func.lower(func.trim(User.email)) == normalized_email)
     )
     logger.info("[forgot:%s] account_match=%s", reset_log_id, account is not None)
+    if account is None:
+        fresh_challenge, fresh_token = new_captcha()
+        return templates.TemplateResponse(
+            "forgot_password.html",
+            {
+                "request": request,
+                "captcha_challenge": fresh_challenge,
+                "captcha_token": fresh_token,
+                "error": "Email này chưa được đăng ký trong hệ thống.",
+                "submitted": False,
+                "dev_reset_link": None,
+            },
+            status_code=400,
+        )
+
     if account:
         nonce = secrets.token_urlsafe(32)
         account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
