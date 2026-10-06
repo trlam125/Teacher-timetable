@@ -110,14 +110,12 @@ html.dark-mode .download-btn {
   inset: -2px;
   z-index: 5;
   pointer-events: none;
-  background: linear-gradient(
-    105deg,
-    transparent 24%,
-    rgba(16, 124, 65, 0.1) 40%,
-    rgba(255, 255, 255, 0.6) 50%,
-    rgba(16, 124, 65, 0.1) 60%,
-    transparent 76%
-  );
+  background: linear-gradient(105deg,
+      transparent 24%,
+      rgba(16, 124, 65, 0.1) 40%,
+      rgba(255, 255, 255, 0.6) 50%,
+      rgba(16, 124, 65, 0.1) 60%,
+      transparent 76%);
   transform: translateX(-120%);
   transition: transform 0.55s ease;
 }
@@ -128,14 +126,12 @@ html.dark-mode .export-btn::after,
 :root.dark-mode .download-btn::after,
 body.dark-mode .download-btn::after,
 html.dark-mode .download-btn::after {
-  background: linear-gradient(
-    105deg,
-    transparent 24%,
-    rgba(52, 211, 153, 0.15) 40%,
-    rgba(255, 255, 255, 0.35) 50%,
-    rgba(52, 211, 153, 0.15) 60%,
-    transparent 76%
-  );
+  background: linear-gradient(105deg,
+      transparent 24%,
+      rgba(52, 211, 153, 0.15) 40%,
+      rgba(255, 255, 255, 0.35) 50%,
+      rgba(52, 211, 153, 0.15) 60%,
+      transparent 76%);
 }
 
 .export-btn[data-state="idle"]:hover::after,
@@ -249,11 +245,9 @@ html.dark-mode .download-btn::after {
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--progress, 0%);
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.15),
-    rgba(255, 255, 255, 0.38)
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.15),
+      rgba(255, 255, 255, 0.38));
   border-radius: var(--radius);
   pointer-events: none;
   z-index: 2;
@@ -293,12 +287,29 @@ html.dark-mode .download-btn::after {
 .export-btn .icon-circle.icon-start,
 .download-btn .icon-circle.icon-start {
   left: 0;
+  transform: translateX(0);
+  will-change: transform;
+  transition: transform 450ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.export-btn[data-state="idle"] .icon-circle.icon-start,
+.download-btn[data-state="idle"] .icon-circle.icon-start {
+  transform: translateX(0);
+}
+
+/* Excel logo circle slides from left to right circle */
+.export-btn[data-state="downloading"] .icon-circle.icon-start,
+.export-btn[data-state="done"] .icon-circle.icon-start,
+.download-btn[data-state="downloading"] .icon-circle.icon-start,
+.download-btn[data-state="done"] .icon-circle.icon-start {
+  transform: translateX(calc(var(--btn-w) - var(--btn-h)));
 }
 
 .export-btn .icon-circle.icon-end,
 .download-btn .icon-circle.icon-end {
   right: 0;
   color: #ffffff;
+  z-index: 5;
 }
 
 .export-btn .icon-circle svg,
@@ -308,59 +319,59 @@ html.dark-mode .download-btn::after {
   pointer-events: none;
 }
 
-/* Excel Logo in left circle */
+/* Excel Logo in icon circle */
 .export-btn .icon-excel,
 .download-btn .icon-excel {
   opacity: 1;
   transform: scale(1);
-  transition:
-    transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 200ms ease;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+  will-change: transform, opacity;
 }
 
+.export-btn[data-state="idle"] .icon-excel,
+.download-btn[data-state="idle"] .icon-excel {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  transition:
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1) 120ms,
+    opacity 240ms ease 120ms;
+}
+
+/* While downloading: keep logo visible as it slides across to the right circle */
 .export-btn[data-state="downloading"] .icon-excel,
+.download-btn[data-state="downloading"] .icon-excel {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    transform 260ms ease,
+    opacity 200ms ease;
+}
+
+/* When done: Excel logo morphs out at the right circle */
 .export-btn[data-state="done"] .icon-excel,
-.download-btn[data-state="downloading"] .icon-excel,
 .download-btn[data-state="done"] .icon-excel {
   opacity: 0;
-  transform: scale(0.35) translateY(4px);
+  transform: scale(0.2) rotate(15deg);
   pointer-events: none;
-}
-
-/* Arrow icon (Right edge while downloading) */
-.export-btn .icon-arrow,
-.download-btn .icon-arrow {
-  position: absolute;
-  opacity: 0;
-  transform: scale(0) translateX(-8px);
-  color: #ffffff;
   transition:
-    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 220ms ease,
     opacity 180ms ease;
 }
 
-.export-btn[data-state="downloading"] .icon-arrow,
-.download-btn[data-state="downloading"] .icon-arrow {
-  opacity: 1;
-  transform: scale(1) translateX(0);
-  transition-delay: 150ms;
+/* Arrow icon replaced by sliding Excel logo */
+.export-btn .icon-arrow,
+.download-btn .icon-arrow {
+  display: none !important;
 }
 
-.export-btn[data-state="done"] .icon-arrow,
-.download-btn[data-state="done"] .icon-arrow {
-  opacity: 0;
-  transform: scale(0.3) translateX(8px);
-  transition-delay: 0ms;
-}
-
-/* Check icon (Right circle when done) */
+/* Check icon (Right circle when done) - morphs in at the exact position where Excel logo arrived */
 .export-btn .icon-check,
 .download-btn .icon-check {
   position: absolute;
   opacity: 0;
   transform: scale(0) rotate(-15deg);
   color: #ffffff;
+  will-change: transform, opacity;
   transition:
     transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
     opacity 200ms ease;
@@ -370,7 +381,7 @@ html.dark-mode .download-btn::after {
 .download-btn[data-state="done"] .icon-check {
   opacity: 1;
   transform: scale(1) rotate(0deg);
-  transition-delay: 200ms;
+  transition-delay: 160ms;
 }
 
 /* ==========================================================================
@@ -465,6 +476,7 @@ html.dark-mode .download-btn::after {
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
+
   .export-btn,
   .export-btn *,
   .export-btn *::before,
