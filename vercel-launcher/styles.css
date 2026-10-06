@@ -1,103 +1,660 @@
 :root {
-  color-scheme: light;
-  --ink: #17213c;
-  --muted: #71809f;
-  --blue: #2f80ed;
+  color-scheme: light dark;
+  --font-display: "Plus Jakarta Sans", "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  --font-body: "Be Vietnam Pro", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+
+  /* Color Palette - Vibrant School & Timetable Theme */
+  --primary: #2563eb;
+  --primary-glow: rgba(37, 99, 235, 0.28);
   --violet: #7c3aed;
-  --dot: #6676f4;
+  --amber: #f59e0b;
+  --emerald: #10b981;
+  --sky: #0284c7;
+
+  --ink: #0f172a;
+  --muted: #5b6b8b;
+  --dot: #4f46e5;
+
+  --card-bg: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(255, 255, 255, 0.92);
+  --card-shadow: 0 24px 60px -12px rgba(37, 99, 235, 0.16), 0 8px 24px -4px rgba(30, 41, 59, 0.06);
+  --badge-bg: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.08));
+  --badge-border: rgba(59, 130, 246, 0.2);
+  --badge-text: #2563eb;
+  --quote-bg: rgba(241, 245, 255, 0.75);
+  --quote-border: rgba(199, 210, 254, 0.6);
+  --quote-text: #475569;
 }
 
-* { box-sizing: border-box; }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f1f5f9;
+    --muted: #94a3b8;
+    --dot: #818cf8;
+
+    --card-bg: rgba(15, 23, 42, 0.82);
+    --card-border: rgba(255, 255, 255, 0.12);
+    --card-shadow: 0 28px 70px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+    --badge-bg: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(139, 92, 246, 0.18));
+    --badge-border: rgba(96, 165, 250, 0.3);
+    --badge-text: #93c5fd;
+    --quote-bg: rgba(30, 41, 59, 0.7);
+    --quote-border: rgba(71, 85, 105, 0.5);
+    --quote-text: #cbd5e1;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
 
 html,
 body {
   width: 100%;
   min-height: 100%;
   margin: 0;
+  padding: 0;
 }
 
 body {
   min-height: 100svh;
   overflow: hidden;
-  font-family: "Be Vietnam Pro", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   color: var(--ink);
   background:
-    radial-gradient(circle at 50% 35%, rgba(100, 123, 255, 0.13), transparent 28rem),
-    linear-gradient(180deg, #fbfcff 0%, #f5f7ff 58%, #f8f9ff 100%);
+    radial-gradient(circle at 50% 25%, rgba(99, 102, 241, 0.12), transparent 45rem),
+    linear-gradient(180deg, #f4f7ff 0%, #eef3ff 50%, #f7f9ff 100%);
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body::before,
-body::after {
-  content: "";
+@media (prefers-color-scheme: dark) {
+  body {
+    background:
+      radial-gradient(circle at 50% 25%, rgba(99, 102, 241, 0.16), transparent 45rem),
+      linear-gradient(180deg, #090d16 0%, #0d1424 50%, #111a30 100%);
+  }
+}
+
+/* ========================================================
+   ANIMATED SCHOOL BACKGROUND SYSTEM
+   ======================================================== */
+.school-bg {
   position: fixed;
-  border-radius: 999px;
+  inset: 0;
   pointer-events: none;
-  filter: blur(2px);
-  opacity: 0.55;
+  overflow: hidden;
+  z-index: 0;
 }
 
-body::before {
+/* Atmospheric Aurora Orbs */
+.bg-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  will-change: transform, opacity;
+  animation: orbBreathe 14s ease-in-out infinite alternate;
+}
+
+.aurora-orb.orb-1 {
+  width: 38rem;
+  height: 38rem;
+  top: -15rem;
+  left: -12rem;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.28), rgba(59, 130, 246, 0.05) 70%, transparent);
+  animation-duration: 16s;
+}
+
+.aurora-orb.orb-2 {
+  width: 42rem;
+  height: 42rem;
+  top: 15%;
+  right: -18rem;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.24), rgba(168, 85, 247, 0.04) 70%, transparent);
+  animation-duration: 18s;
+  animation-delay: -4s;
+}
+
+.aurora-orb.orb-3 {
   width: 32rem;
   height: 32rem;
-  top: -20rem;
-  left: -13rem;
-  background: radial-gradient(circle, rgba(47, 128, 237, 0.16), transparent 67%);
+  bottom: -10rem;
+  left: 20%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.18), rgba(251, 191, 36, 0.03) 70%, transparent);
+  animation-duration: 13s;
+  animation-delay: -7s;
 }
 
-body::after {
-  width: 34rem;
-  height: 34rem;
-  right: -16rem;
-  bottom: -21rem;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.14), transparent 67%);
+.aurora-orb.orb-4 {
+  width: 30rem;
+  height: 30rem;
+  bottom: 5%;
+  right: 15%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16), rgba(52, 211, 153, 0.03) 70%, transparent);
+  animation-duration: 15s;
+  animation-delay: -2s;
 }
 
+@keyframes orbBreathe {
+  0% {
+    transform: scale(0.92) translate3d(0, 0, 0);
+    opacity: 0.42;
+  }
+
+  50% {
+    transform: scale(1.08) translate3d(20px, -25px, 0);
+    opacity: 0.65;
+  }
+
+  100% {
+    transform: scale(0.96) translate3d(-15px, 15px, 0);
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .aurora-orb {
+    opacity: 0.35;
+    filter: blur(85px);
+  }
+
+  .aurora-orb.orb-1 {
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.32), transparent 70%);
+  }
+
+  .aurora-orb.orb-2 {
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.28), transparent 70%);
+  }
+
+  .aurora-orb.orb-3 {
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.2), transparent 70%);
+  }
+
+  .aurora-orb.orb-4 {
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.18), transparent 70%);
+  }
+}
+
+/* Subtle School Notebook Grid Pattern */
+.notebook-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(79, 107, 246, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 107, 246, 0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 85%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 85%);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notebook-grid {
+    background-image:
+      linear-gradient(rgba(147, 197, 253, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(147, 197, 253, 0.04) 1px, transparent 1px);
+  }
+}
+
+/* Canvas Particle Dust */
+.dust-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ========================================================
+   FLYING ORIGAMI PAPER PLANE ANIMATION
+   ======================================================== */
+.paper-plane-track {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.paper-plane-trail {
+  position: absolute;
+  top: 6%;
+  left: 0;
+  width: 100%;
+  height: 35vh;
+  opacity: 0.25;
+  stroke: #60a5fa;
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  fill: none;
+}
+
+.paper-plane-flyer {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  top: 15%;
+  left: -80px;
+  will-change: transform;
+  animation: flyPaperPlane 16s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.paper-plane-icon {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform: rotate(-15deg);
+}
+
+@keyframes flyPaperPlane {
+  0% {
+    transform: translate3d(-100px, 120px, 0) rotate(15deg) scale(0.85);
+    opacity: 0;
+  }
+
+  5% {
+    opacity: 1;
+  }
+
+  25% {
+    transform: translate3d(28vw, -20px, 0) rotate(-10deg) scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: translate3d(58vw, 40px, 0) rotate(18deg) scale(0.95);
+    opacity: 1;
+  }
+
+  75% {
+    transform: translate3d(88vw, -60px, 0) rotate(-5deg) scale(1.05);
+    opacity: 1;
+  }
+
+  90% {
+    transform: translate3d(108vw, -120px, 0) rotate(-15deg) scale(1.1);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translate3d(120vw, -150px, 0) rotate(-15deg) scale(1.1);
+    opacity: 0;
+  }
+}
+
+/* ========================================================
+   FLOATING SCHOOL MOTIFS (SVG VECTORS)
+   ======================================================== */
+.school-floaters {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.floater {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: default;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+  will-change: transform;
+  animation: floaterBob var(--float-dur, 6s) ease-in-out infinite alternate;
+  animation-delay: var(--float-delay, 0s);
+}
+
+.floater:hover {
+  transform: scale(1.15) !important;
+  filter: drop-shadow(0 14px 28px rgba(37, 99, 235, 0.32));
+}
+
+.floater-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 8px 18px rgba(30, 41, 59, 0.12));
+}
+
+@media (prefers-color-scheme: dark) {
+  .floater-svg {
+    filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.45));
+  }
+}
+
+/* Floater Coordinates & Dimensions */
+.floater-cap {
+  width: 72px;
+  height: 72px;
+  top: 9%;
+  left: 9%;
+}
+
+.floater-book {
+  width: 70px;
+  height: 70px;
+  top: 11%;
+  right: 10%;
+}
+
+.floater-clock {
+  width: 66px;
+  height: 66px;
+  top: 48%;
+  left: 7%;
+}
+
+.floater-ruler {
+  width: 68px;
+  height: 68px;
+  top: 46%;
+  right: 8%;
+}
+
+.floater-backpack {
+  width: 68px;
+  height: 68px;
+  bottom: 14%;
+  left: 10%;
+}
+
+.floater-flask {
+  width: 66px;
+  height: 66px;
+  bottom: 16%;
+  right: 11%;
+}
+
+.floater-bulb {
+  width: 58px;
+  height: 58px;
+  top: 24%;
+  left: 21%;
+}
+
+.floater-star {
+  width: 60px;
+  height: 60px;
+  top: 22%;
+  right: 22%;
+}
+
+@keyframes floaterBob {
+  0% {
+    transform: translate3d(calc(var(--parallax-x, 0px) * 0.8), calc(var(--parallax-y, 0px) * 0.8), 0) rotate(0deg);
+  }
+
+  50% {
+    transform: translate3d(calc(var(--parallax-x, 0px) + 5px), calc(var(--parallax-y, 0px) - 14px), 0) rotate(3deg);
+  }
+
+  100% {
+    transform: translate3d(calc(var(--parallax-x, 0px) - 6px), calc(var(--parallax-y, 0px) - 7px), 0) rotate(-2.5deg);
+  }
+}
+
+/* Flask Rising Bubble Animation */
+.bubble-anim {
+  animation: bubbleRise 2.4s ease-in-out infinite;
+}
+
+.bubble-anim.b1 {
+  animation-delay: 0.2s;
+}
+
+.bubble-anim.b2 {
+  animation-delay: 1.1s;
+}
+
+.bubble-anim.b3 {
+  animation-delay: 1.8s;
+}
+
+@keyframes bubbleRise {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 0.9;
+  }
+
+  80% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translateY(-16px);
+    opacity: 0;
+  }
+}
+
+/* ========================================================
+   SCHOLASTIC DOODLES DRIFTING UPWARD
+   ======================================================== */
+.scholastic-doodles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.doodle {
+  position: absolute;
+  left: var(--d-left, 50%);
+  bottom: -50px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: #6366f1;
+  opacity: 0;
+  user-select: none;
+  animation: doodleRise var(--d-dur, 16s) linear infinite;
+  animation-delay: var(--d-delay, 0s);
+}
+
+@media (prefers-color-scheme: dark) {
+  .doodle {
+    color: #818cf8;
+  }
+}
+
+@keyframes doodleRise {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 0.38;
+  }
+
+  80% {
+    opacity: 0.38;
+  }
+
+  100% {
+    transform: translate3d(35px, -115vh, 0) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+/* ========================================================
+   SCHOOL CAMPUS SILHOUETTE (BOTTOM SCENERY)
+   ======================================================== */
+.campus-silhouette {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 190px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.campus-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.school-buildings {
+  color: #bfdbfe;
+  opacity: 0.45;
+  transition: opacity 0.5s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .school-buildings {
+    color: #1e293b;
+    opacity: 0.85;
+  }
+}
+
+.campus-windows .win {
+  fill: #fef08a;
+  opacity: 0.7;
+  animation: windowGlow 5s ease-in-out infinite alternate;
+}
+
+.campus-windows rect:nth-child(2n) {
+  animation-delay: 1.3s;
+}
+
+.campus-windows rect:nth-child(3n) {
+  animation-delay: 2.7s;
+}
+
+@keyframes windowGlow {
+  0% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+
+  100% {
+    opacity: 0.55;
+  }
+}
+
+/* ========================================================
+   MAIN LAUNCHER UI & GLASSMORPHIC CARD
+   ======================================================== */
 .launcher {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 28px 22px calc(28px + env(safe-area-inset-bottom));
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
   text-align: center;
 }
 
+.launcher-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  padding: 34px 28px 30px;
+  border-radius: 28px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+  animation: cardEntry 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cardEntry {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Top School Badge */
+.school-top-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-border);
+  color: var(--badge-text);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 22px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+}
+
+.badge-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Brand Wrap & Logo */
 .brand-wrap {
   position: relative;
-  width: 82px;
-  height: 82px;
+  width: 86px;
+  height: 86px;
   display: grid;
   place-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .brand-glow {
   position: absolute;
-  inset: 7px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(47, 128, 237, 0.28), rgba(124, 58, 237, 0.27));
-  filter: blur(17px);
-  transform: scale(1.05);
-  animation: glow 2.3s ease-in-out infinite;
+  inset: 6px;
+  border-radius: 26px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.38), rgba(124, 58, 237, 0.35));
+  filter: blur(18px);
+  transform: scale(1.06);
+  animation: glowPulse 2.6s ease-in-out infinite;
 }
 
 .brand-logo {
   position: relative;
-  width: 78px;
-  height: 78px;
+  width: 80px;
+  height: 80px;
   display: block;
-  filter: drop-shadow(0 12px 26px rgba(62, 84, 182, 0.18));
+  filter: drop-shadow(0 12px 28px rgba(37, 99, 235, 0.24));
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.launcher-card:hover .brand-logo {
+  transform: scale(1.05);
+}
+
+/* Loader Dots */
 .loader-dots {
-  height: 14px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 19px;
+  margin-bottom: 18px;
 }
 
 .loader-dots i {
@@ -106,51 +663,137 @@ body::after {
   display: block;
   border-radius: 50%;
   background: var(--dot);
-  opacity: 0.2;
-  transform: translateY(0) scale(0.78);
-  animation: dot 1.25s ease-in-out infinite;
+  opacity: 0.22;
+  transform: translateY(0) scale(0.75);
+  animation: dotBounce 1.25s ease-in-out infinite;
 }
 
-.loader-dots i:nth-child(2) { animation-delay: 0.1s; }
-.loader-dots i:nth-child(3) { animation-delay: 0.2s; }
-.loader-dots i:nth-child(4) { animation-delay: 0.3s; }
-.loader-dots i:nth-child(5) { animation-delay: 0.4s; }
-.loader-dots i:nth-child(6) { animation-delay: 0.5s; }
+.loader-dots i:nth-child(2) {
+  animation-delay: 0.1s;
+}
 
+.loader-dots i:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.loader-dots i:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.loader-dots i:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+.loader-dots i:nth-child(6) {
+  animation-delay: 0.5s;
+}
+
+/* Status Text Typography */
 h1 {
   margin: 0;
-  font-size: clamp(20px, 4vw, 25px);
+  font-family: var(--font-display);
+  font-size: clamp(21px, 4.5vw, 25px);
   line-height: 1.35;
   letter-spacing: -0.025em;
   font-weight: 700;
+  color: var(--ink);
 }
 
 p {
-  max-width: 410px;
-  margin: 9px 0 0;
+  max-width: 380px;
+  margin: 8px 0 0;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--muted);
 }
 
-.retry {
+/* Inspiring School Quote Box */
+.school-quote-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin-top: 22px;
-  padding: 11px 17px;
-  border: 1px solid rgba(91, 103, 189, 0.18);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.83);
-  color: #33406c;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-  box-shadow: 0 8px 22px rgba(44, 54, 113, 0.08);
-  backdrop-filter: blur(10px);
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: var(--quote-bg);
+  border: 1px solid var(--quote-border);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.04);
+  max-width: 100%;
 }
 
-.retry:hover { transform: translateY(-1px); }
-.retry:active { transform: translateY(0); }
+.quote-sparkle {
+  font-size: 14px;
+  flex-shrink: 0;
+}
 
+.quote-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--quote-text);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.quote-text.is-fading {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* Retry Button */
+.retry {
+  margin-top: 22px;
+  padding: 11px 22px;
+  border: 1px solid var(--badge-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.25s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  .retry {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(96, 165, 250, 0.25);
+    color: #93c5fd;
+  }
+}
+
+.retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.2);
+  background: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .retry:hover {
+    background: rgba(40, 53, 76, 0.95);
+  }
+}
+
+.retry:active {
+  transform: translateY(0);
+}
+
+.retry-icon {
+  font-size: 14px;
+  display: inline-block;
+  transition: transform 0.35s ease;
+}
+
+.retry:hover .retry-icon {
+  transform: rotate(180deg);
+}
+
+/* Transition to Ready State */
 body.is-ready .loader-dots i {
   animation: ready-dot 0.45s ease forwards;
 }
@@ -159,48 +802,215 @@ body.is-ready .brand-logo {
   animation: ready-logo 0.48s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-@keyframes dot {
-  0%, 60%, 100% { opacity: 0.18; transform: translateY(0) scale(0.75); }
-  30% { opacity: 1; transform: translateY(-3px) scale(1); }
+/* ========================================================
+   KEYFRAME ANIMATIONS
+   ======================================================== */
+@keyframes dotBounce {
+
+  0%,
+  60%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0) scale(0.75);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.1);
+  }
 }
 
-@keyframes glow {
-  0%, 100% { opacity: 0.48; transform: scale(0.94); }
-  50% { opacity: 0.86; transform: scale(1.12); }
+@keyframes glowPulse {
+
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 0.88;
+    transform: scale(1.14);
+  }
 }
 
 @keyframes ready-dot {
-  to { opacity: 0; transform: scale(0.35); }
+  to {
+    opacity: 0;
+    transform: scale(0.3);
+  }
 }
 
 @keyframes ready-logo {
-  0% { transform: scale(1); }
-  55% { transform: scale(1.06); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+
+  100% {
+    transform: scale(1.02);
+  }
+}
+
+/* ========================================================
+   RESPONSIVE DESIGN ADAPTATIONS
+   ======================================================== */
+@media (max-width: 900px) {
+
+  .floater-bulb,
+  .floater-star {
+    opacity: 0.4;
+  }
+}
+
+@media (max-width: 680px) {
+  .floater-cap {
+    width: 56px;
+    height: 56px;
+    top: 6%;
+    left: 5%;
+  }
+
+  .floater-book {
+    width: 56px;
+    height: 56px;
+    top: 7%;
+    right: 5%;
+  }
+
+  .floater-clock {
+    width: 50px;
+    height: 50px;
+    top: 40%;
+    left: 3%;
+  }
+
+  .floater-ruler {
+    width: 52px;
+    height: 52px;
+    top: 38%;
+    right: 3%;
+  }
+
+  .floater-backpack {
+    width: 52px;
+    height: 52px;
+    bottom: 10%;
+    left: 5%;
+  }
+
+  .floater-flask {
+    width: 50px;
+    height: 50px;
+    bottom: 12%;
+    right: 5%;
+  }
+
+  .floater-bulb,
+  .floater-star {
+    display: none;
+  }
+
+  .campus-silhouette {
+    height: 140px;
+  }
 }
 
 @media (max-width: 480px) {
-  .brand-wrap { width: 76px; height: 76px; margin-bottom: 25px; }
-  .brand-logo { width: 72px; height: 72px; }
-  .loader-dots { margin-bottom: 17px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .loader-dots i,
-  .brand-glow,
-  body.is-ready .brand-logo { animation-duration: 2.6s; }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root { --ink: #eef2ff; --muted: #9ba8c8; --dot: #94a3ff; }
-  body {
-    background:
-      radial-gradient(circle at 50% 35%, rgba(91, 98, 246, 0.16), transparent 28rem),
-      linear-gradient(180deg, #101527 0%, #0d1222 100%);
+  .launcher-card {
+    padding: 28px 20px 24px;
+    border-radius: 24px;
   }
-  .retry {
-    color: #d9e0ff;
-    background: rgba(30, 38, 66, 0.88);
-    border-color: rgba(154, 166, 232, 0.16);
+
+  .brand-wrap {
+    width: 76px;
+    height: 76px;
+    margin-bottom: 20px;
+  }
+
+  .brand-logo {
+    width: 72px;
+    height: 72px;
+  }
+
+  .school-top-badge {
+    font-size: 10.5px;
+    padding: 4px 12px;
+    margin-bottom: 18px;
+  }
+
+  .school-quote-box {
+    padding: 8px 12px;
+    margin-top: 18px;
+  }
+
+  .quote-text {
+    font-size: 11.5px;
+  }
+
+  /* Keep floaters subtle on tiny mobile screens */
+  .floater-cap {
+    width: 44px;
+    height: 44px;
+    top: 5%;
+    left: 3%;
+  }
+
+  .floater-book {
+    width: 44px;
+    height: 44px;
+    top: 5%;
+    right: 3%;
+  }
+
+  .floater-clock {
+    width: 40px;
+    height: 40px;
+    top: 35%;
+    left: 2%;
+    opacity: 0.7;
+  }
+
+  .floater-ruler {
+    width: 42px;
+    height: 42px;
+    top: 35%;
+    right: 2%;
+    opacity: 0.7;
+  }
+
+  .floater-backpack {
+    width: 42px;
+    height: 42px;
+    bottom: 8%;
+    left: 4%;
+  }
+
+  .floater-flask {
+    width: 40px;
+    height: 40px;
+    bottom: 9%;
+    right: 4%;
+  }
+}
+
+/* Accessibility: Prefers Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+
+  .aurora-orb,
+  .floater,
+  .paper-plane-flyer,
+  .doodle,
+  .bubble-anim,
+  .brand-glow,
+  .loader-dots i {
+    animation: none !important;
+  }
+
+  .paper-plane-flyer {
+    display: none;
   }
 }

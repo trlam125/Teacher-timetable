@@ -1,33 +1,427 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f7f9ff">
+  <meta name="theme-color" content="#f0f5ff">
   <meta name="robots" content="noindex,nofollow">
-  <title>Smart TKB</title>
+  <title>Smart TKB - Thời Khóa Biểu Thông Minh</title>
   <link rel="icon" type="image/svg+xml" href="/brand-logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
+
 <body>
+  <!-- Animated School Background -->
+  <div class="school-bg" aria-hidden="true">
+    <!-- Atmospheric glowing aurora orbs -->
+    <div class="bg-aurora">
+      <span class="aurora-orb orb-1"></span>
+      <span class="aurora-orb orb-2"></span>
+      <span class="aurora-orb orb-3"></span>
+      <span class="aurora-orb orb-4"></span>
+    </div>
+
+    <!-- Notebook Grid Subtle Texture -->
+    <div class="notebook-grid"></div>
+
+    <!-- Starlight & Chalk Dust Particle Canvas -->
+    <canvas id="schoolDustCanvas" class="dust-canvas"></canvas>
+
+    <!-- Flying Paper Plane across the Sky -->
+    <div class="paper-plane-track">
+      <svg class="paper-plane-trail" viewBox="0 0 1200 400" preserveAspectRatio="none">
+        <path d="M -50,320 C 250,380 400,120 700,180 C 950,230 1100,80 1300,50" />
+      </svg>
+      <div class="paper-plane-flyer">
+        <svg class="paper-plane-icon" viewBox="0 0 64 64" fill="none">
+          <defs>
+            <linearGradient id="planeGrad1" x1="4" y1="8" x2="58" y2="56" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ffffff" />
+              <stop offset="1" stop-color="#dbeafe" />
+            </linearGradient>
+            <linearGradient id="planeGrad2" x1="26" y1="36" x2="58" y2="8" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#bfdbfe" />
+              <stop offset="1" stop-color="#93c5fd" />
+            </linearGradient>
+            <linearGradient id="planeGrad3" x1="18" y1="38" x2="26" y2="48" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#60a5fa" />
+              <stop offset="1" stop-color="#3b82f6" />
+            </linearGradient>
+          </defs>
+          <path d="M4 28 L58 8 L34 54 L25 35 Z" fill="url(#planeGrad1)"
+            filter="drop-shadow(0 4px 8px rgba(37,99,235,0.25))" />
+          <path d="M58 8 L25 35 L20 48 L17 37 Z" fill="url(#planeGrad2)" />
+          <path d="M25 35 L58 8 L4 28 Z" fill="url(#planeGrad3)" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Educational Themed Floating Items (SVGs) -->
+    <div class="school-floaters">
+      <!-- 1. Mũ Cử Nhân (Graduation Cap) - Top Left -->
+      <div class="floater floater-cap" data-depth="0.04" style="--float-dur: 6.2s; --float-delay: 0s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="capTopGrad" x1="8" y1="18" x2="72" y2="42" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#3b82f6" />
+              <stop offset="0.6" stop-color="#4f46e5" />
+              <stop offset="1" stop-color="#7c3aed" />
+            </linearGradient>
+            <linearGradient id="tasselGrad" x1="40" y1="30" x2="62" y2="58" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fbbf24" />
+              <stop offset="1" stop-color="#f59e0b" />
+            </linearGradient>
+          </defs>
+          <!-- Mortarboard Cap Top -->
+          <path d="M40 16 L74 30 L40 44 L6 30 Z" fill="url(#capTopGrad)" stroke="rgba(255,255,255,0.6)"
+            stroke-width="1.8" />
+          <!-- Cap Skull Base -->
+          <path d="M22 37 V48 C22 55 58 55 58 48 V37" fill="#312e81" opacity="0.85" />
+          <!-- Tassel cord & brush -->
+          <circle cx="40" cy="30" r="3.2" fill="#fde68a" />
+          <path d="M40 30 Q56 34 60 48" stroke="url(#tasselGrad)" stroke-width="2.5" fill="none"
+            stroke-linecap="round" />
+          <rect x="57" y="47" width="6.5" height="13" rx="2.5" fill="url(#tasselGrad)" />
+          <circle cx="60" cy="62" r="2.5" fill="#f59e0b" />
+        </svg>
+      </div>
+
+      <!-- 2. Cuốn Sách Tri Thức (Open Book) - Top Right -->
+      <div class="floater floater-book" data-depth="0.05" style="--float-dur: 6.8s; --float-delay: 0.8s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="pageLeftGrad" x1="8" y1="24" x2="40" y2="54" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ffffff" />
+              <stop offset="1" stop-color="#e0e7ff" />
+            </linearGradient>
+            <linearGradient id="pageRightGrad" x1="40" y1="24" x2="72" y2="54" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ffffff" />
+              <stop offset="1" stop-color="#ede9fe" />
+            </linearGradient>
+            <linearGradient id="bookCoverGrad" x1="6" y1="56" x2="74" y2="56" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#2563eb" />
+              <stop offset="1" stop-color="#7c3aed" />
+            </linearGradient>
+          </defs>
+          <!-- Cover Edge -->
+          <path d="M6 56 C18 51 32 51 40 55 C48 51 62 51 74 56" stroke="url(#bookCoverGrad)" stroke-width="4.5"
+            stroke-linecap="round" fill="none" />
+          <!-- Left page -->
+          <path d="M40 53 C32 49 18 49 8 53 V25 C18 21 32 21 40 25 Z" fill="url(#pageLeftGrad)"
+            stroke="rgba(99,102,241,0.3)" stroke-width="1.5" />
+          <!-- Right page -->
+          <path d="M40 53 C48 49 62 49 72 53 V25 C62 21 48 21 40 25 Z" fill="url(#pageRightGrad)"
+            stroke="rgba(99,102,241,0.3)" stroke-width="1.5" />
+          <!-- Page text lines -->
+          <path d="M15 31 H33 M15 37 H29 M15 43 H32" stroke="#818cf8" stroke-width="2" stroke-linecap="round" />
+          <path d="M47 31 H65 M47 37 H61 M47 43 H63" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" />
+          <!-- Ribbon Bookmark -->
+          <path d="M40 25 V59 L43 56 L46 59 V25" fill="#ef4444" />
+        </svg>
+      </div>
+
+      <!-- 3. Đồng Hồ Tiết Học & Chuông Trường (Timetable Clock & Bell) - Mid Left -->
+      <div class="floater floater-clock" data-depth="0.03" style="--float-dur: 7.4s; --float-delay: 1.4s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="clockFace" x1="18" y1="20" x2="62" y2="68" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ffffff" />
+              <stop offset="1" stop-color="#f0f9ff" />
+            </linearGradient>
+            <linearGradient id="bellGrad" x1="20" y1="14" x2="60" y2="24" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fbbf24" />
+              <stop offset="1" stop-color="#d97706" />
+            </linearGradient>
+          </defs>
+          <!-- Top ringing bells -->
+          <ellipse cx="23" cy="22" rx="7" ry="5" transform="rotate(-30 23 22)" fill="url(#bellGrad)" />
+          <ellipse cx="57" cy="22" rx="7" ry="5" transform="rotate(30 57 22)" fill="url(#bellGrad)" />
+          <path d="M34 18 H46" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+          <!-- Stand legs -->
+          <path d="M26 65 L21 72 M54 65 L59 72" stroke="#64748b" stroke-width="3.5" stroke-linecap="round" />
+          <!-- Clock body -->
+          <circle cx="40" cy="45" r="23" fill="url(#clockFace)" stroke="#0284c7" stroke-width="3" />
+          <circle cx="40" cy="45" r="19" stroke="rgba(2,132,199,0.15)" stroke-width="1.5" />
+          <!-- Hour markers -->
+          <circle cx="40" cy="28" r="1.8" fill="#0369a1" />
+          <circle cx="57" cy="45" r="1.8" fill="#0369a1" />
+          <circle cx="40" cy="62" r="1.8" fill="#0369a1" />
+          <circle cx="23" cy="45" r="1.8" fill="#0369a1" />
+          <!-- Hands pointing to 8:00 (Class Start) -->
+          <circle cx="40" cy="45" r="2.8" fill="#0f172a" />
+          <path d="M40 45 V33" stroke="#0f172a" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M40 45 L31 51" stroke="#0284c7" stroke-width="2.5" stroke-linecap="round" />
+        </svg>
+      </div>
+
+      <!-- 4. Thước Eke & Bút Chì Học Sinh (Triangle Ruler & Pencil) - Mid Right -->
+      <div class="floater floater-ruler" data-depth="0.045" style="--float-dur: 6.5s; --float-delay: 2.1s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="rulerGrad" x1="12" y1="12" x2="68" y2="68" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#38bdf8" />
+              <stop offset="1" stop-color="#0284c7" />
+            </linearGradient>
+            <linearGradient id="pencilBody" x1="30" y1="10" x2="60" y2="40" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fbbf24" />
+              <stop offset="1" stop-color="#f59e0b" />
+            </linearGradient>
+          </defs>
+          <!-- Triangle Ruler -->
+          <path d="M14 66 L66 66 L14 14 Z" fill="url(#rulerGrad)" opacity="0.92" stroke="#0369a1" stroke-width="2"
+            stroke-linejoin="round" />
+          <path d="M22 60 L50 60 L22 32 Z" fill="#ffffff" opacity="0.85" />
+          <!-- Ruler graduation ticks -->
+          <path d="M26 66 V61 M34 66 V59 M42 66 V61 M50 66 V59 M58 66 V61" stroke="#0c4a6e" stroke-width="1.8"
+            stroke-linecap="round" />
+          <!-- Pencil angled across -->
+          <g transform="rotate(-15 45 35)">
+            <path d="M46 14 L56 24 L28 62 L18 64 L20 54 Z" fill="url(#pencilBody)" stroke="#d97706"
+              stroke-width="1.5" />
+            <path d="M18 64 L20 54 L25 59 Z" fill="#334155" />
+            <path d="M51 9 L61 19 L56 24 L46 14 Z" fill="#f43f5e" />
+            <rect x="49" y="16" width="3" height="11" transform="rotate(-45 49 16)" fill="#e2e8f0" />
+          </g>
+        </svg>
+      </div>
+
+      <!-- 5. Balo Học Sinh (School Backpack) - Bottom Left -->
+      <div class="floater floater-backpack" data-depth="0.035" style="--float-dur: 8s; --float-delay: 1.1s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="backpackGrad" x1="20" y1="20" x2="60" y2="68" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#6366f1" />
+              <stop offset="1" stop-color="#4338ca" />
+            </linearGradient>
+            <linearGradient id="pocketGrad" x1="26" y1="42" x2="54" y2="62" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#818cf8" />
+              <stop offset="1" stop-color="#4f46e5" />
+            </linearGradient>
+          </defs>
+          <!-- Top grab handle -->
+          <path d="M31 24 V16 C31 12 49 12 49 16 V24" stroke="#3730a3" stroke-width="3.5" fill="none"
+            stroke-linecap="round" />
+          <!-- Main backpack body -->
+          <rect x="21" y="23" width="38" height="44" rx="13" fill="url(#backpackGrad)" stroke="#312e81"
+            stroke-width="2" />
+          <!-- Front zipper pocket -->
+          <rect x="26" y="42" width="28" height="20" rx="7" fill="url(#pocketGrad)" stroke="#312e81"
+            stroke-width="1.5" />
+          <path d="M34 50 H46" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" />
+          <!-- Star/Badge on pocket -->
+          <circle cx="40" cy="33" r="3.5" fill="#fbbf24" />
+        </svg>
+      </div>
+
+      <!-- 6. Bình Thí Nghiệm Hóa Học (Science Beaker Flask) - Bottom Right -->
+      <div class="floater floater-flask" data-depth="0.04" style="--float-dur: 7.1s; --float-delay: 2.7s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="liquidGrad" x1="18" y1="45" x2="62" y2="65" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#10b981" />
+              <stop offset="1" stop-color="#059669" />
+            </linearGradient>
+          </defs>
+          <!-- Flask Glass Body -->
+          <path d="M34 18 H46 V32 L64 61 C67 66 63 70 57 70 H23 C17 70 13 66 16 61 L34 32 Z"
+            fill="rgba(255,255,255,0.75)" stroke="#0d9488" stroke-width="2.5" stroke-linejoin="round" />
+          <!-- Liquid with wave -->
+          <path d="M21 57 Q30 52 40 57 T60 55 L63 61 C65 65 62 68 57 68 H23 C18 68 15 65 17 61 Z"
+            fill="url(#liquidGrad)" opacity="0.88" />
+          <!-- Rising bubbles -->
+          <circle cx="34" cy="52" r="2.5" fill="#a7f3d0" class="bubble-anim b1" />
+          <circle cx="45" cy="46" r="3.2" fill="#a7f3d0" class="bubble-anim b2" />
+          <circle cx="38" cy="38" r="2" fill="#a7f3d0" class="bubble-anim b3" />
+        </svg>
+      </div>
+
+      <!-- 7. Bóng Đèn Ý Tưởng Sáng Tạo (Idea Lightbulb) - Upper Left-Center -->
+      <div class="floater floater-bulb" data-depth="0.03" style="--float-dur: 6.9s; --float-delay: 1.8s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="bulbGrad" x1="24" y1="14" x2="56" y2="48" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fef08a" />
+              <stop offset="0.6" stop-color="#fde047" />
+              <stop offset="1" stop-color="#eab308" />
+            </linearGradient>
+          </defs>
+          <!-- Bulb glass -->
+          <path d="M40 14 C27 14 20 23 20 33 C20 40 25 45 28 50 H52 C55 45 60 40 60 33 C60 23 53 14 40 14 Z"
+            fill="url(#bulbGrad)" stroke="#ca8a04" stroke-width="2.2" />
+          <!-- Base screw threads -->
+          <rect x="32" y="52" width="16" height="4" rx="1.5" fill="#94a3b8" />
+          <rect x="34" y="58" width="12" height="4" rx="1.5" fill="#94a3b8" />
+          <path d="M37 64 H43" stroke="#64748b" stroke-width="2" stroke-linecap="round" />
+          <!-- Glowing filament -->
+          <path d="M34 38 L37 28 L43 28 L46 38" stroke="#a16207" stroke-width="2" fill="none" stroke-linecap="round" />
+          <!-- Inspiration rays -->
+          <path d="M40 6 V10 M12 24 L16 26 M68 24 L64 26 M10 38 H14 M66 38 H70" stroke="#eab308" stroke-width="2.5"
+            stroke-linecap="round" />
+        </svg>
+      </div>
+
+      <!-- 8. Hoa Điểm 10 Lấp Lánh (10 Points Star Badge) - Upper Right-Center -->
+      <div class="floater floater-star" data-depth="0.05" style="--float-dur: 5.8s; --float-delay: 0.4s;">
+        <svg viewBox="0 0 80 80" fill="none" class="floater-svg">
+          <defs>
+            <linearGradient id="badgeRibbon" x1="20" y1="46" x2="60" y2="72" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ef4444" />
+              <stop offset="1" stop-color="#b91c1c" />
+            </linearGradient>
+            <linearGradient id="badgeGold" x1="20" y1="16" x2="60" y2="52" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#fde047" />
+              <stop offset="0.5" stop-color="#eab308" />
+              <stop offset="1" stop-color="#ca8a04" />
+            </linearGradient>
+          </defs>
+          <!-- Ribbons -->
+          <path d="M30 46 L21 72 L34 65 L43 72 L40 46" fill="url(#badgeRibbon)" />
+          <path d="M50 46 L59 72 L46 65 L37 72 L40 46" fill="url(#badgeRibbon)" opacity="0.85" />
+          <!-- Rosette badge -->
+          <circle cx="40" cy="36" r="22" fill="url(#badgeGold)" stroke="#a16207" stroke-width="1.8" />
+          <circle cx="40" cy="36" r="16.5" fill="#ffffff" />
+          <!-- "10" Points Text -->
+          <text x="40" y="42" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="16"
+            fill="#dc2626" text-anchor="middle">10</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Floating Scholastic Math & Alphabet Doodles -->
+    <div class="scholastic-doodles">
+      <span class="doodle d-1" style="--d-left: 12%; --d-delay: 0s; --d-dur: 15s;">10/10</span>
+      <span class="doodle d-2" style="--d-left: 28%; --d-delay: 3s; --d-dur: 18s;">A+</span>
+      <span class="doodle d-3" style="--d-left: 45%; --d-delay: 6s; --d-dur: 16s;">&pi;</span>
+      <span class="doodle d-4" style="--d-left: 68%; --d-delay: 1.5s; --d-dur: 17s;">&sum;</span>
+      <span class="doodle d-5" style="--d-left: 84%; --d-delay: 4.5s; --d-dur: 19s;">x &sup2;</span>
+      <span class="doodle d-6" style="--d-left: 20%; --d-delay: 8s; --d-dur: 16.5s;">1 2 3</span>
+      <span class="doodle d-7" style="--d-left: 76%; --d-delay: 9.5s; --d-dur: 17.5s;">A B C</span>
+      <span class="doodle d-8" style="--d-left: 92%; --d-delay: 2.2s; --d-dur: 14s;">&radic;x</span>
+      <span class="doodle d-9" style="--d-left: 5%; --d-delay: 7s; --d-dur: 20s;">&#10024;</span>
+      <span class="doodle d-10" style="--d-left: 58%; --d-delay: 11s; --d-dur: 15.5s;">&#9835;</span>
+    </div>
+
+    <!-- School Campus Silhouette (Bottom Landscape) -->
+    <div class="campus-silhouette">
+      <svg viewBox="0 0 1440 240" fill="none" preserveAspectRatio="none" class="campus-svg">
+        <defs>
+          <linearGradient id="hillGradBack" x1="0" y1="80" x2="0" y2="240" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#93c5fd" stop-opacity="0.22" />
+            <stop offset="1" stop-color="#3b82f6" stop-opacity="0.08" />
+          </linearGradient>
+          <linearGradient id="hillGradFront" x1="0" y1="120" x2="0" y2="240" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#60a5fa" stop-opacity="0.32" />
+            <stop offset="1" stop-color="#2563eb" stop-opacity="0.16" />
+          </linearGradient>
+        </defs>
+
+        <!-- Background rolling school hills -->
+        <path d="M0,170 Q320,110 720,150 T1440,160 L1440,240 L0,240 Z" fill="url(#hillGradBack)" />
+
+        <!-- School Building & Clock Tower Silhouette -->
+        <g class="school-buildings" fill="currentColor">
+          <!-- Main Classroom Wings -->
+          <rect x="620" y="105" width="200" height="95" rx="3" />
+          <rect x="530" y="125" width="90" height="75" rx="3" />
+          <rect x="820" y="125" width="90" height="75" rx="3" />
+          <!-- Central Pediment / Triangular Gable -->
+          <path d="M600,105 L720,60 L840,105 Z" />
+          <!-- Central Clock Tower -->
+          <rect x="695" y="20" width="50" height="45" rx="2" />
+          <path d="M690,20 L720,-5 L750,20 Z" />
+          <!-- Flag pole on tower -->
+          <line x1="720" y1="-5" x2="720" y2="-22" stroke="currentColor" stroke-width="2" />
+          <path d="M720,-22 L736,-16 L720,-10 Z" fill="#ef4444" />
+          <!-- Clock Face on Tower -->
+          <circle cx="720" cy="42" r="10" fill="#fef08a" stroke="currentColor" stroke-width="1.5" />
+          <line x1="720" y1="42" x2="720" y2="36" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round" />
+          <line x1="720" y1="42" x2="725" y2="42" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round" />
+
+          <!-- Classroom Glowing Windows (Grid) -->
+          <g class="campus-windows">
+            <rect x="640" y="120" width="16" height="20" rx="1.5" class="win" />
+            <rect x="670" y="120" width="16" height="20" rx="1.5" class="win" />
+            <rect x="754" y="120" width="16" height="20" rx="1.5" class="win" />
+            <rect x="784" y="120" width="16" height="20" rx="1.5" class="win" />
+            <rect x="640" y="155" width="16" height="20" rx="1.5" class="win" />
+            <rect x="670" y="155" width="16" height="20" rx="1.5" class="win" />
+            <rect x="754" y="155" width="16" height="20" rx="1.5" class="win" />
+            <rect x="784" y="155" width="16" height="20" rx="1.5" class="win" />
+            <!-- Side Wings Windows -->
+            <rect x="550" y="140" width="14" height="18" rx="1.5" class="win" />
+            <rect x="580" y="140" width="14" height="18" rx="1.5" class="win" />
+            <rect x="846" y="140" width="14" height="18" rx="1.5" class="win" />
+            <rect x="876" y="140" width="14" height="18" rx="1.5" class="win" />
+          </g>
+
+          <!-- School Entrance Portal -->
+          <path d="M705,200 V165 C705,157 735,157 735,165 V200 Z" fill="#1e293b" opacity="0.3" />
+
+          <!-- Campus Trees -->
+          <!-- Left trees -->
+          <circle cx="490" cy="155" r="28" />
+          <circle cx="455" cy="165" r="22" />
+          <circle cx="518" cy="168" r="18" />
+          <!-- Right trees -->
+          <circle cx="950" cy="155" r="28" />
+          <circle cx="985" cy="165" r="22" />
+          <circle cx="922" cy="168" r="18" />
+          <!-- Distant side trees -->
+          <circle cx="280" cy="175" r="24" />
+          <circle cx="1160" cy="175" r="24" />
+        </g>
+
+        <!-- Foreground soft green curve -->
+        <path d="M0,195 Q400,165 800,185 T1440,195 L1440,240 L0,240 Z" fill="url(#hillGradFront)" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- Main Launcher Interface Container -->
   <main class="launcher" aria-live="polite">
-    <div class="brand-wrap" aria-hidden="true">
-      <span class="brand-glow"></span>
-      <img class="brand-logo" src="/brand-logo.svg" alt="">
+    <div class="launcher-card">
+      <!-- Friendly School Header Badge -->
+      <div class="school-top-badge">
+        <span class="badge-icon">🏫</span>
+        <span class="badge-text">TRƯỜNG HỌC THÔNG MINH</span>
+      </div>
+
+      <!-- App Brand Logo with Glow -->
+      <div class="brand-wrap" aria-hidden="true">
+        <span class="brand-glow"></span>
+        <img class="brand-logo" src="/brand-logo.svg" alt="Smart TKB Logo">
+      </div>
+
+      <!-- Loading Animation Dots -->
+      <div class="loader-dots" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+
+      <!-- Status Title & Friendly Subtext -->
+      <h1 id="statusTitle">Đang khởi động Smart TKB</h1>
+      <p id="statusText">Vui lòng chờ trong giây lát...</p>
+
+      <!-- Inspiring School Quote Box -->
+      <div class="school-quote-box" aria-hidden="true">
+        <span class="quote-sparkle">✨</span>
+        <span id="schoolQuote" class="quote-text">Đồng hành cùng Thầy Cô và Học sinh trong từng tiết học</span>
+      </div>
+
+      <!-- Connection Retry Button -->
+      <button id="retryButton" class="retry" type="button" hidden>
+        <span class="retry-icon">🔄</span>
+        <span>Thử kết nối lại</span>
+      </button>
     </div>
-
-    <div class="loader-dots" aria-hidden="true">
-      <i></i><i></i><i></i><i></i><i></i><i></i>
-    </div>
-
-    <h1 id="statusTitle">&#272;ang kh&#7903;i &#273;&#7897;ng Smart TKB</h1>
-    <p id="statusText">Vui l&#242;ng ch&#7901; trong gi&#226;y l&#225;t...</p>
-
-    <button id="retryButton" class="retry" type="button" hidden>
-      Th&#7917; k&#7871;t n&#7889;i l&#7841;i
-    </button>
   </main>
 
   <script src="/app.js" defer></script>
 </body>
+
 </html>
