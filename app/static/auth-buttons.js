@@ -133,9 +133,13 @@
             credentials: 'same-origin'
           }).catch((err) => ({ networkError: true, error: err }));
 
+          // 0) Door appears dynamically
+          loginBtn.classList.add('running', 'door-appear');
+          await sleep(220);
+
           // 1) Door opens
-          loginBtn.classList.add('running', 'opening');
-          await sleep(190);
+          loginBtn.classList.add('opening');
+          await sleep(200);
 
           // 2) Person appears outside the door
           applyLoginPose(loginBtn, 'appear');
@@ -180,8 +184,8 @@
             loginBtn.classList.add('closing');
             await sleep(200);
 
-            // Shake button to indicate error
-            loginBtn.classList.remove('running', 'closing');
+            // Hide door again and shake button to indicate error
+            loginBtn.classList.remove('running', 'door-appear', 'closing');
             loginBtn.classList.add('login-error-shake');
             loginBtn.dataset.running = 'false';
             if (btnText) btnText.textContent = originalText;
@@ -243,20 +247,6 @@
      ========================================================================== */
   const logoutButtonStates = {
     default: {
-      '--figure-duration': '100',
-      '--transform-figure': 'translateX(-24px) scale(0.92)',
-      '--figure-opacity': '0',
-      '--walking-duration': '100',
-      '--transform-arm1': 'none',
-      '--transform-wrist1': 'none',
-      '--transform-arm2': 'none',
-      '--transform-wrist2': 'none',
-      '--transform-leg1': 'none',
-      '--transform-calf1': 'none',
-      '--transform-leg2': 'none',
-      '--transform-calf2': 'none'
-    },
-    hover: {
       '--figure-duration': '100',
       '--transform-figure': 'translateX(-24px) scale(0.92)',
       '--figure-opacity': '0',
@@ -386,7 +376,11 @@
     button.dataset.loggingOut = 'true';
     button.style.pointerEvents = 'none';
 
-    // 1) Door opens and figure begins emerging from the text
+    // 0) Door appears dynamically beside text
+    button.classList.add('door-appear');
+    await sleep(220);
+
+    // 1) Door opens and figure begins emerging
     button.classList.add('clicked');
     updateLogoutButtonState(button, 'emerge');
     await sleep(220);
@@ -428,18 +422,6 @@
     document.querySelectorAll('.logoutButton').forEach((button) => {
       button.state = 'default';
       updateLogoutButtonState(button, 'default');
-
-      button.addEventListener('mouseenter', () => {
-        if (button.state === 'default' && button.dataset.loggingOut !== 'true') {
-          updateLogoutButtonState(button, 'hover');
-        }
-      });
-
-      button.addEventListener('mouseleave', () => {
-        if (button.state === 'hover' && button.dataset.loggingOut !== 'true') {
-          updateLogoutButtonState(button, 'default');
-        }
-      });
 
       button.addEventListener('click', (e) => {
         e.preventDefault();

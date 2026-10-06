@@ -115,6 +115,7 @@ export default async (request) => {
   const to = typeof body?.to === "string" ? body.to.trim() : "";
   const subject = typeof body?.subject === "string" ? body.subject.trim() : "";
   const text = typeof body?.text === "string" ? body.text : "";
+  const html = typeof body?.html === "string" ? body.html : undefined;
 
   if (!isEmail(to)) {
     return json({ ok: false, error: "Invalid recipient" }, 400);
@@ -125,17 +126,24 @@ export default async (request) => {
   if (!text || text.length > 20000) {
     return json({ ok: false, error: "Invalid email body" }, 400);
   }
+  if (html && html.length > 100000) {
+    return json({ ok: false, error: "Invalid HTML email body" }, 400);
+  }
 
   const fromEmail = (process.env.SMTP_FROM || process.env.SMTP_USER).trim();
   const fromName = (process.env.EMAIL_FROM_NAME || "Smart TKB").trim() || "Smart TKB";
 
   try {
-    const info = await getTransporter().sendMail({
+    const mailOptions = {
       from: `${fromName} <${fromEmail}>`,
       to,
       subject,
       text,
-    });
+    };
+    if (html) {
+      mailOptions.html = html;
+    }
+    const info = await getTransporter().sendMail(mailOptions);
 
     console.log(`Email accepted for ${to}; messageId=${info.messageId}`);
     return json({ ok: true, messageId: info.messageId });
