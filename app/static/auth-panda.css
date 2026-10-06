@@ -144,24 +144,28 @@
 }
 
 .auth-story h2 {
-  margin: 24px 0 18px;
+  margin: 20px 0 16px;
   font-family: var(--font-sans, "Be Vietnam Pro", sans-serif);
-  font-size: clamp(44px, 5vw, 70px);
+  font-size: clamp(28px, 3.2vw, 42px);
   font-kerning: normal;
-  line-height: 0.98;
-  letter-spacing: -1.6px;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
 }
 
 .auth-story h2>span {
+  display: inline-block;
   white-space: nowrap;
+  padding-bottom: 2px;
 }
 
 .auth-story h2 em {
+  display: inline-block;
   color: transparent;
-  font-weight: 400;
+  font-weight: 500;
   background: linear-gradient(90deg, var(--auth-mint), #72d7ff);
   background-clip: text;
   -webkit-background-clip: text;
+  padding: 2px 4px 4px 0;
 }
 
 .auth-story-copy>p {
