@@ -647,45 +647,77 @@ body {
   transform: scale(1.05);
 }
 
-/* Loader Dots */
-.loader-dots {
-  height: 16px;
+/* ========================================================
+   DOMINOES LOADER ANIMATION (bad-bird-35 from Uiverse.io)
+   ======================================================== */
+.spinner {
+  position: relative;
+  width: 125px;
+  height: 50px;
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.loader-dots i {
-  width: 7px;
-  height: 7px;
-  display: block;
+  align-items: center;
   border-radius: 50%;
-  background: var(--dot);
-  opacity: 0.22;
-  transform: translateY(0) scale(0.75);
-  animation: dotBounce 1.25s ease-in-out infinite;
+  margin: 0 auto 16px;
 }
 
-.loader-dots i:nth-child(2) {
-  animation-delay: 0.1s;
+.spinner span {
+  position: absolute;
+  top: 50%;
+  left: var(--left);
+  width: 35px;
+  height: 7px;
+  background: #00ff40;
+  animation: dominos 1s ease infinite;
+  box-shadow: 2px 2px 3px 0px rgb(0, 114, 207);
+  border-radius: 4px;
 }
 
-.loader-dots i:nth-child(3) {
-  animation-delay: 0.2s;
+.spinner span:nth-child(1) {
+  --left: 80px;
+  left: 80px;
+  animation-delay: 0.125s;
 }
 
-.loader-dots i:nth-child(4) {
+.spinner span:nth-child(2) {
+  --left: 70px;
+  left: 70px;
   animation-delay: 0.3s;
 }
 
-.loader-dots i:nth-child(5) {
-  animation-delay: 0.4s;
+.spinner span:nth-child(3) {
+  --left: 60px;
+  left: 60px;
+  animation-delay: 0.425s;
 }
 
-.loader-dots i:nth-child(6) {
-  animation-delay: 0.5s;
+.spinner span:nth-child(4) {
+  --left: 50px;
+  left: 50px;
+  animation-delay: 0.54s;
+}
+
+.spinner span:nth-child(5) {
+  --left: 40px;
+  left: 40px;
+  animation-delay: 0.665s;
+}
+
+.spinner span:nth-child(6) {
+  --left: 30px;
+  left: 30px;
+  animation-delay: 0.79s;
+}
+
+.spinner span:nth-child(7) {
+  --left: 20px;
+  left: 20px;
+  animation-delay: 0.915s;
+}
+
+.spinner span:nth-child(8) {
+  --left: 10px;
+  left: 10px;
 }
 
 /* Status Text Typography */
@@ -794,8 +826,8 @@ p {
 }
 
 /* Transition to Ready State */
-body.is-ready .loader-dots i {
-  animation: ready-dot 0.45s ease forwards;
+body.is-ready .spinner span {
+  animation: ready-spinner 0.45s ease forwards;
 }
 
 body.is-ready .brand-logo {
@@ -805,18 +837,25 @@ body.is-ready .brand-logo {
 /* ========================================================
    KEYFRAME ANIMATIONS
    ======================================================== */
-@keyframes dotBounce {
-
-  0%,
-  60%,
-  100% {
-    opacity: 0.2;
-    transform: translateY(0) scale(0.75);
+@keyframes dominos {
+  50% {
+    opacity: 0.7;
   }
 
-  30% {
+  75% {
+    -webkit-transform: rotate(90deg);
+    transform: rotate(90deg);
+  }
+
+  80% {
     opacity: 1;
-    transform: translateY(-4px) scale(1.1);
+  }
+}
+
+@keyframes ready-spinner {
+  to {
+    opacity: 0;
+    transform: scale(0.3);
   }
 }
 
@@ -1006,7 +1045,7 @@ body.is-ready .brand-logo {
   .doodle,
   .bubble-anim,
   .brand-glow,
-  .loader-dots i {
+  .spinner span {
     animation: none !important;
   }
 
