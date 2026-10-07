@@ -1,0 +1,115 @@
+{% set display_name = greeting_name or (user.name if user else 'Người dùng') %}
+{% set initial_char = (display_name|trim)[0]|upper if display_name else 'A' %}
+<div class="user-avatar-wrap" id="userAvatarMenu">
+  <button type="button" class="user-avatar-btn" id="userAvatarBtn" aria-expanded="false" aria-haspopup="true"
+    aria-label="Tài khoản cá nhân: {{ display_name }}" title="{{ display_name }}">
+    <span>{{ initial_char }}</span>
+  </button>
+  <div class="user-avatar-dropdown" id="userAvatarDropdown" role="menu" hidden>
+    <div class="user-avatar-dropdown-header">
+      <div class="user-avatar-dropdown-avatar" aria-hidden="true">
+        <span>{{ initial_char }}</span>
+      </div>
+      <div class="user-avatar-dropdown-user">
+        <div class="user-avatar-dropdown-name">Xin chào, <strong>{{ display_name }}</strong></div>
+        {% if user and user.email %}
+        <div class="user-avatar-dropdown-email" title="{{ user.email }}">{{ user.email }}</div>
+        {% endif %}
+        {% if user and user.role %}
+        <span class="user-avatar-dropdown-role">
+          {{ 'Super Admin' if user.role == 'super_admin' else ('Quản trị viên' if user.role in ['admin', 'manager'] else
+          'Giáo viên') }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="user-avatar-dropdown-divider"></div>
+    <div class="user-avatar-dropdown-list">
+      <a class="user-avatar-dropdown-item" href="/admin/users" role="menuitem">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <span>Quản lý tài khoản</span>
+      </a>
+      <button type="button" class="user-avatar-dropdown-item" role="menuitem" onclick="openSystemSettingsModal()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+          </path>
+        </svg>
+        <span>Cài đặt</span>
+      </button>
+    </div>
+    <div class="user-avatar-dropdown-divider"></div>
+    <div class="user-avatar-dropdown-footer">
+      {% include "_logout_button.html" %}
+    </div>
+  </div>
+</div>
+
+<dialog id="systemSettingsModal" class="system-settings-dialog">
+  <div class="system-settings-card">
+    <div class="system-settings-head">
+      <div class="system-settings-title-group">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+          </path>
+        </svg>
+        <h3>Cài đặt</h3>
+      </div>
+      <button type="button" class="system-settings-close" onclick="closeSystemSettingsModal()"
+        aria-label="Đóng">&times;</button>
+    </div>
+    <div class="system-settings-body">
+      <div class="system-settings-section">
+        <h4>Giao diện &amp; Hiển thị</h4>
+        <div class="system-settings-row">
+          <div>
+            <strong>Chế độ nền tối</strong>
+            <small>Chuyển đổi giao diện Sáng / Tối của hệ thống</small>
+          </div>
+          {% include "_theme_switch.html" %}
+        </div>
+      </div>
+      <div class="system-settings-section">
+        <h4>Tài khoản &amp; Bảo mật</h4>
+        <div class="system-settings-row">
+          <div>
+            <strong>Đổi mật khẩu</strong>
+            <small>Cập nhật mật khẩu đăng nhập tài khoản</small>
+          </div>
+          <a class="btn ghost btn-sm" href="/forgot-password" target="_blank" rel="noopener">Đổi mật khẩu</a>
+        </div>
+        <div class="system-settings-row">
+          <div>
+            <strong>Đổi email đăng nhập</strong>
+            <small>Cập nhật địa chỉ email nhận thông báo và OTP</small>
+          </div>
+          <a class="btn ghost btn-sm" href="/email/change" target="_blank" rel="noopener">Đổi email</a>
+        </div>
+      </div>
+      <div class="system-settings-section">
+        <h4>Thông tin chung</h4>
+        <div class="system-settings-row">
+          <div>
+            <strong>Phiên bản hệ thống</strong>
+            <small>Smart TKB v1.0 · Tối ưu thời khóa biểu thông minh</small>
+          </div>
+          <span class="pill approved-pill">v1.0</span>
+        </div>
+      </div>
+    </div>
+    <div class="system-settings-foot">
+      <button type="button" class="btn" onclick="closeSystemSettingsModal()">Đã xong</button>
+    </div>
+  </div>
+</dialog>

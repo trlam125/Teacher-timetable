@@ -25,6 +25,10 @@
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
+    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/user-menu.css?v=1">
+    <script src="/static/user-menu.js?v=1" defer></script>
 </head>
 
 <body>
@@ -33,24 +37,24 @@
                 TKB</span></a>
         <div><b>Import &amp; kiểm tra TKB</b><small>Công cụ độc lập</small></div>
         <div class="spacer"></div>
+        <a class="btn ghost appbar-home-btn" href="/projects" title="Trang chủ" aria-label="Trang chủ">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path
+                    d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5h-4v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+            </svg>
+        </a>
         {% include "_theme_switch.html" %}
-        <a class="btn ghost" href="/projects">Dashboard</a>
+        {% include "_user_menu.html" %}
     </header>
     <main class="content schedule-audit-standalone">
-        <div class="schedule-audit-context standalone">
-            <div>
-                <span class="pill">Độc lập hoàn toàn</span>
-                <b>Chỉ đọc và kiểm tra file bạn tải lên</b>
-                <small>Không dùng hay thay đổi bất kỳ thời khóa biểu nào trên Dashboard.</small>
-            </div>
-        </div>
+
         <section id="audit">
             <div class="section-head">
                 <div>
                     <h1>Import &amp; kiểm tra thời khóa biểu</h1>
                     <p>
-                        Hệ thống hiển thị lại thời khóa biểu ngay trên web. Các ô bị trùng lớp, trùng giáo viên hoặc
-                        trùng phòng sẽ được đánh dấu đỏ trực tiếp trên bảng.
+                        Các ô bị trùng lớp, trùng giáo viên hoặc trùng phòng sẽ được đánh dấu đỏ trực tiếp trên bảng.
                     </p>
                 </div>
             </div>
@@ -61,9 +65,7 @@
                         <div>
                             <h2>Chọn file cần kiểm tra</h2>
                             <p>
-                                Excel <b>.xlsx, .xlsm, .xls</b>, Word <b>.docx</b>, CSV hoặc TSV. Có thể kéo thả file
-                                vào
-                                vùng bên cạnh.
+                                Excel <b>.xlsx, .xlsm, .xls</b>, Word <b>.docx</b>, CSV hoặc TSV.
                             </p>
                         </div>
                     </div>
@@ -100,7 +102,7 @@
                         </div>
                         <div class="schedule-audit-action-buttons">
                             <button id="scheduleAuditButton" class="btn schedule-audit-button" type="button"
-                                onclick="runScheduleAudit()">Kiểm tra thời khóa biểu</button>
+                                onclick="runScheduleAudit()">Kiểm tra</button>
                             <button id="scheduleAuditAiButton" class="btn ghost schedule-audit-ai-button" type="button"
                                 data-enabled="{{ '1' if ai_enabled else '0' }}" onclick="runScheduleAuditAI()" {% if not
                                 ai_enabled %} disabled title="Chưa cấu hình GEMINI_API_KEY" {% endif %}>✦ Phân tích bằng

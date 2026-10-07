@@ -234,7 +234,7 @@ function renderManualTray() {
   const scheduled = rows.filter((item) => item.scheduled > 0),
     pending = rows.filter((item) => item.remaining > 0);
   const scheduledHtml = scheduled.length
-    ? `<div class="scheduled-label">Đang có trên lịch · bấm thẻ rồi bấm vào khay để thu hồi các tiết chưa cố định của phân công. Các tiết đã cố định luôn được giữ nguyên.</div><div class="scheduled-cards">${scheduled.map((item) => `<div class="scheduled-assignment" data-tap-payload="scheduled-assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>${item.scheduled}/${item.periods_per_week} tiết</span></div>`).join("")}</div>`
+    ? `<div class="scheduled-label">Đang có trên lịch</div><div class="scheduled-cards">${scheduled.map((item) => `<div class="scheduled-assignment" data-tap-payload="scheduled-assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>${item.scheduled}/${item.periods_per_week} tiết</span></div>`).join("")}</div>`
     : "";
   if (scheduledBox && scheduledBox.innerHTML !== scheduledHtml) {
     scheduledBox.innerHTML = scheduledHtml;
@@ -248,7 +248,7 @@ function renderManualTray() {
           `<div class="tray-lesson" data-tap-payload="assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>Còn ${item.remaining}</span></div>`,
       )
       .join("")
-    : '<div class="empty-state">Đã xếp đủ tất cả phân công. Nếu muốn chỉnh lại, chọn một tiết trên lịch hoặc thẻ “Đang có trên lịch”, rồi bấm vào khay để thu hồi.</div>';
+    : '<div class="empty-state">Đã xếp đủ tất cả phân công.</div>';
   const trayHtml = hint + pendingHtml;
   if (tray.innerHTML !== trayHtml) {
     tray.innerHTML = trayHtml;

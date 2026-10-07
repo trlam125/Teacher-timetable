@@ -58,6 +58,8 @@
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
     <script src="/static/weather-widget.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/user-menu.css?v=1">
+    <script src="/static/user-menu.js?v=1" defer></script>
 </head>
 
 <body>
@@ -65,10 +67,16 @@
         <a class="appbar-brand" href="/projects" aria-label="Smart TKB"><img src="/static/brand-logo.svg?v=1"
                 alt=""><span>Smart TKB</span></a>
         <div class="spacer"></div>
+        <a class="btn ghost appbar-home-btn" href="/projects" title="Trang chủ" aria-label="Trang chủ">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path
+                    d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5h-4v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+            </svg>
+        </a>
         {% include "_effects_toggle.html" %}
         {% include "_theme_switch.html" %}
-        <a href="/projects">Bộ thời khóa biểu</a><span>Xin chào, {{ greeting_name }}</span>{% include
-        "_logout_button.html" %}
+        {% include "_user_menu.html" %}
     </header>
     <main class="container">
         <div class="page-title">

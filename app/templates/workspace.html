@@ -30,8 +30,12 @@
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/send-button.css?v=1">
-    <link rel="stylesheet" href="/static/export-button.css?v=2">
+    <link rel="stylesheet" href="/static/export-button.css?v=1">
     <script src="/static/weather-widget.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
+    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/user-menu.css?v=1">
+    <script src="/static/user-menu.js?v=1" defer></script>
 </head>
 
 <body class="workspace-viewport">
@@ -41,6 +45,7 @@
         <div class="workspace-appbar-project"><b>{{ p.name }}</b><small>{{ p.school_name }}</small></div>
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
+        {% include "_user_menu.html" %}
         <div class="workspace-desktop-actions">
             <button class="btn ghost" type="button" onclick="openProjectRenameDialog()">Đổi tên</button>
             <button class="send-button share-btn" id="shareBtn" data-state="idle" type="button"
@@ -245,7 +250,6 @@
                     <div class="page-title">
                         <div>
                             <h1>{{ p.name }}</h1>
-                            <p>{{ p.school_name }} · {{ p.days }} ngày · {{ p.sessions }} buổi/ngày</p>
                         </div>
                         <div class="action-feedback-stack">
                             <button class="btn schedule-action-btn btn-23" data-schedule-action
@@ -270,7 +274,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Môn học</h1>
-                            <p>Tên đầy đủ, tên rút gọn và số tiết liên tiếp tối đa.</p>
                         </div>
                         <button class="btn btn-tame-ape" onclick="openEntity('subject')"><span class="btn__text">Thêm
                                 môn</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
@@ -286,7 +289,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Tổ chuyên môn</h1>
-                            <p>Nhóm giáo viên theo chuyên môn.</p>
                         </div>
                         <button class="btn btn-tame-ape" onclick="openEntity('department')"><span class="btn__text">Thêm
                                 tổ</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
@@ -302,7 +304,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Giáo viên</h1>
-                            <p>Quản lý tải dạy và tổ chuyên môn.</p>
                         </div>
                         <button class="btn btn-tame-ape" onclick="openEntity('teacher')"><span class="btn__text">Thêm
                                 giáo viên</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg"
@@ -318,8 +319,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Khối / nhóm lớp</h1>
-                            <p>Nhóm các lớp có chương trình tương tự và cấu hình môn, số tiết/tuần chuẩn cho từng khối.
-                            </p>
                         </div>
                         <button class="btn btn-tame-ape" onclick="openEntity('grade')"><span class="btn__text">Thêm
                                 khối</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
@@ -335,7 +334,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Danh sách lớp</h1>
-                            <p>Thiết lập các lớp thuộc từng khối.</p>
                         </div>
                         <button class="btn btn-tame-ape" onclick="openEntity('class')"><span class="btn__text">Thêm
                                 lớp</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24"
@@ -352,7 +350,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Phân công giảng dạy</h1>
-                            <p>Gán môn và số tiết mỗi tuần cho giáo viên ở từng lớp.</p>
                         </div>
                         <button class="btn btn-tame-ape" onclick="openEntity('assignment')"><span class="btn__text">Thêm
                                 phân công</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg"
@@ -435,9 +432,7 @@
                         <div>
                             <h1>Ngày nghỉ / tiết tránh</h1>
                             <p>
-                                <b>Lưu ý:</b> Ô nào được đánh dấu thì hệ thống sẽ <b>KHÔNG xếp lịch vào ô đó</b>. Chọn
-                                giáo
-                                viên hoặc lớp, sau đó đánh dấu các tiết cần tránh.
+                                <b>Lưu ý:</b> Ô nào được đánh dấu thì hệ thống sẽ <b>KHÔNG xếp lịch vào ô đó</b>.
                             </p>
                         </div>
                     </div>
@@ -476,7 +471,6 @@
                     <div class="section-head">
                         <div>
                             <h1>Xếp và tinh chỉnh</h1>
-                            <p>Bấm một tiết trong kho hoặc trên lịch để chọn, sau đó bấm ô đích để xếp/chuyển.</p>
                         </div>
                         <div class="row">
                             <select id="viewType" aria-label="Kiểu lọc thời khóa biểu">
@@ -508,9 +502,6 @@
                         <div class="manual-tray-head">
                             <div>
                                 <h2>Kho tiết chưa xếp</h2>
-                                <p>Phân công mới nằm ở đây. Bấm một thẻ để chọn, sau đó bấm ô trên lịch để xếp hoặc bấm
-                                    khay
-                                    để thu hồi.</p>
                             </div>
                             <div class="action-feedback-stack">
                                 <button class="btn ghost" onclick="returnAllToTray(this)">Đưa tiết chưa cố định về

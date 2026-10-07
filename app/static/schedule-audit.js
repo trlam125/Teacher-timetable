@@ -219,7 +219,7 @@ function setScheduleAuditFile(file) {
   }
   if (actions) actions.hidden = !file;
   if (button && !button.disabled)
-    button.textContent = file ? "Kiểm tra lại" : "Kiểm tra thời khóa biểu";
+    button.textContent = file ? "Kiểm tra lại" : "Kiểm tra";
   if (aiButton && !aiButton.classList.contains("is-loading")) {
     aiButton.disabled = !scheduleAuditAiIsEnabled();
     aiButton.textContent = "✦ Phân tích bằng AI";
@@ -249,7 +249,7 @@ function clearScheduleAuditFile(resetResult = true) {
   setScheduleAuditFile(null);
   if (button) {
     button.disabled = false;
-    button.textContent = "Kiểm tra thời khóa biểu";
+    button.textContent = "Kiểm tra";
   }
   if (aiButton) {
     aiButton.classList.remove("is-loading");

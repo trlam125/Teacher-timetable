@@ -79,14 +79,7 @@
                     giáo
                     viên')}}
                 </h1>
-                {% if mode=="login" %}
-                <p class="muted">Hệ thống tự chuyển đến cổng quản trị hoặc cổng giáo viên theo quyền tài khoản.</p>
-                {% elif mode=="register" %}
-                <p class="muted">
-                    Đăng ký tự do, không cần link mời và không cần quản trị viên duyệt. Chỉ cần nhập tên giáo viên,
-                    xác nhận email bằng OTP và tài khoản sẽ được kích hoạt ngay.
-                </p>
-                {% else %}
+                {% if mode=="register_otp" %}
                 <p class="muted">Mã OTP 6 số đã được gửi tới <b>{{ masked_email }}</b> và có hiệu lực trong 10 phút.</p>
                 {% if target_teacher_name %}<div class="alert"><b>Giáo viên:</b> {{ target_teacher_name }}</div>{% endif
                 %}

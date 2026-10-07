@@ -18,6 +18,7 @@ def standalone_schedule_audit_page(
         {
             "request": request,
             "user": user,
+            "greeting_name": user_greeting_name(user),
             "days": DAYS,
             "ai_enabled": bool(os.getenv("GEMINI_API_KEY", "").strip()),
             "ai_primary_model": os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip()

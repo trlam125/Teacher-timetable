@@ -106,7 +106,7 @@ function ensureGlobalSessionLockPanel() {
   panel.id = "globalSessionLocks";
   panel.className = "global-session-locks";
   panel.innerHTML =
-    '<h2>Khóa lịch toàn trường</h2><p>Chọn khóa nguyên buổi hoặc chỉ khóa từng tiết. Xếp tự động và thao tác bấm để xếp/chuyển đều tuân thủ các khóa này.</p><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3><p>Nhấn vào từng ô để khóa hoặc mở khóa riêng tiết đó.</p></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
+    '<h2>Khóa lịch toàn trường</h2><p>Chọn khóa nguyên buổi hoặc chỉ khóa từng tiết. Xếp tự động và thao tác bấm để xếp/chuyển đều tuân thủ các khóa này.</p><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
   const toolbar = section.querySelector(".constraint-toolbar");
   section.insertBefore(panel, toolbar);
   return panel;

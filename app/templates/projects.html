@@ -31,6 +31,8 @@
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
     <script src="/static/weather-widget.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/user-menu.css?v=1">
+    <script src="/static/user-menu.js?v=1" defer></script>
 </head>
 
 <body class="front-surface">
@@ -39,14 +41,12 @@
                 alt=""><span>Smart TKB</span></a>
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
-        <span>Xin chào, {{ greeting_name }}</span><a href="/admin/users">Quản lý tài
-            khoản</a>{% include "_logout_button.html" %}
+        {% include "_user_menu.html" %}
     </header>
     <main class="container">
         <div class="page-title">
             <div>
                 <h1>Bộ thời khóa biểu</h1>
-                <p>Tạo và quản lý các phương án của nhà trường.</p>
             </div>
             <div class="row">
                 <a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import &amp; kiểm
