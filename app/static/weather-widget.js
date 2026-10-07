@@ -756,9 +756,19 @@
       if (dt) {
         dt.insertAdjacentElement('afterend', badge);
       } else {
-        const spacer = appbar.querySelector('.spacer');
-        if (spacer) spacer.insertAdjacentElement('afterend', badge);
-        else appbar.appendChild(badge);
+        const themeBtn = appbar.querySelector('.theme-toggle-btn');
+        if (themeBtn) {
+          themeBtn.insertAdjacentElement('afterend', badge);
+        } else {
+          const actions = appbar.querySelector('.workspace-desktop-actions, .workspace-mobile-actions');
+          if (actions) {
+            actions.insertAdjacentElement('beforebegin', badge);
+          } else {
+            const spacer = appbar.querySelector('.spacer');
+            if (spacer) spacer.insertAdjacentElement('afterend', badge);
+            else appbar.appendChild(badge);
+          }
+        }
       }
     }
 

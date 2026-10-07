@@ -67,6 +67,12 @@
       return target;
     }
 
+    const actions = appbar.querySelector('.workspace-desktop-actions, .workspace-mobile-actions');
+    if (actions) {
+      actions.insertAdjacentElement('beforebegin', target);
+      return target;
+    }
+
     const spacer = appbar.querySelector('.spacer');
     if (spacer) {
       spacer.insertAdjacentElement('afterend', target);

@@ -1,4 +1,12 @@
 (function () {
+  if (window.__effectsToggleInitialized) {
+    if (typeof window.updateEffectsUI === 'function') {
+      window.updateEffectsUI(document.documentElement.classList.contains('disable-effects') || localStorage.getItem('disable_effects') === 'true', false);
+    }
+    return;
+  }
+  window.__effectsToggleInitialized = true;
+
   let feedbackTimer = null;
 
   function isEffectsDisabled() {
@@ -105,6 +113,8 @@
 
   // Expose globally
   window.toggleEffects = toggleEffects;
+  window.updateEffectsUI = updateEffectsUI;
+  window.isEffectsDisabled = isEffectsDisabled;
 
   // Initialize on DOM ready
   if (document.readyState === 'loading') {

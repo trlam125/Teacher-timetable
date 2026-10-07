@@ -74,10 +74,10 @@
         <h4>Giao diện &amp; Hiển thị</h4>
         <div class="system-settings-row">
           <div>
-            <strong>Chế độ nền tối</strong>
-            <small>Chuyển đổi giao diện Sáng / Tối của hệ thống</small>
+            <strong>Hiệu ứng chuyển động</strong>
+            <small>Bật / Tắt toàn bộ hiệu ứng chuyển động và hình ảnh động</small>
           </div>
-          {% include "_theme_switch.html" %}
+          {% include "_effects_toggle.html" %}
         </div>
       </div>
       <div class="system-settings-section">
@@ -97,19 +97,10 @@
           <a class="btn ghost btn-sm" href="/email/change" target="_blank" rel="noopener">Đổi email</a>
         </div>
       </div>
-      <div class="system-settings-section">
-        <h4>Thông tin chung</h4>
-        <div class="system-settings-row">
-          <div>
-            <strong>Phiên bản hệ thống</strong>
-            <small>Smart TKB v1.0 · Tối ưu thời khóa biểu thông minh</small>
-          </div>
-          <span class="pill approved-pill">v1.0</span>
-        </div>
-      </div>
     </div>
     <div class="system-settings-foot">
       <button type="button" class="btn" onclick="closeSystemSettingsModal()">Đã xong</button>
     </div>
   </div>
 </dialog>
+<script src="/static/effects-toggle.js?v=1" defer></script>

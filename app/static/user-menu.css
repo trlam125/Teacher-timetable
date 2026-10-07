@@ -381,6 +381,11 @@
   color: var(--muted, #64748b);
 }
 
+.system-settings-row .appbar-effects-btn {
+  margin-right: 0;
+  flex-shrink: 0;
+}
+
 .system-settings-foot {
   padding: 14px 24px;
   border-top: 1px solid var(--line, #e2e8f0);

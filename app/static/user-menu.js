@@ -57,6 +57,12 @@
     const btn = document.querySelector("#userAvatarBtn");
     if (btn) btn.setAttribute("aria-expanded", "false");
 
+    if (typeof window.updateEffectsUI === "function") {
+      const isOff = document.documentElement.classList.contains("disable-effects") ||
+        (typeof localStorage !== "undefined" && localStorage.getItem("disable_effects") === "true");
+      window.updateEffectsUI(isOff, false);
+    }
+
     const modal = document.querySelector("#systemSettingsModal");
     if (modal) {
       if (typeof modal.showModal === "function") {
