@@ -44,8 +44,6 @@
                 alt=""><span>Smart TKB</span></a>
         <div class="workspace-appbar-project"><b>{{ p.name }}</b><small>{{ p.school_name }}</small></div>
         <div class="spacer"></div>
-        {% include "_theme_switch.html" %}
-        {% include "_user_menu.html" %}
         <div class="workspace-desktop-actions">
             <button class="btn ghost" type="button" onclick="openProjectRenameDialog()">Đổi tên</button>
             <button class="send-button share-btn" id="shareBtn" data-state="idle" type="button"
@@ -130,6 +128,8 @@
                     Excel</a>
             </div>
         </details>
+        {% include "_theme_switch.html" %}
+        {% include "_user_menu.html" %}
     </header>
     <div class="workspace">
         <aside class="sidebar">
