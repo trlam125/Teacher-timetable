@@ -186,7 +186,7 @@
   function setWaitingCopy() {
     const elapsed = Date.now() - STARTED_AT;
     if (elapsed > 15000) {
-      text.textContent = "Máy chủ Render đang thức dậy, bạn sẽ được chuyển tiếp tự động.";
+      text.textContent = "Đang khởi động máy chủ ...";
     }
     if (elapsed > SHOW_RETRY_AFTER_MS) retry.hidden = false;
   }
