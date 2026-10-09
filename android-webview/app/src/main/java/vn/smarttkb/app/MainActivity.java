@@ -185,7 +185,7 @@ public class MainActivity extends Activity {
                     // stay together; Google does not allow embedded WebView login.
                     String path = uri.getPath();
                     if (request.isForMainFrame() && isUrlFromCurrentServer(uri.toString())
-                            && ("/auth/google/login".equals(path) || "/auth/facebook/login".equals(path))) {
+                            && "/auth/google/login".equals(path)) {
                         openExternalUri(uri);
                         return true;
                     }

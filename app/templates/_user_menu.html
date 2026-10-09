@@ -1,14 +1,13 @@
 {% set display_name = greeting_name or (user.name if user else 'Người dùng') %}
-{% set initial_char = (display_name|trim)[0]|upper if display_name else 'A' %}
 <div class="user-avatar-wrap" id="userAvatarMenu">
-  <button type="button" class="user-avatar-btn" id="userAvatarBtn" aria-expanded="false" aria-haspopup="true"
+  <button type="button" class="user-avatar-btn profile-avatar" id="userAvatarBtn" aria-expanded="false" aria-haspopup="true"
     aria-label="Tài khoản cá nhân: {{ display_name }}" title="{{ display_name }}">
-    <span>{{ initial_char }}</span>
+    {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
   </button>
   <div class="user-avatar-dropdown" id="userAvatarDropdown" role="menu" hidden>
     <div class="user-avatar-dropdown-header">
-      <div class="user-avatar-dropdown-avatar" aria-hidden="true">
-        <span>{{ initial_char }}</span>
+      <div class="user-avatar-dropdown-avatar profile-avatar" aria-hidden="true">
+        {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
       </div>
       <div class="user-avatar-dropdown-user">
         <div class="user-avatar-dropdown-name">Xin chào, <strong>{{ display_name }}</strong></div>

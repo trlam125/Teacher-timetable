@@ -60,6 +60,8 @@
     <script src="/static/weather-widget.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/profile-avatar.css?v=1">
+    <script src="/static/profile-avatar.js?v=1" defer></script>
 </head>
 
 <body>
@@ -133,6 +135,9 @@
             {% for account in users %}
             <article class="project-card account-card">
                 <div>
+                    <span class="profile-avatar profile-avatar-lg" aria-hidden="true">
+                        {% with avatar_user=account %}{% include "_profile_avatar_content.html" %}{% endwith %}
+                    </span>
                     {% if account.role == "teacher" %}<span class="pill">Giáo viên</span>
                     {% elif account.role == "super_admin" %}<span class="pill approved-pill">Super admin</span>
                     {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
@@ -209,11 +214,17 @@
                             Họ tên<input name="name" value="{{ account.name }}" required>
                         </label>
                         <label>
+                            URL ảnh đại diện (Profile URL)
+                            <input type="url" name="profile_url" value="{{ account.profile_url or '' }}"
+                                maxlength="2048" placeholder="https://example.com/avatar.jpg">
+                            <small class="muted">Dán link ảnh trực tiếp. Để trống để dùng chữ cái tên.</small>
+                        </label>
+                        <label>
                             Mật khẩu mới<input type="password" name="password" minlength="8"
                                 placeholder="Để trống nếu không đổi">
                         </label>
                         <div class="row end">
-                            <button class="btn">Lưu tên / mật khẩu</button>
+                            <button class="btn">Lưu thông tin</button>
                         </div>
                     </form>
                     <form method="post" action="/account/email-change/prepare" class="account-edit-form"

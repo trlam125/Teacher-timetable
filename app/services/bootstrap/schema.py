@@ -46,6 +46,11 @@ def migrate_schema():
                 "ALTER TABLE users ADD COLUMN last_seen VARCHAR(40)"
             )
 
+        if "profile_url" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN profile_url VARCHAR(2048) NOT NULL DEFAULT ''"
+            )
+
         if "projects" in inspector.get_table_names():
             project_columns = {
                 column["name"] for column in inspector.get_columns("projects")

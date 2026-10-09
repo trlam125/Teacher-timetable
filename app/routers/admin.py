@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from app.services.runtime import *
+from app.services.profiles import normalize_profile_url
 
 router = APIRouter()
 
@@ -220,6 +221,7 @@ def update_account(
     account_id: int,
     name: str = Form(""),
     password: str = Form(""),
+    profile_url: str = Form(""),
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
@@ -230,6 +232,9 @@ def update_account(
         raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
     try:
         clean_name = bounded_text(name, "Họ tên", 120)
+        clean_profile_url = normalize_profile_url(profile_url)
+    except ValueError as exc:
+        return redirect_with_notice("/admin/users", str(exc))
     except HTTPException as exc:
         return redirect_with_notice("/admin/users", str(exc.detail))
 
@@ -242,6 +247,7 @@ def update_account(
         )
 
     account.name = clean_name
+    account.profile_url = clean_profile_url
     if password_changed:
         account.password_hash = pwd.hash(clean_password)
         account.session_version += 1

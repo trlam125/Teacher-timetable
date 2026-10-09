@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from app.services.runtime import *
+from app.services.profiles import normalize_profile_url
 
 router = APIRouter()
 
@@ -83,6 +84,36 @@ def teacher_account_page(
             **chatbot_ui_context(project),
         },
     )
+
+
+@router.post("/teacher/account/profile", response_class=HTMLResponse)
+def update_teacher_profile(
+    request: Request,
+    profile_url: str = Form(""),
+    project_id: Optional[int] = Form(None),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "teacher":
+        raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
+    project = db.get(Project, project_id) if project_id is not None else None
+    if project_id is not None and (
+        not project or not user_can_access_school(user, project.school_id, db)
+    ):
+        raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+    context = {
+        "request": request, "user": user, "p": project,
+        "error": None, "success": None, **chatbot_ui_context(project),
+    }
+    try:
+        clean_url = normalize_profile_url(profile_url)
+    except ValueError as exc:
+        context["error"] = str(exc)
+        return templates.TemplateResponse("teacher_account.html", context, status_code=400)
+    user.profile_url = clean_url
+    db.commit()
+    context["success"] = "Đã cập nhật ảnh đại diện."
+    return templates.TemplateResponse("teacher_account.html", context)
 
 
 @router.post("/teacher/account/password", response_class=HTMLResponse)

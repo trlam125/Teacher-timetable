@@ -18,6 +18,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(120), default="Giáo viên")
+    profile_url: Mapped[str] = mapped_column(String(2048), default="", server_default="")
     role: Mapped[str] = mapped_column(String(20), default="teacher")
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     reset_token_expires_at: Mapped[Optional[str]] = mapped_column(

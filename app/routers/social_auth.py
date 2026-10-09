@@ -73,8 +73,9 @@ def find_identity(db, provider, subject):
         SocialIdentity.provider == provider, SocialIdentity.subject == subject))
 
 
-@router.get("/auth/{provider}/login")
-def social_login(provider: str, request: Request, db: Session = Depends(db_session)):
+@router.get("/auth/google/login")
+def social_login(request: Request, db: Session = Depends(db_session)):
+    provider = "google"
     try:
         config = provider_config(provider)
         if rate_limit_exceeded("oauth_start", client_rate_limit_key(request), limit=30, window_seconds=600):
@@ -102,8 +103,9 @@ def social_login(provider: str, request: Request, db: Session = Depends(db_sessi
         return failure(request, str(exc))
 
 
-@router.get("/auth/{provider}/callback")
-def social_callback(provider: str, request: Request, db: Session = Depends(db_session)):
+@router.get("/auth/google/callback")
+def social_callback(request: Request, db: Session = Depends(db_session)):
+    provider = "google"
     try:
         config = provider_config(provider)
         state = request.query_params.get("state", "")
@@ -134,7 +136,7 @@ def social_callback(provider: str, request: Request, db: Session = Depends(db_se
                 raise SocialAuthError("Tài khoản không còn tồn tại.")
             return finish(db, user)
         if not identity["email"]:
-            raise SocialAuthError("Cần email để tạo hoặc liên kết tài khoản. Hãy cho phép chia sẻ email đã xác minh, dùng Google hoặc đăng ký bằng email.")
+            raise SocialAuthError("Cần email để tạo hoặc liên kết tài khoản. Hãy dùng Google với email đã xác minh hoặc đăng ký bằng email.")
         user = db.scalar(select(User).where(func.lower(User.email) == identity["email"]))
         if user:
             token = secrets.token_urlsafe(32)
@@ -166,9 +168,10 @@ def social_callback(provider: str, request: Request, db: Session = Depends(db_se
 def pending_link(request, db, *, lock=False):
     token, browser = request.cookies.get(LINK_COOKIE, ""), request.cookies.get(COOKIE, "")
     if not token or not browser or len(token) > 200 or len(browser) > 200:
-        raise SocialAuthError("Yêu cầu liên kết đã hết hạn. Hãy đăng nhập lại bằng Google hoặc Facebook.")
+        raise SocialAuthError("Yêu cầu liên kết đã hết hạn. Hãy đăng nhập lại bằng Google.")
     query = select(OAuthAttempt).where(OAuthAttempt.state_hash == digest(token),
         OAuthAttempt.browser_hash == digest(browser), OAuthAttempt.phase == "link",
+        OAuthAttempt.provider == "google",
         OAuthAttempt.expires_at > int(time.time()))
     attempt = db.scalar(query.with_for_update() if lock else query)
     if not attempt:

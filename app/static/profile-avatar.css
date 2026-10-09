@@ -1,0 +1,19 @@
+.profile-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.profile-avatar.profile-avatar-lg { width: 64px; height: 64px; font-size: 24px; margin-bottom: 12px; }
+.profile-avatar > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; visibility: hidden; }
+.profile-avatar.has-image > img { visibility: visible; }
+.profile-avatar.has-image > .profile-avatar-initial { visibility: hidden; }
