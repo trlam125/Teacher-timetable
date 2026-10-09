@@ -1,0 +1,172 @@
+/* Current date/time shown in app bars across the application. */
+.appbar-datetime {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 164px;
+  height: 34px;
+  padding: 0 12px;
+  margin: 0 8px;
+  white-space: nowrap;
+  color: var(--muted, #64748b);
+  font-family: var(--font-sans, "Be Vietnam Pro", sans-serif);
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  background: var(--soft, rgba(15, 23, 42, 0.04));
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  text-decoration: none;
+}
+
+.appbar-datetime:hover {
+  background: var(--primary-subtle, rgba(37, 99, 235, 0.08));
+  border-color: var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.appbar-datetime:active {
+  transform: translateY(0);
+}
+
+:root.dark-mode .appbar-datetime,
+html.dark-mode .appbar-datetime {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+:root.dark-mode .appbar-datetime:hover,
+html.dark-mode .appbar-datetime:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--primary, #3b82f6);
+  color: #60a5fa;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 900px) {
+  .appbar-datetime {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  #assignmentTable .data-table {
+    min-width: max-content;
+  }
+
+  .modal-form {
+    width: calc(100vw - 20px);
+    max-height: 90dvh;
+    padding: 20px 16px;
+  }
+
+  .entity-table-shell .data-table {
+    min-width: max-content;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .ai-progress-avatar,
+  .ai-progress-bar.is-indeterminate {
+    animation: none !important;
+  }
+
+  .ai-progress-bar.is-indeterminate {
+    width: 100% !important;
+    opacity: 0.65;
+    transform: none !important;
+  }
+}
+
+/* Manual share fallback when Clipboard API is blocked */
+.manual-share-dialog {
+  width: min(620px, calc(100vw - 28px));
+  max-width: 620px;
+}
+
+.manual-share-modal {
+  width: 100%;
+}
+
+.manual-share-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.manual-share-head h2 {
+  margin: 0 0 6px;
+}
+
+.manual-share-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.manual-share-close {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card-bg);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.manual-share-copy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.manual-share-copy-row input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--ink);
+  padding: 11px 12px;
+  font: inherit;
+}
+
+.manual-share-hint {
+  min-height: 20px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.manual-share-hint.is-success {
+  color: var(--success, #15803d);
+}
+
+.manual-share-hint.is-error {
+  color: var(--danger, #b91c1c);
+}
+
+@media (max-width: 560px) {
+  .manual-share-copy-row {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-share-copy-row .btn {
+    width: 100%;
+  }
+}
+

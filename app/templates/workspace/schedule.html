@@ -1,0 +1,55 @@
+<section id="schedule" class="tab">
+    <div class="section-head">
+        <div>
+            <h1>Xếp và tinh chỉnh</h1>
+        </div>
+        <div class="row">
+            <select id="viewType" aria-label="Kiểu lọc thời khóa biểu">
+                <option value="overview" selected>Xem tổng quát</option>
+                <option value="class">Xem theo lớp</option>
+                <option value="teacher">Xem theo giáo viên</option>
+                <option value="subject">Xem theo môn học</option>
+            </select>
+            <select id="viewEntity" hidden disabled aria-label="Đối tượng lọc thời khóa biểu"></select>
+            <div class="action-feedback-stack">
+                <button class="btn schedule-action-btn btn-23" data-schedule-action onclick="generateSchedule()">
+                    <span class="schedule-action-stage"><span class="schedule-action-content"><span
+                                class="schedule-action-label">Xếp tự động</span></span></span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="print-schedule-header" aria-hidden="true">
+        <div class="print-school-name">{{ p.school_name }}</div>
+        <h1>THỜI KHÓA BIỂU</h1>
+        <div class="print-schedule-meta">
+            <span>Dự án: <b>{{ p.name }}</b></span>
+            <span>Áp dụng từ ngày: ...... / ...... / ........</span>
+        </div>
+    </div>
+    <div id="assignmentCoverage"></div>
+    <div class="manual-tray-panel">
+        <div class="manual-tray-head">
+            <div>
+                <h2>Kho tiết chưa xếp</h2>
+            </div>
+            <div class="action-feedback-stack">
+                <button class="btn ghost" onclick="returnAllToTray(this)">Đưa tiết chưa cố định về
+                    khay</button>
+            </div>
+        </div>
+        <div id="scheduledAssignmentTray" class="scheduled-assignment-tray"></div>
+        <div id="unscheduledTray" class="unscheduled-tray"></div>
+    </div>
+    <div id="scheduleGrid"></div>
+    <div class="print-approval" aria-hidden="true">
+        <div>
+            <b>NGƯỜI LẬP BIỂU</b>
+            <span>(Ký và ghi rõ họ tên)</span>
+        </div>
+        <div>
+            <b>BAN GIÁM HIỆU</b>
+            <span>(Ký duyệt, đóng dấu)</span>
+        </div>
+    </div>
+</section>

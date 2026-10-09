@@ -1,0 +1,41 @@
+<dialog id="renameProject" data-app-zoom>
+    <form method="post" action="/projects/{{ p.id }}/rename" class="modal-form">
+        <h2>Đổi tên bộ thời khóa biểu</h2>
+        <label>
+            Tên bộ TKB
+            <input id="renameProjectName" name="name" value="{{ p.name|e }}" maxlength="200" required>
+        </label>
+        <input type="hidden" name="return_to" value="workspace">
+        <div class="row end">
+            <button type="button" class="btn ghost" onclick="this.closest('dialog').close()">Hủy</button>
+            <button class="btn" type="submit">Lưu tên</button>
+        </div>
+    </form>
+</dialog>
+<dialog id="aiProgressModal" class="ai-progress-dialog">
+    <div class="ai-progress-card">
+        <div class="ai-progress-head">
+            <div class="ai-progress-avatar">✦</div>
+            <div>
+                <h3 id="aiProgressTitle">Đang xếp thời khóa biểu</h3>
+                <p id="aiProgressSubtitle">Hệ thống đang chạy solver tối ưu hóa lịch giảng dạy...</p>
+            </div>
+        </div>
+        <div class="ai-progress-bar-wrap">
+            <div id="aiProgressBar" class="ai-progress-bar" role="progressbar"
+                aria-label="Tiến trình xếp thời khóa biểu" style="width: 0%"></div>
+        </div>
+    </div>
+</dialog>
+{% include "_realtime_chat_popup.html" %}
+{% include "_chatbot_popup.html" %}
+<dialog id="entityModal" data-app-zoom>
+    <form class="modal-form" onsubmit="submitEntity(event)">
+        <h2 id="modalTitle"></h2>
+        <div id="entityFields"></div>
+        <div class="row end">
+            <button type="button" class="btn ghost" onclick="entityModal.close()">Hủy</button>
+            <button id="entitySubmitButton" class="btn" type="submit">Lưu</button>
+        </div>
+    </form>
+</dialog>

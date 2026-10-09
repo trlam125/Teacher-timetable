@@ -1,0 +1,19 @@
+<section id="constraints" class="tab">
+    <div class="section-head">
+        <div>
+            <h1>Ngày nghỉ / tiết tránh</h1>
+            <p>
+                <b>Lưu ý:</b> Ô nào được đánh dấu thì hệ thống sẽ <b>KHÔNG xếp lịch vào ô đó</b>.
+            </p>
+        </div>
+    </div>
+    <div class="constraint-toolbar">
+        <select id="constraintType">
+            <option value="teacher">Giáo viên</option>
+            <option value="class">Lớp</option>
+        </select>
+        <select id="constraintEntity"></select>
+        <button class="btn" onclick="saveConstraints(this)">Lưu ràng buộc</button>
+    </div>
+    <div id="constraintGrid"></div>
+</section>

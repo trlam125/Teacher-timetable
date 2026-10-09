@@ -22,7 +22,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/design-tokens.css?v=1">
-    <link rel="stylesheet" href="/static/style.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <link rel="stylesheet" href="/static/brand-motion.css?v=1">
     <script src="/static/brand-motion.js?v=1" defer></script>
     <script src="/static/operation-status.js?v=1" defer></script>
@@ -37,8 +37,8 @@
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <script src="/static/auth-buttons.js?v=1" defer></script>
-    <link rel="stylesheet" href="/static/profile-avatar.css?v=2">
-    <script src="/static/profile-avatar.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
+    <script src="/static/profile-avatar.js?v=2" defer></script>
 </head>
 
 <body class="teacher-surface">
@@ -77,26 +77,53 @@
                     email</a>
             </div>
         </section>
-        <form class="panel account-form" method="post" action="/teacher/account/profile" enctype="multipart/form-data"
-            style="margin-bottom:18px">
-            {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
+        <section class="panel account-form" style="margin-bottom:18px">
             <h2>Hồ sơ và avatar</h2>
-            <span class="profile-avatar profile-avatar-lg" aria-hidden="true">
-                {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
-            </span>
-            <label>
-                URL hồ sơ Facebook
-                <input type="url" name="profile_url" value="{{ user.profile_url or '' }}" maxlength="2048">
-            </label>
-            <label>
-                Ảnh avatar
-                <input type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp">
-            </label>
-            {% if user.avatar_url %}
-            <label class="avatar-remove"><input type="checkbox" name="remove_avatar" value="true">Xóa avatar</label>
-            {% endif %}
-            <div class="row end"><button class="btn" type="submit">Lưu thông tin</button></div>
-        </form>
+            <div class="avatar-interactive-wrap">
+                <form method="post" action="/teacher/account/avatar" enctype="multipart/form-data"
+                    class="avatar-upload-form">
+                    {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
+                    <label class="profile-avatar profile-avatar-lg avatar-clickable" title="Bấm để đổi avatar"
+                        aria-label="Bấm để đổi avatar" tabindex="0">
+                        {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
+                        <span class="avatar-overlay" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path
+                                    d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                <circle cx="12" cy="13" r="4" />
+                            </svg>
+                            <span class="avatar-overlay-text">Đổi ảnh</span>
+                        </span>
+                        <input type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp"
+                            class="avatar-file-input" hidden>
+                    </label>
+                </form>
+                {% if user.avatar_url %}
+                <form method="post" action="/teacher/account/avatar" class="avatar-delete-form">
+                    {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
+                    <input type="hidden" name="remove_avatar" value="true">
+                    <button type="submit" class="avatar-delete-btn" title="Xóa avatar" aria-label="Xóa avatar"
+                        onclick="return confirm('Bạn có chắc muốn xóa avatar này?')">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            <form method="post" action="/teacher/account/profile">
+                {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
+                <label>
+                    Link Facebook cá nhân
+                    <input type="url" name="profile_url" value="{{ user.profile_url or '' }}" maxlength="2048"
+                        placeholder="https://facebook.com/...">
+                </label>
+                <div class="row end"><button class="btn" type="submit">Lưu thông tin</button></div>
+            </form>
+        </section>
         <form class="panel account-form" method="post" action="/teacher/account/password">
             {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
             <h2>Đổi mật khẩu</h2>

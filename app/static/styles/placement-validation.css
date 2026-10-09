@@ -1,0 +1,104 @@
+/* Quiet shading; explanation is shown only when the avoided cell is activated. */
+#scheduleGrid .cell.available.entity-unavailable-slot:not(.global-locked-slot) {
+  background: #fff0cd;
+  cursor: help;
+}
+
+.dark-mode #scheduleGrid .cell.available.entity-unavailable-slot:not(.global-locked-slot) {
+  background: #514024;
+}
+
+/* Server-validated manual placement targets. */
+.tap-target-schedule.placement-options-loading .timetable .cell.available {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.tap-target-schedule.placement-options-ready .timetable .cell.available.placement-valid-slot {
+  cursor: pointer;
+  background: rgba(37, 99, 235, 0.1) !important;
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.58);
+}
+
+.tap-target-schedule.placement-options-ready .timetable .cell.available.placement-valid-slot:hover {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border-color: var(--primary) !important;
+}
+
+.tap-target-schedule.placement-options-ready .timetable .cell.available.placement-invalid-slot {
+  cursor: not-allowed;
+  opacity: 0.48;
+  filter: saturate(0.55);
+}
+
+.tap-target-schedule.placement-options-ready .timetable .cell.available.placement-invalid-slot:hover {
+  background: inherit !important;
+  border-color: var(--line) !important;
+}
+
+.tap-target-schedule.placement-scope-pending .timetable .cell.available {
+  cursor: default;
+}
+
+.tap-assign-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  background: var(--bg);
+}
+
+.tap-assign-bar .tap-assign-scope button {
+  margin: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.tap-assign-bar .tap-assign-scope button:hover {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+}
+
+.tap-assign-bar .tap-assign-scope button.is-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  .tap-assign-bar {
+    flex-wrap: wrap;
+  }
+
+  .tap-assign-bar-info {
+    flex: 1 1 100%;
+  }
+
+  .tap-assign-scope {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* Khóa thao tác xếp trong lúc đang kiểm tra ô hợp lệ hoặc đang ghi thay đổi. */
+body.tap-assign-busy #scheduleGrid,
+body.tap-assign-busy .unscheduled-tray,
+body.tap-assign-busy .scheduled-cards {
+  pointer-events: none;
+  user-select: none;
+}
+
+.tap-assign-bar.is-busy {
+  cursor: progress;
+}
+
+.tap-assign-bar button:disabled {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.5;
+}

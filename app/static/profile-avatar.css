@@ -38,6 +38,131 @@
   visibility: hidden;
 }
 
+/* --------------------------------------------------------------------------
+   INTERACTIVE AVATAR (CLICK TO CHANGE & DELETE BUTTON ON AVATAR)
+   -------------------------------------------------------------------------- */
+.avatar-interactive-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.avatar-upload-form {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+}
+
+.avatar-clickable {
+  cursor: pointer;
+  margin-bottom: 0 !important;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.avatar-clickable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.28);
+}
+
+.avatar-clickable:active {
+  transform: scale(0.97);
+}
+
+.avatar-clickable:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 3px;
+}
+
+/* Hover / Focus Overlay with Camera Icon */
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+  z-index: 5;
+}
+
+.avatar-clickable:hover .avatar-overlay,
+.avatar-clickable:focus-within .avatar-overlay {
+  opacity: 1;
+  visibility: visible;
+}
+
+.avatar-overlay svg {
+  display: block;
+}
+
+.avatar-overlay-text {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #ffffff;
+  line-height: 1;
+}
+
+/* Delete Button on Avatar */
+.avatar-delete-form {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+}
+
+.avatar-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.avatar-delete-btn:hover {
+  background: #dc2626;
+  transform: scale(1.18);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.45);
+}
+
+.avatar-delete-btn:active {
+  transform: scale(0.92);
+}
+
+.avatar-delete-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+.dark-mode .avatar-delete-btn {
+  border-color: #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
 label.avatar-remove {
   display: flex;
   align-items: center;

@@ -1,0 +1,24 @@
+<section id="overview" class="tab active">
+    <div class="page-title">
+        <div>
+            <h1>{{ p.name }}</h1>
+        </div>
+        <div class="action-feedback-stack">
+            <button class="btn schedule-action-btn btn-23" data-schedule-action onclick="generateSchedule()"><span
+                    class="schedule-action-stage"><span class="schedule-action-content"><span
+                            class="schedule-action-label">Xếp tự
+                            động</span></span></span></button>
+        </div>
+    </div>
+    <div class="stats">
+        <article><strong id="statTeachers">{{ data.teachers|length }}</strong><span>Giáo viên</span>
+        </article>
+        <article><strong id="statClasses">{{ data.classes|length }}</strong><span>Lớp học</span>
+        </article>
+        <article><strong id="statAssignments">{{ data.assignments|length }}</strong><span>Phân
+                công</span>
+        </article>
+        <article><strong id="statLessons">{{ data.lessons|length }}</strong><span>Tiết đã xếp</span>
+        </article>
+    </div>
+</section>

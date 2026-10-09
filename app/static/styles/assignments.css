@@ -1,0 +1,664 @@
+/* ==========================================================================
+   Workspace Session Locks, Bulk Assignment & Filter Styles
+   ========================================================================== */
+
+.global-session-locks {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.global-session-locks h2 {
+  margin: 0 0 5px;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+.global-session-locks p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+.session-lock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.session-lock {
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.session-lock b {
+  display: block;
+  color: var(--ink);
+}
+
+.session-lock span {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.session-lock.is-locked {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+:root.dark-mode .session-lock.is-locked {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.session-lock.is-locked span {
+  color: inherit;
+}
+
+:root.dark-mode .session-lock.is-locked span {
+  color: #fca5a5;
+}
+
+.global-slot-lock-title {
+  margin-top: 18px;
+}
+
+.global-slot-lock-title h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.global-slot-lock-title p {
+  margin-bottom: 12px;
+  color: var(--muted);
+}
+
+.global-slot-lock-grid {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: auto;
+  margin-bottom: 14px;
+}
+
+.global-slot-lock-grid .slot-head,
+.global-slot-lock-grid .slot-period {
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.global-slot-lock {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--card-bg);
+  min-height: 48px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.global-slot-lock.is-locked {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 2px #fca5a5;
+}
+
+:root.dark-mode .global-slot-lock.is-locked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  box-shadow: inset 0 0 0 2px #ef4444;
+}
+
+.global-locked-slot {
+  cursor: not-allowed;
+  background: repeating-linear-gradient(135deg,
+      #fff7ed,
+      #fff7ed 8px,
+      #ffedd5 8px,
+      #ffedd5 16px) !important;
+}
+
+:root.dark-mode .global-locked-slot {
+  background: repeating-linear-gradient(135deg,
+      #181c24,
+      #181c24 9px,
+      #1e2430 9px,
+      #1e2430 18px) !important;
+}
+
+.global-lock-label {
+  display: block;
+  color: #c2410c;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+:root.dark-mode .global-lock-label {
+  color: #f97316;
+}
+
+.block-mode-help {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.block-mode-preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.schedule-color-legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.schedule-color-legend b {
+  color: var(--ink);
+}
+
+.schedule-color-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.schedule-color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid #93c5fd;
+  background: #dbeafe;
+}
+
+:root.dark-mode .schedule-color-swatch {
+  border-color: #2563eb;
+  background: #1e3a8a;
+}
+
+.schedule-color-swatch.cluster {
+  border-color: #4ade80;
+  background: #dcfce7;
+}
+
+:root.dark-mode .schedule-color-swatch.cluster {
+  border-color: #10b981;
+  background: #064e3b;
+}
+
+.schedule-color-swatch.conflict {
+  border: 1px dashed var(--danger, #ef4444);
+  background: var(--danger-bg, #fef2f2);
+}
+
+:root.dark-mode .schedule-color-swatch.conflict {
+  border-color: var(--danger, #f87171);
+  background: var(--danger-bg, rgba(239, 68, 68, 0.15));
+}
+
+.lesson.lesson-cluster {
+  border-color: #4ade80;
+  background: #dcfce7;
+}
+
+.lesson.lesson-cluster b {
+  color: #166534;
+}
+
+.lesson.lesson-cluster small {
+  color: #3f6212;
+}
+
+.modal-form.assignment-bulk-form {
+  width: min(920px, calc(100vw - 40px));
+  max-width: 920px;
+}
+
+.modal-form.assignment-bulk-form #entityFields {
+  min-width: 0;
+}
+
+.assignment-bulk-modal {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.assignment-bulk-modal>label,
+.assignment-bulk-modal select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.assignment-bulk-empty-warning {
+  margin: 8px 0 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.assignment-bulk-intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.assignment-bulk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.assignment-pick-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.assignment-pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.assignment-pick-head b {
+  color: var(--ink);
+}
+
+.assignment-pick-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.assignment-pick-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 3px;
+}
+
+.assignment-pick-list {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.assignment-pick-row {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--line);
+  font-weight: 500 !important;
+  cursor: pointer;
+}
+
+.assignment-pick-row:last-child {
+  border-bottom: 0;
+}
+
+.assignment-pick-row:hover {
+  background: var(--bg);
+}
+
+.assignment-pick-row input {
+  width: 17px !important;
+  height: 17px !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
+}
+
+.assignment-pick-row span {
+  flex: 1;
+}
+
+.assignment-pick-row small {
+  font-size: 11px;
+  color: var(--primary);
+  background: var(--soft);
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+
+.assignment-bulk-preview {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.assignment-bulk-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.teacher-subject-picker {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.teacher-subject-picker .assignment-pick-list {
+  max-height: 220px;
+}
+
+.teacher-subject-help {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.assignment-subject-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.assignment-subject-item:last-child {
+  border-bottom: 0;
+}
+
+.assignment-subject-item .assignment-pick-row {
+  border-bottom: 0 !important;
+}
+
+.assignment-subject-config {
+  display: grid;
+  grid-template-columns: 130px minmax(180px, 1fr);
+  gap: 10px;
+  padding: 0 12px 12px 38px;
+  background: var(--bg);
+}
+
+.assignment-subject-config[hidden] {
+  display: none !important;
+}
+
+.assignment-subject-config label {
+  margin: 0 !important;
+  font-size: 12px;
+}
+
+.assignment-subject-config input,
+.assignment-subject-config select {
+  margin-top: 4px !important;
+}
+
+.assignment-subject-config .block-mode-preview {
+  grid-column: 1/-1;
+  margin: 0;
+}
+
+.assignment-warning {
+  display: block;
+  margin-top: 6px;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.assignment-ok {
+  display: block;
+  margin-top: 6px;
+  color: #15803d;
+  font-weight: 700;
+}
+
+.assignment-load-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.assignment-load-metric {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+}
+
+.assignment-load-metric small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.assignment-load-metric b {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.assignment-load-metric.over {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.assignment-load-metric.over b {
+  color: #b91c1c;
+}
+
+:root.dark-mode .assignment-load-metric.over {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+:root.dark-mode .assignment-load-metric.over b {
+  color: #fca5a5;
+}
+
+.assignment-load-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 125px;
+}
+
+.assignment-load-cell b {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.assignment-load-cell small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.assignment-load-cell.over b,
+.assignment-load-cell.over small {
+  color: #b91c1c;
+}
+
+:root.dark-mode .assignment-load-cell.over b,
+:root.dark-mode .assignment-load-cell.over small {
+  color: #fca5a5;
+}
+
+@media (max-width: 720px) {
+  .assignment-load-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.assignment-filter-panel {
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1fr) minmax(170px, 1fr) minmax(190px, 1.2fr) minmax(210px, 1.25fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 16px 0 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-bg);
+}
+
+.assignment-filter-panel label {
+  margin: 0 !important;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.assignment-filter-panel select {
+  margin-top: 6px !important;
+  width: 100%;
+}
+
+.assignment-filter-panel select:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  background: var(--bg);
+}
+
+.assignment-filter-summary {
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.assignment-filter-summary b {
+  color: var(--ink);
+}
+
+.assignment-filter-summary.has-gap {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+:root.dark-mode .assignment-filter-summary.has-gap {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #b45309;
+  color: #fcd34d;
+}
+
+.assignment-filter-summary.has-gap b {
+  color: inherit;
+}
+
+.assignment-gap-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+:root.dark-mode .assignment-gap-badge {
+  background: rgba(234, 88, 12, 0.16);
+  color: #fdba74;
+}
+
+.assignment-filter-empty {
+  padding: 22px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+
+@media (max-width: 1050px) {
+  .assignment-filter-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .assignment-filter-panel .assignment-filter-reset {
+    grid-column: 1/-1;
+  }
+}
+
+@media (max-width: 620px) {
+  .assignment-filter-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+
+  .assignment-bulk-grid,
+  .assignment-subject-config {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-subject-config {
+    padding-left: 12px;
+  }
+
+  .modal-form.assignment-bulk-form {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+  }
+
+  .assignment-bulk-modal {
+    width: 100%;
+  }
+}
+

@@ -1,0 +1,172 @@
+/* ===== Bulk row selection for workspace entity tables ===== */
+.entity-table-shell {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#assignmentTable {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.entity-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 40px;
+  margin: 0 0 10px;
+}
+
+.entity-bulk-count {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.entity-bulk-count b {
+  color: var(--ink);
+}
+
+/* Bulk entity delete and delete-all buttons - ALWAYS SOLID RED */
+.btn-danger,
+.entity-bulk-delete,
+.preference-delete-all {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-family: var(--font-sans, "Be Vietnam Pro", sans-serif) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0.01em !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  border-radius: 8px !important;
+  border: 1.5px solid #dc2626 !important;
+  background-color: #ef4444 !important;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.28) !important;
+  cursor: pointer !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+}
+
+.btn-danger:hover:not(:disabled),
+.entity-bulk-delete:hover:not(:disabled),
+.preference-delete-all:hover:not(:disabled) {
+  background-color: #dc2626 !important;
+  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45) !important;
+}
+
+.btn-danger:active:not(:disabled),
+.entity-bulk-delete:active:not(:disabled),
+.preference-delete-all:active:not(:disabled) {
+  transform: translateY(0) !important;
+  background: #b91c1c !important;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.4) !important;
+}
+
+.btn-danger:disabled,
+.entity-bulk-delete:disabled,
+.preference-delete-all:disabled {
+  background-color: #ef4444 !important;
+  background: #ef4444 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.entity-bulk-delete::before,
+.preference-delete-all::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background-color: #ffffff;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'%3E%3C/polyline%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'%3E%3C/path%3E%3Cline x1='10' y1='11' x2='10' y2='17'%3E%3C/line%3E%3Cline x1='14' y1='11' x2='14' y2='17'%3E%3C/line%3E%3C/svg%3E") no-repeat center / contain;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'%3E%3C/polyline%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'%3E%3C/path%3E%3Cline x1='10' y1='11' x2='10' y2='17'%3E%3C/line%3E%3Cline x1='14' y1='11' x2='14' y2='17'%3E%3C/line%3E%3C/svg%3E") no-repeat center / contain;
+  flex-shrink: 0;
+}
+
+:root.dark-mode .btn-danger,
+:root.dark-mode .entity-bulk-delete,
+:root.dark-mode .preference-delete-all,
+html.dark-mode .btn-danger,
+html.dark-mode .entity-bulk-delete,
+html.dark-mode .preference-delete-all {
+  background-color: #dc2626 !important;
+  background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45) !important;
+}
+
+:root.dark-mode .btn-danger:hover:not(:disabled),
+:root.dark-mode .entity-bulk-delete:hover:not(:disabled),
+:root.dark-mode .preference-delete-all:hover:not(:disabled),
+html.dark-mode .btn-danger:hover:not(:disabled),
+html.dark-mode .entity-bulk-delete:hover:not(:disabled),
+html.dark-mode .preference-delete-all:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%) !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.55) !important;
+}
+
+:root.dark-mode .btn-danger:disabled,
+:root.dark-mode .entity-bulk-delete:disabled,
+:root.dark-mode .preference-delete-all:disabled,
+html.dark-mode .btn-danger:disabled,
+html.dark-mode .entity-bulk-delete:disabled,
+html.dark-mode .preference-delete-all:disabled {
+  background: #991b1b !important;
+  background-color: #991b1b !important;
+  border-color: #b91c1c !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  opacity: 0.5 !important;
+}
+
+.data-table .entity-select-col {
+  width: 44px;
+  min-width: 44px;
+  padding-left: 10px;
+  padding-right: 10px;
+  text-align: center;
+}
+
+.entity-select-all,
+.entity-row-select {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  vertical-align: middle;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .entity-bulk-toolbar {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+

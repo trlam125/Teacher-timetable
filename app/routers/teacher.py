@@ -87,6 +87,38 @@ def teacher_account_page(
     )
 
 
+@router.post("/teacher/account/avatar", response_class=HTMLResponse)
+def update_teacher_avatar(
+    request: Request,
+    avatar_file: Optional[UploadFile] = File(None),
+    remove_avatar: bool = Form(False),
+    project_id: Optional[int] = Form(None),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role != "teacher":
+        raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
+    project = db.get(Project, project_id) if project_id is not None else None
+    if project_id is not None and (
+        not project or not user_can_access_school(user, project.school_id, db)
+    ):
+        raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+    context = {
+        "request": request, "user": user, "p": project,
+        "error": None, "success": None, **chatbot_ui_context(project),
+    }
+    try:
+        avatar_change = prepare_avatar_change(avatar_file, remove_avatar, user.id)
+    except (ValueError, HTTPException) as exc:
+        context["error"] = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        return templates.TemplateResponse("teacher_account.html", context, status_code=400)
+    if avatar_change is not None:
+        user.avatar_url, user.avatar_image = avatar_change
+        db.commit()
+    context["success"] = "Đã cập nhật avatar thành công." if not remove_avatar else "Đã xóa avatar thành công."
+    return templates.TemplateResponse("teacher_account.html", context)
+
+
 @router.post("/teacher/account/profile", response_class=HTMLResponse)
 def update_teacher_profile(
     request: Request,

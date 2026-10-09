@@ -1,0 +1,81 @@
+<section id="assignments" class="tab">
+    <div class="section-head">
+        <div>
+            <h1>Phân công giảng dạy</h1>
+        </div>
+        <button class="btn btn-tame-ape" onclick="openEntity('assignment')"><span class="btn__text">Thêm
+                phân công</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                    viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                    stroke="currentColor" fill="none" class="svg">
+                    <line y2="19" y1="5" x2="12" x1="12"></line>
+                    <line y2="12" y1="12" x2="19" x1="5"></line>
+                </svg></span></button>
+    </div>
+    <div class="assignment-explanation">
+        <h3>Cách hiểu số buổi và số tiết</h3>
+        <div class="assignment-explanation-grid">
+            <div>
+                <b>Buổi học mỗi ngày</b>
+                <p>
+                    Được cấu hình chung cho toàn bộ thời khóa biểu, thường là 1 hoặc 2 buổi (sáng và
+                    chiều).
+                    Không nhập lại trong từng phân công.
+                </p>
+            </div>
+            <div>
+                <b>Tiết mỗi tuần</b>
+                <p>
+                    Là tổng số tiết của một môn mà giáo viên dạy cho một lớp trong cả tuần. Nhập 3 nghĩa
+                    là
+                    xếp đủ 3 tiết cho cặp lớp–môn–giáo viên đó.
+                </p>
+            </div>
+            <div>
+                <b>Tối đa tiết mỗi ngày</b>
+                <p>
+                    Là tổng số tiết giáo viên dạy trong một ngày trên tất cả lớp và tất cả buổi; thiết
+                    lập
+                    tại mục Giáo viên.
+                </p>
+            </div>
+        </div>
+        <p class="assignment-example">
+            <b>Ví dụ:</b> Web có 2 buổi/ngày và 5 ngày/tuần. Phân công Toán
+            8A1 là 3 tiết/tuần nghĩa là phân bố tổng cộng 3 tiết vào các ngày/buổi còn trống, không phải
+            3
+            tiết mỗi ngày.
+        </p>
+    </div>
+    <div class="assignment-filter-panel" aria-label="Bộ lọc phân công">
+        <label>
+            Lớp
+            <select id="assignmentFilterClass" onchange="renderAssignmentTable()">
+                <option value="">Tất cả lớp</option>
+            </select>
+        </label>
+        <label>
+            Môn
+            <select id="assignmentFilterSubject" onchange="renderAssignmentTable()">
+                <option value="">Tất cả môn</option>
+            </select>
+        </label>
+        <label>
+            Giáo viên
+            <select id="assignmentFilterTeacher" onchange="renderAssignmentTable()">
+                <option value="">Tất cả giáo viên</option>
+            </select>
+        </label>
+        <label>
+            Trạng thái kiểm tra
+            <select id="assignmentFilterStatus" onchange="renderAssignmentTable()">
+                <option value="all">Tất cả phân công hiện có</option>
+                <option value="missing">Cần kiểm tra theo chương trình</option>
+                <option value="unassigned_class">Lớp chưa có phân công</option>
+            </select>
+        </label>
+        <button class="btn ghost assignment-filter-reset" type="button" onclick="resetAssignmentFilters()">Bỏ
+            lọc</button>
+    </div>
+    <div id="assignmentCompletenessSummary"></div>
+    <div id="assignmentTable"></div>
+</section>

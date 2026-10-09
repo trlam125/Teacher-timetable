@@ -9,6 +9,7 @@
     margin-bottom: 14px;
     color: #64748b;
     font-size: 12px;
+    letter-spacing: 0.02em;
 }
 
 .social-login-divider::before,
@@ -20,43 +21,133 @@
 }
 
 .social-login-options {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-}
-
-.auth-card .social-login-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    min-height: 46px;
-    padding: 10px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 12px;
-    background: #fff;
-    color: #1f2937;
-    font-size: 14px;
-    font-weight: 600;
+    gap: 12px;
+    min-height: 48px;
+}
+
+/* --------------------------------------------------------------------------
+   MIGHTY-DONKEY-44 GOOGLE BUTTON EFFECT
+   -------------------------------------------------------------------------- */
+.auth-card .social-login-button,
+.auth-card .Btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 48px;
+    height: 48px;
+    min-height: 48px;
+    padding: 0;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.25s ease,
+        background-color 0.25s ease,
+        box-shadow 0.3s ease,
+        transform 0.15s ease;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+    background-color: #ffffff;
     text-decoration: none;
     box-sizing: border-box;
-    transition: background .18s, border-color .18s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
-.auth-card .social-login-button:hover {
-    background: #f1f5f9;
-    border-color: #94a3b8;
+/* Icon container - centered when collapsed, slides left on hover */
+.auth-card .social-login-button .sign,
+.auth-card .Btn .sign {
+    width: 100%;
+    height: 100%;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
-.auth-card .social-login-button:focus-visible {
-    outline: 3px solid #3b82f6;
+.auth-card .social-login-button .sign svg,
+.auth-card .Btn .sign svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    display: block;
+    transition: transform 0.25s ease;
+}
+
+/* Expanding text - hidden when collapsed, fades and expands on hover */
+.auth-card .social-login-button .text,
+.auth-card .Btn .text {
+    position: absolute;
+    right: 0%;
+    width: 0%;
+    opacity: 0;
+    color: #1e293b;
+    font-family: var(--font-sans, "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, sans-serif);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-align: center;
+    pointer-events: none;
+    user-select: none;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s ease,
+        padding-right 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.2s ease;
+}
+
+/* Hover & Focus state: expand width and reveal text */
+.auth-card .social-login-button:hover,
+.auth-card .social-login-button:focus-visible,
+.auth-card .Btn:hover,
+.auth-card .Btn:focus-visible {
+    width: 224px;
+    max-width: 100%;
+    border-radius: 40px;
+    border-color: #4285f4;
+    background-color: #ffffff;
+    box-shadow: 0 6px 20px rgba(66, 133, 244, 0.22), 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.auth-card .social-login-button:hover .sign,
+.auth-card .social-login-button:focus-visible .sign,
+.auth-card .Btn:hover .sign,
+.auth-card .Btn:focus-visible .sign {
+    width: 44px;
+    padding-left: 8px;
+}
+
+.auth-card .social-login-button:hover .text,
+.auth-card .social-login-button:focus-visible .text,
+.auth-card .Btn:hover .text,
+.auth-card .Btn:focus-visible .text {
+    opacity: 1;
+    width: calc(100% - 44px);
+    padding-right: 12px;
+}
+
+.auth-card .social-login-button:focus-visible,
+.auth-card .Btn:focus-visible {
+    outline: 2.5px solid #4285f4;
     outline-offset: 3px;
 }
 
-.social-login-button svg {
-    flex: 0 0 20px;
+/* Active click state: button press translation (matching mighty-donkey-44) */
+.auth-card .social-login-button:active,
+.auth-card .Btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 2px 6px rgba(66, 133, 244, 0.2);
 }
 
+/* Dark mode overrides */
 .dark-mode .social-login-divider {
     color: #b5c3d6;
 }
@@ -66,15 +157,42 @@
     background: #475569;
 }
 
-.dark-mode .auth-card .social-login-button {
-    color: #f1f5f9;
-    background: #17243a;
-    border-color: #475569;
+.dark-mode .auth-card .social-login-button,
+.dark-mode .auth-card .Btn {
+    background-color: #17243a;
+    border-color: #334155;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
-.dark-mode .auth-card .social-login-button:hover {
-    background: #26364f;
-    border-color: #94a3b8;
+.dark-mode .auth-card .social-login-button .text,
+.dark-mode .auth-card .Btn .text {
+    color: #f1f5f9;
+}
+
+.dark-mode .auth-card .social-login-button:hover,
+.dark-mode .auth-card .social-login-button:focus-visible,
+.dark-mode .auth-card .Btn:hover,
+.dark-mode .auth-card .Btn:focus-visible {
+    background-color: #1e2c44;
+    border-color: #60a5fa;
+    box-shadow: 0 6px 22px rgba(96, 165, 250, 0.28), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.dark-mode .auth-card .social-login-button:focus-visible,
+.dark-mode .auth-card .Btn:focus-visible {
+    outline-color: #60a5fa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .auth-card .social-login-button,
+    .auth-card .social-login-button .sign,
+    .auth-card .social-login-button .text,
+    .auth-card .Btn,
+    .auth-card .Btn .sign,
+    .auth-card .Btn .text {
+        transition-duration: 0.01ms !important;
+    }
 }
 
 .social-link-page {
@@ -88,7 +206,7 @@
     font-family: "Be Vietnam Pro", sans-serif;
 }
 
-.social-link-page .social-link-card {
+.social-link-card {
     width: min(100%, 440px);
     box-sizing: border-box;
     padding: 28px;
@@ -110,10 +228,4 @@
 .social-link-card .social-link-email {
     color: #334155;
     font-weight: 600;
-}
-
-@media (max-width: 360px) {
-    .social-login-options {
-        grid-template-columns: 1fr;
-    }
 }

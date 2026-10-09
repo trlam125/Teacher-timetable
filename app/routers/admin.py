@@ -217,6 +217,30 @@ def clear_chatbot_error_logs(
     return RedirectResponse("/admin/users#chatbot-logs", 303)
 
 
+@router.post("/admin/users/{account_id}/avatar")
+def update_account_avatar(
+    account_id: int,
+    avatar_file: Optional[UploadFile] = File(None),
+    remove_avatar: bool = Form(False),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if not is_admin(user):
+        raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
+    account = db.get(User, account_id)
+    if not account or not admin_can_manage_account(user, account, db):
+        raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
+    try:
+        avatar_change = prepare_avatar_change(avatar_file, remove_avatar, account.id)
+    except (ValueError, HTTPException) as exc:
+        msg = exc.detail if isinstance(exc, HTTPException) else str(exc)
+        return redirect_with_notice("/admin/users", msg)
+    if avatar_change is not None:
+        account.avatar_url, account.avatar_image = avatar_change
+        db.commit()
+    return RedirectResponse("/admin/users", 303)
+
+
 @router.post("/admin/users/{account_id}/update")
 def update_account(
     account_id: int,
