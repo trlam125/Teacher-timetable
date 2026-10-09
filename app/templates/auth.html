@@ -20,7 +20,7 @@
     <script src="/static/operation-status.js?v=1" defer></script>
     {% endif %}
     <link rel="stylesheet" href="/static/auth-extra.css?v=1">
-    <link rel="stylesheet" href="/static/auth-panda.css?v=1">
+    <link rel="stylesheet" href="/static/auth-panda.css?v=2">
     <link rel="stylesheet" href="/static/auth-effects.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <link rel="stylesheet" href="/static/social-auth.css?v=4">
@@ -100,16 +100,28 @@
                             placeholder="ten@truonghoc.edu.vn" maxlength="255" required autofocus>
                     </span>
                 </label>
-                <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><i class="field-icon lock-icon"
-                            aria-hidden="true"></i><input id="authPassword" type="password" name="password"
+                <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><svg class="field-icon lock-icon"
+                            xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                            aria-hidden="true" focusable="false">
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                            <rect x="5" y="10" width="14" height="11" rx="3" />
+                            <path d="M12 14.5v2" />
+                        </svg><input id="authPassword" type="password" name="password"
                             autocomplete="{{'current-password' if mode=='login' else 'new-password'}}"
                             placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" {% if
                             mode=='register' %}minlength="8" {% endif %} required><button class="password-toggle"
                             type="button" aria-label="Bấm để hiện mật khẩu"
                             aria-pressed="false"><i></i></button></span></label>
-                {% if mode=="register" %}<label class="auth-field">Nhập lại mật khẩu<span class="auth-input-wrap"><i
-                            class="field-icon lock-icon" aria-hidden="true"></i><input type="password"
-                            name="password_confirm" autocomplete="new-password" minlength="8" required></span></label>{%
+                {% if mode=="register" %}<label class="auth-field">Nhập lại mật khẩu<span class="auth-input-wrap"><svg
+                            class="field-icon lock-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                            <rect x="5" y="10" width="14" height="11" rx="3" />
+                            <path d="M12 14.5v2" />
+                        </svg><input type="password" name="password_confirm" autocomplete="new-password" minlength="8"
+                            required></span></label>{%
                 endif %}
                 {% endif %}
                 {% if mode=="register" %}
