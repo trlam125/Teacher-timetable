@@ -181,6 +181,14 @@ public class MainActivity extends Activity {
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
                 if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+                    // Start OAuth in the browser so its state cookie and callback
+                    // stay together; Google does not allow embedded WebView login.
+                    String path = uri.getPath();
+                    if (request.isForMainFrame() && isUrlFromCurrentServer(uri.toString())
+                            && ("/auth/google/login".equals(path) || "/auth/facebook/login".equals(path))) {
+                        openExternalUri(uri);
+                        return true;
+                    }
                     if (isUrlFromCurrentServer(uri.toString())) return false;
                     openExternalUri(uri);
                     return true;

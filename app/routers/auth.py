@@ -32,9 +32,20 @@ def home(request: Request, db: Session = Depends(db_session)):
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse(
-        "auth.html", {"request": request, "mode": "login", "error": None}
+    error = None
+    notice = request.cookies.get("oauth_notice")
+    if notice:
+        try:
+            error = signer.loads(notice, max_age=60).get("message")
+        except (BadSignature, SignatureExpired, AttributeError):
+            pass
+    response = templates.TemplateResponse(
+        "auth.html", {"request": request, "mode": "login", "error": error}
     )
+    if notice:
+        response.delete_cookie("oauth_notice")
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @router.post("/login")

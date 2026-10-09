@@ -13,3 +13,5 @@ Pillow==12.3.0
 
 xlrd==2.0.1
 ortools==9.12.4544
+httpx==0.28.1
+PyJWT[crypto]==2.10.1

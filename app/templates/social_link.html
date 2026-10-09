@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Liên kết {{ provider_name }} · Smart TKB</title>
+    <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
+    <link rel="stylesheet" href="/static/design-tokens.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=1">
+    <link rel="stylesheet" href="/static/social-auth.css?v=1">
+</head>
+
+<body class="social-link-page">
+    <main class="social-link-card">
+        <a href="/login">Smart TKB</a>
+        <h1>Liên kết {{ provider_name }}</h1>
+        <p>Email này đã có tài khoản Smart TKB:</p>
+        <p class="social-link-email">{{ email }}</p>
+        <p>Nhập mật khẩu <strong>Smart TKB</strong> để xác nhận liên kết. Những lần sau bạn có thể đăng nhập bằng {{
+            provider_name }}.</p>
+        {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+        <form method="post" action="/auth/social/link">
+            <input type="hidden" name="link_token" value="{{ link_token }}">
+            <label>Mật khẩu Smart TKB
+                <input type="password" name="password" autocomplete="current-password" required autofocus>
+            </label>
+            <button class="btn wide" type="submit">Xác nhận liên kết và đăng nhập</button>
+        </form>
+        <p><a href="/forgot-password">Quên hoặc chưa có mật khẩu Smart TKB?</a></p>
+        <p>Sau khi đặt lại mật khẩu qua email, hãy bắt đầu đăng nhập bằng {{ provider_name }} lại.</p>
+        <a href="/login">Hủy và quay lại đăng nhập</a>
+    </main>
+</body>
+
+</html>

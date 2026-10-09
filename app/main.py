@@ -7,6 +7,7 @@ from app.errors import register_exception_handlers
 from app.services.runtime import initialize_database, run_database_bootstrap_step
 from app.routers.system import router as system_router
 from app.routers.auth import router as auth_router
+from app.routers.social_auth import router as social_auth_router
 from app.routers.chat import router as chat_router
 from app.routers.admin import router as admin_router
 from app.routers.projects import router as projects_router
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(system_router)
     app.include_router(auth_router)
+    app.include_router(social_auth_router)
     app.include_router(chat_router)
     app.include_router(admin_router)
     app.include_router(projects_router)

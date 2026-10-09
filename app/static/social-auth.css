@@ -1,0 +1,128 @@
+.social-login {
+    margin: 20px 0 8px;
+}
+
+.social-login-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.social-login-divider::before,
+.social-login-divider::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: #cbd5e1;
+}
+
+.social-login-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.auth-card .social-login-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: #fff;
+    color: #1f2937;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    box-sizing: border-box;
+    transition: background .18s, border-color .18s;
+}
+
+.auth-card .social-login-button:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.auth-card .social-login-button:focus-visible {
+    outline: 3px solid #3b82f6;
+    outline-offset: 3px;
+}
+
+.social-login-button svg {
+    flex: 0 0 20px;
+}
+
+.auth-card .social-login-note {
+    margin: 10px 0 0;
+    color: #64748b;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.dark-mode .social-login-divider,
+.dark-mode .auth-card .social-login-note {
+    color: #b5c3d6;
+}
+
+.dark-mode .social-login-divider::before,
+.dark-mode .social-login-divider::after {
+    background: #475569;
+}
+
+.dark-mode .auth-card .social-login-button {
+    color: #f1f5f9;
+    background: #17243a;
+    border-color: #475569;
+}
+
+.dark-mode .auth-card .social-login-button:hover {
+    background: #26364f;
+    border-color: #94a3b8;
+}
+
+.social-link-page {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #f1f5f9;
+    font-family: "Be Vietnam Pro", sans-serif;
+}
+
+.social-link-page .social-link-card {
+    width: min(100%, 440px);
+    box-sizing: border-box;
+    padding: 28px;
+    background: #fff;
+    border: 1px solid #dbe3ed;
+    border-radius: 20px;
+    box-shadow: 0 16px 48px #0f172a12;
+}
+
+.social-link-card h1 {
+    font-size: 24px;
+}
+
+.social-link-card p {
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.social-link-card .social-link-email {
+    color: #334155;
+    font-weight: 600;
+}
+
+@media (max-width: 360px) {
+    .social-login-options {
+        grid-template-columns: 1fr;
+    }
+}

@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="/static/auth-panda.css?v=1">
     <link rel="stylesheet" href="/static/auth-effects.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
+    <link rel="stylesheet" href="/static/social-auth.css?v=1">
     <script src="/static/auth-panda.js?v=1" defer></script>
     <script src="/static/visual-captcha.js?v=1" defer></script>
     <script src="/static/auth-effects.js?v=1" defer></script>
@@ -192,6 +193,9 @@
                 {% endif %}
                 {% if mode=="register_otp" %}<button class="btn ghost wide" type="submit" formaction="/register/resend"
                     formnovalidate>Gửi lại mã OTP</button>{% endif %}
+                {% if mode in ["login", "register"] %}
+                {% include "_social_login.html" %}
+                {% endif %}
                 {% if mode=="login" %}
                 <p>Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
                 {% else %}

@@ -28,6 +28,29 @@ class User(Base):
     last_seen: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
 
+class SocialIdentity(Base):
+    __tablename__ = "social_identities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(16))
+    subject: Mapped[str] = mapped_column(String(255))
+    __table_args__ = (
+        UniqueConstraint("provider", "subject", name="uq_social_provider_subject"),
+        UniqueConstraint("user_id", "provider", name="uq_social_user_provider"),
+    )
+
+
+class OAuthAttempt(Base):
+    """Short-lived, one-use OAuth state, shared between server workers."""
+    __tablename__ = "oauth_attempts"
+    state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    browser_hash: Mapped[str] = mapped_column(String(64))
+    provider: Mapped[str] = mapped_column(String(16))
+    phase: Mapped[str] = mapped_column(String(16), default="authorize")
+    expires_at: Mapped[int] = mapped_column(Integer, index=True)
+    payload_json: Mapped[str] = mapped_column(Text)
+
+
 class RealtimeConnection(Base):
     __tablename__ = "realtime_connections"
     connection_id: Mapped[str] = mapped_column(String(64), primary_key=True)
