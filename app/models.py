@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import secrets
 from typing import Optional
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -19,6 +19,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(120), default="Giáo viên")
     profile_url: Mapped[str] = mapped_column(String(2048), default="", server_default="")
+    avatar_url: Mapped[str] = mapped_column(String(2048), default="", server_default="")
+    avatar_image: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True, deferred=True)
     role: Mapped[str] = mapped_column(String(20), default="teacher")
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     reset_token_expires_at: Mapped[Optional[str]] = mapped_column(

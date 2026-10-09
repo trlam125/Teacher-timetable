@@ -1,5 +1,6 @@
 {% set avatar_name = (avatar_user.name or 'Người dùng')|trim %}
 <span class="profile-avatar-initial">{{ avatar_name[0]|upper if avatar_name else 'A' }}</span>
-{% if avatar_user.profile_url %}
-<img data-profile-image src="{{ avatar_user.profile_url }}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+{% if avatar_user.avatar_url %}
+<img data-profile-image src="{{ avatar_user.avatar_url }}" alt="" loading="lazy" decoding="async"
+    referrerpolicy="no-referrer">
 {% endif %}

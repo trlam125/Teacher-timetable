@@ -60,7 +60,7 @@
     <script src="/static/weather-widget.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
-    <link rel="stylesheet" href="/static/profile-avatar.css?v=1">
+    <link rel="stylesheet" href="/static/profile-avatar.css?v=2">
     <script src="/static/profile-avatar.js?v=1" defer></script>
 </head>
 
@@ -143,6 +143,10 @@
                     {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
                     <h3>{{ account.name }}</h3>
                     <p>{{ account.email }}</p>
+                    {% if account.profile_url %}
+                    <a class="account-facebook-link" href="{{ account.profile_url }}" target="_blank"
+                        rel="noopener noreferrer">Facebook</a>
+                    {% endif %}
                     <div class="account-presence {{ 'is-online' if account.id in online_user_ids else '' }}"
                         data-presence-user-id="{{ account.id }}" data-last-seen="{{ account.last_seen or '' }}">
                         <span class="account-presence-dot" aria-hidden="true"></span>
@@ -209,16 +213,24 @@
                 {% endif %}
                 <details class="account-edit">
                     <summary>Chỉnh sửa thông tin</summary>
-                    <form method="post" action="/admin/users/{{ account.id }}/update" class="account-edit-form">
+                    <form method="post" action="/admin/users/{{ account.id }}/update" class="account-edit-form"
+                        enctype="multipart/form-data">
                         <label>
                             Họ tên<input name="name" value="{{ account.name }}" required>
                         </label>
                         <label>
-                            URL ảnh đại diện (Profile URL)
+                            URL hồ sơ Facebook
                             <input type="url" name="profile_url" value="{{ account.profile_url or '' }}"
-                                maxlength="2048" placeholder="https://example.com/avatar.jpg">
-                            <small class="muted">Dán link ảnh trực tiếp. Để trống để dùng chữ cái tên.</small>
+                                maxlength="2048">
                         </label>
+                        <label>
+                            Ảnh avatar
+                            <input type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp">
+                        </label>
+                        {% if account.avatar_url %}
+                        <label class="avatar-remove"><input type="checkbox" name="remove_avatar" value="true">Xóa
+                            avatar</label>
+                        {% endif %}
                         <label>
                             Mật khẩu mới<input type="password" name="password" minlength="8"
                                 placeholder="Để trống nếu không đổi">

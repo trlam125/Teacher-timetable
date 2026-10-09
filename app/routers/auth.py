@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from fastapi.responses import Response
 from app.services.runtime import *
 
 router = APIRouter()
@@ -1050,3 +1051,21 @@ def verify_email_change(
     if target.id == user.id:
         set_session_cookie(response, target)
     return response
+
+
+@router.get("/account/avatar/{account_id}")
+def account_avatar(
+    account_id: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    account = db.get(User, account_id)
+    if not account or (account.id != user.id and not admin_can_manage_account(user, account, db)):
+        raise HTTPException(404, "Không tìm thấy avatar")
+    if not account.avatar_image:
+        raise HTTPException(404, "Không tìm thấy avatar")
+    return Response(
+        content=account.avatar_image,
+        media_type="image/png",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )

@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.services.runtime import *
 from app.services.profiles import normalize_profile_url
+from app.services.avatars import prepare_avatar_change
 
 router = APIRouter()
 
@@ -90,6 +91,8 @@ def teacher_account_page(
 def update_teacher_profile(
     request: Request,
     profile_url: str = Form(""),
+    avatar_file: Optional[UploadFile] = File(None),
+    remove_avatar: bool = Form(False),
     project_id: Optional[int] = Form(None),
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
@@ -107,12 +110,15 @@ def update_teacher_profile(
     }
     try:
         clean_url = normalize_profile_url(profile_url)
+        avatar_change = prepare_avatar_change(avatar_file, remove_avatar, user.id)
     except ValueError as exc:
         context["error"] = str(exc)
         return templates.TemplateResponse("teacher_account.html", context, status_code=400)
     user.profile_url = clean_url
+    if avatar_change is not None:
+        user.avatar_url, user.avatar_image = avatar_change
     db.commit()
-    context["success"] = "Đã cập nhật ảnh đại diện."
+    context["success"] = "Đã cập nhật hồ sơ và avatar."
     return templates.TemplateResponse("teacher_account.html", context)
 
 

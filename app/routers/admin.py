@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.services.runtime import *
 from app.services.profiles import normalize_profile_url
+from app.services.avatars import prepare_avatar_change
 
 router = APIRouter()
 
@@ -222,6 +223,8 @@ def update_account(
     name: str = Form(""),
     password: str = Form(""),
     profile_url: str = Form(""),
+    avatar_file: Optional[UploadFile] = File(None),
+    remove_avatar: bool = Form(False),
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
@@ -233,6 +236,7 @@ def update_account(
     try:
         clean_name = bounded_text(name, "Họ tên", 120)
         clean_profile_url = normalize_profile_url(profile_url)
+        avatar_change = prepare_avatar_change(avatar_file, remove_avatar, account.id)
     except ValueError as exc:
         return redirect_with_notice("/admin/users", str(exc))
     except HTTPException as exc:
@@ -248,6 +252,8 @@ def update_account(
 
     account.name = clean_name
     account.profile_url = clean_profile_url
+    if avatar_change is not None:
+        account.avatar_url, account.avatar_image = avatar_change
     if password_changed:
         account.password_hash = pwd.hash(clean_password)
         account.session_version += 1

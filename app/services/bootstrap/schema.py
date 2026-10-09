@@ -50,6 +50,21 @@ def migrate_schema():
             connection.exec_driver_sql(
                 "ALTER TABLE users ADD COLUMN profile_url VARCHAR(2048) NOT NULL DEFAULT ''"
             )
+        if "avatar_url" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(2048) NOT NULL DEFAULT ''"
+            )
+            # The preceding release used profile_url for image links. Preserve
+            # those images, but keep Facebook links in the actual profile field.
+            connection.exec_driver_sql(
+                "UPDATE users SET avatar_url = profile_url, profile_url = '' "
+                "WHERE profile_url <> '' AND profile_url !~* %s",
+                (r"^https?://([a-z0-9-]+\.)*(facebook\.com|fb\.com)([:/?#]|$)",),
+            )
+        if "avatar_image" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN avatar_image BYTEA"
+            )
 
         if "projects" in inspector.get_table_names():
             project_columns = {

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,15 +9,17 @@
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <link rel="stylesheet" href="/static/design-tokens.css?v=1">
     <link rel="stylesheet" href="/static/style.css?v=1">
-    <link rel="stylesheet" href="/static/social-auth.css?v=2">
+    <link rel="stylesheet" href="/static/social-auth.css?v=3">
 </head>
+
 <body class="social-link-page">
     <main class="social-link-card">
         <a href="/login">Smart TKB</a>
         <h1>Liên kết {{ provider_name }}</h1>
         <p>Email này đã có tài khoản Smart TKB:</p>
         <p class="social-link-email">{{ email }}</p>
-        <p>Nhập mật khẩu <strong>Smart TKB</strong> để xác nhận liên kết. Những lần sau bạn có thể đăng nhập bằng {{ provider_name }}.</p>
+        <p>Nhập mật khẩu <strong>Smart TKB</strong> để xác nhận liên kết. Những lần sau bạn có thể đăng nhập bằng {{
+            provider_name }}.</p>
         {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
         <form method="post" action="/auth/social/link">
             <input type="hidden" name="link_token" value="{{ link_token }}">
@@ -30,4 +33,5 @@
         <a href="/login">Hủy và quay lại đăng nhập</a>
     </main>
 </body>
+
 </html>
