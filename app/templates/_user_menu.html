@@ -1,7 +1,7 @@
 {% set display_name = greeting_name or (user.name if user else 'Người dùng') %}
 <div class="user-avatar-wrap" id="userAvatarMenu">
-  <button type="button" class="user-avatar-btn profile-avatar" id="userAvatarBtn" aria-expanded="false" aria-haspopup="true"
-    aria-label="Tài khoản cá nhân: {{ display_name }}" title="{{ display_name }}">
+  <button type="button" class="user-avatar-btn profile-avatar" id="userAvatarBtn" aria-expanded="false"
+    aria-haspopup="true" aria-label="Tài khoản cá nhân: {{ display_name }}" title="{{ display_name }}">
     {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
   </button>
   <div class="user-avatar-dropdown" id="userAvatarDropdown" role="menu" hidden>
@@ -24,6 +24,7 @@
     </div>
     <div class="user-avatar-dropdown-divider"></div>
     <div class="user-avatar-dropdown-list">
+      {% if user and user.role in ['super_admin', 'admin', 'manager'] %}
       <a class="user-avatar-dropdown-item" href="/admin/users" role="menuitem">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -34,6 +35,17 @@
         </svg>
         <span>Quản lý tài khoản</span>
       </a>
+      {% else %}
+      <a class="user-avatar-dropdown-item" href="/teacher/account{% if p %}?project_id={{ p.id }}{% endif %}"
+        role="menuitem">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span>Tài khoản của tôi</span>
+      </a>
+      {% endif %}
       <button type="button" class="user-avatar-dropdown-item" role="menuitem" onclick="openSystemSettingsModal()">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -83,17 +95,34 @@
         <h4>Tài khoản &amp; Bảo mật</h4>
         <div class="system-settings-row">
           <div>
+            <strong>Hồ sơ &amp; Ảnh đại diện</strong>
+            <small>Cập nhật ảnh đại diện và thông tin cá nhân</small>
+          </div>
+          {% if user and user.role == 'teacher' %}
+          <a class="btn ghost btn-sm" href="/teacher/account{% if p %}?project_id={{ p.id }}{% endif %}">Cập nhật</a>
+          {% else %}
+          <a class="btn ghost btn-sm" href="/admin/users">Cập nhật</a>
+          {% endif %}
+        </div>
+        <div class="system-settings-row">
+          <div>
             <strong>Đổi mật khẩu</strong>
             <small>Cập nhật mật khẩu đăng nhập tài khoản</small>
           </div>
+          {% if user and user.role == 'teacher' %}
+          <a class="btn ghost btn-sm" href="/teacher/account{% if p %}?project_id={{ p.id }}{% endif %}">Đổi mật
+            khẩu</a>
+          {% else %}
           <a class="btn ghost btn-sm" href="/forgot-password" target="_blank" rel="noopener">Đổi mật khẩu</a>
+          {% endif %}
         </div>
         <div class="system-settings-row">
           <div>
             <strong>Đổi email đăng nhập</strong>
             <small>Cập nhật địa chỉ email nhận thông báo và OTP</small>
           </div>
-          <a class="btn ghost btn-sm" href="/email/change" target="_blank" rel="noopener">Đổi email</a>
+          <a class="btn ghost btn-sm" href="/account/email-change{% if p %}?project_id={{ p.id }}{% endif %}">Đổi
+            email</a>
         </div>
       </div>
     </div>

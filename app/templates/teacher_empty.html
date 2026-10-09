@@ -39,6 +39,8 @@
     <script src="/static/auth-buttons.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=2">
     <script src="/static/profile-avatar.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/user-menu.css?v=1">
+    <script src="/static/user-menu.js?v=1" defer></script>
 </head>
 
 <body class="teacher-surface">
@@ -47,14 +49,9 @@
                 src="/static/brand-logo.svg?v=1" alt=""><span class="appbar-brand-copy"><span>Smart
                     TKB</span><small>Cổng
                     giáo viên</small></span></a>
-        <span class="profile-avatar" aria-hidden="true">
-            {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
-        </span>
-        <div><strong>{{ user.name }}</strong><small>Chế độ chỉ xem</small></div>
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
-        <a class="btn ghost" href="/teacher/account">Tài khoản của tôi</a>
-        {% include "_logout_button.html" %}
+        {% include "_user_menu.html" %}
     </header>
     <main class="container preference-page">
         <div class="section-head">
