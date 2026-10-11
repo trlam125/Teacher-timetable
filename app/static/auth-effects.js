@@ -566,7 +566,7 @@
     }
 
     const cards = [];
-    const mainCard = document.querySelector('.panda-card, .auth-card');
+    const mainCard = document.querySelector('.auth-form-slider.is-register .auth-slide-register, .auth-form-slider:not(.is-register) .auth-slide-login, .panda-card, .auth-card');
     if (mainCard) {
       const rect = mainCard.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {

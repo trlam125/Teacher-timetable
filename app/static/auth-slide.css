@@ -1,0 +1,90 @@
+/* Two-way slide only within the sign-in/sign-up form column. */
+.auth-form-slider {
+  position: relative;
+  align-self: stretch;
+  min-width: 0;
+  width: 100%;
+  height: 720px;
+  overflow: hidden;
+  /* Lock the story/shell size while panels slide: only the form moves. */
+}
+
+/* Safe fallback before JS runs: show only the server-selected form. */
+.auth-login .auth-form-slider:not(.auth-slide-ready) .auth-slide-register,
+.auth-register .auth-form-slider:not(.auth-slide-ready) .auth-slide-login {
+  display: none;
+}
+
+.auth-form-slider .auth-slide-form {
+  position: absolute !important;
+  /* auth-effects.css sets relative !important */
+  top: calc(50% + 32px);
+  left: 17px;
+  width: calc(100% - 34px);
+  max-width: 470px;
+  margin: 0;
+  transform: translate(0, -50%);
+  /* Override the original entrance keyframe, which sets `transform`. */
+  animation: none;
+  transition: transform 550ms cubic-bezier(.65, 0, .35, 1);
+  will-change: transform;
+}
+
+.auth-form-slider.auth-slide-ready .auth-slide-login {
+  transform: translate(0, -50%);
+}
+
+.auth-form-slider.auth-slide-ready .auth-slide-register {
+  transform: translate(110%, -50%);
+}
+
+.auth-form-slider.auth-slide-ready.is-register .auth-slide-login {
+  transform: translate(-110%, -50%);
+}
+
+.auth-form-slider.auth-slide-ready.is-register .auth-slide-register {
+  transform: translate(0, -50%);
+}
+
+/* Keep the original one-column registration layout and right-side scrollbar.
+   Use the free space below the card instead of changing the form fields. */
+.auth-form-slider .auth-slide-register {
+  /* Align the register card and Panda with the login card, while extending downward. */
+  top: calc(50% + 37px);
+}
+
+.auth-form-slider .auth-slide-register .auth-card-body {
+  max-height: 600px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 900px) {
+
+  /* On narrow screens, preserve the original spacing around the brand/Panda. */
+  .auth-form-slider .auth-slide-form {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    max-width: none;
+  }
+
+  .auth-form-slider .auth-slide-register {
+    /* Mobile forms differ slightly in height: match their top edges. */
+    top: calc(50% - 11px);
+  }
+
+  .auth-form-slider .auth-slide-register .auth-card-body {
+    max-height: 550px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .auth-form-slider,
+  .auth-form-slider .auth-slide-form {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -24,10 +24,12 @@
     <link rel="stylesheet" href="/static/auth-effects.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <link rel="stylesheet" href="/static/social-auth.css?v=4">
+    <link rel="stylesheet" href="/static/auth-slide.css?v=3">
     <script src="/static/auth-panda.js?v=1" defer></script>
     <script src="/static/visual-captcha.js?v=1" defer></script>
     <script src="/static/auth-effects.js?v=1" defer></script>
     <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-slide.js?v=1" defer></script>
 </head>
 
 <body class="auth-page auth-scene auth-{{ mode }}">
@@ -61,160 +63,182 @@
                         T6</small></span>
             </div>
         </section>
-        <form class="auth-card panda-card" method="post" action="{{'/register/verify' if mode=='register_otp' else ''}}"
-            autocomplete="off">
-            <div class="panda" aria-hidden="true">
-                <span class="panda-ear panda-ear-left"></span><span class="panda-ear panda-ear-right"></span>
-                <div class="panda-face">
-                    <span class="panda-eye-patch panda-eye-left"><i class="panda-eye"><b></b></i></span><span
-                        class="panda-eye-patch panda-eye-right"><i class="panda-eye"><b></b></i></span><span
-                        class="panda-muzzle"></span><span class="panda-nose"></span><span class="panda-mouth"></span>
+        {% set initial_mode = mode %}
+        {% set form_values = form_values | default({}) %}
+        {% if initial_mode in ['login', 'register'] %}
+        <div class="auth-form-slider" data-initial-mode="{{ initial_mode }}">
+            {% endif %}
+            {% for mode in (['login', 'register'] if initial_mode in ['login', 'register'] else [initial_mode]) %}
+            <form
+                class="auth-card panda-card{% if initial_mode in ['login', 'register'] %} auth-slide-form auth-slide-{{ mode }}{% endif %}"
+                method="post"
+                action="{{'/register/verify' if mode=='register_otp' else ('/register' if mode=='register' else '/login')}}"
+                autocomplete="off">
+                <div class="panda" aria-hidden="true">
+                    <span class="panda-ear panda-ear-left"></span><span class="panda-ear panda-ear-right"></span>
+                    <div class="panda-face">
+                        <span class="panda-eye-patch panda-eye-left"><i class="panda-eye"><b></b></i></span><span
+                            class="panda-eye-patch panda-eye-right"><i class="panda-eye"><b></b></i></span><span
+                            class="panda-muzzle"></span><span class="panda-nose"></span><span
+                            class="panda-mouth"></span>
+                    </div>
+                    <span class="panda-arm panda-arm-left"><i></i></span><span
+                        class="panda-arm panda-arm-right"><i></i></span>
                 </div>
-                <span class="panda-arm panda-arm-left"><i></i></span><span
-                    class="panda-arm panda-arm-right"><i></i></span>
-            </div>
-            <div class="auth-card-body">
-                <a class="brand" href="/">Smart TKB</a>
-                <h1>
-                    {{'Đăng nhập' if mode=='login' else ('Xác nhận email' if mode=='register_otp' else 'Tạo tài khoản
-                    giáo
-                    viên')}}
-                </h1>
-                {% if mode=="register_otp" %}
-                <p class="muted">Mã OTP 6 số đã được gửi tới <b>{{ masked_email }}</b> và có hiệu lực trong 10 phút.</p>
-                {% if target_teacher_name %}<div class="alert"><b>Giáo viên:</b> {{ target_teacher_name }}</div>{% endif
-                %}
-                {% endif %}
-                {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
-                {% if mode=="register" %}
-                <label>
-                    Tên giáo viên<input name="name" value="{{ form_values.name or '' }}" maxlength="120"
-                        placeholder="Ví dụ: Nguyễn Văn An" required>
-                </label>
-                {% endif %}
-                {% if mode in ["login","register"] %}
-                <label class="auth-field">
-                    Email<span class="auth-input-wrap"><i class="field-icon mail-icon" aria-hidden="true"></i><input
-                            id="authEmail" type="email" name="email"
-                            value="{{ form_values.email or '' if mode=='register' else '' }}" autocomplete="email"
-                            placeholder="ten@truonghoc.edu.vn" maxlength="255" required autofocus>
-                    </span>
-                </label>
-                <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><svg class="field-icon lock-icon"
-                            xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                            aria-hidden="true" focusable="false">
-                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                            <rect x="5" y="10" width="14" height="11" rx="3" />
-                            <path d="M12 14.5v2" />
-                        </svg><input id="authPassword" type="password" name="password"
-                            autocomplete="{{'current-password' if mode=='login' else 'new-password'}}"
-                            placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" {% if
-                            mode=='register' %}minlength="8" {% endif %} required><button class="password-toggle"
-                            type="button" aria-label="Bấm để hiện mật khẩu"
-                            aria-pressed="false"><i></i></button></span></label>
-                {% if mode=="register" %}<label class="auth-field">Nhập lại mật khẩu<span class="auth-input-wrap"><svg
-                            class="field-icon lock-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                            <rect x="5" y="10" width="14" height="11" rx="3" />
-                            <path d="M12 14.5v2" />
-                        </svg><input type="password" name="password_confirm" autocomplete="new-password" minlength="8"
-                            required></span></label>{%
-                endif %}
-                {% endif %}
-                {% if mode=="register" %}
-                <input type="hidden" name="human_confirm" value="yes">
-                {% set captcha_enforce = "always" %}
-                {% include "_visual_captcha.html" %}
-                <label class="bot-trap" aria-hidden="true">
-                    Website<input name="website" tabindex="-1" autocomplete="off">
-                </label>
-                {% elif mode=="register_otp" %}
-                <input type="hidden" name="verification_token" value="{{ verification_token }}">
-                <label class="auth-field">
-                    Mã OTP 6 số<span class="auth-input-wrap"><input name="otp" inputmode="numeric" pattern="[0-9]{6}"
-                            maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus>
-                    </span>
-                </label>
-                <p class="muted otp-captcha-intro">Chỉ cần xác minh bên dưới khi bạn muốn gửi lại mã OTP.</p>
-                <input type="hidden" name="human_confirm" value="yes">
-                {% set captcha_enforce = "resend" %}
-                {% include "_visual_captcha.html" %}
-                <label class="bot-trap" aria-hidden="true">
-                    Website<input name="website" tabindex="-1" autocomplete="off">
-                </label>
-                {% endif %}
-                {% if mode=="login" %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif %}
-                {% if mode=="login" %}
-                <button class="loginButton auth-submit-login" type="submit" aria-label="Đăng nhập">
-                    <span class="button-label-wrap">
-                        <span class="success-mark" aria-hidden="true">✓</span>
-                        <span class="button-text">Đăng nhập</span>
-                    </span>
+                <div class="auth-card-body">
+                    <a class="brand" href="/">Smart TKB</a>
+                    <h1>
+                        {{'Đăng nhập' if mode=='login' else ('Xác nhận email' if mode=='register_otp' else 'Tạo tài
+                        khoản
+                        giáo
+                        viên')}}
+                    </h1>
+                    {% if mode=="register_otp" %}
+                    <p class="muted">Mã OTP 6 số đã được gửi tới <b>{{ masked_email }}</b> và có hiệu lực trong 10 phút.
+                    </p>
+                    {% if target_teacher_name %}<div class="alert"><b>Giáo viên:</b> {{ target_teacher_name }}</div>{%
+                    endif
+                    %}
+                    {% endif %}
+                    {% if error and mode == initial_mode %}<div class="alert error">{{ error }}</div>{% endif %}
+                    {% if mode=="register" %}
+                    <label>
+                        Tên giáo viên<input name="name" value="{{ form_values.name or '' }}" maxlength="120"
+                            placeholder="Ví dụ: Nguyễn Văn An" required>
+                    </label>
+                    {% endif %}
+                    {% if mode in ["login","register"] %}
+                    <label class="auth-field">
+                        Email<span class="auth-input-wrap"><i class="field-icon mail-icon" aria-hidden="true"></i><input
+                                id="authEmail-{{ mode }}" type="email" name="email"
+                                value="{{ form_values.email or '' if mode=='register' else '' }}" autocomplete="email"
+                                placeholder="ten@truonghoc.edu.vn" maxlength="255" required {% if mode==initial_mode
+                                %}autofocus{% endif %}>
+                        </span>
+                    </label>
+                    <label class="auth-field">Mật khẩu<span class="auth-input-wrap"><svg class="field-icon lock-icon"
+                                xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                                <rect x="5" y="10" width="14" height="11" rx="3" />
+                                <path d="M12 14.5v2" />
+                            </svg><input id="authPassword-{{ mode }}" type="password" name="password"
+                                autocomplete="{{'current-password' if mode=='login' else 'new-password'}}"
+                                placeholder="{{'Tối thiểu 8 ký tự' if mode=='register' else 'Mật khẩu'}}" {% if
+                                mode=='register' %}minlength="8" {% endif %} required><button class="password-toggle"
+                                type="button" aria-label="Bấm để hiện mật khẩu"
+                                aria-pressed="false"><i></i></button></span></label>
+                    {% if mode=="register" %}<label class="auth-field">Nhập lại mật khẩu<span
+                            class="auth-input-wrap"><svg class="field-icon lock-icon" xmlns="http://www.w3.org/2000/svg"
+                                width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                                focusable="false">
+                                <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                                <rect x="5" y="10" width="14" height="11" rx="3" />
+                                <path d="M12 14.5v2" />
+                            </svg><input type="password" name="password_confirm" autocomplete="new-password"
+                                minlength="8" required></span></label>{%
+                    endif %}
+                    {% endif %}
+                    {% if mode=="register" %}
+                    <input type="hidden" name="human_confirm" value="yes">
+                    {% set captcha_enforce = "always" %}
+                    {% include "_visual_captcha.html" %}
+                    <label class="bot-trap" aria-hidden="true">
+                        Website<input name="website" tabindex="-1" autocomplete="off">
+                    </label>
+                    {% elif mode=="register_otp" %}
+                    <input type="hidden" name="verification_token" value="{{ verification_token }}">
+                    <label class="auth-field">
+                        Mã OTP 6 số<span class="auth-input-wrap"><input name="otp" inputmode="numeric"
+                                pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000"
+                                required autofocus>
+                        </span>
+                    </label>
+                    <p class="muted otp-captcha-intro">Chỉ cần xác minh bên dưới khi bạn muốn gửi lại mã OTP.</p>
+                    <input type="hidden" name="human_confirm" value="yes">
+                    {% set captcha_enforce = "resend" %}
+                    {% include "_visual_captcha.html" %}
+                    <label class="bot-trap" aria-hidden="true">
+                        Website<input name="website" tabindex="-1" autocomplete="off">
+                    </label>
+                    {% endif %}
+                    {% if mode=="login" %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif
+                    %}
+                    {% if mode=="login" %}
+                    <button class="loginButton auth-submit-login" type="submit" aria-label="Đăng nhập">
+                        <span class="button-label-wrap">
+                            <span class="success-mark" aria-hidden="true">✓</span>
+                            <span class="button-text">Đăng nhập</span>
+                        </span>
 
-                    <span class="door-scene" aria-hidden="true">
-                        <svg class="doorway" viewBox="0 0 100 100">
-                            <path
-                                d="M93.4 86.3H58.6c-1.9 0-3.4-1.5-3.4-3.4V17.1c0-1.9 1.5-3.4 3.4-3.4h34.8c1.9 0 3.4 1.5 3.4 3.4v65.8c0 1.9-1.5 3.4-3.4 3.4z" />
-                        </svg>
+                        <span class="door-scene" aria-hidden="true">
+                            <svg class="doorway" viewBox="0 0 100 100">
+                                <path
+                                    d="M93.4 86.3H58.6c-1.9 0-3.4-1.5-3.4-3.4V17.1c0-1.9 1.5-3.4 3.4-3.4h34.8c1.9 0 3.4 1.5 3.4 3.4v65.8c0 1.9-1.5 3.4-3.4 3.4z" />
+                            </svg>
 
-                        <svg class="figure" viewBox="0 0 100 100">
-                            <circle cx="52.1" cy="32.4" r="6.4" />
-                            <path
-                                d="M50.7 62.8c-1.2 2.5-3.6 5-7.2 4-3.2-.9-4.9-3.5-4-7.8.7-3.4 3.1-13.8 4.1-15.8 1.7-3.4 1.6-4.6 7-3.7 4.3.7 4.6 2.5 4.3 5.4-.4 3.7-2.8 15.1-4.2 17.9z" />
-                            <g class="arm1">
+                            <svg class="figure" viewBox="0 0 100 100">
+                                <circle cx="52.1" cy="32.4" r="6.4" />
                                 <path
-                                    d="M55.5 56.5l-6-9.5c-1-1.5-.6-3.5.9-4.4 1.5-1 3.7-1.1 4.6.4l6.1 10c1 1.5.3 3.5-1.1 4.4-1.5.9-3.5.5-4.5-.9z" />
-                                <path class="wrist1"
-                                    d="M69.4 59.9L58.1 58c-1.7-.3-2.9-1.9-2.6-3.7.3-1.7 1.9-2.9 3.7-2.6l11.4 1.9c1.7.3 2.9 1.9 2.6 3.7-.4 1.7-2 2.9-3.8 2.6z" />
-                            </g>
-                            <g class="arm2">
-                                <path
-                                    d="M34.2 43.6L45 40.3c1.7-.6 3.5.3 4 2 .6 1.7-.3 4-2 4.5l-10.8 2.8c-1.7.6-3.5-.3-4-2-.6-1.6.3-3.4 2-4z" />
-                                <path class="wrist2"
-                                    d="M27.1 56.2L32 45.7c.7-1.6 2.6-2.3 4.2-1.6 1.6.7 2.3 2.6 1.6 4.2L33 58.8c-.7 1.6-2.6 2.3-4.2 1.6-1.7-.7-2.4-2.6-1.7-4.2z" />
-                            </g>
-                            <g class="leg1">
-                                <path
-                                    d="M52.1 73.2s-7-5.7-7.9-6.5c-.9-.9-1.2-3.5-.1-4.9 1.1-1.4 3.8-1.9 5.2-.9l7.9 7c1.4 1.1 1.7 3.5.7 4.9-1.1 1.4-4.4 1.5-5.8.4z" />
-                                <path class="calf1"
-                                    d="M52.6 84.4l-1-12.8c-.1-1.9 1.5-3.6 3.5-3.7 2-.1 3.7 1.4 3.8 3.4l1 12.8c.1 1.9-1.5 3.6-3.5 3.7-2 0-3.7-1.5-3.8-3.4z" />
-                            </g>
-                            <g class="leg2">
-                                <path
-                                    d="M37.8 72.7s1.3-10.2 1.6-11.4 2.4-2.8 4.1-2.6c1.7.2 3.6 2.3 3.4 4l-1.8 11.1c-.2 1.7-1.7 3.3-3.4 3.1-1.8-.2-4.1-2.4-3.9-4.2z" />
-                                <path class="calf2"
-                                    d="M29.5 82.3l9.6-10.9c1.3-1.4 3.6-1.5 5.1-.1 1.5 1.4.4 4.9-.9 6.3l-8.5 9.6c-1.3 1.4-3.6 1.5-5.1.1-1.4-1.3-1.5-3.5-.2-5z" />
-                            </g>
-                        </svg>
+                                    d="M50.7 62.8c-1.2 2.5-3.6 5-7.2 4-3.2-.9-4.9-3.5-4-7.8.7-3.4 3.1-13.8 4.1-15.8 1.7-3.4 1.6-4.6 7-3.7 4.3.7 4.6 2.5 4.3 5.4-.4 3.7-2.8 15.1-4.2 17.9z" />
+                                <g class="arm1">
+                                    <path
+                                        d="M55.5 56.5l-6-9.5c-1-1.5-.6-3.5.9-4.4 1.5-1 3.7-1.1 4.6.4l6.1 10c1 1.5.3 3.5-1.1 4.4-1.5.9-3.5.5-4.5-.9z" />
+                                    <path class="wrist1"
+                                        d="M69.4 59.9L58.1 58c-1.7-.3-2.9-1.9-2.6-3.7.3-1.7 1.9-2.9 3.7-2.6l11.4 1.9c1.7.3 2.9 1.9 2.6 3.7-.4 1.7-2 2.9-3.8 2.6z" />
+                                </g>
+                                <g class="arm2">
+                                    <path
+                                        d="M34.2 43.6L45 40.3c1.7-.6 3.5.3 4 2 .6 1.7-.3 4-2 4.5l-10.8 2.8c-1.7.6-3.5-.3-4-2-.6-1.6.3-3.4 2-4z" />
+                                    <path class="wrist2"
+                                        d="M27.1 56.2L32 45.7c.7-1.6 2.6-2.3 4.2-1.6 1.6.7 2.3 2.6 1.6 4.2L33 58.8c-.7 1.6-2.6 2.3-4.2 1.6-1.7-.7-2.4-2.6-1.7-4.2z" />
+                                </g>
+                                <g class="leg1">
+                                    <path
+                                        d="M52.1 73.2s-7-5.7-7.9-6.5c-.9-.9-1.2-3.5-.1-4.9 1.1-1.4 3.8-1.9 5.2-.9l7.9 7c1.4 1.1 1.7 3.5.7 4.9-1.1 1.4-4.4 1.5-5.8.4z" />
+                                    <path class="calf1"
+                                        d="M52.6 84.4l-1-12.8c-.1-1.9 1.5-3.6 3.5-3.7 2-.1 3.7 1.4 3.8 3.4l1 12.8c.1 1.9-1.5 3.6-3.5 3.7-2 0-3.7-1.5-3.8-3.4z" />
+                                </g>
+                                <g class="leg2">
+                                    <path
+                                        d="M37.8 72.7s1.3-10.2 1.6-11.4 2.4-2.8 4.1-2.6c1.7.2 3.6 2.3 3.4 4l-1.8 11.1c-.2 1.7-1.7 3.3-3.4 3.1-1.8-.2-4.1-2.4-3.9-4.2z" />
+                                    <path class="calf2"
+                                        d="M29.5 82.3l9.6-10.9c1.3-1.4 3.6-1.5 5.1-.1 1.5 1.4.4 4.9-.9 6.3l-8.5 9.6c-1.3 1.4-3.6 1.5-5.1.1-1.4-1.3-1.5-3.5-.2-5z" />
+                                </g>
+                            </svg>
 
-                        <svg class="door" viewBox="0 0 100 100">
-                            <path
-                                d="M93.4 86.3H58.6c-1.9 0-3.4-1.5-3.4-3.4V17.1c0-1.9 1.5-3.4 3.4-3.4h34.8c1.9 0 3.4 1.5 3.4 3.4v65.8c0 1.9-1.5 3.4-3.4 3.4z" />
-                            <circle cx="66" cy="50" r="3.7" />
-                        </svg>
-                    </span>
-                </button>
-                {% elif mode in ["register","register_otp"] %}
-                <button class="auth-submit" type="submit">
-                    <span>{{'Đăng nhập' if mode=='login' else ('Xác nhận và kích hoạt' if
-                        mode=='register_otp' else 'Gửi mã OTP')}}</span><i aria-hidden="true">→</i>
-                </button>
-                {% endif %}
-                {% if mode=="register_otp" %}<button class="btn ghost wide" type="submit" formaction="/register/resend"
-                    formnovalidate>Gửi lại mã OTP</button>{% endif %}
-                {% if mode in ["login", "register"] %}
-                {% include "_social_login.html" %}
-                {% endif %}
-                {% if mode=="login" %}
-                <p>Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
-                {% else %}
-                <p>Đã có tài khoản? <a href="/login">Đăng nhập</a></p>
-                {% endif %}
-            </div>
-        </form>
+                            <svg class="door" viewBox="0 0 100 100">
+                                <path
+                                    d="M93.4 86.3H58.6c-1.9 0-3.4-1.5-3.4-3.4V17.1c0-1.9 1.5-3.4 3.4-3.4h34.8c1.9 0 3.4 1.5 3.4 3.4v65.8c0 1.9-1.5 3.4-3.4 3.4z" />
+                                <circle cx="66" cy="50" r="3.7" />
+                            </svg>
+                        </span>
+                    </button>
+                    {% elif mode in ["register","register_otp"] %}
+                    <button class="auth-submit" type="submit">
+                        <span>{{'Đăng nhập' if mode=='login' else ('Xác nhận và kích hoạt' if
+                            mode=='register_otp' else 'Gửi mã OTP')}}</span><i aria-hidden="true">→</i>
+                    </button>
+                    {% endif %}
+                    {% if mode=="register_otp" %}<button class="btn ghost wide" type="submit"
+                        formaction="/register/resend" formnovalidate>Gửi lại mã OTP</button>{% endif %}
+                    {% if mode in ["login", "register"] %}
+                    {% include "_social_login.html" %}
+                    {% endif %}
+                    {% if mode=="login" %}
+                    <p>Chưa có tài khoản? <a href="/register" data-auth-switch="register">Đăng ký</a></p>
+                    {% else %}
+                    <p>Đã có tài khoản? <a href="/login" {% if mode=='register' %}data-auth-switch="login" {% endif
+                            %}>Đăng nhập</a></p>
+                    {% endif %}
+                </div>
+            </form>
+            {% endfor %}
+            {% if initial_mode in ['login', 'register'] %}
+        </div>
+        {% endif %}
     </main>
 </body>
 

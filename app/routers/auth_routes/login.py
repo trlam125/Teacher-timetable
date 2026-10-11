@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.models import User
+from app.services.authentication.captcha import new_captcha
 from app.services.authentication.credentials import pwd, signer
 from app.services.authentication.permissions import is_admin
 from app.services.authentication.rate_limits import (
@@ -22,6 +23,19 @@ from sqlalchemy.orm import Session
 router = APIRouter()
 
 
+def _login_template_context(request: Request, error: str | None = None) -> dict:
+    """The sliding registration panel needs a valid independent CAPTCHA."""
+    challenge, token = new_captcha("registration")
+    return {
+        "request": request,
+        "mode": "login",
+        "error": error,
+        "form_values": {},
+        "captcha_challenge": challenge,
+        "captcha_token": token,
+    }
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     error = None
@@ -32,7 +46,7 @@ def login_page(request: Request):
         except (BadSignature, SignatureExpired, AttributeError):
             pass
     response = templates.TemplateResponse(
-        "auth.html", {"request": request, "mode": "login", "error": error}
+        "auth.html", _login_template_context(request, error)
     )
     if notice:
         response.delete_cookie("oauth_notice")
@@ -57,11 +71,9 @@ def login(
     ):
         return templates.TemplateResponse(
             "auth.html",
-            {
-                "request": request,
-                "mode": "login",
-                "error": "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.",
-            },
+            _login_template_context(
+                request, "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
+            ),
             status_code=429,
         )
     user = db.scalar(select(User).where(User.email == normalized_email))
@@ -75,20 +87,14 @@ def login(
         if ip_limited or email_limited:
             return templates.TemplateResponse(
                 "auth.html",
-                {
-                    "request": request,
-                    "mode": "login",
-                    "error": "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại.",
-                },
+                _login_template_context(
+                    request, "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
+                ),
                 status_code=429,
             )
         return templates.TemplateResponse(
             "auth.html",
-            {
-                "request": request,
-                "mode": "login",
-                "error": "Email hoặc mật khẩu không đúng",
-            },
+            _login_template_context(request, "Email hoặc mật khẩu không đúng"),
             status_code=400,
         )
     # Chỉ lỗi đăng nhập mới được tính vào rate-limit. Đăng nhập đúng xóa bucket
