@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-
 from app.errors import register_exception_handlers
 from app.services.runtime import initialize_database, run_database_bootstrap_step
 from app.routers.system import router as system_router
@@ -18,12 +17,16 @@ from app.routers.constraints import router as constraints_router
 from app.routers.schedule import router as schedule_router
 from app.routers.teacher import router as teacher_router
 from app.routers.share_export import router as share_export_router
+from app.routers.notifications import router as notifications_router
+from app.services.schedule_notifications import register_schedule_notifications
+
+# Model thong bao phai duoc import TRUOC khi bootstrap DB tao bang.
+register_schedule_notifications()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Teacher Timetable")
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
     register_exception_handlers(app)
     app.include_router(system_router)
     app.include_router(auth_router)
@@ -38,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(schedule_router)
     app.include_router(teacher_router)
     app.include_router(share_export_router)
+    app.include_router(notifications_router)
     return app
 
 
