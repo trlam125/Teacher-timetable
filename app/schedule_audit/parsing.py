@@ -285,8 +285,8 @@ def _session_index(value: str, session_count: int) -> int | None:
     text = normalize_text(value)
     if not text:
         return None
-    # File TKB thuc te thuong ghi "Sang 2" / "Chieu 2", trong do so 2 la thu
-    # chu khong phai so buoi. Uu tien tu Sang/Chieu truoc khi doc bat ky chu so nao.
+    # File TKB thực tế thường ghi "Sáng 2" / "Chiều 2", trong đó số 2 là thứ
+    # chứ không phải số buổi. Ưu tiên từ Sáng/Chiều trước khi đọc bất kỳ chữ số nào.
     if text == "s" or text.startswith("sang") or "morning" in text:
         return 0
     if text == "c" or text.startswith("chieu") or "afternoon" in text:
@@ -318,7 +318,7 @@ def _implicit_session_hints(
     session_col: int | None = None,
     day_col: int | None = None,
 ) -> dict[int, str]:
-    """Infer Sang/Chieu when a timetable repeats period numbers without a session column.
+    """Infer Sáng/Chiều when a timetable repeats period numbers without a session column.
 
     Grid/wide schedules commonly list periods 1..5 for the morning and then restart
     at 1..5 for the afternoon.  The reset is trustworthy only for layouts where one
@@ -542,7 +542,7 @@ def _issue(
     }
 
 
-# ===== Standalone import/audit (khong phu thuoc project co san) =====
+# ===== Standalone import/audit (không phụ thuộc project có sẵn) =====
 
 _STANDALONE_SUBJECT_HINTS = {
     "hdtnhn": "HĐTNHN",
@@ -590,7 +590,7 @@ _STANDALONE_SUBJECT_HINTS = {
 }
 
 # Cac mau o TKB pho bien: "N.Van Que", "KHTN(S) N.Tam", "HDTNHN Que"...
-# Match prefix tren chuoi goc de giu lai ten giao vien phia sau chinh xac.
+# Match prefix trên chuỗi gốc để giữ lại tên giáo viên phía sau chính xác.
 _STANDALONE_SUBJECT_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pattern, re.IGNORECASE), subject)
     for pattern, subject in (
@@ -814,7 +814,7 @@ def _standalone_teacher_from_text(value: str, *, exclude: Iterable[str] = ()) ->
         # for subject words anywhere would drop valid names such as Nguyen Van An.
         if _standalone_subject_from_text(part):
             continue
-        # Ten giao vien thuong co it nhat 2 tu; chap nhan ma GV viet hoa ngan neu co tien to GV.
+        # Tên giáo viên thường có ít nhất 2 từ; chấp nhận mã GV viết hoa ngắn nếu có tiền tố GV.
         if len(norm.split()) >= 2:
             return part.strip()
     return ""
@@ -851,8 +851,8 @@ def _standalone_parse_cell(
             if norm and not norm.startswith(("gv ", "giao vien ")):
                 subject_name = part.strip()
                 break
-    # Khong tao entity tam tai buoc parse. De trong de tang phan analyze co the
-    # canh bao ro rang va khong dem "chua xac dinh" nhu mon/giao vien that.
+    # Không tạo entity tạm tại bước parse. Để trống để tầng phân tích có thể
+    # cảnh báo rõ ràng và không đếm "chưa xác định" như môn/giáo viên thật.
     return class_name.strip(), subject_name.strip(), teacher_name.strip()
 
 
@@ -1007,8 +1007,8 @@ def _standalone_parse_grid(
     else:
         is_teacher_sheet = False
     if not is_class_sheet and not is_teacher_sheet:
-        # Ten sheet ngan khong giong tieu de chung thuong la ten lop; neu la ten nguoi
-        # ma o co lop thi nhanh teacher o tren da bat duoc.
+        # Tên sheet ngắn không giống tiêu đề chung thường là tên lớp; nếu là tên người
+        # mà ô có lớp thì nhánh teacher ở trên đã bắt được.
         is_class_sheet = bool(
             heading
             and normalize_text(heading)
@@ -1066,7 +1066,7 @@ def _standalone_parse_grid(
                         lesson_text=lesson,
                         subject_text=subject_name,
                         teacher_text=teacher_name,
-                        source=f"{title} · dong {row_no}",
+                        source=f"{title} · dòng {row_no}",
                         origin="teacher",
                     )
                 )
@@ -1083,13 +1083,13 @@ def _standalone_parse_grid(
                         lesson_text=lesson,
                         subject_text=subject_name,
                         teacher_text=teacher_name,
-                        source=f"{title} · dong {row_no}",
+                        source=f"{title} · dòng {row_no}",
                         origin="class",
                     )
                 )
     if not parsed:
         return [], ""
-    return parsed, "Theo giao vien" if is_teacher_sheet else "Theo lop/hoc sinh"
+    return parsed, "Theo giáo viên" if is_teacher_sheet else "Theo lớp/học sinh"
 
 
 def _standalone_parse_wide(
@@ -1187,7 +1187,7 @@ def _standalone_parse_wide(
                         lesson_text=lesson,
                         subject_text=subject_name,
                         teacher_text=teacher_name,
-                        source=f"{title} · dong {row_no}",
+                        source=f"{title} · dòng {row_no}",
                         origin="teacher",
                     )
                 )
@@ -1204,7 +1204,7 @@ def _standalone_parse_wide(
                         lesson_text=lesson,
                         subject_text=subject_name,
                         teacher_text=teacher_name,
-                        source=f"{title} · dong {row_no}",
+                        source=f"{title} · dòng {row_no}",
                         origin="class",
                     )
                 )
@@ -1212,7 +1212,7 @@ def _standalone_parse_wide(
         return [], ""
     return (
         parsed,
-        "Bang tong hop theo giao vien" if teacher_wide else "Bang tong hop theo lop",
+        "Bảng tổng hợp theo giáo viên" if teacher_wide else "Bảng tổng hợp theo lớp",
     )
 
 
@@ -1227,7 +1227,7 @@ def parse_tables_standalone(
         if not rows:
             continue
         parsed = _parse_long_table(title, rows)
-        layout = "Bang tong hop" if parsed else ""
+        layout = "Bảng tổng hợp" if parsed else ""
         if parsed:
             enriched = []
             for item in parsed:
@@ -1254,7 +1254,7 @@ def parse_tables_standalone(
             for value in row
         ):
             warnings.append(
-                f'Khong nhan dien duoc cau truc thoi khoa bieu trong "{title}".'
+                f'Không nhận diện được cấu trúc thời khóa biểu trong "{title}".'
             )
     return all_rows, warnings, {"layouts": sorted(layouts)}
 

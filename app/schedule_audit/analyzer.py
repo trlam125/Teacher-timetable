@@ -17,7 +17,7 @@ def analyze_standalone_schedule_file(
     raw_lessons, parse_warnings, detection = parse_tables_standalone(tables)
     if not raw_lessons:
         raise ScheduleAuditParseError(
-            "Khong tim thay tiet hoc nao co the doc duoc. File can co thong tin Thu/Tiet va lop, mon hoac giao vien tuong ung."
+            "Không tìm thấy tiết học nào có thể đọc được. File cần có thông tin Thứ/Tiết và lớp, môn hoặc giáo viên tương ứng."
         )
     project = infer_standalone_project(tables, raw_lessons)
 
@@ -30,8 +30,8 @@ def analyze_standalone_schedule_file(
                 _issue(
                     "invalid_slot",
                     "error",
-                    "Khong xac dinh duoc tiet hoc",
-                    f"Khong doi duoc '{raw.day_text} / {raw.session_text or '-'} / {raw.period_text}' thanh mot o hop le.",
+                    "Không xác định được tiết học",
+                    f"Không đổi được '{raw.day_text} / {raw.session_text or '-'} / {raw.period_text}' thành một ô hợp lệ.",
                     source=raw.source,
                 )
             )
@@ -48,8 +48,8 @@ def analyze_standalone_schedule_file(
                 _issue(
                     "unknown_class",
                     "error",
-                    "Khong nhan dien duoc lop",
-                    f"Khong tim thay ten lop trong o '{raw.lesson_text or raw.class_text}'.",
+                    "Không nhận diện được lớp",
+                    f"Không tìm thấy tên lớp trong ô '{raw.lesson_text or raw.class_text}'.",
                     slot=slot,
                     project=project,
                     source=raw.source,
@@ -64,13 +64,13 @@ def analyze_standalone_schedule_file(
             )
             teacher_name = teacher_name or inferred_teacher
         if not subject_name:
-            subject_name = f"Mon chua xac dinh - {class_name}"
+            subject_name = f"Môn chưa xác định - {class_name}"
             issues.append(
                 _issue(
                     "unknown_subject",
                     "warning",
-                    "Chua xac dinh duoc mon hoc",
-                    f"{class_name} tai {slot_label(slot, project)} khong co ten mon ro rang; he thong tao mon tam de van hien thi day du tiet tren bang.",
+                    "Chưa xác định được môn học",
+                    f"{class_name} tại {slot_label(slot, project)} không có tên môn rõ ràng; hệ thống tạo môn tạm để vẫn hiển thị đầy đủ tiết trên bảng.",
                     slot=slot,
                     project=project,
                     source=raw.source,
@@ -78,14 +78,14 @@ def analyze_standalone_schedule_file(
                 )
             )
         if not teacher_name:
-            teacher_name = f"GV chua xac dinh - {class_name} - {subject_name}"
+            teacher_name = f"GV chưa xác định - {class_name} - {subject_name}"
             if not _standalone_teacher_is_optional(subject_name):
                 issues.append(
                     _issue(
                         "unknown_teacher",
                         "warning",
-                        "Chua xac dinh duoc giao vien",
-                        f"{class_name} · {subject_name} khong co ten giao vien ro rang; he thong tao giao vien tam de khong lam mat tiet khi hien thi.",
+                        "Chưa xác định được giáo viên",
+                        f"{class_name} · {subject_name} không có tên giáo viên rõ ràng; hệ thống tạo giáo viên tạm để không làm mất tiết khi hiển thị.",
                         slot=slot,
                         project=project,
                         source=raw.source,
@@ -106,9 +106,9 @@ def analyze_standalone_schedule_file(
             }
         )
 
-    # Gop ban ghi trung hoan toan truoc khi tinh xung dot/thong ke. Mot dong bi
-    # lap trong cung sheet khong phai la hai tiet hoc. Van giu co che gop cung mot
-    # tiet neu no xuat hien o hai goc nhin lop/giao vien.
+    # Gộp bản ghi trùng hoàn toàn trước khi tính xung đột/thống kê. Một dòng bị
+    # lặp trong cùng sheet không phải là hai tiết học. Vẫn giữ cơ chế gộp cùng một
+    # tiết nếu nó xuất hiện ở hai góc nhìn lớp/giáo viên.
     deduplicated: list[dict[str, Any]] = []
     first_by_exact_key: dict[tuple[int, str, str, str, str], dict[str, Any]] = {}
     first_by_core_key: dict[tuple[int, str, str, str], dict[str, Any]] = {}
@@ -304,7 +304,7 @@ def analyze_standalone_schedule_file(
                 _issue(
                     "class_collision",
                     "error",
-                    "Trung lich lop",
+                    "Trùng lịch lớp",
                     detail,
                     slot=slot,
                     project=project,
@@ -323,7 +323,7 @@ def analyze_standalone_schedule_file(
                 _issue(
                     "teacher_collision",
                     "error",
-                    "Trung lich giao vien",
+                    "Trùng lịch giáo viên",
                     detail,
                     slot=slot,
                     project=project,
@@ -349,7 +349,7 @@ def analyze_standalone_schedule_file(
                 _issue(
                     "room_collision",
                     "error",
-                    "Trung phong hoc",
+                    "Trùng phòng học",
                     detail,
                     slot=slot,
                     project=project,
@@ -359,12 +359,12 @@ def analyze_standalone_schedule_file(
             )
     for warning in parse_warnings:
         issues.append(
-            _issue("unread_table", "warning", "Co bang/sheet chua doc duoc", warning)
+            _issue("unread_table", "warning", "Có bảng/sheet chưa đọc được", warning)
         )
 
-    # Neu mot dong du lieu bi lap, cac canh bao phat sinh truoc buoc gop tiet cung
-    # khong nen xuat hien lap lai. Gop issue trung noi dung va noi nguon de nguoi
-    # dung van truy vet duoc vi tri trong file.
+    # Nếu một dòng dữ liệu bị lặp, các cảnh báo phát sinh trước bước gộp tiết cũng
+    # không nên xuất hiện lặp lại. Gộp issue trùng nội dung và nối nguồn để người
+    # dùng vẫn truy vết được vị trí trong file.
     deduplicated_issues: list[dict[str, Any]] = []
     first_issue_by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
     for issue in issues:
@@ -406,7 +406,7 @@ def analyze_standalone_schedule_file(
     )
     detection.update(
         {
-            "scope_label": f"Doc lap · {len(classes)} lop · {len(known_teacher_names)} giao vien · {len(known_subject_names)} mon",
+            "scope_label": f"Độc lập · {len(classes)} lớp · {len(known_teacher_names)} giáo viên · {len(known_subject_names)} môn",
             "classes": [row["name"] for row in classes],
             "teachers": known_teacher_names,
         }

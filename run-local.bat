@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal EnableExtensions
 
 cd /d "%~dp0"
@@ -6,24 +7,24 @@ cd /d "%~dp0"
 set "PORT=%~1"
 if not defined PORT set "PORT=8000"
 
-rem Kiem tra cau truc project.
+rem Kiểm tra cấu trúc project.
 if not exist "%~dp0app\main.py" (
-    echo [LOI] Khong tim thay app\main.py trong:
+    echo [LỖI] Không tìm thấy app\main.py trong:
     echo       %~dp0
-    echo Hay dat file nay trong thu muc goc cua project Teacher-timetable.
+    echo Hãy đặt file này trong thư mục gốc của project Teacher-timetable.
     pause
     exit /b 1
 )
 
-rem Uu tien venv, sau do .venv de tuong thich ca hai cach dat ten.
+rem Ưu tiên venv, sau đó .venv để tương thích cả hai cách đặt tên.
 set "PYTHON="
 if exist "%~dp0venv\Scripts\python.exe" set "PYTHON=%~dp0venv\Scripts\python.exe"
 if not defined PYTHON if exist "%~dp0.venv\Scripts\python.exe" set "PYTHON=%~dp0.venv\Scripts\python.exe"
 
 if not defined PYTHON (
-    echo [LOI] Khong tim thay Python trong venv hoac .venv.
+    echo [LỖI] Không tìm thấy Python trong venv hoặc .venv.
     echo.
-    echo Tao moi moi truong ao bang mot trong cac lenh sau:
+    echo Tạo mới môi trường ảo bằng một trong các lệnh sau:
     echo     py -m venv venv
     echo     venv\Scripts\python.exe -m pip install -r requirements.txt
     pause
@@ -32,23 +33,23 @@ if not defined PYTHON (
 
 "%PYTHON%" --version >nul 2>&1
 if errorlevel 1 (
-    echo [LOI] Moi truong ao dang bi hong.
-    echo Hay xoa venv hoac .venv, tao lai va cai requirements.txt.
+    echo [LỖI] Môi trường ảo đang bị hỏng.
+    echo Hãy xóa venv hoặc .venv, tạo lại và cài requirements.txt.
     pause
     exit /b 1
 )
 
 "%PYTHON%" -c "import uvicorn" >nul 2>&1
 if errorlevel 1 (
-    echo [LOI] Chua cai Uvicorn trong moi truong ao.
-    echo Chay lenh:
+    echo [LỖI] Chưa cài Uvicorn trong môi trường ảo.
+    echo Chạy lệnh:
     echo     "%PYTHON%" -m pip install -r requirements.txt
     pause
     exit /b 1
 )
 
-echo Dang chay Smart TKB tai http://127.0.0.1:%PORT%
-echo Nhan Ctrl+C de dung server.
+echo Đang chạy Smart TKB tại http://127.0.0.1:%PORT%
+echo Nhấn Ctrl+C để dừng server.
 echo.
 
 "%PYTHON%" -m uvicorn app.main:app --reload --host 127.0.0.1 --port %PORT%
@@ -56,7 +57,7 @@ set "EXIT_CODE=%ERRORLEVEL%"
 
 if not "%EXIT_CODE%"=="0" (
     echo.
-    echo [LOI] Server da dung voi ma loi %EXIT_CODE%.
+    echo [LỖI] Server đã dừng với mã lỗi %EXIT_CODE%.
     pause
 )
 

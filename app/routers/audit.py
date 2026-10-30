@@ -30,7 +30,7 @@ def standalone_schedule_audit_page(
 
 @router.get("/projects/{pid}/schedule-audit")
 def legacy_schedule_audit_page(pid: int, user: User = Depends(current_user)):
-    # Route cu chi de bookmark cu khong bi loi; khong doc bat ky du lieu project nao.
+    # Route cũ chỉ để bookmark cũ không bị lỗi; không đọc bất kỳ dữ liệu project nào.
     return RedirectResponse("/schedule-audit", 303)
 
 

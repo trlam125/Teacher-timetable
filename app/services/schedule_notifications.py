@@ -42,9 +42,9 @@ def _assignment_names(session: Session, assignment_ids: set[int]):
         .where(Assignment.id.in_(assignment_ids))
     ).all()
     return {
-        aid: {"class_name": cls or "(Lop da xoa)",
-              "subject_name": subject or "(Mon da xoa)",
-              "teacher_name": teacher or "(GV da xoa)"}
+        aid: {"class_name": cls or "(Lớp đã xóa)",
+              "subject_name": subject or "(Môn đã xóa)",
+              "teacher_name": teacher or "(GV đã xóa)"}
         for aid, cls, subject, teacher in rows
     }
 
@@ -54,9 +54,9 @@ def _snapshot(assignment_id, slot, locked, names):
         return None
     return {
         "assignment_id": int(assignment_id),
-        "class_name": names.get(assignment_id, {}).get("class_name", f"Lop #{assignment_id}"),
-        "subject_name": names.get(assignment_id, {}).get("subject_name", "Chua ro mon"),
-        "teacher_name": names.get(assignment_id, {}).get("teacher_name", "Chua ro GV"),
+        "class_name": names.get(assignment_id, {}).get("class_name", f"Lớp #{assignment_id}"),
+        "subject_name": names.get(assignment_id, {}).get("subject_name", "Chưa rõ môn"),
+        "teacher_name": names.get(assignment_id, {}).get("teacher_name", "Chưa rõ GV"),
         "slot": int(slot) if slot is not None else None,
         "locked": bool(locked),
     }

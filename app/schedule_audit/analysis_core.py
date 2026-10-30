@@ -81,7 +81,7 @@ def infer_standalone_project(
     return {
         "id": 0,
         "name": "TKB import",
-        "school_name": "Truong hoc",
+        "school_name": "Trường học",
         "days": days,
         "sessions": sessions,
         "periods": periods,

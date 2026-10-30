@@ -86,9 +86,9 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         subject_name = _cell_text(item.get("subject_name"))[:200]
         teacher_name = _cell_text(item.get("teacher_name"))[:200]
         if not subject_name:
-            subject_name = f"Mon chua xac dinh - {class_name}"
+            subject_name = f"Môn chưa xác định - {class_name}"
         if not teacher_name:
-            teacher_name = f"GV chua xac dinh - {class_name} - {subject_name}"
+            teacher_name = f"GV chưa xác định - {class_name} - {subject_name}"
         normalized_rows.append(
             {
                 "draft_id": draft_id,
@@ -274,8 +274,8 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
                 _issue(
                     "unknown_subject",
                     "warning",
-                    "Chua xac dinh duoc mon hoc",
-                    f"{row['class_name']} tai {slot_label(int(row['slot']), project)} chua co ten mon ro rang.",
+                    "Chưa xác định được môn học",
+                    f"{row['class_name']} tại {slot_label(int(row['slot']), project)} chưa có tên môn rõ ràng.",
                     slot=int(row["slot"]),
                     project=project,
                     source=row["source"],
@@ -289,8 +289,8 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
                 _issue(
                     "unknown_teacher",
                     "warning",
-                    "Chua xac dinh duoc giao vien",
-                    f"{row['class_name']} · {row['subject_name']} chua co ten giao vien ro rang.",
+                    "Chưa xác định được giáo viên",
+                    f"{row['class_name']} · {row['subject_name']} chưa có tên giáo viên rõ ràng.",
                     slot=int(row["slot"]),
                     project=project,
                     source=row["source"],
@@ -325,7 +325,7 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
             _issue(
                 "class_collision",
                 "error",
-                "Trung lich lop",
+                "Trùng lịch lớp",
                 detail,
                 slot=slot,
                 project=project,
@@ -347,7 +347,7 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
             _issue(
                 "teacher_collision",
                 "error",
-                "Trung lich giao vien",
+                "Trùng lịch giáo viên",
                 detail,
                 slot=slot,
                 project=project,
@@ -372,7 +372,7 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
             _issue(
                 "room_collision",
                 "error",
-                "Trung phong hoc",
+                "Trùng phòng học",
                 detail,
                 slot=slot,
                 project=project,
@@ -465,7 +465,7 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
     detection["classes"] = [row["name"] for row in classes]
     detection["teachers"] = known_teachers
     detection["scope_label"] = (
-        f"Doc lap · {len(classes)} lop · {len(known_teachers)} giao vien · {len(known_subjects)} mon"
+        f"Độc lập · {len(classes)} lớp · {len(known_teachers)} giáo viên · {len(known_subjects)} môn"
     )
     report["detection"] = detection
     report["data"] = {
