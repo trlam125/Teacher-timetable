@@ -48,6 +48,7 @@ function clearScheduleAuditFile(resetResult = true) {
   scheduleAuditRunId += 1;
   scheduleAuditAiRunId += 1;
   scheduleAuditLastReport = null;
+  resetScheduleAuditWorkloadLimits();
   scheduleAuditManualEdits = 0;
   scheduleAuditTableExpanded = false;
   resetScheduleAuditAiResult();
@@ -82,6 +83,7 @@ function selectScheduleAuditFile(file, { autoRun = true } = {}) {
   }
   scheduleAuditAiRunId += 1;
   scheduleAuditLastReport = null;
+  resetScheduleAuditWorkloadLimits();
   scheduleAuditManualEdits = 0;
   scheduleAuditActiveView = "timetable";
   scheduleAuditTableExpanded = false;

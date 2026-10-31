@@ -367,6 +367,13 @@ function scheduleAuditRecalculateAfterEdit(report) {
 function setScheduleAuditBulkTeacherRename(enabled) {
   scheduleAuditBulkTeacherRename = Boolean(enabled);
 }
+// Manual quotas are checked only when requested. Edits invalidate the last
+// comparison but never call the old fixed-reference workload checker.
+function refreshScheduleAuditWorkloadAfterEdit(report) {
+  if (!report) return;
+  scheduleAuditWorkloadCheckId++;
+  report.workload = null;
+}
 function applyScheduleAuditCellRename(field, draftId, newName) {
   const report = scheduleAuditLastReport,
     newValue = String(newName || "").trim();
@@ -407,8 +414,10 @@ function applyScheduleAuditCellRename(field, draftId, newName) {
   scheduleAuditRebuildDataFromViewer(report);
   scheduleAuditManualEdits += 1;
   scheduleAuditRecalculateAfterEdit(report);
+  report.workload = null;
   resetScheduleAuditAiResult();
   renderScheduleAudit(report, null);
+  refreshScheduleAuditWorkloadAfterEdit(report);
   return true;
 }
 function beginScheduleAuditInlineEdit(element, event) {

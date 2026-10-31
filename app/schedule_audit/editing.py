@@ -485,6 +485,8 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
             for entry in recognized
         ],
     }
+    # Editing names invalidates any previously calculated manual-quota check.
+    report["workload"] = None
     return report
 
 

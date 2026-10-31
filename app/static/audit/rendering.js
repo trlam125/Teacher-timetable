@@ -156,6 +156,7 @@ function switchScheduleAuditView(view) {
     "teachers",
     "subjects",
     "classes",
+    "workload",
   ]);
   scheduleAuditActiveView = allowed.has(view) ? view : "timetable";
   document.querySelectorAll("[data-audit-view]").forEach((button) => {
@@ -213,32 +214,40 @@ function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis) {
   );
   const conflicts = Number(summary.collisions || collisionIssues.length),
     affected = Number(viewer.conflict_cells || 0);
-  const hasConflict = conflicts > 0,
+  const weeklyDifferences = Number(report.workload?.summary?.class_subject_mismatches || 0)
+      + Number(report.workload?.summary?.teacher_mismatches || 0),
+    hasConflict = conflicts > 0,
     hasOtherIssues = nonCellIssues.length > 0,
+    hasWeeklyDifferences = weeklyDifferences > 0,
     aiMarked = Number(ai?.summary?.marked_cells || 0);
   const statusTitle = hasConflict
     ? `Phát hiện ${conflicts} xung đột trong thời khóa biểu`
     : hasOtherIssues
       ? `Không có ô bị trùng, nhưng còn ${nonCellIssues.length} cảnh báo/lỗi dữ liệu`
-      : "Không phát hiện ô bị trùng";
+      : hasWeeklyDifferences
+        ? `Không trùng lịch, nhưng có ${weeklyDifferences} mục lệch số tiết cần đối chiếu`
+        : "Không phát hiện ô bị trùng";
   box.innerHTML = `
-    <div class="schedule-audit-view-head ${hasConflict || hasOtherIssues ? "has-error" : "clean"}">
+    <div class="schedule-audit-view-head ${hasConflict || hasOtherIssues || hasWeeklyDifferences ? "has-error" : "clean"}">
       <div class="schedule-audit-view-summary">
-        <span class="schedule-audit-status-icon">${hasConflict || hasOtherIssues ? "!" : "✓"}</span>
+        <span class="schedule-audit-status-icon">${hasConflict || hasOtherIssues || hasWeeklyDifferences ? "!" : "✓"}</span>
         <div><h2>${statusTitle}</h2><p>${esc(report.filename || "File")} · Đã đọc ${Number(summary.recognized_lessons || 0)} tiết · ${Number(summary.classes || 0)} lớp · ${Number(summary.teachers || 0)} giáo viên.</p></div>
       </div>
       <div class="schedule-audit-view-legend"><span class="legend-conflict"></span><b>Đỏ = lỗi rule</b>${hasConflict ? `<small>${affected} ô</small>` : ""}${ai ? `<span class="legend-ai-warning"></span><b>Cam/vàng = AI</b><small>${aiMarked} ô</small>` : ""}</div>
     </div>
     ${renderScheduleAuditDataIssues(nonCellIssues)}
+    <div class="weekly-load-shortcut"><button class="btn" type="button" onclick="openScheduleAuditWorkload()">Kiểm tra thừa/thiếu tiết</button><small>Nhập ngưỡng theo nhu cầu sau khi xem kết quả kiểm tra trùng lịch.</small></div>
     <div class="schedule-audit-tabs" role="tablist" aria-label="Chế độ xem thời khóa biểu">
       <button type="button" data-audit-view="timetable" onclick="switchScheduleAuditView('timetable')">Thời khóa biểu</button>
       <button type="button" data-audit-view="overview" onclick="switchScheduleAuditView('overview')">Tổng quan</button>
       <button type="button" data-audit-view="teachers" onclick="switchScheduleAuditView('teachers')">Giáo viên</button>
       <button type="button" data-audit-view="subjects" onclick="switchScheduleAuditView('subjects')">Môn học</button>
       <button type="button" data-audit-view="classes" onclick="switchScheduleAuditView('classes')">Lớp học</button>
+      <button type="button" data-audit-view="workload" onclick="switchScheduleAuditView('workload')">Thừa/thiếu tiết</button>
     </div>
     <section id="scheduleAuditView-timetable" class="schedule-audit-view-panel" data-audit-panel="timetable">${renderScheduleAuditTable(report, ai)}</section>
-    ${renderScheduleAuditStatistics(report)}`;
+    ${renderScheduleAuditStatistics(report)}
+    <section id="scheduleAuditView-workload" class="schedule-audit-view-panel" data-audit-panel="workload" hidden>${renderScheduleAuditWorkload(report.workload, report)}</section>`;
   switchScheduleAuditView(scheduleAuditActiveView);
 }
 function renderScheduleAuditError(message) {

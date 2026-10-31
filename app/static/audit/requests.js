@@ -39,6 +39,7 @@ async function runScheduleAudit() {
       return;
     }
     scheduleAuditManualEdits = 0;
+    resetScheduleAuditWorkloadLimits();
     scheduleAuditLastReport = result;
     renderScheduleAudit(result, null);
   } catch (error) {

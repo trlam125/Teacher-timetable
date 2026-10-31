@@ -64,6 +64,38 @@ def standalone_audit_schedule_file(
         )
 
 
+@router.post("/api/schedule-audit/workload")
+def standalone_recheck_weekly_load(
+    file: UploadFile = File(...),
+    report_json: str = Form(...),
+    limits_json: str = Form(...),
+    user: User = Depends(current_user),
+):
+    """Check user-entered thresholds against the original file plus edited labels."""
+    from app.schedule_audit import (
+        ScheduleAuditParseError,
+        analyze_standalone_schedule_file,
+        apply_standalone_viewer_edits,
+    )
+    import json
+    from app.schedule_audit.custom_limits import check_custom_weekly_workload
+    filename, content = read_schedule_upload(file)
+    try:
+        edited = read_schedule_audit_report_json(report_json)
+        limits = json.loads(limits_json)
+        source = analyze_standalone_schedule_file(
+            filename=filename, content=content, include_editable=False,
+        )
+        recomputed = apply_standalone_viewer_edits(source, edited)
+        workload = check_custom_weekly_workload(recomputed["viewer"], limits)
+        return {"ok": True, "workload": workload}
+    except (ScheduleAuditParseError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    except Exception:
+        logger.exception("weekly teaching load recheck failed")
+        return JSONResponse({"ok": False, "message": "Không thể tính lại số tiết sau khi sửa dữ liệu."}, status_code=500)
+
+
 @router.post("/api/schedule-audit/ai")
 def standalone_ai_audit_schedule_file(
     file: Optional[UploadFile] = File(None),

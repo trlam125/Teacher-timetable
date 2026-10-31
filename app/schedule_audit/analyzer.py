@@ -484,6 +484,9 @@ def analyze_standalone_schedule_file(
             "lessons": [],
         },
     }
+    # The import phase only checks timetable conflicts. Weekly quotas are
+    # user-supplied separately after clicking the workload check button.
+    result["workload"] = None
     if include_editable:
         result["editable_lessons"] = [
             {
