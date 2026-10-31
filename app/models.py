@@ -31,6 +31,18 @@ class User(Base):
     last_seen: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
 
+class ScheduleAuditLimitProfile(Base):
+    """Saved manual thresholds, isolated by signed-in user (not by project)."""
+    __tablename__ = "schedule_audit_limit_profiles"
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    limits_json: Mapped[str] = mapped_column(Text, default="{}")
+    catalog_json: Mapped[str] = mapped_column(Text, default="{}")
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[str] = mapped_column(String(40))
+
+
 class SocialIdentity(Base):
     __tablename__ = "social_identities"
     id: Mapped[int] = mapped_column(primary_key=True)

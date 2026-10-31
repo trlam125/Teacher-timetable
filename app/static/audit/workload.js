@@ -30,9 +30,11 @@ function resetScheduleAuditWorkloadLimits() {
   scheduleAuditWorkloadOpen = false;
   scheduleAuditWorkloadBusy = false;
   scheduleAuditWorkloadError = "";
+  scheduleAuditLimitsDirty = false;
+  scheduleAuditLimitsNotice = "";
+  scheduleAuditSavedProfile = null;
 }
-function initScheduleAuditWorkloadLimits(report) {
-  if (scheduleAuditWorkloadLimits) return;
+function weeklyMakeLimitDraft(report) {
   const viewer = report?.viewer || {}, cells = viewer.cells || [];
   const classSubjects = new Map(), teachers = new Map(), assignments = new Map();
   for (const cell of cells) {
@@ -45,11 +47,14 @@ function initScheduleAuditWorkloadLimits(report) {
     if (teacher && !scheduleAuditIsUnknownTeacher(teacher) && cls && subject)
       assignments.set(`${scheduleAuditEntityKey(teacher)}|${cls}|${scheduleAuditEntityKey(subject)}`, {teacher, class_name: cls, subject, min: "", max: ""});
   }
-  scheduleAuditWorkloadLimits = {
+  return {
     class_subject: [...classSubjects.values()].sort((a, b) => (a.grade - b.grade) || a.subject.localeCompare(b.subject, "vi")),
     teachers: [...teachers.values()].sort((a, b) => a.teacher.localeCompare(b.teacher, "vi")),
     assignments: [...assignments.values()].sort((a, b) => a.class_name.localeCompare(b.class_name, "vi", {numeric: true}) || a.teacher.localeCompare(b.teacher, "vi")),
   };
+}
+function initScheduleAuditWorkloadLimits(report) {
+  if (!scheduleAuditWorkloadLimits) scheduleAuditWorkloadLimits = weeklyMakeLimitDraft(report);
 }
 function openScheduleAuditWorkload() {
   if (!scheduleAuditLastReport) return;
@@ -93,7 +98,12 @@ function renderWeeklyLoadForm(report) {
         ${renderWeeklyLimitSection("class_subject", "1. Giới hạn tiết theo khối và môn", "Áp dụng cho từng lớp của khối đã có trong file import. Ví dụ khối 6 – Toán – tối thiểu 4, tối đa 4. Có thể thêm môn chưa có tiết trên TKB để phát hiện thiếu.", true)}
         ${renderWeeklyLimitSection("teachers", "2. Giới hạn tổng số tiết của giáo viên", "Kiểm tra tổng số tiết đứng lớp/tuần. Có thể nhập tên giáo viên chưa xuất hiện trong TKB để phát hiện thiếu.")}
         ${renderWeeklyLimitSection("assignments", "3. Giới hạn giáo viên – lớp – môn", "Để biết chính xác giáo viên thừa hoặc thiếu tiết ở lớp, môn nào. Có thể thêm phân công chưa xuất hiện trong TKB.")}
-        <div class="weekly-load-actions"><button type="button" class="btn" ${scheduleAuditWorkloadBusy ? "disabled" : ""} onclick="runScheduleAuditWorkloadCheck()">${scheduleAuditWorkloadBusy ? "Đang đối chiếu…" : "Áp dụng & kiểm tra thừa/thiếu tiết"}</button><small>Chỉ các dòng đã nhập ít nhất một ngưỡng mới được so sánh.</small></div>
+        <p class="weekly-load-save-status" role="status">${esc(scheduleAuditLimitsNotice || "Nhập ngưỡng rồi bấm Lưu ngưỡng để dùng lại vào lần sau.")}${scheduleAuditLimitsDirty ? " · Có thay đổi chưa lưu." : ""}</p>
+        <div class="weekly-load-actions">
+          <button type="button" class="btn ghost" ${scheduleAuditSavedBusy ? "disabled" : ""} onclick="saveScheduleAuditWorkloadLimits()">${scheduleAuditSavedBusy ? "Đang lưu…" : "Lưu ngưỡng"}</button>
+          <button type="button" class="btn" ${scheduleAuditWorkloadBusy ? "disabled" : ""} onclick="runScheduleAuditWorkloadCheck()">${scheduleAuditWorkloadBusy ? "Đang đối chiếu…" : "Áp dụng & kiểm tra thừa/thiếu tiết"}</button>
+          <small>Lưu riêng theo tài khoản. Chỉ các dòng đã nhập ngưỡng mới được so sánh.</small>
+        </div>
         <p id="weeklyLoadError" class="weekly-load-error" role="alert" ${scheduleAuditWorkloadError ? "" : "hidden"}>${esc(scheduleAuditWorkloadError)}</p>
       </div>
     </details>`;
@@ -128,6 +138,7 @@ function filterScheduleAuditWorkload(query) {
 function setScheduleAuditLimit(type, index, field, value) {
   if (!WEEKLY_LIMIT_TYPES.includes(type) || !scheduleAuditWorkloadLimits?.[type]?.[index]) return;
   scheduleAuditWorkloadLimits[type][index][field] = value;
+  scheduleAuditLimitsDirty = true;
   scheduleAuditWorkloadOpen = true;
   scheduleAuditWorkloadError = "";
   scheduleAuditWorkloadCheckId++;
@@ -135,6 +146,8 @@ function setScheduleAuditLimit(type, index, field, value) {
   if (scheduleAuditLastReport) scheduleAuditLastReport.workload = null;
   const error = document.getElementById("weeklyLoadError");
   if (error) error.hidden = true;
+  const saveInfo = document.querySelector("#weeklyLoadLimits .weekly-load-save-status");
+  if (saveInfo) saveInfo.textContent = `${scheduleAuditLimitsNotice || "Ngưỡng chưa được lưu."} · Có thay đổi chưa lưu.`;
   // Remove stale results without destroying the form being edited.
   const results = document.querySelectorAll("#scheduleAuditView-workload .weekly-load-cards, #scheduleAuditView-workload .weekly-load-section, #scheduleAuditView-workload .weekly-load-notes");
   results.forEach(el => { if (!el.closest(".weekly-load-limits")) el.remove(); });
@@ -149,6 +162,7 @@ function addScheduleAuditLimit(type) {
   scheduleAuditWorkloadCheckId++;
   scheduleAuditWorkloadBusy = false;
   if (scheduleAuditLastReport) scheduleAuditLastReport.workload = null;
+  scheduleAuditLimitsDirty = true;
   scheduleAuditWorkloadLimits[type].push(type === "class_subject" ? {grade: "", subject: "", min: "", max: ""}
     : type === "teachers" ? {teacher: "", min: "", max: ""}
       : {teacher: "", class_name: "", subject: "", min: "", max: ""});
@@ -162,6 +176,7 @@ function addScheduleAuditLimit(type) {
 function removeScheduleAuditLimit(type, index) {
   if (!WEEKLY_LIMIT_TYPES.includes(type) || !scheduleAuditWorkloadLimits?.[type]) return;
   scheduleAuditWorkloadLimits[type].splice(index, 1);
+  scheduleAuditLimitsDirty = true;
   scheduleAuditWorkloadCheckId++;
   scheduleAuditWorkloadBusy = false;
   if (scheduleAuditLastReport) scheduleAuditLastReport.workload = null;

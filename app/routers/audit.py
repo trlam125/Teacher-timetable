@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 from app.services.runtime import *
 
 router = APIRouter()
@@ -62,6 +62,79 @@ def standalone_audit_schedule_file(
             },
             status_code=500,
         )
+
+
+@router.get("/api/schedule-audit/limits")
+def get_schedule_audit_saved_limits(
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    """Read only this account's saved quotas, independent of a project."""
+    import json
+    from app.models import ScheduleAuditLimitProfile
+    profile = db.get(ScheduleAuditLimitProfile, user.id)
+    if profile is None:
+        return {"ok": True, "profile": None}
+    return {"ok": True, "profile": {
+        "limits": json.loads(profile.limits_json),
+        "catalog": json.loads(profile.catalog_json),
+        "revision": profile.revision,
+        "updated_at": profile.updated_at,
+    }}
+
+
+@router.put("/api/schedule-audit/limits")
+def save_schedule_audit_limits(
+    payload: dict = Body(...),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    """Persist an explicitly saved draft. Version checking blocks silent overwrite."""
+    import json
+    from datetime import datetime, timezone
+    from app.models import ScheduleAuditLimitProfile
+    from app.schedule_audit.saved_limits import clean_limit_draft, clean_import_catalog
+    if len(json.dumps(payload, ensure_ascii=False)) > 250_000:
+        return JSONResponse({"ok": False, "message": "Dữ liệu định mức quá lớn."}, status_code=400)
+    try:
+        limits = clean_limit_draft(payload.get("limits"))
+        catalog = clean_import_catalog(payload.get("catalog"))
+        revision = payload.get("revision", 0)
+        if type(revision) is not int or revision < 0:
+            raise ValueError("Phiên bản định mức không hợp lệ.")
+    except (ValueError, TypeError) as exc:
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+    profile = db.scalar(select(ScheduleAuditLimitProfile)
+                        .where(ScheduleAuditLimitProfile.user_id == user.id)
+                        .with_for_update())
+    current = profile.revision if profile else 0
+    if revision != current:
+        return JSONResponse({"ok": False,
+                             "message": "Bảng định mức đã thay đổi ở phiên làm việc khác. Hãy import lại trước khi lưu."},
+                            status_code=409)
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    if profile is None:
+        profile = ScheduleAuditLimitProfile(user_id=user.id, limits_json="{}", catalog_json="{}",
+                                            revision=0, updated_at=now)
+        db.add(profile)
+    profile.limits_json = json.dumps(limits, ensure_ascii=False)
+    profile.catalog_json = json.dumps(catalog, ensure_ascii=False)
+    profile.updated_at = now
+    profile.revision = current + 1
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return JSONResponse({"ok": False,
+                             "message": "Bảng ngưỡng vừa được lưu ở nơi khác. Vui lòng import lại."},
+                            status_code=409)
+    except Exception:
+        db.rollback()
+        raise
+    return {"ok": True, "profile": {"limits": limits, "catalog": catalog,
+                                     "revision": profile.revision, "updated_at": now}}
 
 
 @router.post("/api/schedule-audit/workload")

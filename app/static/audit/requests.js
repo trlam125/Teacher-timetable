@@ -1,5 +1,6 @@
 "use strict";
 async function runScheduleAudit() {
+  weeklyCatalogPromptCancel?.();
   const input = $("#scheduleAuditFile"),
     button = $("#scheduleAuditButton"),
     file = scheduleAuditSelectedFile || input?.files?.[0];
@@ -42,6 +43,18 @@ async function runScheduleAudit() {
     resetScheduleAuditWorkloadLimits();
     scheduleAuditLastReport = result;
     renderScheduleAudit(result, null);
+    try {
+      await restoreSavedWeeklyLimits(result, runId);
+      if (runId === scheduleAuditRunId && result === scheduleAuditLastReport)
+        renderScheduleAudit(result, null);
+    } catch (loadError) {
+      if (runId === scheduleAuditRunId && result === scheduleAuditLastReport) {
+        initScheduleAuditWorkloadLimits(result);
+        scheduleAuditWorkloadError = loadError.message || "Không thể tải định mức đã lưu.";
+        scheduleAuditLimitsNotice = "Không thể xác minh dữ liệu đã lưu. Chưa thay thế hoặc xóa ngưỡng nào.";
+        renderScheduleAudit(result, null);
+      }
+    }
   } catch (error) {
     if (runId === scheduleAuditRunId) {
       scheduleAuditLastReport = null;

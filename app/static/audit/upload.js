@@ -46,6 +46,7 @@ function resetScheduleAuditAiResult() {
 }
 function clearScheduleAuditFile(resetResult = true) {
   scheduleAuditRunId += 1;
+  weeklyCatalogPromptCancel?.();
   scheduleAuditAiRunId += 1;
   scheduleAuditLastReport = null;
   resetScheduleAuditWorkloadLimits();
@@ -75,12 +76,18 @@ function clearScheduleAuditFile(resetResult = true) {
   hideScheduleAuditBottomScroller();
 }
 function selectScheduleAuditFile(file, { autoRun = true } = {}) {
+  if (scheduleAuditLimitsDirty && !window.confirm("Bảng ngưỡng đang có thay đổi chưa lưu. Tiếp tục import sẽ bỏ các thay đổi này. Bạn muốn tiếp tục?")) {
+    const input = document.getElementById("scheduleAuditFile");
+    if (input) input.value = "";
+    return false;
+  }
   const error = scheduleAuditFileValidationError(file);
   if (error) {
     clearScheduleAuditFile(false);
     renderScheduleAuditError(error);
     return false;
   }
+  weeklyCatalogPromptCancel?.();
   scheduleAuditAiRunId += 1;
   scheduleAuditLastReport = null;
   resetScheduleAuditWorkloadLimits();

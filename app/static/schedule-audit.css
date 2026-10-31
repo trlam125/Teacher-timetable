@@ -2347,3 +2347,56 @@
 .weekly-load-error[hidden] { display: none; }
 .weekly-load-results { padding: 18px; }
 @media (max-width: 760px) { .weekly-load-shortcut { padding: 12px; } .weekly-load-results { padding: 10px; } }
+
+/* Saved, account-scoped weekly quota drafts and import reconciliation. */
+.weekly-load-save-status {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(130,148,174,.3));
+  border-radius: 10px;
+  font-size: .9rem;
+  overflow-wrap: anywhere;
+}
+.weekly-load-actions { flex-wrap: wrap; }
+.weekly-catalog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3100;
+  background: rgba(10,20,37,.76);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.weekly-catalog-dialog {
+  max-height: min(83vh, 700px);
+  width: min(100%, 680px);
+  overflow: auto;
+  background: var(--surface, #ffffff);
+  color: var(--text, #1b2636);
+  border: 1px solid var(--border, #c7d1df);
+  border-radius: 16px;
+  padding: clamp(18px, 3vw, 28px);
+  box-shadow: 0 24px 74px rgba(0,0,0,.3);
+}
+.dark-mode .weekly-catalog-dialog,
+html.dark-mode .weekly-catalog-dialog {
+  background: #1c2739;
+  color: #f3f6fc;
+  border-color: #45536b;
+}
+.weekly-catalog-dialog h2 { margin: 0 0 14px; font-size: 1.27rem; }
+.weekly-catalog-dialog p { margin: 9px 0; line-height: 1.6; }
+.weekly-catalog-diff {
+  max-height: 36vh;
+  overflow: auto;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #a1b0c3);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.weekly-catalog-warning { font-size: .88rem; opacity: .85; }
+.weekly-catalog-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 10px; margin-top: 18px; }
+@media (max-width: 540px) {
+  .weekly-catalog-actions .btn { flex: 1 1 100%; }
+}
