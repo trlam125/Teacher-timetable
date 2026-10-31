@@ -14,7 +14,7 @@ function weeklyCatalogFromReport(report) {
     if (!label) return;
     if (kind === "teachers" && scheduleAuditIsUnknownTeacher(label)) return;
     if (kind === "subjects" && scheduleAuditIsUnknownSubject(label)) return;
-    const key = scheduleAuditEntityKey(label);
+    const key = kind === "subjects" ? weeklySubjectCode(label) : scheduleAuditEntityKey(label);
     if (key && !records[kind].has(key)) records[kind].set(key, label);
   };
   for (const cls of report?.viewer?.classes || []) insert("classes", cls.name);
@@ -29,8 +29,11 @@ function weeklyCatalogFromReport(report) {
 function weeklyCatalogChanges(previous, next) {
   const changes = {};
   for (const type of ["classes", "subjects", "teachers"]) {
-    const before = new Map((previous?.[type] || []).map(name => [scheduleAuditEntityKey(name), name]));
-    const after = new Map((next?.[type] || []).map(name => [scheduleAuditEntityKey(name), name]));
+    const normalize = names => {
+      return new Map(names.map(name => [type === "subjects" ? weeklySubjectCode(name) : scheduleAuditEntityKey(name), name]));
+    };
+    const before = normalize(previous?.[type] || []);
+    const after = normalize(next?.[type] || []);
     changes[type] = {
       removed: [...before].filter(([key]) => !after.has(key)).map(([,name]) => name),
       added: [...after].filter(([key]) => !before.has(key)).map(([,name]) => name)
@@ -43,26 +46,27 @@ function weeklyChangesExist(changes) {
 }
 function weeklyRowKey(type, row) {
   const key = scheduleAuditEntityKey;
-  if (type === "class_subject") return `${String(row.grade || "").trim()}|${key(row.subject)}`;
-  if (type === "teachers") return key(row.teacher);
-  return `${key(row.teacher)}|${key(row.class_name)}|${key(row.subject)}`;
+  if (type === "class_subject") return `${String(row.grade || "").trim()}|${weeklySubjectCode(row.subject)}`;
+  return `${key(row.teacher)}|${key(row.class_name)}|${weeklySubjectCode(row.subject)}`;
 }
 function weeklyMergeLimits(saved, generated, catalog, removeMissing) {
-  const kept = {}, subjects = new Set(catalog.subjects.map(scheduleAuditEntityKey)),
+  const kept = {}, subjects = new Set(catalog.subjects.map(weeklySubjectCode)),
     teachers = new Set(catalog.teachers.map(scheduleAuditEntityKey)),
     classes = new Set(catalog.classes.map(scheduleAuditEntityKey)),
     grades = new Set(catalog.classes.map(x => (String(x).match(/^(1[0-2]|[1-9])[a-z]/i) || [])[1]).filter(Boolean));
   const valid = (type, row) => !removeMissing || (
-    type === "class_subject" ? subjects.has(scheduleAuditEntityKey(row.subject)) && grades.has(String(row.grade || "").trim()) :
-    type === "teachers" ? teachers.has(scheduleAuditEntityKey(row.teacher)) :
+    type === "class_subject" ? subjects.has(weeklySubjectCode(row.subject)) && grades.has(String(row.grade || "").trim()) :
     teachers.has(scheduleAuditEntityKey(row.teacher)) &&
-    subjects.has(scheduleAuditEntityKey(row.subject)) && classes.has(scheduleAuditEntityKey(row.class_name)));
+    subjects.has(weeklySubjectCode(row.subject)) && classes.has(scheduleAuditEntityKey(row.class_name)));
   for (const type of WEEKLY_LIMIT_TYPES) {
     const rows = new Map();
-    for (const row of saved?.[type] || []) if (valid(type, row)) rows.set(weeklyRowKey(type, row), {...row});
+    for (const source of saved?.[type] || []) {
+      const row = {...source, periods:source.periods ?? ""};
+      if (valid(type, row)) rows.set(weeklyRowKey(type, row), {...row});
+    }
     for (const row of generated?.[type] || []) {
       const key = weeklyRowKey(type, row);
-      if (!rows.has(key)) rows.set(key, {...row});
+      if (!rows.has(key)) rows.set(key, {...row, periods:row.periods ?? ""});
     }
     kept[type] = [...rows.values()];
   }
@@ -138,14 +142,14 @@ async function restoreSavedWeeklyLimits(report, runId) {
   const profile = data.profile;
   scheduleAuditSavedProfile = profile;
   if (!profile) {
-    scheduleAuditWorkloadLimits = proposed;
+    scheduleAuditWorkloadLimits = weeklyNormalizeLimitDraft(proposed);
     scheduleAuditLimitsNotice = "Chưa lưu bộ ngưỡng nào. Nhập ngưỡng rồi bấm Lưu ngưỡng để dùng lại.";
     return;
   }
   const diff = weeklyCatalogChanges(profile.catalog, newCatalog);
   if (!weeklyChangesExist(diff)) {
     scheduleAuditWorkloadLimits = weeklyMergeLimits(profile.limits, proposed, newCatalog, false);
-    scheduleAuditLimitsNotice = "Đã tải bộ ngưỡng đã lưu theo tài khoản. Danh sách lớp, môn, giáo viên không thay đổi.";
+    scheduleAuditLimitsNotice = "Đã tải số tiết đã lưu. Tên môn và ký hiệu trong ngoặc được giữ riêng như trên TKB mới.";
     return;
   }
   const updated = weeklyMergeLimits(profile.limits, proposed, newCatalog, true);
@@ -153,13 +157,13 @@ async function restoreSavedWeeklyLimits(report, runId) {
   const confirmed = await promptWeeklyCatalogReplace(diff, toRemove);
   if (runId !== scheduleAuditRunId || report !== scheduleAuditLastReport) return;
   if (!confirmed) {
-    scheduleAuditWorkloadLimits = structuredClone(profile.limits);
+    scheduleAuditWorkloadLimits = weeklyMergeLimits(profile.limits, proposed, newCatalog, false);
     scheduleAuditLimitsNotice = "Đã giữ bộ ngưỡng cũ. Không có môn, giáo viên hay ngưỡng nào bị xóa.";
     return;
   }
   try {
     scheduleAuditSavedProfile = await weeklyStoreProfile(updated, newCatalog, profile.revision);
-    scheduleAuditWorkloadLimits = structuredClone(scheduleAuditSavedProfile.limits);
+    scheduleAuditWorkloadLimits = weeklyMergeLimits(scheduleAuditSavedProfile.limits, proposed, newCatalog, false);
     scheduleAuditLimitsDirty = false;
     scheduleAuditLimitsNotice = `Đã cập nhật bộ ngưỡng theo TKB mới, xóa ${toRemove} dòng cũ; các mức còn phù hợp vẫn được giữ lại.`;
   } catch (error) {
@@ -176,7 +180,7 @@ async function saveScheduleAuditWorkloadLimits() {
   const current = scheduleAuditLastReport, editId = scheduleAuditWorkloadCheckId;
   const catalog = weeklyCatalogFromReport(current);
   try {
-    const saved = await weeklyStoreProfile(scheduleAuditWorkloadLimits, catalog, scheduleAuditSavedProfile?.revision || 0);
+    const saved = await weeklyStoreProfile(weeklyNormalizeLimitDraft(scheduleAuditWorkloadLimits), catalog, scheduleAuditSavedProfile?.revision || 0);
     if (current !== scheduleAuditLastReport) return;
     scheduleAuditSavedProfile = saved;
     scheduleAuditLimitsDirty = editId !== scheduleAuditWorkloadCheckId;

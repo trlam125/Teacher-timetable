@@ -72,11 +72,26 @@ def get_schedule_audit_saved_limits(
     """Read only this account's saved quotas, independent of a project."""
     import json
     from app.models import ScheduleAuditLimitProfile
-    profile = db.get(ScheduleAuditLimitProfile, user.id)
+    from sqlalchemy import select
+    from app.schedule_audit.saved_limits import migrate_saved_draft
+    profile = db.scalar(select(ScheduleAuditLimitProfile)
+                        .where(ScheduleAuditLimitProfile.user_id == user.id)
+                        .with_for_update())
     if profile is None:
         return {"ok": True, "profile": None}
+    limits = json.loads(profile.limits_json)
+    legacy = "teachers" in limits or any(
+        "min" in row or "max" in row
+        for section in ("class_subject", "assignments")
+        for row in limits.get(section, []) if isinstance(row, dict)
+    )
+    if legacy:
+        limits = migrate_saved_draft(limits)
+        profile.limits_json = json.dumps(limits, ensure_ascii=False)
+        profile.revision += 1
+        db.commit()
     return {"ok": True, "profile": {
-        "limits": json.loads(profile.limits_json),
+        "limits": limits,
         "catalog": json.loads(profile.catalog_json),
         "revision": profile.revision,
         "updated_at": profile.updated_at,

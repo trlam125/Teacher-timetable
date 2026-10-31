@@ -2400,3 +2400,32 @@ html.dark-mode .weekly-catalog-dialog {
 @media (max-width: 540px) {
   .weekly-catalog-actions .btn { flex: 1 1 100%; }
 }
+
+/* Compact exact-weekly-period matrix (all values are user entered). */
+.weekly-matrix-panel { min-width: 0; }
+.weekly-matrix-panel h3 { margin: 0 0 7px; font-size: 1rem; }
+.weekly-matrix-panel p { margin: 0 0 12px; font-size: .87rem; line-height: 1.6; color: var(--muted); }
+.weekly-matrix-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; width: 100%; }
+.weekly-matrix-table { width: 100%; min-width: 570px; border-spacing: 0; border-collapse: collapse; font-size: .9rem; }
+.weekly-matrix-table th, .weekly-matrix-table td { border: 1px solid var(--line); padding: 6px 9px; }
+.weekly-matrix-table thead th { background: var(--card-bg); text-align: center; font-weight: 750; }
+.weekly-matrix-table thead tr:first-child th:first-child { width: 42px; }
+.weekly-matrix-table thead tr:first-child th:nth-child(2) { min-width: 240px; text-align: left; }
+.weekly-matrix-table tbody th { font-weight: 550; text-align: left; white-space: normal; }
+.weekly-matrix-table tbody td, .weekly-matrix-index { text-align: center; }
+.weekly-matrix-table input { width: 100%; max-width: 76px; min-width: 54px; text-align: center; border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 4px; box-sizing: border-box; background: var(--card-bg); color: var(--ink); font: inherit; appearance: textfield; }
+.weekly-matrix-table input::-webkit-outer-spin-button, .weekly-matrix-table input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.weekly-matrix-table input:focus { outline: 2px solid #3574e9; outline-offset: 1px; }
+.weekly-matrix-table tbody tr:hover { background: rgba(100,120,150,.06); }
+.weekly-load-limits-content { gap: 12px; }
+.weekly-load-limits-section { padding: 10px 12px; }
+.weekly-load-limits-section > p { margin: 6px 0 10px; }
+.weekly-load-input-table input { min-width: 95px; padding: 6px 8px; }
+.weekly-load-input-table input[type="number"] { width: 86px; min-width: 70px; }
+@media (max-width: 640px) {
+  .weekly-load-limits-content { padding: 2px 8px 14px; }
+  .weekly-matrix-table { font-size: .82rem; }
+  .weekly-matrix-table th, .weekly-matrix-table td { padding: 5px 5px; }
+  .weekly-matrix-table thead tr:first-child th:nth-child(2) { min-width: 220px; }
+}

@@ -640,6 +640,22 @@ def _standalone_subject_prefix(value: str) -> tuple[str, str]:
     text = unicodedata.normalize("NFC", _cell_text(value))
     if not text:
         return "", ""
+    # Preserve the exact subject label shown in the collision table, including
+    # qualifiers such as KHTN(S), KHTN(H), LSĐL(Đ), and official long names.
+    official = re.match(
+        r"^\s*(Khoa\s+học\s+tự\s+nhiên|Lịch\s+sử\s+và\s+Địa\s+l[íý]|Nghệ\s+thuật)\s*\(\s*([^)]{1,40})\s*\)\s*[-:]?\s*",
+        text, flags=re.IGNORECASE,
+    )
+    if official:
+        label = text[official.start():official.end()].strip(" -–—|;/: ")
+        return label, text[official.end():].strip(" -–—|;/: ")
+    component = re.match(
+        r"^\s*(KHTN|LSĐL|LSDL|LS&ĐL|KHXH)\s*\(\s*([^)]{1,32})\s*\)\s*[-:]?\s*",
+        text, flags=re.IGNORECASE,
+    )
+    if component:
+        label = text[component.start():component.end()].strip(" -–—|;/: ")
+        return label, text[component.end():].strip(" -–—|;/: ")
 
     # First handle normalized aliases so the parser behaves the same for
     # accented and unaccented text (e.g. "Công nghệ" / "cong nghe").
