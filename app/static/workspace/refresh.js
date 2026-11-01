@@ -180,10 +180,9 @@ async function refreshAfterSuccessfulMutation(parts = null, message = null) {
     await refresh(true, parts);
     return true;
   } catch (error) {
-    const detail = error?.message || requestFailureMessage(error);
     showToast(
       message ||
-      `Thay đổi đã được lưu trên máy chủ nhưng giao diện chưa thể đồng bộ dữ liệu mới: ${detail}`,
+      `Thay đổi đã được lưu nhưng trang chưa cập nhật được. Hãy tải lại trang để xem kết quả.`,
       "warning",
       6000,
     );

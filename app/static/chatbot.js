@@ -5,10 +5,11 @@
     try {
       return JSON.parse(raw);
     } catch (error) {
-      const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
       if (!response.ok)
-        return { detail: `Máy chủ trả về lỗi ${statusLabel} nhưng phản hồi không phải JSON hợp lệ.` };
-      const invalid = new Error(`Phản hồi chatbot không hợp lệ (${statusLabel}).`);
+        return { detail: response.status >= 500
+          ? "Trợ lý đang tạm gián đoạn. Hãy thử lại sau."
+          : "Không gửi được câu hỏi. Hãy kiểm tra lại và thử lại." };
+      const invalid = new Error("Không đọc được câu trả lời. Hãy thử lại.");
       invalid.cause = error;
       invalid.isInvalidServerResponse = true;
       throw invalid;
@@ -637,7 +638,7 @@
       setConnectionState(false);
       addMessage(
         "assistant",
-        "Chatbot đang tạm ngừng hoặc chưa được cấu hình trên máy chủ.",
+        "Trợ lý AI hiện chưa sẵn sàng. Vui lòng thử lại sau hoặc liên hệ người quản lý.",
         "error",
       );
       return;
@@ -700,7 +701,7 @@
           "assistant",
           result.detail ||
           result.message ||
-          `Máy chủ chatbot trả về lỗi HTTP ${response.status}.`,
+          "Trợ lý chưa thể trả lời lúc này. Hãy thử lại sau.",
           "error",
         );
         return;
@@ -724,7 +725,7 @@
         setConnectionState(true);
         addMessage(
           "assistant",
-          error.message || "Máy chủ chatbot trả về phản hồi không hợp lệ.",
+          error.message || "Không đọc được câu trả lời. Hãy thử lại.",
           "error",
         );
       } else {

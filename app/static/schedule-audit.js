@@ -6,13 +6,28 @@ async function readAuditResponse(response) {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
     if (!response.ok)
-      return { detail: `Máy chủ trả về lỗi ${statusLabel} nhưng phản hồi không phải JSON hợp lệ.` };
-    const invalid = new Error(`Phản hồi từ máy chủ không hợp lệ (${statusLabel}).`);
+      return { detail: auditFriendlyError(response.status) };
+    const invalid = new Error("Không đọc được kết quả kiểm tra. Hãy tải lại trang và thử lại.");
     invalid.cause = error;
     throw invalid;
   }
+}
+function auditFriendlyError(status) {
+  if (status === 413) return "Tệp quá lớn. Hãy chọn tệp nhỏ hơn 15 MB.";
+  if (status === 400 || status === 422) return "Không đọc được nội dung tệp. Hãy kiểm tra định dạng và thử lại.";
+  if (status === 401) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
+  if (status === 409) return "Dữ liệu đã thay đổi. Hãy kiểm tra rồi thử lại.";
+  if (status >= 500) return "Hệ thống đang gặp sự cố khi kiểm tra. Hãy kiểm tra dữ liệu đã lưu và thử lại sau.";
+  return "Không thể kiểm tra lúc này. Hãy thử lại.";
+}
+function auditErrorMessage(result, status, fallback) {
+  const raw = result?.message || result?.detail || fallback || "";
+  const text = typeof raw === "string" ? raw : "";
+  const internal = /(?:Traceback|SQLAlchemy|psycopg|\bHTTP\s*\d{3}|\bJSON\b|\bUvicorn\b|GEMINI_API_KEY|<html)/i;
+  const visible = !text || internal.test(text) ? auditFriendlyError(status) : text;
+  const reference = result?.error_id;
+  return reference && !visible.includes(reference) ? `${visible} Mã hỗ trợ: ${reference}.` : visible;
 }
 const esc = (value) =>
   String(value ?? "").replace(

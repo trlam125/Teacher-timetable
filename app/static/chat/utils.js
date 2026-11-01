@@ -4,10 +4,9 @@ export async function readJsonResponse(response) {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    const statusLabel = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""}`;
     if (!response.ok)
-      return { detail: `Máy chủ trả về lỗi ${statusLabel} nhưng phản hồi không phải JSON hợp lệ.` };
-    const invalid = new Error(`Phản hồi chat từ máy chủ không hợp lệ (${statusLabel}).`);
+      return { detail: "Không tải được thông tin trò chuyện. Hãy kiểm tra kết nối rồi thử lại." };
+    const invalid = new Error("Không đọc được thông tin trò chuyện. Hãy thử lại.");
     invalid.cause = error;
     throw invalid;
   }

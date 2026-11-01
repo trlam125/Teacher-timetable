@@ -148,9 +148,9 @@ function promptWeeklyCatalogReplace(changes, removedCount, conflicts = []) {
       <h2 id="weeklyCatalogTitle">TKB mới khác dữ liệu định mức đã lưu</h2>
       <p>Hệ thống đã kiểm tra trùng lịch của file mới. Danh sách lớp, môn hoặc giáo viên có thay đổi:</p>
       <div class="weekly-catalog-diff">${detail}</div>
-      ${conflicts.length ? `<p class="weekly-catalog-warning"><b>Định mức tên môn trùng nhưng khác số tiết (${conflicts.length}):</b> ${conflicts.slice(0, 10).map(esc).join("; ")}. Kiểm tra trước khi xác nhận.</p>` : ""}
+      ${conflicts.length ? `<p class="weekly-catalog-warning"><b>Cùng một môn đang có nhiều mức tiết khác nhau (${conflicts.length}):</b> ${conflicts.slice(0, 10).map(esc).join("; ")}. Kiểm tra trước khi xác nhận.</p>` : ""}
       <p><b>Nếu xác nhận thay thế:</b> giữ nguyên số tiết đã nhập của mục còn tồn tại, thêm mục mới với ngưỡng trống và xóa hoặc gộp ${removedCount} dòng định mức không còn phù hợp (bao gồm tên môn trùng).</p>
-      <p class="weekly-catalog-warning">Hãy kiểm tra TKB mới đã đủ lớp và đủ môn trước khi xóa. Thao tác chỉ cập nhật bảng ngưỡng đã lưu, không xóa dữ liệu quản lý của trường.</p>
+      <p class="weekly-catalog-warning">Hãy bảo đảm TKB mới đã có đủ các lớp và môn trước khi tiếp tục. Chỉ số tiết đã khai báo được cập nhật; danh sách chính của trường không bị xóa.</p>
       <div class="weekly-catalog-actions">
         <button type="button" class="btn ghost" data-decision="keep">Giữ ngưỡng cũ</button>
         <button type="button" class="btn" data-decision="replace">Xác nhận thay thế và xóa mục cũ</button>
@@ -180,21 +180,21 @@ async function weeklyStoreProfile(limits, catalog, revision) {
     body: JSON.stringify({limits, catalog, revision})
   });
   const result = await readAuditResponse(response);
-  if (!response.ok || !result.ok) throw new Error(result.message || "Không thể lưu ngưỡng.");
+  if (!response.ok || !result.ok) throw new Error(auditErrorMessage(result, response.status, "Không thể lưu số tiết. Hãy thử lại."));
   return result.profile;
 }
 async function restoreSavedWeeklyLimits(report, runId) {
   const response = await fetch("/api/schedule-audit/limits", {headers: operationHeaders()});
   const data = await readAuditResponse(response);
   if (runId !== scheduleAuditRunId || report !== scheduleAuditLastReport) return;
-  if (!response.ok || !data.ok) throw new Error(data.message || "Không đọc được ngưỡng đã lưu.");
+  if (!response.ok || !data.ok) throw new Error(auditErrorMessage(data, response.status, "Không lấy được số tiết đã lưu. Hãy thử lại."));
   const newCatalog = weeklyCatalogFromReport(report);
   const proposed = weeklyMakeLimitDraft(report);
   const profile = data.profile;
   scheduleAuditSavedProfile = profile;
   if (!profile) {
     scheduleAuditWorkloadLimits = weeklyNormalizeLimitDraft(proposed);
-    scheduleAuditLimitsNotice = "Chưa lưu bộ ngưỡng nào. Nhập ngưỡng rồi bấm Lưu ngưỡng để dùng lại.";
+    scheduleAuditLimitsNotice = "Bạn chưa lưu số tiết quy định. Hãy nhập số tiết và bấm Lưu để dùng lại ở các lần kiểm tra sau.";
     return;
   }
   const diff = weeklyCatalogChanges(profile.catalog, newCatalog);
@@ -206,7 +206,7 @@ async function restoreSavedWeeklyLimits(report, runId) {
     : "";
   if (!weeklyChangesExist(diff)) {
     scheduleAuditWorkloadLimits = weeklyMergeLimits(profile.limits, proposed, newCatalog, false);
-    scheduleAuditLimitsNotice = conflictWarning || "Đã tải số tiết đã lưu. Các cách viết tương đương được gộp; tên môn theo TKB mới.";
+    scheduleAuditLimitsNotice = conflictWarning || "Đã lấy số tiết bạn lưu trước đó. Những tên khác nhau của cùng một môn đã được nhận diện chung.";
     scheduleAuditLimitsDirty = !!conflicts.length;
     return;
   }
@@ -216,7 +216,7 @@ async function restoreSavedWeeklyLimits(report, runId) {
   if (runId !== scheduleAuditRunId || report !== scheduleAuditLastReport) return;
   if (!confirmed) {
     scheduleAuditWorkloadLimits = weeklyMergeLimits(profile.limits, proposed, newCatalog, false);
-    scheduleAuditLimitsNotice = conflictWarning || "Đã giữ bộ ngưỡng cũ. Không có môn, giáo viên hay ngưỡng nào bị xóa.";
+    scheduleAuditLimitsNotice = conflictWarning || "Đã giữ thông tin đã lưu. Không có môn, giáo viên hoặc số tiết nào bị xóa.";
     scheduleAuditLimitsDirty = !!conflicts.length;
     return;
   }
@@ -229,8 +229,8 @@ async function restoreSavedWeeklyLimits(report, runId) {
   } catch (error) {
     scheduleAuditWorkloadLimits = updated;
     scheduleAuditLimitsDirty = true;
-    scheduleAuditLimitsNotice = "Cập nhật chưa được lưu. Hãy bấm Lưu ngưỡng để thử lại.";
-    scheduleAuditWorkloadError = error.message || "Không thể lưu ngưỡng.";
+    scheduleAuditLimitsNotice = "Chưa lưu được thay đổi. Hãy bấm Lưu số tiết để thử lại.";
+    scheduleAuditWorkloadError = error.message || "Không thể lưu số tiết. Hãy thử lại.";
   }
 }
 async function saveScheduleAuditWorkloadLimits() {
@@ -244,9 +244,9 @@ async function saveScheduleAuditWorkloadLimits() {
     if (current !== scheduleAuditLastReport) return;
     scheduleAuditSavedProfile = saved;
     scheduleAuditLimitsDirty = editId !== scheduleAuditWorkloadCheckId;
-    scheduleAuditLimitsNotice = scheduleAuditLimitsDirty ? "Đã lưu phiên bản trước; bạn còn thay đổi chưa được lưu." : "Đã lưu ngưỡng thành công vào tài khoản. Có thể dùng lại khi import TKB khác.";
+    scheduleAuditLimitsNotice = scheduleAuditLimitsDirty ? "Đã lưu phiên bản trước; bạn còn thay đổi chưa được lưu." : "Đã lưu số tiết. Khi kiểm tra TKB khác, bạn có thể dùng lại những số tiết này.";
   } catch (error) {
-    scheduleAuditWorkloadError = error.message || "Lưu ngưỡng thất bại.";
+    scheduleAuditWorkloadError = error.message || "Không thể lưu số tiết. Hãy thử lại.";
   } finally {
     scheduleAuditSavedBusy = false;
     if (current === scheduleAuditLastReport) redrawScheduleAuditWorkload();
@@ -291,7 +291,7 @@ async function clearAllScheduleAuditWorkloadLimits() {
   } catch (error) {
     if (report !== scheduleAuditLastReport) return;
     scheduleAuditWorkloadError = error.message || 'Không xóa được dữ liệu đã lưu.';
-    scheduleAuditLimitsNotice = 'Xóa không thành công. Các định mức cũ vẫn được giữ nguyên.';
+    scheduleAuditLimitsNotice = 'Chưa xác nhận được việc xóa. Hãy tải lại trang để kiểm tra số tiết đã lưu trước khi thử lại.';
     scheduleAuditWorkloadOpen = true;
   } finally {
     scheduleAuditSavedBusy = false;

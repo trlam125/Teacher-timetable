@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.services.runtime import *
+from app.services.api_error_responses import unexpected_exception_handler
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -34,11 +35,12 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             status_code=exc.status_code,
         )
     if exc.status_code == 404:
-        return HTMLResponse("<h1>404 - Không tìm thấy trang</h1>", status_code=404)
+        return HTMLResponse("<h1>Không tìm thấy trang bạn cần mở.</h1>", status_code=404)
     return HTMLResponse(
-        f"<h1>{exc.status_code} - Lỗi hệ thống</h1>", status_code=exc.status_code
+        "<h1>Không thể mở trang này. Hãy thử lại hoặc liên hệ người quản lý.</h1>", status_code=exc.status_code
     )
 
 
 def register_exception_handlers(app):
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+    app.add_exception_handler(Exception, unexpected_exception_handler)

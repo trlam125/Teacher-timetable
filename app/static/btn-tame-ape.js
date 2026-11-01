@@ -15,7 +15,8 @@
     const isDanger = btn.classList.contains('btn-tame-ape-danger') ||
       btn.classList.contains('danger-btn') ||
       text.includes('Xóa tài khoản') ||
-      text.includes('Xóa log');
+      text.includes('Xóa log') ||
+      text.includes('Xóa lịch sử');
 
     btn.classList.add('btn-tame-ape');
     if (isDanger) {
@@ -49,7 +50,7 @@
     // 3. Delete account and Delete log buttons in users.html
     document.querySelectorAll('.danger-btn').forEach(btn => {
       const text = btn.textContent.trim();
-      if (text.includes('Xóa tài khoản') || text.includes('Xóa log')) {
+      if (text.includes('Xóa tài khoản') || text.includes('Xóa log') || text.includes('Xóa lịch sử')) {
         btn.classList.add('btn-tame-ape-danger');
         enhanceButton(btn);
       }

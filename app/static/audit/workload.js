@@ -508,7 +508,7 @@ function renderWeeklyLoadForm(report) {
     </details>`;
 }
 function renderScheduleAuditWorkload(workload, report) {
-  const form = `<div class="weekly-load-intro"><h2>Kiểm tra thừa/thiếu số tiết</h2><p>TKB đã được kiểm tra trùng lịch khi import. Phần thừa/thiếu chỉ chạy khi bạn nhập ngưỡng và nhấn kiểm tra.</p></div>${renderWeeklyLoadForm(report)}`;
+  const form = `<div class="weekly-load-intro"><h2>Kiểm tra thừa/thiếu số tiết</h2><p>TKB đã được kiểm tra trùng tiết khi tải lên. Để kiểm tra thừa/thiếu, hãy nhập số tiết quy định rồi bấm Kiểm tra.</p></div>${renderWeeklyLoadForm(report)}`;
   if (!workload) return `<div class="weekly-load-results">${form}<p class="weekly-load-notes">Chưa có kết quả đối chiếu theo số tiết bắt buộc.</p></div>`;
   const totalRules = (workload.summary?.class_rules || 0) + (workload.summary?.assignment_rules || 0);
   if (!totalRules) return `<div class="weekly-load-results">${form}<p class="weekly-load-notes">Chưa nhập số tiết nào. Hãy nhập ít nhất một ô rồi kiểm tra.</p></div>`;
@@ -519,13 +519,13 @@ function renderScheduleAuditWorkload(workload, report) {
   const teacherTable = teacherRows.map(row => {
     const details = (row.detail || []).filter(x => x.status !== "ok");
     const incompleteNote = row.status === "unverified" ? `<small>Chưa thể kết luận tổng tiết: còn phân công chưa nhập, lớp không có trong TKB hoặc ${weeklyLoadNumber(row.unconfigured_lessons || 0)} tiết chưa khai báo định mức.</small>` : "";
-    const detailTable = details.length ? `<div class="weekly-load-table-wrap"><table class="weekly-load-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Bắt buộc</th><th>Đã xếp</th><th>Kết quả</th></tr></thead><tbody>${details.map(x => `<tr><td>${esc(x.class_name)}</td><td>${esc(x.subject)}</td><td>${esc(weeklyLoadTarget(x))}</td><td>${weeklyLoadNumber(x.actual)}</td><td>${weeklyLoadStatus(x.status, x.difference)}</td></tr>`).join("")}</tbody></table></div>` : '<small>Không có phân công lớp/môn lệch ngưỡng.</small>';
+    const detailTable = details.length ? `<div class="weekly-load-table-wrap"><table class="weekly-load-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Bắt buộc</th><th>Đã xếp</th><th>Kết quả</th></tr></thead><tbody>${details.map(x => `<tr><td>${esc(x.class_name)}</td><td>${esc(x.subject)}</td><td>${esc(weeklyLoadTarget(x))}</td><td>${weeklyLoadNumber(x.actual)}</td><td>${weeklyLoadStatus(x.status, x.difference)}</td></tr>`).join("")}</tbody></table></div>` : '<small>Không có phân công nào thừa hoặc thiếu so với số tiết đã nhập.</small>';
     return `<tr data-weekly-teacher="${esc(row.name.toLocaleLowerCase("vi-VN"))}"><td><details class="weekly-load-teacher" ${details.length ? "open" : ""}><summary>${esc(row.name)}</summary><div class="weekly-load-detail">${incompleteNote}${detailTable}</div></details></td><td>${esc(weeklyLoadTarget(row))}</td><td>${weeklyLoadNumber(row.actual)}</td><td>${weeklyLoadStatus(row.status, row.difference)}</td></tr>`;
   }).join("");
   const notFound = (workload.unclassified_subjects || []).map(row => `<li>${esc(row.name)}: ${weeklyLoadNumber(row.lessons)} tiết</li>`).join("");
   return `<div class="weekly-load-results">${form}
     <div class="weekly-load-cards"><article><small>Lớp có trong TKB</small><b>${weeklyLoadNumber(summary.classes_checked || 0)}</b></article><article><small>Lớp/môn thừa hoặc thiếu</small><b>${weeklyLoadNumber(summary.class_subject_mismatches || 0)}</b></article><article><small>GV lệch số tiết</small><b>${weeklyLoadNumber(summary.teacher_mismatches || 0)}</b></article><article><small>Phân công GV/lớp/môn sai tiết</small><b>${weeklyLoadNumber(summary.assignment_mismatches || 0)}</b></article></div>
-    <section class="weekly-load-section"><h3>Theo lớp và môn học</h3><p><small>Chỉ hiện những mục chưa đủ số tiết hoặc cần xác minh.</small></p><div class="weekly-load-table-wrap"><table class="weekly-load-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Tiết bắt buộc</th><th>Đã xếp</th><th>Kết quả</th></tr></thead><tbody>${classTable || '<tr><td colspan="5">Không có chênh lệch trong những ngưỡng đã nhập.</td></tr>'}</tbody></table></div></section>
+    <section class="weekly-load-section"><h3>Theo lớp và môn học</h3><p><small>Chỉ hiện những mục chưa đủ số tiết hoặc cần xác minh.</small></p><div class="weekly-load-table-wrap"><table class="weekly-load-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Tiết bắt buộc</th><th>Đã xếp</th><th>Kết quả</th></tr></thead><tbody>${classTable || '<tr><td colspan="5">Các môn đã khai báo đều đủ số tiết theo quy định.</td></tr>'}</tbody></table></div></section>
     <section class="weekly-load-section"><div class="weekly-load-section-title"><h3>Theo giáo viên và lớp phụ trách</h3><input type="search" placeholder="Tìm giáo viên…" aria-label="Tìm giáo viên" oninput="filterScheduleAuditWorkload(this.value)"></div><div class="weekly-load-table-wrap"><table class="weekly-load-table"><thead><tr><th>Giáo viên / Phân công lớp</th><th>Tổng từ phân công</th><th>Đã xếp</th><th>Đối chiếu</th></tr></thead><tbody>${teacherTable || '<tr><td colspan="4">Chưa nhập tiết giáo viên dạy theo lớp/môn.</td></tr>'}</tbody></table></div></section>
     ${notFound ? `<details class="weekly-load-disclosure"><summary>Môn chưa nhận diện chính xác trong TKB</summary><ul>${notFound}</ul></details>` : ""}
     <div class="weekly-load-notes">${(workload.notes || []).map(note => `<p>• ${esc(note)}</p>`).join("")}</div>
@@ -574,7 +574,7 @@ async function runScheduleAuditWorkloadCheck() {
     const response = await fetch("/api/schedule-audit/workload", {method: "POST", headers: operationHeaders(), body: form});
     const data = await readAuditResponse(response);
     if (id !== scheduleAuditWorkloadCheckId || scheduleAuditLastReport !== report) return;
-    if (!response.ok || !data.ok) throw new Error(data.message || "Không thể kiểm tra ngưỡng tiết.");
+    if (!response.ok || !data.ok) throw new Error(auditErrorMessage(data, response.status, "Không thể kiểm tra số tiết. Hãy thử lại."));
     report.workload = data.workload;
     scheduleAuditWorkloadOpen = false;
     renderScheduleAudit(report, scheduleAuditAiAnalysis);

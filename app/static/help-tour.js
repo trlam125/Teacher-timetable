@@ -136,7 +136,7 @@
         { target: '#assignmentCoverage', title: 'Độ phủ phân công', text: 'Khu vực này cho biết các phân công đã được xếp đủ hay còn thiếu tiết.' },
         { target: '.manual-tray-panel', title: 'Kho tiết chưa xếp', text: 'Các tiết chưa có vị trí hoặc được thu hồi sẽ nằm trong khay. Chọn một thẻ rồi bấm ô đích để xếp thủ công.' },
         { target: '#scheduleGrid', title: 'Lưới thời khóa biểu', text: 'Bấm tiết trên lịch để chọn, sau đó bấm ô hợp lệ để chuyển. Hệ thống sẽ kiểm tra các điều kiện trước khi lưu.' },
-        { target: '#schedule [data-schedule-action]', title: 'Xếp tự động', text: 'Bấm nút này để chạy solver và tạo lại lịch từ dữ liệu phân công cùng các ràng buộc hiện tại.' }
+        { target: '#schedule [data-schedule-action]', title: 'Xếp tự động', text: 'Bấm nút này để hệ thống xếp thời khóa biểu theo phân công và các điều kiện bạn đã chọn.' }
       ]
     }
   };

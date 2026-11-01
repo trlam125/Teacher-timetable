@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="/static/style.css?v=2">
     <link rel="stylesheet" href="/static/brand-motion.css?v=1">
     <script src="/static/brand-motion.js?v=1" defer></script>
-    <script src="/static/operation-status.js?v=1" defer></script>
+    <script src="/static/operation-status.js?v=2" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="preload" href="/static/x.gif?v=1" as="image">
     <link rel="preload" href="/static/tick.gif?v=1" as="image">
@@ -54,7 +54,7 @@
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <script src="/static/auth-buttons.js?v=1" defer></script>
-    <script src="/static/btn-tame-ape.js?v=1" defer></script>
+    <script src="/static/btn-tame-ape.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
     <script src="/static/weather-widget.js?v=1" defer></script>
@@ -315,21 +315,19 @@
         <section id="chatbot-logs" class="panel" style="margin-top:28px">
             <div class="section-head" style="margin-bottom:16px">
                 <div>
-                    <h2 style="margin:0 0 6px">Log lỗi chatbot</h2>
+                    <h2 style="margin:0 0 6px">Lịch sử sự cố trợ lý AI</h2>
                     <p>
-                        Lưu lỗi kỹ thuật từ Gemini để super admin kiểm tra. Không lưu nội dung câu hỏi hoặc tệp người
-                        dùng; hệ thống
-                        chỉ giữ tối đa 500 log mới nhất.
-                        {% if chatbot_error_log_count %}Đang có {{ chatbot_error_log_count }} log; bảng hiển thị tối đa
-                        100 log mới
+                        Ghi nhận các sự cố khi dùng trợ lý AI để người quản lý kiểm tra. Không lưu nội dung câu hỏi hoặc tệp người dùng; hệ thống chỉ giữ tối đa 500 lần gần nhất.
+                        {% if chatbot_error_log_count %}Đang có {{ chatbot_error_log_count }} lần gặp sự cố; bảng hiển thị tối đa
+                        100 lần gần
                         nhất.{% endif %}
                     </p>
                 </div>
                 {% if chatbot_error_logs %}
                 <form method="post" action="/admin/chatbot-logs/clear"
-                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ log lỗi chatbot?', {title: 'Xóa log chatbot', confirmText: 'Xóa log'}).then(ok => { if (ok) this.submit(); });">
+                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ lịch sử sự cố trợ lý AI?', {title: 'Xóa lịch sử sự cố', confirmText: 'Xóa lịch sử'}).then(ok => { if (ok) this.submit(); });">
                     <button class="btn btn-tame-ape btn-tame-ape-danger" type="submit"><span class="btn__text">Xóa
-                            log</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                            lịch sử</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                 height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round" class="svg">
                                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -348,10 +346,10 @@
                     <thead>
                         <tr>
                             <th>Giờ Việt Nam (UTC+7)</th>
-                            <th>Project</th>
+                            <th>Thời khóa biểu</th>
                             <th>Tài khoản</th>
                             <th>Loại lỗi</th>
-                            <th>Chi tiết kỹ thuật</th>
+                            <th>Thông tin sự cố</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -369,7 +367,7 @@
                             <td style="white-space:nowrap">
                                 <span class="pill">{{ log.error_code }}</span>
                                 {% if log.provider_status %}
-                                <div class="muted" style="margin-top:6px">HTTP {{ log.provider_status }}</div>
+                                <div class="muted" style="margin-top:6px">Mã phản hồi: {{ log.provider_status }}</div>
                                 {% endif %}
                             </td>
                             <td style="min-width:320px; max-width:520px; white-space:normal; word-break:break-word">
@@ -381,7 +379,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="muted" style="margin:0">Chưa có lỗi chatbot nào được ghi nhận.</p>
+            <p class="muted" style="margin:0">Chưa ghi nhận sự cố nào của trợ lý AI.</p>
             {% endif %}
         </section>
         {% endif %}

@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="/static/brand-motion.css?v=1">
     <script src="/static/brand-motion.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/schedule-audit.css?v=7">
-    <script src="/static/operation-status.js?v=1" defer></script>
+    <script src="/static/operation-status.js?v=2" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="preload" href="/static/x.gif?v=1" as="image">
     <link rel="preload" href="/static/tick.gif?v=1" as="image">
@@ -107,7 +107,7 @@
                                 onclick="runScheduleAudit()">Kiểm tra</button>
                             <button id="scheduleAuditAiButton" class="btn ghost schedule-audit-ai-button" type="button"
                                 data-enabled="{{ '1' if ai_enabled else '0' }}" onclick="runScheduleAuditAI()" {% if not
-                                ai_enabled %} disabled title="Chưa cấu hình GEMINI_API_KEY" {% endif %}>✦ Phân tích bằng
+                                ai_enabled %} disabled title="Chức năng này hiện chưa sẵn sàng" {% endif %}>✦ Phân tích bằng
                                 AI
                             </button>
                         </div>
@@ -122,15 +122,15 @@
         </section>
     </main>
     <script src="/static/subject-catalog.js?v=1"></script>
-    <script src="/static/schedule-audit.js?v=2"></script>
+    <script src="/static/schedule-audit.js?v=3"></script>
     <script src="/static/audit/viewport.js?v=2"></script>
-    <script src="/static/audit/upload.js?v=4"></script>
+    <script src="/static/audit/upload.js?v=5"></script>
     <script src="/static/audit/data.js?v=2"></script>
     <script src="/static/audit/editing.js?v=5"></script>
-    <script src="/static/audit/workload.js?v=7"></script>
-    <script src="/static/audit/saved-limits.js?v=4"></script>
+    <script src="/static/audit/workload.js?v=8"></script>
+    <script src="/static/audit/saved-limits.js?v=5"></script>
     <script src="/static/audit/rendering.js?v=4"></script>
-    <script src="/static/audit/requests.js?v=4"></script>
+    <script src="/static/audit/requests.js?v=5"></script>
     <script src="/static/audit/events.js?v=2"></script>
     {% include "_realtime_chat_popup.html" %}
     {% if chatbot_project_id %}

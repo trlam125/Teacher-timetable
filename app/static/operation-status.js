@@ -289,7 +289,7 @@
         clearConnectionAlert();
       } catch (error) {
         if (token !== state.connectionAlertToken) return;
-        notify("Mất kết nối tới máy chủ. Vui lòng thử lại.", "error");
+        notify("Kết nối đang gián đoạn. Hãy kiểm tra mạng rồi thử lại.", "error");
       }
     }, 15000);
   }

@@ -32,11 +32,7 @@ async function runScheduleAudit() {
     if (runId !== scheduleAuditRunId) return;
     if (!response.ok || !result.ok) {
       scheduleAuditLastReport = null;
-      renderScheduleAuditError(
-        result.message ||
-        result.detail ||
-        `Máy chủ trả về lỗi ${response.status}.`,
-      );
+      renderScheduleAuditError(auditErrorMessage(result, response.status));
       return;
     }
     scheduleAuditManualEdits = 0;
@@ -59,7 +55,7 @@ async function runScheduleAudit() {
     if (runId === scheduleAuditRunId) {
       scheduleAuditLastReport = null;
       renderScheduleAuditError(
-        error?.message || "Không thể kết nối tới máy chủ để kiểm tra file.",
+        "Không thể kết nối để kiểm tra thời khóa biểu. Hãy kiểm tra mạng và thử lại.",
       );
     }
   } finally {
@@ -83,7 +79,7 @@ async function runScheduleAuditAI() {
   }
   if (!scheduleAuditAiIsEnabled()) {
     renderScheduleAuditAiError(
-      "Máy chủ chưa cấu hình GEMINI_API_KEY cho chức năng AI.",
+      "Chức năng phân tích bằng AI hiện chưa sẵn sàng. Vui lòng liên hệ người quản lý.",
     );
     return;
   }
@@ -109,7 +105,7 @@ async function runScheduleAuditAI() {
     if (runId !== scheduleAuditAiRunId) return;
     if (!response.ok || !result.ok) {
       renderScheduleAuditAiError(
-        result.message || result.detail || `AI trả về lỗi ${response.status}.`,
+        auditErrorMessage(result, response.status, "Chưa thể phân tích bằng AI. Hãy thử lại sau."),
       );
       return;
     }
@@ -128,8 +124,7 @@ async function runScheduleAuditAI() {
   } catch (error) {
     if (runId === scheduleAuditAiRunId)
       renderScheduleAuditAiError(
-        error?.message ||
-        "Không thể kết nối tới AI để phân tích thời khóa biểu.",
+        "Không thể kết nối tới chức năng phân tích AI. Hãy thử lại sau.",
       );
   } finally {
     if (runId === scheduleAuditAiRunId && button) {

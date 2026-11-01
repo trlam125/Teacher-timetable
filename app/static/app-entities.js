@@ -1135,7 +1135,7 @@ async function handleExportExcel(event, link) {
       if (!response.ok) {
         const result = await readApiResponse(response);
         throw new Error(
-          apiErrorMessage(result, `Không thể xuất Excel (HTTP ${response.status}).`),
+          apiErrorMessage(result, `Không thể xuất tệp Excel. Hãy thử lại sau.`),
         );
       }
       const contentType = (response.headers.get("Content-Type") || "")
@@ -1143,10 +1143,10 @@ async function handleExportExcel(event, link) {
         .trim()
         .toLowerCase();
       if (contentType !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
-        throw new Error("Máy chủ không trả về tệp Excel hợp lệ. Hãy tải lại trang và thử lại.");
+        throw new Error("Không tạo được tệp Excel. Hãy tải lại trang và thử lại.");
       }
       const blob = await response.blob();
-      if (!blob.size) throw new Error("Máy chủ trả về tệp Excel rỗng.");
+      if (!blob.size) throw new Error("Tệp Excel chưa có nội dung. Hãy kiểm tra dữ liệu rồi xuất lại.");
 
       return { response, blob };
     })();

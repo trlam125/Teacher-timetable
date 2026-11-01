@@ -5,7 +5,7 @@ import {
   normalizeMessage,
   readJsonResponse,
   shortPreview,
-} from "./utils.js";
+} from "./utils.js?v=2";
 
 (() => {
   const fab = document.getElementById("generalChatFab");
@@ -155,7 +155,7 @@ import {
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          data.message || data.detail || `Máy chủ chat trả về lỗi HTTP ${response.status}.`,
+          data.message || data.detail || `Không tải được nội dung trò chuyện. Hãy kiểm tra kết nối rồi thử lại.`,
         );
       }
       const schools = Array.isArray(data.schools) ? data.schools : [];
@@ -774,7 +774,7 @@ import {
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          data.message || data.detail || `Máy chủ chat trả về lỗi HTTP ${response.status}.`,
+          data.message || data.detail || `Không tải được nội dung trò chuyện. Hãy kiểm tra kết nối rồi thử lại.`,
         );
       }
       if (requestedSchoolId !== Number(activeSchoolId)) return;

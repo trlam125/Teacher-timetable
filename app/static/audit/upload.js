@@ -2,10 +2,10 @@
 function scheduleAuditFileValidationError(file) {
   if (!file) return "Hãy chọn file thời khóa biểu trước khi kiểm tra.";
   if (file.size > SCHEDULE_AUDIT_MAX_BYTES)
-    return "File vượt quá giới hạn 15 MB.";
+    return "Tệp quá lớn (tối đa 15 MB). Hãy chọn tệp nhỏ hơn.";
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (!SCHEDULE_AUDIT_ALLOWED_EXTENSIONS.includes(ext))
-    return "Định dạng chưa hỗ trợ. Dùng .xlsx, .xlsm, .xls, .docx, .csv hoặc .tsv.";
+    return "Định dạng tệp chưa được hỗ trợ. Hãy chọn tệp Excel, Word hoặc CSV (.xlsx, .xlsm, .xls, .docx, .csv, .tsv).";
   return "";
 }
 function setScheduleAuditFile(file) {

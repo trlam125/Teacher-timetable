@@ -67,7 +67,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     modal.showModal();
     setProgress(
       "running",
-      "Đang kiểm tra ràng buộc và chạy solver. Thời gian xử lý phụ thuộc độ phức tạp của lịch...",
+      "Đang kiểm tra các điều kiện và xếp thời khóa biểu. Lịch có nhiều lớp và giáo viên có thể cần thêm thời gian...",
     );
   }
 
