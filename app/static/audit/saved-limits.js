@@ -10,7 +10,7 @@ let weeklyCatalogPromptCancel = null;
 function weeklyCatalogFromReport(report) {
   const records = {classes: new Map(), subjects: new Map(), teachers: new Map()};
   const insert = (kind, raw) => {
-    const label = String(raw || "").trim();
+    const label = kind === "subjects" ? weeklyCanonicalSubject(raw) : String(raw || "").trim();
     if (!label) return;
     if (kind === "teachers" && scheduleAuditIsUnknownTeacher(label)) return;
     if (kind === "subjects" && scheduleAuditIsUnknownSubject(label)) return;
@@ -20,9 +20,9 @@ function weeklyCatalogFromReport(report) {
   for (const cls of report?.viewer?.classes || []) insert("classes", cls.name);
   for (const cell of report?.viewer?.cells || []) {
     insert("classes", cell.class_name);
-    insert("subjects", cell.subject_name);
     insert("teachers", cell.teacher_name);
   }
+  records.subjects = weeklyImportedSubjectNames(report);
   return Object.fromEntries(Object.entries(records).map(([type, map]) => [type,
     [...map.values()].sort((a,b) => a.localeCompare(b,"vi",{numeric:true}))]));
 }
@@ -49,40 +49,37 @@ function weeklyRowKey(type, row) {
   if (type === "class_subject") return `${String(row.grade || "").trim()}|${weeklySubjectCode(row.subject)}`;
   return `${key(row.teacher)}|${key(row.class_name)}|${weeklySubjectCode(row.subject)}`;
 }
-// Older imports expanded TKB labels (e.g. NT (Nhạc) -> Âm nhạc).
-// On an explicitly confirmed catalog replacement, migrate an exact saved
-// quota only when there is one old and one new subject in the same known
-// school-sheet category. Never merge KHTN with KHTN(S), LSĐL with LSĐL(Đ),
-// or two distinct labels that coexist in the same timetable.
-function weeklySafeSubjectRenames(previousLabels, nextLabels) {
-  const byRank = labels => {
-    const grouped = new Map();
-    for (const name of labels || []) {
-      const rank = weeklySubjectSortRank(name);
-      if (rank >= 16) continue;
-      if (!grouped.has(rank)) grouped.set(rank, new Map());
-      grouped.get(rank).set(weeklySubjectCode(name), name);
+// Detect incompatible quotas in old drafts that used multiple names for one
+// subject. Such values must be reviewed before a canonicalized draft is saved.
+function weeklySavedAliasConflicts(saved) {
+  const conflicts = [];
+  for (const type of WEEKLY_LIMIT_TYPES) {
+    const groups = new Map();
+    for (const row of saved?.[type] || []) {
+      if (!weeklyHasPeriods(row.periods)) continue;
+      const key = weeklyRowKey(type, row);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
     }
-    return grouped;
-  };
-  const previous = byRank(previousLabels), next = byRank(nextLabels);
-  const map = new Map();
-  for (const [rank, oldItems] of previous) {
-    const newItems = next.get(rank);
-    if (oldItems.size !== 1 || newItems?.size !== 1) continue;
-    const [oldKey] = oldItems.keys();
-    const [newKey, newName] = newItems.entries().next().value;
-    if (oldKey !== newKey) map.set(oldKey, newName);
+    for (const rows of groups.values()) {
+      if (new Set(rows.map(row => Number(row.periods))).size > 1) {
+        const first = rows[0];
+        const place = type === "class_subject" ? `khối ${first.grade}` : `${first.teacher} - ${first.class_name}`;
+        conflicts.push(`${place}, ${rows.map(row => `${row.subject}: ${row.periods} tiết`).join(" / ")}`);
+      }
+    }
   }
-  return map;
+  return conflicts;
+}
+function weeklyRawSubjectLabel(value) {
+  return String(value || "").normalize("NFC").trim().toLocaleLowerCase("vi-VN")
+    .replace(/\s+/g, " ").replace(/\s*\(\s*/g, "(").replace(/\s*\)\s*/g, ")");
 }
 function weeklyMergeLimits(saved, generated, catalog, removeMissing, previousCatalog = null) {
   const kept = {}, subjects = new Set(catalog.subjects.map(weeklySubjectCode)),
     teachers = new Set(catalog.teachers.map(scheduleAuditEntityKey)),
     classes = new Set(catalog.classes.map(scheduleAuditEntityKey)),
     grades = new Set(catalog.classes.map(x => (String(x).match(/^(1[0-2]|[1-9])[a-z]/i) || [])[1]).filter(Boolean));
-  const renamed = removeMissing && previousCatalog
-    ? weeklySafeSubjectRenames(previousCatalog.subjects, catalog.subjects) : new Map();
   const currentSubjectLabels = new Map((catalog.subjects || [])
     .map(name => [weeklySubjectCode(name), name]));
   const valid = (type, row) => !removeMissing || (
@@ -91,33 +88,45 @@ function weeklyMergeLimits(saved, generated, catalog, removeMissing, previousCat
     subjects.has(weeklySubjectCode(row.subject)) && classes.has(scheduleAuditEntityKey(row.class_name)));
   for (const type of WEEKLY_LIMIT_TYPES) {
     const rows = new Map();
-    // Exact retained labels win; only then apply safe one-to-one renames.
     for (const source of saved?.[type] || []) {
-      const currentLabel = currentSubjectLabels.get(weeklySubjectCode(source.subject));
-      const row = {...source, subject:currentLabel || source.subject,
+      const targetLabel = currentSubjectLabels.get(weeklySubjectCode(source.subject));
+      const row = {...source, subject:weeklyCanonicalSubject(targetLabel || source.subject),
                    periods:source.periods ?? ""};
-      if (valid(type, row)) rows.set(weeklyRowKey(type, row), row);
-    }
-    for (const source of saved?.[type] || []) {
-      const nextLabel = renamed.get(weeklySubjectCode(source.subject));
-      if (!nextLabel) continue;
-      const row = {...source, subject:nextLabel, periods:source.periods ?? ""};
-      if (valid(type, row) && !rows.has(weeklyRowKey(type, row)))
-        rows.set(weeklyRowKey(type, row), row);
-    }
-    for (const row of generated?.[type] || []) {
+      if (!valid(type, row)) continue;
       const key = weeklyRowKey(type, row);
-      if (!rows.has(key)) rows.set(key, {...row, periods:row.periods ?? ""});
+      const existing = rows.get(key);
+      const sourceExact = weeklyRawSubjectLabel(source.subject) === weeklyRawSubjectLabel(targetLabel);
+      if (!existing) {
+        rows.set(key, {...row, _exact:sourceExact});
+      } else {
+        // An explicitly entered quota beats a blank one; among conflicting
+        // values prefer the official subject label from the school catalog.
+        const filled = weeklyHasPeriods(row.periods), oldFilled = weeklyHasPeriods(existing.periods);
+        if ((filled && !oldFilled) || (filled === oldFilled && sourceExact && !existing._exact))
+          rows.set(key, {...row, _exact:sourceExact});
+      }
     }
-    kept[type] = [...rows.values()];
+    for (const source of generated?.[type] || []) {
+      const key = weeklyRowKey(type, source);
+      if (!rows.has(key)) rows.set(key, {...source, subject:weeklyCanonicalSubject(source.subject), periods:source.periods ?? ""});
+    }
+    kept[type] = [...rows.values()].map(({_exact, ...row}) => row);
   }
   return kept;
 }
 function weeklyCountRemovedRows(saved, updated) {
   let amount = 0;
   for (const type of WEEKLY_LIMIT_TYPES) {
-    const next = new Set((updated?.[type] || []).map(row => weeklyRowKey(type, row)));
-    amount += (saved?.[type] || []).filter(row => !next.has(weeklyRowKey(type, row))).length;
+    const next = new Map();
+    for (const row of updated?.[type] || []) {
+      const key = weeklyRowKey(type, row);
+      next.set(key, (next.get(key) || 0) + 1);
+    }
+    for (const row of saved?.[type] || []) {
+      const key = weeklyRowKey(type, row), keep = next.get(key) || 0;
+      if (keep) next.set(key, keep - 1);
+      else amount++;
+    }
   }
   return amount;
 }
@@ -125,7 +134,7 @@ function weeklyChangeList(title, values) {
   if (!values.length) return "";
   return `<p><b>${esc(title)} (${values.length}):</b> ${values.slice(0, 18).map(esc).join(", ")}${values.length > 18 ? ` và ${values.length - 18} mục khác` : ""}</p>`;
 }
-function promptWeeklyCatalogReplace(changes, removedCount) {
+function promptWeeklyCatalogReplace(changes, removedCount, conflicts = []) {
   const titles = {classes: "Lớp", subjects: "Môn", teachers: "Giáo viên"};
   const detail = Object.entries(changes).map(([type, x]) =>
     weeklyChangeList(`${titles[type]} không còn trong TKB mới`, x.removed) +
@@ -139,7 +148,8 @@ function promptWeeklyCatalogReplace(changes, removedCount) {
       <h2 id="weeklyCatalogTitle">TKB mới khác dữ liệu định mức đã lưu</h2>
       <p>Hệ thống đã kiểm tra trùng lịch của file mới. Danh sách lớp, môn hoặc giáo viên có thay đổi:</p>
       <div class="weekly-catalog-diff">${detail}</div>
-      <p><b>Nếu xác nhận thay thế:</b> giữ nguyên số tiết đã nhập của mục còn tồn tại, thêm mục mới với ngưỡng trống và xóa ${removedCount} dòng trong bảng ngưỡng liên quan đến lớp/môn/giáo viên đã biến mất.</p>
+      ${conflicts.length ? `<p class="weekly-catalog-warning"><b>Định mức tên môn trùng nhưng khác số tiết (${conflicts.length}):</b> ${conflicts.slice(0, 10).map(esc).join("; ")}. Kiểm tra trước khi xác nhận.</p>` : ""}
+      <p><b>Nếu xác nhận thay thế:</b> giữ nguyên số tiết đã nhập của mục còn tồn tại, thêm mục mới với ngưỡng trống và xóa hoặc gộp ${removedCount} dòng định mức không còn phù hợp (bao gồm tên môn trùng).</p>
       <p class="weekly-catalog-warning">Hãy kiểm tra TKB mới đã đủ lớp và đủ môn trước khi xóa. Thao tác chỉ cập nhật bảng ngưỡng đã lưu, không xóa dữ liệu quản lý của trường.</p>
       <div class="weekly-catalog-actions">
         <button type="button" class="btn ghost" data-decision="keep">Giữ ngưỡng cũ</button>
@@ -188,25 +198,34 @@ async function restoreSavedWeeklyLimits(report, runId) {
     return;
   }
   const diff = weeklyCatalogChanges(profile.catalog, newCatalog);
+  const conflicts = weeklySavedAliasConflicts(profile.limits);
+  const conflictWarning = conflicts.length
+    ? `Cảnh báo: ${conflicts.length} định mức cũ của cùng một môn khác số tiết. ` +
+      `Hãy kiểm tra lại các dòng: ${conflicts.slice(0, 4).join("; ")}. ` +
+      `Hệ thống ưu tiên tên đang dùng trên TKB, chưa tự lưu thay đổi này.`
+    : "";
   if (!weeklyChangesExist(diff)) {
     scheduleAuditWorkloadLimits = weeklyMergeLimits(profile.limits, proposed, newCatalog, false);
-    scheduleAuditLimitsNotice = "Đã tải số tiết đã lưu. Tên môn và ký hiệu trong ngoặc được giữ riêng như trên TKB mới.";
+    scheduleAuditLimitsNotice = conflictWarning || "Đã tải số tiết đã lưu. Các cách viết tương đương được gộp; tên môn theo TKB mới.";
+    scheduleAuditLimitsDirty = !!conflicts.length;
     return;
   }
   const updated = weeklyMergeLimits(profile.limits, proposed, newCatalog, true, profile.catalog);
   const toRemove = weeklyCountRemovedRows(profile.limits, updated);
-  const confirmed = await promptWeeklyCatalogReplace(diff, toRemove);
+  const confirmed = await promptWeeklyCatalogReplace(diff, toRemove, conflicts);
   if (runId !== scheduleAuditRunId || report !== scheduleAuditLastReport) return;
   if (!confirmed) {
     scheduleAuditWorkloadLimits = weeklyMergeLimits(profile.limits, proposed, newCatalog, false);
-    scheduleAuditLimitsNotice = "Đã giữ bộ ngưỡng cũ. Không có môn, giáo viên hay ngưỡng nào bị xóa.";
+    scheduleAuditLimitsNotice = conflictWarning || "Đã giữ bộ ngưỡng cũ. Không có môn, giáo viên hay ngưỡng nào bị xóa.";
+    scheduleAuditLimitsDirty = !!conflicts.length;
     return;
   }
   try {
     scheduleAuditSavedProfile = await weeklyStoreProfile(updated, newCatalog, profile.revision);
     scheduleAuditWorkloadLimits = weeklyMergeLimits(scheduleAuditSavedProfile.limits, proposed, newCatalog, false);
     scheduleAuditLimitsDirty = false;
-    scheduleAuditLimitsNotice = `Đã cập nhật bộ ngưỡng theo TKB mới, xóa ${toRemove} dòng cũ; các mức còn phù hợp vẫn được giữ lại.`;
+    scheduleAuditLimitsNotice = (conflicts.length ? `Đã thay thế với ${conflicts.length} định mức cần kiểm tra lại. ` : "") +
+      `Đã cập nhật bộ ngưỡng theo TKB mới, xóa ${toRemove} dòng cũ; các mức còn phù hợp vẫn được giữ lại.`;
   } catch (error) {
     scheduleAuditWorkloadLimits = updated;
     scheduleAuditLimitsDirty = true;

@@ -30,12 +30,7 @@ def _text(value: Any, label: str) -> str:
     return value.strip()
 
 
-def _subject_key(value: Any) -> str:
-    """Preserve subject components: KHTN and KHTN(S) are independent."""
-    label = unicodedata.normalize('NFC', str(value or '')).strip().casefold()
-    label = re.sub(r'\s+', ' ', label)
-    label = re.sub(r'\s*\(\s*', '(', label)
-    return re.sub(r'\s*\)\s*', ')', label)
+from app.subject_catalog import subject_key as _subject_key, canonical_subject_name
 
 
 def _periods(value: Any) -> float | None:
@@ -74,11 +69,11 @@ def validate_limits(limits: Any) -> dict[str, list[dict[str, Any]]]:
                 grade = str(item.get('grade', '')).strip()
                 if not grade.isdigit() or not 1 <= int(grade) <= 12:
                     raise ValueError('Khối học phải từ 1 đến 12.')
-                row.update(grade=str(int(grade)), subject=_text(item.get('subject'), 'Tên môn'))
+                row.update(grade=str(int(grade)), subject=canonical_subject_name(_text(item.get('subject'), 'Tên môn')))
                 key = (row['grade'], _subject_key(row['subject']))
             else:
                 row.update(teacher=_text(item.get('teacher'), 'Tên giáo viên'),
-                           subject=_text(item.get('subject'), 'Tên môn'))
+                           subject=canonical_subject_name(_text(item.get('subject'), 'Tên môn')))
                 row['class_name'] = _class_name(item.get('class_name'))
                 if not row['class_name']:
                     raise ValueError('Lớp phải có dạng 6A1, 7A2, 9C1...')

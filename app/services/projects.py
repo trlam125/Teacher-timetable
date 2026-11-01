@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_sort_key
 
 from app.services.foundation import *
 from app.services.web import *
@@ -300,11 +301,11 @@ def project_data(db: Session, p: Project):
         "subjects": [
             {
                 "id": x.id,
-                "name": x.name,
-                "short_name": x.short_name,
+                "name": canonical_subject_name(x.name),
+                "short_name": canonical_subject_short_name(x.short_name, x.name),
                 "max_consecutive": x.max_consecutive,
             }
-            for x in subs
+            for x in sorted(subs, key=lambda item: subject_sort_key(item.name))
         ],
         "teachers": [
             {
@@ -349,10 +350,10 @@ def project_data(db: Session, p: Project):
                 "periods_per_week": x.periods_per_week,
                 "block_mode": x.block_mode,
                 "class_name": cm.get(x.class_id).name if cm.get(x.class_id) else "?",
-                "subject_name": sm.get(x.subject_id).name
+                "subject_name": canonical_subject_name(sm.get(x.subject_id).name)
                 if sm.get(x.subject_id)
                 else "?",
-                "subject_short": sm.get(x.subject_id).short_name
+                "subject_short": canonical_subject_short_name(sm.get(x.subject_id).short_name, sm.get(x.subject_id).name)
                 if sm.get(x.subject_id)
                 else "?",
                 "teacher_name": tm.get(x.teacher_id).name
@@ -438,8 +439,8 @@ def public_project_data(db: Session, p: Project):
             for item in teachers.values()
         ],
         "subjects": [
-            {"id": item.id, "name": item.name, "short_name": item.short_name}
-            for item in subjects.values()
+            {"id": item.id, "name": canonical_subject_name(item.name), "short_name": canonical_subject_short_name(item.short_name, item.name)}
+            for item in sorted(subjects.values(), key=lambda entry: subject_sort_key(entry.name))
         ],
         "assignments": [
             {
@@ -452,10 +453,10 @@ def public_project_data(db: Session, p: Project):
                 "class_name": classes[item.class_id].name
                 if item.class_id in classes
                 else "?",
-                "subject_name": subjects[item.subject_id].name
+                "subject_name": canonical_subject_name(subjects[item.subject_id].name)
                 if item.subject_id in subjects
                 else "?",
-                "subject_short": subjects[item.subject_id].short_name
+                "subject_short": canonical_subject_short_name(subjects[item.subject_id].short_name, subjects[item.subject_id].name)
                 if item.subject_id in subjects
                 else "?",
                 "teacher_name": teachers[item.teacher_id].name

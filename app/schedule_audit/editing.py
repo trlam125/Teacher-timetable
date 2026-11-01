@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.subject_catalog import canonical_subject_name
 
 from collections import defaultdict
 from typing import Any
@@ -83,7 +84,7 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
             raise ValueError("cell outside schedule")
         seen_draft_ids.add(draft_id)
         class_name = class_by_id[class_id]["name"]
-        subject_name = _cell_text(item.get("subject_name"))[:200]
+        subject_name = canonical_subject_name(_cell_text(item.get("subject_name"))[:200])
         teacher_name = _cell_text(item.get("teacher_name"))[:200]
         if not subject_name:
             subject_name = f"Môn chưa xác định - {class_name}"
@@ -530,7 +531,7 @@ def apply_standalone_viewer_edits(
         edited = edited_by_draft.get(draft_id)
         if edited is None:
             raise ValueError("edited timetable does not match source file")
-        subject_name = _cell_text(edited.get("subject_name"))[:200]
+        subject_name = canonical_subject_name(_cell_text(edited.get("subject_name"))[:200])
         teacher_name = _cell_text(edited.get("teacher_name"))[:200]
         if not subject_name or not teacher_name:
             raise ValueError("empty edited entity")

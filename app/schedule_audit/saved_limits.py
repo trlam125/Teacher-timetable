@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from math import isfinite
 from typing import Any
-from .custom_limits import SECTIONS, validate_limits
+from .custom_limits import SECTIONS, validate_limits, _subject_key, _key, _class_name
+from app.subject_catalog import canonical_subject_name
 
 
 FIELDS = {
@@ -33,7 +34,7 @@ def clean_limit_draft(source: Any) -> dict[str, list[dict[str, Any]]]:
                 value = str(value).strip()
                 if len(value) > 120:
                     raise ValueError('Tên môn, giáo viên hoặc lớp quá dài.')
-                row[name] = value
+                row[name] = canonical_subject_name(value) if name == "subject" else value
             raw = item.get('periods', '')
             if raw is None or raw == '':
                 row['periods'] = ''
@@ -70,7 +71,22 @@ def migrate_saved_draft(source: Any) -> dict[str, list[dict[str, Any]]]:
                 lower, upper = original.get('min'), original.get('max')
                 row['periods'] = lower if lower is not None and lower != '' and str(lower) == str(upper) else ''
             converted[section].append(row)
-    return clean_limit_draft(converted)
+    # Keep ambiguous alias rows in the returned legacy profile. The browser
+    # resolves them with a visible warning before any next explicit save.
+    try:
+        return clean_limit_draft(converted)
+    except ValueError as exc:
+        if 'trùng nhau' not in str(exc):
+            raise
+        result = {section: [] for section in SECTIONS}
+        for section in SECTIONS:
+            for row in converted[section]:
+                cleaned = clean_limit_draft({section: [row]})[section]
+                if cleaned:
+                    result[section].extend(cleaned)
+                else:
+                    result[section].append({**row, 'periods': ''})
+        return result
 
 
 def clean_import_catalog(source: Any) -> dict[str, list[str]]:
@@ -87,8 +103,9 @@ def clean_import_catalog(source: Any) -> dict[str, list[str]]:
             if not isinstance(value, str) or not 0 < len(value.strip()) <= 120:
                 raise ValueError('Một tên lớp, môn hoặc giáo viên không hợp lệ.')
             name = value.strip()
-            if name.casefold() not in seen:
-                seen.add(name.casefold())
-                names.append(name)
+            normalized = _subject_key(name) if key == 'subjects' else name.casefold()
+            if normalized not in seen:
+                seen.add(normalized)
+                names.append(canonical_subject_name(name) if key == "subjects" else name)
         clean[key] = names
     return clean

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_key
 
 from app.models import (
     Assignment,
@@ -28,8 +29,11 @@ def update_subject_fields(db: Session, project: Project, obj, d: dict, name: str
     displaced_lesson_ids: list[int] = []
     removed_extra_assignments = 0
     missing_grade_assignments: list[str] = []
+    name = canonical_subject_name(name)
+    if any(subject_key(existing.name) == subject_key(name) for existing in db.scalars(select(Subject).where(Subject.project_id == pid, Subject.id != obj.id)).all()):
+        raise HTTPException(409, f"Môn {name} đã tồn tại dưới tên khác. Hãy xử lý môn trùng trước khi đổi.")
     ensure_unique_project_name(db, Subject, pid, name, "Môn học", exclude_id=obj.id)
-    short_name = bounded_text(d.get("short_name", ""), "Tên rút gọn", 20)
+    short_name = canonical_subject_short_name(bounded_text(d.get("short_name", ""), "Tên rút gọn", 20), name)
     new_max_consecutive = bounded_int(
         d.get("max_consecutive"),
         min(obj.max_consecutive, project.periods_per_session),

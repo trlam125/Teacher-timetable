@@ -12,46 +12,27 @@ let scheduleAuditTeacherNotice = "";
 
 const WEEKLY_LIMIT_TYPES = ["class_subject", "assignments"];
 
-// The import collision table is the single source of subject labels.
-// Parentheses are meaningful: "KHTN" and "KHTN(S)" are different subjects.
+// The shared school catalog defines official subject labels and their order.
+// A generic integrated subject remains distinct from each component.
 const WEEKLY_MATRIX_GRADES = ["6", "7", "8", "9"];
-function weeklySubjectCode(value) {
-  return String(value ?? "").normalize("NFC").trim().replace(/\s+/g, " ")
-    .toLocaleLowerCase("vi-VN").replace(/\s*\(\s*/g, "(").replace(/\s*\)\s*/g, ")");
+function weeklySubjectCode(value) { return schoolSubjectCatalog.key(value); }
+function weeklyCanonicalSubject(value) {return schoolSubjectCatalog.canonical(value);}
+function weeklyImportedSubjectNames(report) {
+  const names = new Map();
+  for (const cell of report?.viewer?.cells || []) {
+    const label = String(cell.subject_name || "").trim();
+    if (!label || scheduleAuditIsUnknownSubject(label)) continue;
+    const code = weeklySubjectCode(label);
+    if (!names.has(code)) names.set(code, weeklyCanonicalSubject(label));
+  }
+  return names;
 }
-// Keep the subject order from the school's 16-row period sheet, regardless of
-// the order in which an imported timetable lists subjects. This is display-only:
-// subjects such as "KHTN" and "KHTN(S)" retain distinct labels and limits.
-function weeklySubjectSortRank(label) {
-  const key = weeklySubjectCode(label).normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d")
-    .replace(/[^a-z0-9]/g, "");
-  const ranks = [
-    ["nvan", "nguvan"],
-    ["toan"],
-    ["tanh", "tienganh", "anh", "ngoaingutanh"],
-    ["gdcd", "giaoduccongdan"],
-    ["lsdls", "lsdlsu", "lichsuvadialilichsu", "lichsuvadialysu"],
-    ["lsdld", "lsdldia", "lichsuvadialidia", "lichsuvadialydia"],
-    ["khtnl", "khtnli", "khtnly", "khoahoctunhienvatli", "khoahoctunhienvatly"],
-    ["khtnh", "khtnhoa", "khoahoctunhienhoa", "khoahoctunhienhoahoc"],
-    ["khtns", "khtnsinh", "khoahoctunhiensinh", "khoahoctunhiensinhhoc"],
-    ["congnghe", "cn"],
-    ["tinhoc", "tin"],
-    ["gdtc", "giaoducthechat"],
-    ["amnhac", "ntnhac", "nghethuatamnhac", "gdnthamnhac"],
-    ["mythuat", "mithuat", "ntmt", "ntmythuat", "ntmithuat", "nghethuatmithuat", "nghethuatmythuat"],
-    ["hdtnhn", "hdtnhuongnghiep", "hoatdongtrainghiemhuongnghiep"],
-    ["gddp", "giaoducdiaphuong"],
-  ];
-  const rank = ranks.findIndex(group => group.includes(key));
-  return rank < 0 ? ranks.length : rank;
-}
+function weeklySubjectSortRank(label) {return schoolSubjectCatalog.rank(label);}
 function weeklyMatrixSubjects() {
   const names = new Map();
   for (const row of scheduleAuditWorkloadLimits?.class_subject || []) {
     if (!/^(?:[1-9]|1[0-2])$/.test(String(row.grade))) continue;
-    const label = String(row.subject || "").trim(), key = weeklySubjectCode(label);
+    const label = weeklyCanonicalSubject(row.subject), key = weeklySubjectCode(label);
     if (key && !names.has(key)) names.set(key, label);
   }
   return [...names.entries()].sort((a,b) => weeklySubjectSortRank(a[1]) - weeklySubjectSortRank(b[1])
@@ -59,7 +40,7 @@ function weeklyMatrixSubjects() {
 }
 function weeklyNormalizeLimitDraft(limits) {
   return Object.fromEntries(WEEKLY_LIMIT_TYPES.map(type => [type,
-    (limits?.[type] || []).map(row => ({...row, periods:row.periods ?? ""}))]));
+    (limits?.[type] || []).map(row => ({...row, subject:weeklyCanonicalSubject(row.subject), periods:row.periods ?? ""}))]));
 }
 function weeklyLoadNumber(value) {
   return value === null || value === undefined ? "—" : Number(value).toLocaleString("vi-VN", {maximumFractionDigits: 2});
@@ -90,15 +71,9 @@ function resetScheduleAuditWorkloadLimits() {
 function weeklyMakeLimitDraft(report) {
   const viewer = report?.viewer || {}, cells = viewer.cells || [];
   const classSubjects = new Map(), assignments = new Map();
-  // Only show subjects actually present in the timetable's collision table.
-  // Never split or rename "KHTN", "KHTN(S)", "LSĐL", "LSĐL(Đ)".
-  const observed = new Map();
-  for (const cell of cells) {
-    const subject = String(cell.subject_name || "").trim();
-    const key = weeklySubjectCode(subject);
-    if (key && !scheduleAuditIsUnknownSubject(subject) && !observed.has(key))
-      observed.set(key, subject);
-  }
+  // The imported subjects are relabeled to the 16 canonical names;
+  // unsuffixed integrated subjects remain separate from their components.
+  const observed = weeklyImportedSubjectNames(report);
   for (const [code, label] of observed) {
     for (const grade of WEEKLY_MATRIX_GRADES)
       classSubjects.set(`${grade}|${code}`, {grade, subject:label, periods:""});
@@ -109,13 +84,14 @@ function weeklyMakeLimitDraft(report) {
     const subject = String(cell.subject_name || "").trim();
     const teacher = String(cell.teacher_name || "").trim();
     const code = weeklySubjectCode(subject);
+    const displaySubject = observed.get(code) || weeklyCanonicalSubject(subject);
     if (grade && subject && !WEEKLY_MATRIX_GRADES.includes(grade) &&
         !scheduleAuditIsUnknownSubject(subject))
-      classSubjects.set(`${grade}|${code}`, {grade,subject,periods:""});
+      classSubjects.set(`${grade}|${code}`, {grade,subject:displaySubject,periods:""});
     if (teacher && !scheduleAuditIsUnknownTeacher(teacher) && cls && subject &&
         !scheduleAuditIsUnknownSubject(subject))
       assignments.set(`${scheduleAuditEntityKey(teacher)}|${cls}|${code}`,
-        {teacher, class_name:cls, subject, periods:""});
+        {teacher, class_name:cls, subject:displaySubject, periods:""});
   }
   return {
     class_subject:[...classSubjects.values()],
@@ -172,7 +148,7 @@ function weeklyMatrixTeacherNames() {
 function weeklyAssignmentMatrixSubjects() {
   const subjects = new Map(weeklyMatrixSubjects());
   for (const row of scheduleAuditWorkloadLimits?.assignments || []) {
-    const name = String(row.subject || "").trim(), key = weeklySubjectCode(name);
+    const name = weeklyCanonicalSubject(row.subject), key = weeklySubjectCode(name);
     if (key && !subjects.has(key)) subjects.set(key,name);
   }
   return [...subjects.entries()].sort((a,b) => weeklySubjectSortRank(a[1]) - weeklySubjectSortRank(b[1])
@@ -469,7 +445,7 @@ function weeklyMatrixNote(message) {
 function weeklyMatrixAddSubject() {
   if (!scheduleAuditWorkloadLimits) return;
   const input = document.getElementById('weeklyNewSubject');
-  const name = String(input?.value || '').normalize('NFC').trim();
+  const name = weeklyCanonicalSubject(input?.value);
   if (!name) { weeklyMatrixNote('Hãy nhập tên môn cần thêm.'); input?.focus(); return; }
   if (weeklyMatrixSubjects().some(([code])=>code===weeklySubjectCode(name))) {
     weeklyMatrixNote('Môn này đã có trong bảng. Hãy nhập trực tiếp số tiết tại dòng của môn.');

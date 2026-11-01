@@ -369,21 +369,8 @@ let autoAssignmentView = "matrix";
 let autoAssignmentGrade = "";
 const autoAssignmentDrafts = new Map();
 const autoGradeDrafts = new Map();
-const AUTO_ASSIGNMENT_ORDER = [
-  ["nvan", "nguvan"], ["toan"], ["tanh", "tienganh", "anh"],
-  ["gdcd", "giaoduccongdan"], ["lsdls", "lsdlsu"], ["lsdld", "lsdldia"],
-  ["khtnl", "khtnli", "khtnly"], ["khtnh", "khtnhoa"],
-  ["khtns", "khtnsinh"], ["congnghe", "cn"], ["tinhoc", "tin"],
-  ["gdtc"], ["amnhac", "ntnhac"], ["mythuat", "mithuat", "ntmt"],
-  ["hdtnhn", "hdtnhuongnghiep"], ["gddp"]
-];
-function autoAssignmentSubjectRank(name) {
-  const code = String(name || "").normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d")
-    .toLowerCase().replace(/[^a-z0-9]/g, "");
-  const pos = AUTO_ASSIGNMENT_ORDER.findIndex(group => group.includes(code));
-  return pos < 0 ? AUTO_ASSIGNMENT_ORDER.length : pos;
-}
+function autoAssignmentSubjectRank(name) {return schoolSubjectCatalog.rank(name);}
+
 function setAutoAssignmentView(view) {
   autoAssignmentView = view === "list" ? "list" : "matrix";
   renderAssignmentTable();
@@ -461,7 +448,7 @@ function renderAutoAssignmentMatrix() {
   const classes = autoAssignmentClassNames().filter(c =>
     autoAssignmentGrade === "all" || String(c.grade_id) === String(autoAssignmentGrade));
   const search = String($("#autoAssignmentSubjectSearch")?.value || "").trim().toLocaleLowerCase("vi");
-  const subjects = [...(data.subjects || [])].filter(s =>
+  const subjects = [...(data.subjects || [])].map(s => ({...s, name:schoolSubjectCatalog.canonical(s.name)})).filter(s =>
     !search || String(s.name || "").toLocaleLowerCase("vi").includes(search))
     .sort((a,b) => autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
       || String(a.name).localeCompare(String(b.name), "vi", {numeric:true}));
@@ -573,7 +560,7 @@ function renderAutoGradeMatrix() {
   const box = $("#autoGradeProgramTable");
   if (!box) return;
   const grades = [...(data.grades || [])];
-  const subjects = [...(data.subjects || [])].sort((a,b) =>
+  const subjects = [...(data.subjects || [])].map(s => ({...s, name:schoolSubjectCatalog.canonical(s.name)})).sort((a,b) =>
     autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
       || a.name.localeCompare(b.name,"vi",{numeric:true}));
   if (!grades.length || !subjects.length) {

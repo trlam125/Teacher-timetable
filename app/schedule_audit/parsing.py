@@ -642,8 +642,8 @@ def _standalone_subject_prefix(value: str) -> tuple[str, str]:
     text = unicodedata.normalize("NFC", _cell_text(value))
     if not text:
         return "", ""
-    # Preserve the exact subject label shown in the collision table, including
-    # qualifiers such as KHTN(S), KHTN(H), LSĐL(Đ), and official long names.
+    # Preserve the parsed prefix until the analyzer canonicalizes the subject.
+    # Keep component qualifiers (S/H/L/Đ) intact during teacher parsing.
     official = re.match(
         r"^\s*(Khoa\s+học\s+tự\s+nhiên|Lịch\s+sử\s+và\s+Địa\s+l[íý]|Nghệ\s+thuật)\s*\(\s*([^)]{1,40})\s*\)\s*[-:]?\s*",
         text, flags=re.IGNORECASE,
@@ -659,9 +659,8 @@ def _standalone_subject_prefix(value: str) -> tuple[str, str]:
         label = text[component.start():component.end()].strip(" -–—|;/: ")
         return label, text[component.end():].strip(" -–—|;/: ")
 
-    # The timetable's displayed subject label is authoritative. Do not turn
-    # short labels (e.g. N.Văn, T.Anh, NT (Nhạc)) into canonical/full names,
-    # because doing so makes the collision table and quota form disagree.
+    # Separate the subject prefix from the teacher first; final canonical names
+    # are applied to imported lessons and quotas by the common subject catalog.
     # Try structured prefixes first to keep punctuation and parenthesized
     # components together while still separating the teacher's name.
     for pattern, _canonical in _STANDALONE_SUBJECT_PREFIX_PATTERNS:

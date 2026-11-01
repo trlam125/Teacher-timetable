@@ -5,6 +5,7 @@ from typing import Any
 from .parsing import *
 
 from .analysis_core import *
+from app.subject_catalog import canonical_subject_name
 
 
 def analyze_standalone_schedule_file(
@@ -77,6 +78,7 @@ def analyze_standalone_schedule_file(
                     entity=class_name,
                 )
             )
+        subject_name = canonical_subject_name(subject_name)
         if not teacher_name:
             teacher_name = f"GV chưa xác định - {class_name} - {subject_name}"
             if not _standalone_teacher_is_optional(subject_name):

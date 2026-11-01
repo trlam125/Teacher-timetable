@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_key
 from fastapi import APIRouter
 from app.services.runtime import *
 
@@ -21,7 +22,9 @@ def add_entity(
         ensure_unique_project_name(db, Department, pid, name, "Tổ chuyên môn")
         obj = Department(project_id=pid, name=name)
     elif payload.type == "subject":
-        name = required_text(d, "name", "Tên môn học", 120)
+        name = canonical_subject_name(required_text(d, "name", "Tên môn học", 120))
+        if any(subject_key(existing.name) == subject_key(name) for existing in db.scalars(select(Subject).where(Subject.project_id == pid)).all()):
+            raise HTTPException(409, f"Môn {name} đã tồn tại dưới tên tương đương. Hãy sửa bản ghi cũ thay vì tạo trùng.")
         ensure_unique_project_name(db, Subject, pid, name, "Môn học")
         max_consecutive = bounded_int(
             d.get("max_consecutive"),
@@ -30,7 +33,7 @@ def add_entity(
             project.periods_per_session,
             "Số tiết liên tiếp tối đa",
         )
-        short_name = (str(d.get("short_name") or "").strip() or name[:5])[:20]
+        short_name = canonical_subject_short_name(str(d.get("short_name") or "").strip() or name, name)[:20]
         obj = Subject(
             project_id=pid,
             name=name,
