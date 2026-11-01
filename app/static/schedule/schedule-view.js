@@ -240,7 +240,7 @@ function renderManualTray() {
     scheduledBox.innerHTML = scheduledHtml;
   }
   const hint =
-    '<div class="tray-action-hint">Bấm một tiết trên thời khóa biểu hoặc thẻ “đang có trên lịch”, sau đó bấm vào khay này để đưa về khay</div>';
+    '<div class="tray-action-hint" title="Bấm một tiết trên thời khóa biểu hoặc thẻ đang có trên lịch, sau đó bấm vào khay để thu hồi">Chọn tiết trên lịch, rồi bấm khay để thu hồi.</div>';
   const pendingHtml = pending.length
     ? pending
       .map(

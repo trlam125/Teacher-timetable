@@ -722,3 +722,54 @@
 .auto-grade-matrix tfoot td {position:sticky;bottom:0;background:var(--bg);z-index:2;}
 .auto-grade-save {font-size:12px;padding:6px 8px;white-space:nowrap;}
 .auto-grade-save.is-changed {border-color:#0d9488;color:#0d9488;}
+
+/* Compact matrix: keep number, details and delete on one line, even in light mode. */
+.auto-assignment-matrix .auto-assignment-subject {
+  min-width: 108px;
+  width: 108px;
+  max-width: 108px;
+}
+.auto-assignment-matrix .auto-assignment-teacher {
+  min-width: 82px;
+  width: 82px;
+  max-width: 82px;
+}
+.auto-assignment-matrix .auto-assignment-teacher select {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 3px 1px;
+  text-overflow: ellipsis;
+}
+.auto-assignment-matrix .auto-assignment-periods {
+  min-width: 142px;
+  width: 142px;
+  max-width: 142px;
+}
+.auto-assignment-matrix .auto-assignment-cell {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  gap: 3px;
+}
+.auto-assignment-matrix .auto-assignment-cell input {
+  flex: 0 0 35px;
+  width: 35px;
+  min-width: 35px;
+  padding: 2px 1px;
+}
+.auto-assignment-matrix .auto-assignment-save,
+.auto-assignment-matrix .auto-assignment-detail,
+.auto-assignment-matrix .auto-assignment-delete {
+  flex: 0 0 auto;
+  padding: 3px 2px;
+  font-size: 9px;
+}
+/* Editing shows Save first without growing the row on narrow screens. */
+.auto-assignment-matrix .auto-assignment-cell.is-dirty .auto-assignment-detail,
+.auto-assignment-matrix .auto-assignment-cell.is-dirty .auto-assignment-delete {
+  display: none;
+}
+@media (max-width: 600px) {
+  .auto-assignment-matrix .auto-assignment-subject {min-width: 98px; width: 98px; max-width: 98px;}
+  .auto-assignment-matrix .auto-assignment-teacher {min-width: 82px; width: 82px; max-width: 82px;}
+}

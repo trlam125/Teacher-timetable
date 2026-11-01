@@ -90,7 +90,9 @@ function syncGlobalLocksDraftDirty() {
   return globalLocksDraftDirty;
 }
 function toggleConstraintCell(cell) {
-  if (constraintSaveInFlight) return;
+  // A school-wide lock is authoritative. It can only be changed in the
+  // school-wide lock editor, not by the teacher/class availability grid.
+  if (constraintSaveInFlight || cell.classList.contains("global-locked")) return;
   const blocked = !cell.classList.contains("blocked");
   cell.classList.toggle("blocked", blocked);
   cell.setAttribute("aria-pressed", blocked ? "true" : "false");
@@ -340,11 +342,12 @@ function renderConstraintGrid() {
   const obj = (type.value === "teacher" ? data.teachers : data.classes).find(
     (x) => x.id === Number(ent.value),
   );
-  const blocked = new Set(obj?.unavailable || []),
+  const blocked = new Set((obj?.unavailable || []).map(Number)),
+    globalBlocked = new Set((data.project.blocked_slots || []).map(Number)),
     days = data.project.days,
     pps = data.project.periods,
     sessions = data.project.sessions;
-  let h = `<div class="timetable constraint-timetable" style="grid-template-columns:90px repeat(${days},minmax(110px,1fr))"><div class="cell head">Tiết</div>`;
+  let h = `<p class="constraint-global-lock-note">Ô <b>Khóa chung</b> đã khóa ở phần <b>Khóa lịch toàn trường</b>. Giáo viên và lớp đều không được xếp vào những ô này. Muốn mở, hãy đổi khóa ở bảng phía trên rồi bấm <b>Lưu khóa lịch</b>.</p><div class="timetable constraint-timetable" style="grid-template-columns:90px repeat(${days},minmax(110px,1fr))"><div class="cell head">Tiết</div>`;
   for (let d = 0; d < days; d++)
     h += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
   for (let s = 0; s < sessions; s++)
@@ -352,8 +355,14 @@ function renderConstraintGrid() {
       h += `<div class="cell period">${sessions > 1 ? (s ? "C" : "S") + " " : ""}${p + 1}</div>`;
       for (let d = 0; d < days; d++) {
         const slot = d * (sessions * pps) + s * pps + p,
-          isBlocked = blocked.has(slot);
-        h += `<div role="button" tabindex="0" aria-pressed="${isBlocked ? "true" : "false"}" data-cslot="${slot}" onclick="toggleConstraintCell(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleConstraintCell(this)}" class="cell available constraint-state-cell ${isBlocked ? "blocked" : ""}"><span class="constraint-state-stage"><span class="constraint-state-content ${isBlocked ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(isBlocked, isBlocked ? "Tiết tránh" : "Có thể xếp")}</span></span></div>`;
+          isBlocked = blocked.has(slot),
+          isGlobal = globalBlocked.has(slot),
+          label = isGlobal ? "Khóa chung" : (isBlocked ? "Tiết tránh" : "Có thể xếp"),
+          interactive = isGlobal ? 'aria-disabled="true" tabindex="-1" title="Tiết đã khóa toàn trường; mở khóa ở bảng phía trên"' :
+            `role="button" tabindex="0" aria-pressed="${isBlocked ? "true" : "false"}" onclick="toggleConstraintCell(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleConstraintCell(this)}"`;
+        // Keep the entity-specific .blocked flag even when a global lock
+        // overlaps it, so saving does not erase existing teacher/class rules.
+        h += `<div ${interactive} data-cslot="${slot}" class="cell available constraint-state-cell ${isBlocked ? "blocked" : ""} ${isGlobal ? "global-locked" : ""}"><span class="constraint-state-stage"><span class="constraint-state-content ${isGlobal || isBlocked ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(isGlobal || isBlocked, label)}</span></span></div>`;
       }
     }
   h += "</div>";

@@ -2624,3 +2624,22 @@ html.disable-effects .btn-toggle-pop {
   animation-duration: 0.32s !important;
   animation-iteration-count: 1 !important;
 }
+/* The school-wide blocked slots also appear in the individual constraint grid. */
+.constraint-global-lock-note {
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.constraint-timetable .constraint-state-cell.global-locked,
+.constraint-timetable .constraint-state-cell.global-locked:hover {
+  cursor: not-allowed;
+  background: repeating-linear-gradient(135deg, rgba(245,158,11,.10) 0 9px, rgba(245,158,11,.20) 9px 18px) !important;
+  box-shadow: inset 0 0 0 2px rgba(234,88,12,.55);
+}
+.constraint-timetable .constraint-state-cell.global-locked .constraint-state-content.is-blocked {
+  color: #9a3412;
+}
+:root.dark-mode .constraint-timetable .constraint-state-cell.global-locked .constraint-state-content.is-blocked {
+  color: #fdba74;
+}

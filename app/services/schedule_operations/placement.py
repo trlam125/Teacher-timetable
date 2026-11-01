@@ -20,7 +20,7 @@ def lesson_slot_error(
     if slot not in all_slots(project):
         return "Ô thời khóa biểu không hợp lệ."
     if slot in parse_slots(project.blocked_slots_json):
-        return "Buổi này đã bị khóa và không được xếp tiết."
+        return "Tiết này đã bị khóa toàn trường và không được xếp lịch."
     teacher = db.get(Teacher, assignment.teacher_id)
     school_class = db.get(SchoolClass, assignment.class_id)
     subject = db.get(Subject, assignment.subject_id)
