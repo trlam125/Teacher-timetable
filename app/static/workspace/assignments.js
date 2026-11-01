@@ -428,8 +428,8 @@ function autoAssignmentCell(schoolClass, subject, assignment) {
           value="${esc(periods)}" oninput="autoAssignmentCellChanged('${id}')">
         <button type="button" class="auto-assignment-save" data-matrix-save
           onclick="saveAutoAssignmentCell('${id}',this)" hidden>Lưu</button>
-        ${assignment ? `<button type="button" class="auto-assignment-detail" title="Sửa chế độ xếp và tiết đôi" onclick="openAssignmentEdit(${assignment.id})">Chi tiết</button>
-        <button type="button" class="auto-assignment-delete" title="Xóa phân công ${esc(label)}" aria-label="Xóa phân công ${esc(label)}" onclick="deleteAutoAssignmentCell('${id}',this)">Xóa</button>` : ""}
+        ${assignment ? `<button type="button" class="auto-assignment-detail" title="Chi tiết: ${esc(label)}" aria-label="Chi tiết phân công ${esc(label)}" onclick="openAssignmentEdit(${assignment.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button type="button" class="auto-assignment-delete" title="Xóa phân công ${esc(label)}" aria-label="Xóa phân công ${esc(label)}" onclick="deleteAutoAssignmentCell('${id}',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m5 4v6m4-6v6"/></svg></button>` : ""}
       </div>
     </td>`;
 }
@@ -466,13 +466,15 @@ function renderAutoAssignmentMatrix() {
     [`${a.class_id}-${a.subject_id}`,a]));
   const headers = classes.map(c => `<th colspan="2" scope="colgroup">${esc(c.name)}</th>`).join("");
   const subheaders = classes.map(() => '<th>GV</th><th>Số tiết</th>').join("");
-  const rows = subjects.map((subject, i) => `<tr><th scope="row" class="auto-assignment-subject">
+  const columns = `<colgroup><col class="auto-assignment-col-subject">${classes.map(() =>
+    '<col class="auto-assignment-col-teacher"><col class="auto-assignment-col-periods">').join("")}</colgroup>`;
+  const rows = subjects.map((subject, i) => `<tr><th scope="row" class="auto-assignment-subject" title="${esc(subject.name)}">
         <span class="auto-assignment-no">${i + 1}</span> ${esc(subject.name)}</th>
         ${classes.map(c => autoAssignmentCell(c,subject,byPair.get(`${c.id}-${subject.id}`))).join("")}</tr>`).join("");
   const assigned = (data.assignments || []).length;
   table.innerHTML = `<div class="auto-assignment-stats">${assigned} phân công đang lưu · ${classes.length} lớp · ${subjects.length} môn đang hiển thị</div>
     <div class="auto-assignment-scroller" tabindex="0" aria-label="Bảng phân công giáo viên theo lớp và môn, cuộn ngang để xem các lớp">
-      <table class="auto-assignment-matrix"><thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th>${headers}</tr>
+      <table class="auto-assignment-matrix" style="--assignment-class-count:${classes.length}">${columns}<thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th>${headers}</tr>
         <tr>${subheaders}</tr></thead><tbody>${rows}</tbody></table>
     </div>
     <p class="auto-assignment-note">Bảng phân công dùng trực tiếp cho bộ xếp tự động. Hiện mỗi cặp lớp–môn chỉ được gán một giáo viên trong bộ xếp tự động. Cột số tiết lấy gợi ý từ chương trình khối nếu đã cấu hình.</p>`;

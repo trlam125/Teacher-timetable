@@ -773,3 +773,140 @@
   .auto-assignment-matrix .auto-assignment-subject {min-width: 98px; width: 98px; max-width: 98px;}
   .auto-assignment-matrix .auto-assignment-teacher {min-width: 82px; width: 82px; max-width: 82px;}
 }
+
+
+/* Four class groups per desktop viewport, without pagination.
+   The scrolling element is a size container, so cqw uses the ACTUAL width
+   remaining after the sidebar, page padding, and vertical scrollbar.
+   With enough room, the subject + exactly four class groups fill one view.
+   On smaller screens each group keeps a usable minimum and overflows horizontally.
+*/
+#assignments .auto-assignment-scroller:not(.auto-grade-scroller) {
+  container-type: inline-size;
+  scrollbar-gutter: stable;
+  overflow-anchor: none;
+}
+#assignments .auto-assignment-matrix {
+  --assignment-subject-width: clamp(108px, 10cqw, 132px);
+  --assignment-periods-width: 124px;
+  --assignment-teacher-width: max(102px, calc((100cqw - var(--assignment-subject-width)) / 4 - var(--assignment-periods-width)));
+  --assignment-class-width: calc(var(--assignment-teacher-width) + var(--assignment-periods-width));
+  width: max(100%, calc(var(--assignment-subject-width) + var(--assignment-class-count, 4) * var(--assignment-class-width)));
+  min-width: 0;
+  table-layout: fixed;
+  border-spacing: 0;
+}
+#assignments .auto-assignment-matrix col.auto-assignment-col-subject {
+  width: var(--assignment-subject-width);
+}
+#assignments .auto-assignment-matrix col.auto-assignment-col-teacher {
+  width: var(--assignment-teacher-width);
+}
+#assignments .auto-assignment-matrix col.auto-assignment-col-periods {
+  width: var(--assignment-periods-width);
+}
+#assignments .auto-assignment-matrix .auto-assignment-subject {
+  min-width: 0;
+  width: var(--assignment-subject-width);
+  max-width: var(--assignment-subject-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#assignments .auto-assignment-matrix .auto-assignment-teacher,
+#assignments .auto-assignment-matrix .auto-assignment-periods {
+  min-width: 0;
+  max-width: none;
+  padding: 4px;
+  box-sizing: border-box;
+}
+#assignments .auto-assignment-matrix .auto-assignment-teacher {
+  width: var(--assignment-teacher-width);
+}
+#assignments .auto-assignment-matrix .auto-assignment-periods {
+  width: var(--assignment-periods-width);
+}
+#assignments .auto-assignment-matrix .auto-assignment-teacher select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 5px 18px 5px 5px;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+#assignments .auto-assignment-matrix .auto-assignment-cell {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+#assignments .auto-assignment-matrix .auto-assignment-cell input[type="number"] {
+  flex: 0 0 36px;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 36px;
+  height: 32px;
+  min-height: 32px;
+  padding: 2px;
+  font-size: 12px;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+#assignments .auto-assignment-matrix .auto-assignment-cell input[type="number"]::-webkit-outer-spin-button,
+#assignments .auto-assignment-matrix .auto-assignment-cell input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#assignments .auto-assignment-matrix .auto-assignment-detail,
+#assignments .auto-assignment-matrix .auto-assignment-delete {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 30px;
+  box-sizing: border-box;
+  width: 30px;
+  min-width: 30px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 6px;
+}
+#assignments .auto-assignment-matrix .auto-assignment-detail svg,
+#assignments .auto-assignment-matrix .auto-assignment-delete svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+#assignments .auto-assignment-matrix .auto-assignment-save {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 40px;
+  height: 32px;
+  min-height: 32px;
+  padding: 2px 5px;
+  font-size: 11px;
+}
+#assignments .auto-assignment-matrix .auto-assignment-save[hidden] {
+  display: none !important;
+}
+#assignments .auto-assignment-matrix .auto-assignment-cell.is-dirty .auto-assignment-detail,
+#assignments .auto-assignment-matrix .auto-assignment-cell.is-dirty .auto-assignment-delete {
+  display: none;
+}
+@media (max-width: 600px) {
+  #assignments .auto-assignment-matrix {
+    --assignment-subject-width: 100px;
+  }
+}
