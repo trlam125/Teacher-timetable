@@ -683,12 +683,15 @@
 .auto-assignment-no {display:inline-block;min-width:20px;color:var(--muted);font-weight:500;}
 .auto-assignment-teacher {min-width:126px;width:126px;}
 .auto-assignment-teacher select {width:100%;border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);min-height:32px;font-size:12px;padding:4px;}
-.auto-assignment-periods {min-width:107px;width:107px;}
-.auto-assignment-cell {display:flex;gap:3px;align-items:center;}
+.auto-assignment-periods {min-width:155px;width:155px;}
+.auto-assignment-cell {display:flex;gap:3px;align-items:center;flex-wrap:wrap;}
 .auto-assignment-cell input {width:48px;min-width:48px;min-height:32px;border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);text-align:center;font-size:12px;padding:3px;}
-.auto-assignment-save,.auto-assignment-detail {border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-height:30px;padding:3px 5px;font-size:11px;cursor:pointer;}
+.auto-assignment-save,.auto-assignment-detail,.auto-assignment-delete {border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-height:30px;padding:3px 5px;font-size:11px;cursor:pointer;}
 .auto-assignment-save {font-weight:750;color:#0f766e;}
 .auto-assignment-detail {font-size:10px;}
+.auto-assignment-delete {color:#b91c1c;border-color:rgba(185,28,28,.3);font-weight:700;}
+.auto-assignment-delete:hover,.auto-assignment-delete:focus-visible {background:rgba(185,28,28,.09);border-color:#b91c1c;}
+.auto-assignment-delete:disabled {opacity:.55;cursor:wait;}
 .auto-assignment-cell.is-dirty {outline:2px solid #0d9488;outline-offset:2px;border-radius:5px;}
 .auto-assignment-not-applicable {text-align:center;color:var(--muted);background:var(--bg);}
 .auto-assignment-mismatch {background:rgba(245,158,11,.12);}

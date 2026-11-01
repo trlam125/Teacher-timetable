@@ -428,7 +428,8 @@ function autoAssignmentCell(schoolClass, subject, assignment) {
           value="${esc(periods)}" oninput="autoAssignmentCellChanged('${id}')">
         <button type="button" class="auto-assignment-save" data-matrix-save
           onclick="saveAutoAssignmentCell('${id}',this)" hidden>Lưu</button>
-        ${assignment ? `<button type="button" class="auto-assignment-detail" title="Sửa chế độ xếp và tiết đôi" onclick="openAssignmentEdit(${assignment.id})">Chi tiết</button>` : ""}
+        ${assignment ? `<button type="button" class="auto-assignment-detail" title="Sửa chế độ xếp và tiết đôi" onclick="openAssignmentEdit(${assignment.id})">Chi tiết</button>
+        <button type="button" class="auto-assignment-delete" title="Xóa phân công ${esc(label)}" aria-label="Xóa phân công ${esc(label)}" onclick="deleteAutoAssignmentCell('${id}',this)">Xóa</button>` : ""}
       </div>
     </td>`;
 }
@@ -498,7 +499,7 @@ async function saveAutoAssignmentCell(id, button) {
     assignmentId = Number(cell.dataset.assignment || 0),
     classId = Number(cell.dataset.class), subjectId = Number(cell.dataset.subject);
   if (!teacherId && assignmentId) {
-    await delEntity("assignment", assignmentId, button);
+    await deleteAutoAssignmentCell(id, button);
     return;
   }
   if (!teacherId) { showToast("Hãy chọn giáo viên trước khi lưu.", "warning"); return; }
@@ -535,6 +536,27 @@ async function saveAutoAssignmentCell(id, button) {
   } catch(err) {
     showToast(err?.message || requestFailureMessage(err),"error",6000);
   } finally {if (button.isConnected) {button.disabled = false; button.textContent="Lưu";}}
+}
+// Shared delete flow for the visible Xóa button and the former "clear GV → Xóa" shortcut.
+// Confirm even when the assignment has no scheduled lessons; the backend will
+// request a second, impact-specific confirmation if removing lessons is necessary.
+async function deleteAutoAssignmentCell(id, button) {
+  const cell = document.querySelector(`[data-auto-assignment-cell="${id}"]`);
+  const assignmentId = Number(cell?.dataset.assignment || 0);
+  const assignment = (data.assignments || []).find(item => Number(item.id) === assignmentId);
+  if (!assignment || !button || button.disabled) return;
+  const confirmed = await confirmAction(
+    `Xóa phân công ${assignment.subject_name} của lớp ${assignment.class_name} (${assignment.teacher_name})? Thao tác này không thể hoàn tác.`,
+    {title: "Xác nhận xóa phân công", confirmText: "Xóa phân công"}
+  );
+  if (!confirmed) return;
+  await delEntity("assignment", assignmentId, button);
+  // Only discard an unsaved matrix draft after the API has actually removed
+  // the assignment. Keep it intact if the user cancels or the request fails.
+  if (!(data.assignments || []).some(item => Number(item.id) === assignmentId)) {
+    autoAssignmentDrafts.delete(id);
+    renderAssignmentTable();
+  }
 }
 function renderAssignmentTable() {
   const matrix = autoAssignmentView === "matrix";
