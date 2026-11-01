@@ -355,9 +355,295 @@ function assignmentTable() {
     .join("")}</tbody></table>`;
   return bulkEntityTableShell("assignment", tableHtml);
 }
-function renderAssignmentTable() {
+function renderLegacyAssignmentTable() {
   const summary = $("#assignmentCompletenessSummary"),
     table = $("#assignmentTable");
   if (summary) summary.innerHTML = assignmentSummaryHtml();
   if (table) table.innerHTML = assignmentTable();
+}
+
+
+/* One shared Assignment model, two views: curriculum matrix and legacy list.
+   The matrix uses the same REST endpoints as automatic timetable generation. */
+let autoAssignmentView = "matrix";
+let autoAssignmentGrade = "";
+const autoAssignmentDrafts = new Map();
+const autoGradeDrafts = new Map();
+const AUTO_ASSIGNMENT_ORDER = [
+  ["nvan", "nguvan"], ["toan"], ["tanh", "tienganh", "anh"],
+  ["gdcd", "giaoduccongdan"], ["lsdls", "lsdlsu"], ["lsdld", "lsdldia"],
+  ["khtnl", "khtnli", "khtnly"], ["khtnh", "khtnhoa"],
+  ["khtns", "khtnsinh"], ["congnghe", "cn"], ["tinhoc", "tin"],
+  ["gdtc"], ["amnhac", "ntnhac"], ["mythuat", "mithuat", "ntmt"],
+  ["hdtnhn", "hdtnhuongnghiep"], ["gddp"]
+];
+function autoAssignmentSubjectRank(name) {
+  const code = String(name || "").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d")
+    .toLowerCase().replace(/[^a-z0-9]/g, "");
+  const pos = AUTO_ASSIGNMENT_ORDER.findIndex(group => group.includes(code));
+  return pos < 0 ? AUTO_ASSIGNMENT_ORDER.length : pos;
+}
+function setAutoAssignmentView(view) {
+  autoAssignmentView = view === "list" ? "list" : "matrix";
+  renderAssignmentTable();
+}
+function setAutoAssignmentGrade(value) {
+  autoAssignmentGrade = String(value);
+  renderAssignmentTable();
+}
+function autoAssignmentClassNames() {
+  return [...(data.classes || [])].sort((a, b) =>
+    String(a.name).localeCompare(String(b.name), "vi", {numeric: true}));
+}
+function autoAssignmentGrades() {
+  const present = new Set(autoAssignmentClassNames().map(x => String(x.grade_id || "")));
+  return (data.grades || []).filter(g => present.has(String(g.id)));
+}
+function autoAssignmentTeacherOptions(subjectId, selectedId) {
+  const teachers = [...(data.teachers || [])]
+    .filter(t => (t.subject_ids || []).map(Number).includes(Number(subjectId)) ||
+      Number(t.id) === Number(selectedId))
+    .sort((a,b) => String(a.name).localeCompare(String(b.name), "vi"));
+  return `<option value="">— Chọn GV —</option>${teachers.map(t =>
+    `<option value="${Number(t.id)}" ${Number(t.id) === Number(selectedId) ? "selected" : ""}>${esc(t.short_name || t.name)}</option>`).join("")}`;
+}
+function autoAssignmentCurriculum(schoolClass, subjectId) {
+  const rows = (data.grade_requirements || []).filter(row =>
+    Number(row.grade_id) === Number(schoolClass.grade_id));
+  return {configured: rows.length > 0, requirement: rows.find(row =>
+    Number(row.subject_id) === Number(subjectId)) || null};
+}
+function autoAssignmentCell(schoolClass, subject, assignment) {
+  const c = autoAssignmentCurriculum(schoolClass, subject.id);
+  // The grade curriculum is strict when configured. Show an existing extra
+  // assignment for correction; do not offer creating a forbidden new one.
+  if (!assignment && c.configured && !c.requirement) {
+    return `<td colspan="2" class="auto-assignment-not-applicable">—</td>`;
+  }
+  const draft = autoAssignmentDrafts.get(`${schoolClass.id}-${subject.id}`);
+  const teacherId = Number(draft?.teacherId ?? assignment?.teacher_id ?? 0);
+  const periods = draft?.periods ?? assignment?.periods_per_week ?? c.requirement?.periods_per_week ?? "";
+  const mode = assignment?.block_mode || c.requirement?.block_mode || "free";
+  const id = `${schoolClass.id}-${subject.id}`;
+  const badge = assignment && c.requirement &&
+    Number(assignment.periods_per_week) !== Number(c.requirement.periods_per_week)
+    ? " auto-assignment-mismatch" : "";
+  const label = `${schoolClass.name} – ${subject.name}`;
+  return `<td class="auto-assignment-teacher${badge}">
+      <select aria-label="Giáo viên ${esc(label)}" data-matrix-teacher data-matrix-cell="${id}" data-initial="${teacherId}"
+        onchange="autoAssignmentCellChanged('${id}')">${autoAssignmentTeacherOptions(subject.id, teacherId)}</select>
+    </td><td class="auto-assignment-periods${badge}">
+      <div class="auto-assignment-cell" data-auto-assignment-cell="${id}" data-class="${schoolClass.id}" data-subject="${subject.id}"
+        data-assignment="${Number(assignment?.id || 0)}" data-mode="${esc(mode)}">
+        <input type="number" min="1" max="40" step="1" aria-label="Số tiết ${esc(label)}"
+          data-matrix-periods data-initial="${assignment?.periods_per_week ?? ""}"
+          value="${esc(periods)}" oninput="autoAssignmentCellChanged('${id}')">
+        <button type="button" class="auto-assignment-save" data-matrix-save
+          onclick="saveAutoAssignmentCell('${id}',this)" hidden>Lưu</button>
+        ${assignment ? `<button type="button" class="auto-assignment-detail" title="Sửa chế độ xếp và tiết đôi" onclick="openAssignmentEdit(${assignment.id})">Chi tiết</button>` : ""}
+      </div>
+    </td>`;
+}
+function renderAutoAssignmentMatrix() {
+  const table = $("#assignmentTable");
+  if (!table) return;
+  const grades = autoAssignmentGrades();
+  const select = $("#autoAssignmentGrade");
+  if (select) {
+    const chosen = autoAssignmentGrade || (grades.length ? String(grades[0].id) : "all");
+    autoAssignmentGrade = chosen;
+    select.innerHTML = `<option value="all">Tất cả khối</option>` + grades.map(g =>
+      `<option value="${Number(g.id)}">${esc(g.name)}</option>`).join("");
+    select.value = grades.some(g => String(g.id) === chosen) || chosen === "all" ? chosen : "all";
+    autoAssignmentGrade = select.value;
+  }
+  const classes = autoAssignmentClassNames().filter(c =>
+    autoAssignmentGrade === "all" || String(c.grade_id) === String(autoAssignmentGrade));
+  const search = String($("#autoAssignmentSubjectSearch")?.value || "").trim().toLocaleLowerCase("vi");
+  const subjects = [...(data.subjects || [])].filter(s =>
+    !search || String(s.name || "").toLocaleLowerCase("vi").includes(search))
+    .sort((a,b) => autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
+      || String(a.name).localeCompare(String(b.name), "vi", {numeric:true}));
+  if (!classes.length || !subjects.length) {
+    table.innerHTML = '<div class="assignment-filter-empty">Chưa có lớp hoặc môn phù hợp. Hãy khai báo lớp, môn và giáo viên trước.</div>';
+    return;
+  }
+  const byPair = new Map((data.assignments || []).map(a =>
+    [`${a.class_id}-${a.subject_id}`,a]));
+  const headers = classes.map(c => `<th colspan="2" scope="colgroup">${esc(c.name)}</th>`).join("");
+  const subheaders = classes.map(() => '<th>GV</th><th>Số tiết</th>').join("");
+  const rows = subjects.map((subject, i) => `<tr><th scope="row" class="auto-assignment-subject">
+        <span class="auto-assignment-no">${i + 1}</span> ${esc(subject.name)}</th>
+        ${classes.map(c => autoAssignmentCell(c,subject,byPair.get(`${c.id}-${subject.id}`))).join("")}</tr>`).join("");
+  const assigned = (data.assignments || []).length;
+  table.innerHTML = `<div class="auto-assignment-stats">${assigned} phân công đang lưu · ${classes.length} lớp · ${subjects.length} môn đang hiển thị</div>
+    <div class="auto-assignment-scroller" tabindex="0" aria-label="Bảng phân công giáo viên theo lớp và môn, cuộn ngang để xem các lớp">
+      <table class="auto-assignment-matrix"><thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th>${headers}</tr>
+        <tr>${subheaders}</tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <p class="auto-assignment-note">Bảng phân công dùng trực tiếp cho bộ xếp tự động. Hiện mỗi cặp lớp–môn chỉ được gán một giáo viên trong bộ xếp tự động. Cột số tiết lấy gợi ý từ chương trình khối nếu đã cấu hình.</p>`;
+  autoAssignmentDrafts.forEach((_, id) => autoAssignmentCellChanged(id));
+}
+function autoAssignmentCellChanged(id) {
+  const cell = document.querySelector(`[data-auto-assignment-cell="${id}"]`),
+    teacher = document.querySelector(`[data-matrix-teacher][data-matrix-cell="${id}"]`);
+  if (!cell || !teacher) return;
+  const periods = cell.querySelector("[data-matrix-periods]"),
+    button = cell.querySelector("[data-matrix-save]");
+  const changed = Number(teacher.value || 0) !== Number(teacher.dataset.initial || 0)
+    || periods.value !== periods.dataset.initial;
+  if (button) {
+    button.hidden = !changed;
+    button.textContent = !teacher.value && Number(cell.dataset.assignment) ? "Xóa" : "Lưu";
+  }
+  cell.classList.toggle("is-dirty", changed);
+  if (changed) autoAssignmentDrafts.set(id, {teacherId: Number(teacher.value || 0), periods: periods.value});
+  else autoAssignmentDrafts.delete(id);
+}
+async function saveAutoAssignmentCell(id, button) {
+  const cell = document.querySelector(`[data-auto-assignment-cell="${id}"]`),
+    teacherEl = document.querySelector(`[data-matrix-teacher][data-matrix-cell="${id}"]`);
+  if (!cell || !teacherEl || button.disabled) return;
+  const teacherId = Number(teacherEl.value || 0),
+    periodsEl = cell.querySelector("[data-matrix-periods]"),
+    periods = Number(periodsEl?.value),
+    assignmentId = Number(cell.dataset.assignment || 0),
+    classId = Number(cell.dataset.class), subjectId = Number(cell.dataset.subject);
+  if (!teacherId && assignmentId) {
+    await delEntity("assignment", assignmentId, button);
+    return;
+  }
+  if (!teacherId) { showToast("Hãy chọn giáo viên trước khi lưu.", "warning"); return; }
+  if (!Number.isInteger(periods) || periods < 1 || periods > 40 || !String(periodsEl.value).trim()) {
+    showToast("Số tiết/tuần phải là số nguyên từ 1 đến 40.", "warning"); return;
+  }
+  const assigned = (data.assignments || []).find(row => Number(row.id) === assignmentId);
+  if (assigned && teacherId === Number(assigned.teacher_id)
+      && periods === Number(assigned.periods_per_week)) { autoAssignmentCellChanged(id); return; }
+  button.disabled = true;
+  button.textContent = "Đang lưu...";
+  try {
+    let response, result, cancelled = false;
+    if (assignmentId) {
+      const outcome = await updateWithScheduleConfirmation(
+        `/api/projects/${PROJECT_ID}/assignments/${assignmentId}`,
+        {teacher_id: teacherId, periods_per_week: periods, block_mode: cell.dataset.mode || "free"});
+      ({response, result, cancelled} = outcome);
+    } else {
+      response = await fetch(`/api/projects/${PROJECT_ID}/entity`, {
+        method: "POST", headers: operationHeaders({"Content-Type":"application/json"}),
+        body: JSON.stringify({type:"assignment", data: {
+          teacher_id:teacherId, class_id:classId, subject_id:subjectId,
+          periods_per_week:periods, block_mode:cell.dataset.mode || "free"
+        }})
+      });
+      result = await readApiResponse(response);
+    }
+    if (cancelled) {showToast("Đã hủy. Dữ liệu cũ được giữ nguyên.", "info");return;}
+    if (!response.ok) {showToast(apiErrorMessage(result,"Không thể lưu phân công."),"error",6000);return;}
+    autoAssignmentDrafts.delete(id);
+    showToast("Đã lưu phân công.","success");
+    await refreshAfterSuccessfulMutation();
+  } catch(err) {
+    showToast(err?.message || requestFailureMessage(err),"error",6000);
+  } finally {if (button.isConnected) {button.disabled = false; button.textContent="Lưu";}}
+}
+function renderAssignmentTable() {
+  const matrix = autoAssignmentView === "matrix";
+  const filters = $("#autoAssignmentLegacyFilters"),
+    controls = $("#autoAssignmentMatrixControls"),
+    help = $("#autoAssignmentMatrixHelp");
+  if (filters) filters.hidden = matrix;
+  if (controls) controls.hidden = !matrix;
+  if (help) help.hidden = !matrix;
+  $("#autoAssignmentMatrixTab")?.classList.toggle("ghost", !matrix);
+  $("#autoAssignmentListTab")?.classList.toggle("ghost", matrix);
+  if (matrix) {
+    const summary = $("#assignmentCompletenessSummary");
+    if (summary) summary.innerHTML = assignmentSummaryHtml();
+    renderAutoAssignmentMatrix();
+  } else {
+    renderLegacyAssignmentTable();
+  }
+}
+
+
+function renderAutoGradeMatrix() {
+  const box = $("#autoGradeProgramTable");
+  if (!box) return;
+  const grades = [...(data.grades || [])];
+  const subjects = [...(data.subjects || [])].sort((a,b) =>
+    autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
+      || a.name.localeCompare(b.name,"vi",{numeric:true}));
+  if (!grades.length || !subjects.length) {
+    box.innerHTML = '<div class="assignment-filter-empty">Hãy thêm khối và môn học trước.</div>';
+    return;
+  }
+  const byPair = new Map((data.grade_requirements || []).map(x =>
+    [`${x.grade_id}-${x.subject_id}`, x]));
+  const header = grades.map(g => `<th scope="col">${esc(g.name)}</th>`).join("");
+  const body = subjects.map((s,i) => `<tr><th scope="row" class="auto-grade-subject"><span class="auto-assignment-no">${i+1}</span> ${esc(s.name)}</th>${grades.map(g=>{
+    const item = byPair.get(`${g.id}-${s.id}`);
+    const key = `${g.id}-${s.id}`;
+    const shown = autoGradeDrafts.has(key) ? autoGradeDrafts.get(key) : (item?.periods_per_week ?? '');
+    return `<td><input type="number" min="1" max="40" step="1" placeholder="—" data-grade-id="${g.id}"
+      data-subject-id="${s.id}" data-mode="${esc(item?.block_mode || 'free')}"
+      data-original="${item?.periods_per_week ?? ''}" value="${shown}"
+      oninput="autoGradeMatrixChanged(${g.id})" aria-label="${esc(g.name)} ${esc(s.name)}"></td>`;
+  }).join("")}</tr>`).join("");
+  const footer=grades.map(g => `<td><button type="button" class="btn ghost auto-grade-save" data-grade-save="${g.id}"
+    onclick="saveAutoGradeColumn(${g.id},this)" disabled>Lưu ${esc(g.name)}</button></td>`).join("");
+  box.innerHTML=`<div class="auto-assignment-scroller auto-grade-scroller" tabindex="0" aria-label="Bảng số tiết môn theo khối">
+    <table class="auto-grade-matrix"><thead><tr><th>Môn</th>${header}</tr></thead>
+    <tbody>${body}</tbody><tfoot><tr><th>Lưu định mức</th>${footer}</tr></tfoot></table>
+  </div>`;
+  for (const grade of grades) autoGradeMatrixChanged(grade.id);
+}
+function autoGradeMatrixChanged(gradeId) {
+  const box = $("#autoGradeProgramTable"), button=box?.querySelector(`[data-grade-save="${gradeId}"]`);
+  if (!box || !button) return;
+  const inputs = [...box.querySelectorAll(`[data-grade-id="${gradeId}"]`)];
+  for (const x of inputs) {
+    const key = `${gradeId}-${x.dataset.subjectId}`;
+    if (String(x.value).trim() !== String(x.dataset.original).trim()) autoGradeDrafts.set(key, x.value);
+    else autoGradeDrafts.delete(key);
+  }
+  const changed=inputs.some(x=>String(x.value).trim()!==String(x.dataset.original).trim());
+  button.disabled = !changed;
+  button.classList.toggle('is-changed',changed);
+}
+async function saveAutoGradeColumn(gradeId,button) {
+  const grade=(data.grades || []).find(x => Number(x.id) === Number(gradeId)),
+    box=$("#autoGradeProgramTable");
+  if (!grade || !box || button.disabled) return;
+  const items=[...box.querySelectorAll(`[data-grade-id="${gradeId}"]`)];
+  const configs=[];
+  for (const input of items) {
+    const raw=String(input.value).trim();
+    if (!raw) continue;
+    const n=Number(raw);
+    if (!Number.isInteger(n) || n < 1 || n > 40) {
+      showToast(`Số tiết phải là số nguyên từ 1 đến 40.`,"warning");
+      input.focus(); return;
+    }
+    configs.push({subject_id:Number(input.dataset.subjectId), periods_per_week:n,
+      block_mode:input.dataset.mode || "free"});
+  }
+  button.disabled=true;
+  button.textContent='Đang lưu...';
+  try {
+    const {response,result,cancelled}=await updateWithScheduleConfirmation(
+      `/api/projects/${PROJECT_ID}/entity/grade/${grade.id}`,
+      {type:'grade', data:{name:grade.name,subject_requirements:configs}});
+    if (cancelled) {showToast('Đã hủy. Chương trình hiện tại được giữ nguyên.','info');return;}
+    if (!response.ok) {showToast(apiErrorMessage(result,'Không thể lưu chương trình khối.'),'error',6000);return;}
+    for (const input of items) autoGradeDrafts.delete(`${gradeId}-${input.dataset.subjectId}`);
+    showToast(`Đã lưu định mức ${grade.name}.`,'success');
+    await refreshAfterSuccessfulMutation();
+  } catch(error) {
+    showToast(error?.message || requestFailureMessage(error),'error',6000);
+  } finally {
+    if (button.isConnected) {button.textContent=`Lưu ${grade.name}`;button.disabled=false;}
+  }
 }

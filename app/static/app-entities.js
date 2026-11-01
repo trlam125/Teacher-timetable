@@ -71,6 +71,7 @@ function renderAll() {
     );
     renderAssignmentFilters();
     renderAssignmentTable();
+    if (typeof renderAutoGradeMatrix === "function") renderAutoGradeMatrix();
     if ($("#statLessons")) {
       $("#statTeachers").textContent = data.teachers.length;
       $("#statClasses").textContent = data.classes.length;

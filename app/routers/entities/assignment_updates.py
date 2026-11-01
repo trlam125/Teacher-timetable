@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.models import Assignment, Lesson, SchoolClass, Subject, Teacher, User
+from app.models import Assignment, FixedLesson, Lesson, SchoolClass, Subject, Teacher, TeacherSubject, User
 from app.scheduling.rules import (
     assignment_requires_double,
     bounded_int,
@@ -72,11 +72,36 @@ def update_assignment(
             },
             409,
         )
-    teacher = db.get(Teacher, assignment.teacher_id)
-    if not teacher or teacher.project_id != pid:
+    old_teacher = db.get(Teacher, assignment.teacher_id)
+    if not old_teacher or old_teacher.project_id != pid:
         raise HTTPException(409, "Giáo viên của phân công không còn tồn tại")
+    next_teacher_id = payload.teacher_id if payload.teacher_id is not None else assignment.teacher_id
+    teacher = db.get(Teacher, next_teacher_id)
+    if not teacher or teacher.project_id != pid:
+        raise HTTPException(400, "Giáo viên không thuộc bộ thời khóa biểu")
+    teacher_changed = teacher.id != assignment.teacher_id
+    if teacher_changed:
+        has_fixed = db.scalar(
+            select(FixedLesson.id).where(FixedLesson.assignment_id == assignment.id).limit(1)
+        ) is not None
+        if scheduled or has_fixed:
+            raise HTTPException(
+                409,
+                "Phân công đã có tiết xếp hoặc tiết ghim. Hãy gỡ các tiết đó trước khi đổi giáo viên.",
+            )
+        authorized = db.scalar(
+            select(TeacherSubject.id).where(
+                TeacherSubject.project_id == pid,
+                TeacherSubject.teacher_id == teacher.id,
+                TeacherSubject.subject_id == assignment.subject_id,
+            )
+        )
+        if authorized is None:
+            raise HTTPException(409, f"{teacher.name} chưa được cấu hình dạy môn {subject.name}")
     projected_total = (
-        teacher_assigned_periods(db, pid, teacher.id) - old_periods + periods
+        teacher_assigned_periods(db, pid, teacher.id)
+        + periods
+        - (old_periods if not teacher_changed else 0)
     )
     ensure_teacher_load_fits(db, project, teacher, projected_total)
     school_class = db.get(SchoolClass, assignment.class_id)
@@ -102,6 +127,7 @@ def update_assignment(
 
     # Reconcile transactionally; any removal must be confirmed before commit.
     assignment.periods_per_week = periods
+    assignment.teacher_id = teacher.id
     assignment.block_mode = mode
     assignment.consecutive_pattern = ""
 

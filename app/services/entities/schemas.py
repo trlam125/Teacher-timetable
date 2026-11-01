@@ -27,6 +27,7 @@ class BulkAssignmentIn(BaseModel):
 
 
 class AssignmentUpdateIn(BaseModel):
+    teacher_id: int | None = None
     periods_per_week: int
     block_mode: str = "free"
     confirm_displacement: bool = False

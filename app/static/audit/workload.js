@@ -7,7 +7,7 @@ let scheduleAuditWorkloadBusy = false;
 let scheduleAuditWorkloadError = "";
 let scheduleAuditWorkloadCheckId = 0;
 let scheduleAuditTeacherOpen = false;
-let scheduleAuditSelectedTeacher = "";
+let scheduleAuditTeacherMatrixGrade = "all";
 let scheduleAuditTeacherNotice = "";
 
 const WEEKLY_LIMIT_TYPES = ["class_subject", "assignments"];
@@ -19,6 +19,34 @@ function weeklySubjectCode(value) {
   return String(value ?? "").normalize("NFC").trim().replace(/\s+/g, " ")
     .toLocaleLowerCase("vi-VN").replace(/\s*\(\s*/g, "(").replace(/\s*\)\s*/g, ")");
 }
+// Keep the subject order from the school's 16-row period sheet, regardless of
+// the order in which an imported timetable lists subjects. This is display-only:
+// subjects such as "KHTN" and "KHTN(S)" retain distinct labels and limits.
+function weeklySubjectSortRank(label) {
+  const key = weeklySubjectCode(label).normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d")
+    .replace(/[^a-z0-9]/g, "");
+  const ranks = [
+    ["nvan", "nguvan"],
+    ["toan"],
+    ["tanh", "tienganh", "anh", "ngoaingutanh"],
+    ["gdcd", "giaoduccongdan"],
+    ["lsdls", "lsdlsu", "lichsuvadialilichsu", "lichsuvadialysu"],
+    ["lsdld", "lsdldia", "lichsuvadialidia", "lichsuvadialydia"],
+    ["khtnl", "khtnli", "khtnly", "khoahoctunhienvatli", "khoahoctunhienvatly"],
+    ["khtnh", "khtnhoa", "khoahoctunhienhoa", "khoahoctunhienhoahoc"],
+    ["khtns", "khtnsinh", "khoahoctunhiensinh", "khoahoctunhiensinhhoc"],
+    ["congnghe", "cn"],
+    ["tinhoc", "tin"],
+    ["gdtc", "giaoducthechat"],
+    ["amnhac", "ntnhac", "nghethuatamnhac", "gdnthamnhac"],
+    ["mythuat", "mithuat", "ntmt", "ntmythuat", "ntmithuat", "nghethuatmithuat", "nghethuatmythuat"],
+    ["hdtnhn", "hdtnhuongnghiep", "hoatdongtrainghiemhuongnghiep"],
+    ["gddp", "giaoducdiaphuong"],
+  ];
+  const rank = ranks.findIndex(group => group.includes(key));
+  return rank < 0 ? ranks.length : rank;
+}
 function weeklyMatrixSubjects() {
   const names = new Map();
   for (const row of scheduleAuditWorkloadLimits?.class_subject || []) {
@@ -26,7 +54,8 @@ function weeklyMatrixSubjects() {
     const label = String(row.subject || "").trim(), key = weeklySubjectCode(label);
     if (key && !names.has(key)) names.set(key, label);
   }
-  return [...names.entries()].sort((a,b)=>a[1].localeCompare(b[1],"vi",{numeric:true}));
+  return [...names.entries()].sort((a,b) => weeklySubjectSortRank(a[1]) - weeklySubjectSortRank(b[1])
+    || a[1].localeCompare(b[1], "vi", {numeric:true}));
 }
 function weeklyNormalizeLimitDraft(limits) {
   return Object.fromEntries(WEEKLY_LIMIT_TYPES.map(type => [type,
@@ -52,7 +81,7 @@ function resetScheduleAuditWorkloadLimits() {
   scheduleAuditWorkloadBusy = false;
   scheduleAuditWorkloadError = "";
   scheduleAuditTeacherOpen = false;
-  scheduleAuditSelectedTeacher = "";
+  scheduleAuditTeacherMatrixGrade = "all";
   scheduleAuditTeacherNotice = "";
   scheduleAuditLimitsDirty = false;
   scheduleAuditLimitsNotice = "";
@@ -120,261 +149,272 @@ function renderWeeklyLoadRows(type) {
       <td><button class="weekly-load-remove" type="button" title="X\u00f3a d\u00f2ng" aria-label="X\u00f3a d\u00f2ng" onclick="removeScheduleAuditLimit('class_subject',${i})">&times;</button></td>
     </tr>`).join("");
 }
-// One teacher at a time: class x subject matrix instead of a repeated flat table.
-function weeklyTeacherNames() {
-  const names = new Map();
-  for (const row of scheduleAuditWorkloadLimits?.assignments || []) {
-    const name = String(row.teacher || "").trim();
-    const key = scheduleAuditEntityKey(name);
-    if (key && !names.has(key)) names.set(key, name);
-  }
-  return [...names.values()].sort((a,b) => a.localeCompare(b, "vi", {numeric:true}));
-}
-function weeklyActiveTeacher() {
-  const teachers = weeklyTeacherNames();
-  return teachers.find(x => scheduleAuditEntityKey(x) === scheduleAuditEntityKey(scheduleAuditSelectedTeacher)) || teachers[0] || "";
-}
-function weeklyTeacherEntries(teacher) {
-  const key = scheduleAuditEntityKey(teacher);
-  return (scheduleAuditWorkloadLimits?.assignments || []).map((row, index) => ({row,index}))
-    .filter(({row}) => scheduleAuditEntityKey(row.teacher) === key);
-}
+// Excel-style assignment matrix: one row per subject, two columns (GV / Số tiết)
+// per class. Keep the saved model (teacher, class_name, subject, periods) intact.
 function weeklyHasPeriods(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
-}
-function weeklyTeacherStats(teacher) {
-  const entries = weeklyTeacherEntries(teacher);
-  const configured = entries.filter(({row}) => weeklyHasPeriods(row.periods));
-  const expected = configured.reduce((sum, {row}) => sum + (Number(row.periods) || 0), 0);
-  const imported = new Set((scheduleAuditLastReport?.viewer?.classes || []).map(x => scheduleAuditEntityKey(x.name)));
-  const assigned = new Set(entries.map(({row}) => `${scheduleAuditEntityKey(row.class_name)}|${weeklySubjectCode(row.subject)}`));
-  const teacherCells = (scheduleAuditLastReport?.viewer?.cells || []).filter(cell =>
-    scheduleAuditEntityKey(cell.teacher_name) === scheduleAuditEntityKey(teacher) && imported.has(scheduleAuditEntityKey(cell.class_name)));
-  const uncovered = teacherCells.filter(cell => !assigned.has(`${scheduleAuditEntityKey(cell.class_name)}|${weeklySubjectCode(cell.subject_name)}`)).length;
-  const outOfScope = entries.some(({row}) => !imported.has(scheduleAuditEntityKey(row.class_name)));
-  return {entered:configured.length, total:entries.length, expected, actual:teacherCells.length, uncovered,
-    ready:entries.length > 0 && configured.length === entries.length && !uncovered && !outOfScope};
-}
-function weeklyTeacherActuals(teacher) {
-  const counts = new Map();
-  for (const cell of scheduleAuditLastReport?.viewer?.cells || []) {
-    if (scheduleAuditEntityKey(cell.teacher_name) !== scheduleAuditEntityKey(teacher)) continue;
-    const key = `${scheduleAuditEntityKey(cell.class_name)}|${weeklySubjectCode(cell.subject_name)}`;
-    counts.set(key, (counts.get(key) || 0) + 1);
-  }
-  return counts;
-}
-function weeklyTeacherStatsLabel(stats) {
-  return `${stats.entered}/${stats.total}`;
-}
-function weeklyTeacherGrid(teacher) {
-  const entries = weeklyTeacherEntries(teacher);
-  if (!entries.length) return '<p class="weekly-teacher-empty">Ch&#432;a c&#243; ph&#226;n c&#244;ng cho gi&#225;o vi&#234;n n&#224;y.</p>';
-  const classes = [...new Set(entries.map(({row}) => row.class_name))]
-    .sort((a,b) => a.localeCompare(b,"vi",{numeric:true}));
-  const subjects = new Map();
-  for (const {row} of entries) {
-    const code = weeklySubjectCode(row.subject);
-    if (code && !subjects.has(code)) subjects.set(code, row.subject);
-  }
-  const columns = [...subjects].sort((a,b) => a[1].localeCompare(b[1],"vi",{numeric:true}));
-  const actual = weeklyTeacherActuals(teacher);
-  const byCell = new Map(entries.map(item => [
-    `${scheduleAuditEntityKey(item.row.class_name)}|${weeklySubjectCode(item.row.subject)}`, item]));
-  const body = classes.map(cls => {
-    const classKey = scheduleAuditEntityKey(cls);
-    const occupied = entries.filter(({row}) => scheduleAuditEntityKey(row.class_name) === classKey);
-    const assigned = occupied.filter(({row}) => weeklyHasPeriods(row.periods));
-    const total = assigned.reduce((sum,{row}) => sum + (Number(row.periods) || 0),0);
-    const totalLabel = assigned.length ? `${weeklyLoadNumber(total)}${assigned.length < occupied.length ? " *" : ""}` : "\u2014";
-    return `<tr><th scope="row">${esc(cls)}</th>${columns.map(([code,label]) => {
-      const item = byCell.get(`${classKey}|${code}`);
-      if (!item) return '<td class="weekly-teacher-na" title="Kh\u00f4ng c\u00f3 ph\u00e2n c\u00f4ng">\u2014</td>';
-      const found = actual.get(`${classKey}|${code}`) || 0;
-      return `<td class="weekly-teacher-value"><input type="number" min="0" max="1000" step="0.5" inputmode="decimal" placeholder="\u2014" value="${esc(item.row.periods ?? "")}" aria-label="${esc(`${teacher} - ${cls} - ${label}`)}" oninput="setScheduleAuditLimit('assignments',${item.index},'periods',this.value)"><small title="S\u1ed1 ti\u1ebft trong TKB">TKB: ${found}</small></td>`;
-    }).join("")}<td class="weekly-teacher-total" data-weekly-class="${esc(classKey)}">${totalLabel}</td></tr>`;
-  }).join("");
-  return `<div class="weekly-teacher-grid-wrap"><table class="weekly-teacher-grid"><thead><tr><th>L&#7899;p</th>${columns.map(([,label])=>`<th>${esc(label)}</th>`).join("")}<th>T&#7893;ng l&#7899;p</th></tr></thead><tbody>${body}</tbody></table></div>`;
-}
-function weeklyTeacherEditForm(teacher) {
-  const entries = weeklyTeacherEntries(teacher);
-  const classes = new Map(), subjects = new Map();
-  for (const cls of scheduleAuditLastReport?.viewer?.classes || []) {
-    if (cls?.name) classes.set(scheduleAuditEntityKey(cls.name), String(cls.name));
-  }
-  for (const cell of scheduleAuditLastReport?.viewer?.cells || []) {
-    if (cell.class_name) classes.set(scheduleAuditEntityKey(cell.class_name), String(cell.class_name));
-    if (cell.subject_name) subjects.set(weeklySubjectCode(cell.subject_name), String(cell.subject_name));
-  }
-  for (const {row} of entries) {
-    classes.set(scheduleAuditEntityKey(row.class_name), row.class_name);
-    subjects.set(weeklySubjectCode(row.subject), row.subject);
-  }
-  const classOptions = [...classes.values()].sort((a,b)=>a.localeCompare(b,"vi",{numeric:true}))
-    .map(x=>`<option value="${esc(x)}"></option>`).join("");
-  const subjectOptions = [...subjects.values()].sort((a,b)=>a.localeCompare(b,"vi",{numeric:true}))
-    .map(x=>`<option value="${esc(x)}"></option>`).join("");
-  const chips = entries.map(({row,index}) => `<span class="weekly-teacher-chip">${esc(row.class_name)} &middot; ${esc(row.subject)}
-    <button type="button" aria-label="${esc('X\u00f3a '+row.class_name+' '+row.subject)}" title="X&#243;a ph&#226;n c&#244;ng" onclick="weeklyRemoveTeacherAssignment(${index})">&times;</button></span>`).join("");
-  return `<details class="weekly-teacher-edit"><summary>+ B&#7893; sung / x&#243;a ph&#226;n c&#244;ng</summary>
-    <p>Ch&#7881; c&#7847;n th&#234;m n&#7871;u TKB thi&#7871;u m&#7897;t m&#244;n ho&#7863;c l&#7899;p. T&#234;n gi&#225;o vi&#234;n &#273;&#227; &#273;&#432;&#7907;c ch&#7885;n s&#7861;n.</p>
-    <form class="weekly-teacher-add" onsubmit="weeklyAddTeacherAssignment();return false">
-      <label>L&#7899;p<input id="weeklyTeacherNewClass" list="weeklyTeacherClasses" placeholder="6A1" maxlength="120" required></label>
-      <datalist id="weeklyTeacherClasses">${classOptions}</datalist>
-      <label>M&#244;n<input id="weeklyTeacherNewSubject" list="weeklyTeacherSubjects" placeholder="To&#225;n" maxlength="120" required></label>
-      <datalist id="weeklyTeacherSubjects">${subjectOptions}</datalist>
-      <button class="btn ghost" type="submit">+ Th&#234;m</button>
-    </form><div class="weekly-teacher-chips">${chips}</div>
-  </details>`;
-}
-function weeklyTeacherWorkspace() {
-  const name = weeklyActiveTeacher();
-  if (!name) return '<p class="weekly-teacher-empty">TKB ch&#432;a c&#243; gi&#225;o vi&#234;n &#273;&#7875; thi&#7871;t l&#7853;p.</p>';
-  const stats = weeklyTeacherStats(name);
-  const complete = stats.ready;
-  return `<div class="weekly-teacher-workspace-head"><div><strong>${esc(name)}</strong>
-    <small>Nh&#7853;p ti&#7871;t cho t&#7915;ng l&#7899;p/m&#244;n. S&#7889; b&#234;n d&#432;&#7899;i &#244; l&#224; ti&#7871;t &#273;ang c&#243; trong TKB.</small></div>
-    <span class="weekly-teacher-progress" id="weeklyTeacherProgress">${weeklyTeacherStatsLabel(stats)} &#244; &#273;&#227; nh&#7853;p</span></div>
-    <div class="weekly-teacher-totals"><span>Ph&#226;n c&#244;ng: <b id="weeklyTeacherTargetTotal">${weeklyLoadNumber(stats.expected)}${complete ? "" : " *"}</b></span>
-    <span>TKB: <b>${weeklyLoadNumber(stats.actual)}</b></span>
-    <span id="weeklyTeacherTotalStatus">${complete ? (stats.expected === stats.actual ? "&#272;&#7911; ti&#7871;t" : "Ch&#234;nh l&#7879;ch: "+weeklyLoadNumber(stats.actual-stats.expected)) : "* Ch&#432;a x&#225;c minh t&#7893;ng ti&#7871;t"}</span></div>
-    ${weeklyTeacherGrid(name)}
-    <div class="weekly-teacher-tools"><button type="button" class="btn ghost" onclick="weeklyAutofillTeacher()">&#272;i&#7873;n nhanh t&#7915; b&#7843;ng kh&#7889;i</button>
-    <small>Ch&#7881; &#273;i&#7873;n &#244; tr&#7889;ng khi m&#244;n/l&#7899;p c&#243; m&#7897;t gi&#225;o vi&#234;n; kh&#244;ng ghi &#273;&#232;.</small></div>
-    ${weeklyTeacherEditForm(name)}
-    <p class="weekly-teacher-notice" id="weeklyTeacherNotice" role="status">${esc(scheduleAuditTeacherNotice)}</p>`;
-}
-function renderWeeklyTeacherSection() {
-  const teachers = weeklyTeacherNames(), active = weeklyActiveTeacher(), activeKey = scheduleAuditEntityKey(active);
-  const entered = (scheduleAuditWorkloadLimits?.assignments || []).filter(row => weeklyHasPeriods(row.periods)).length;
-  const count = scheduleAuditWorkloadLimits?.assignments?.length || 0;
-  return `<details class="weekly-load-limits-section weekly-teacher-section" ${scheduleAuditTeacherOpen ? "open" : ""}
-      ontoggle="scheduleAuditTeacherOpen=this.open"><summary>Ph&#226;n c&#244;ng gi&#225;o vi&#234;n theo l&#7899;p/m&#244;n
-      <small>(${entered}/${count} &#244; &#273;&#227; nh&#7853;p)</small></summary>
-    <p>Ch&#7885;n m&#7897;t gi&#225;o vi&#234;n, sau &#273;&#243; nh&#7853;p s&#7889; ti&#7871;t trong b&#7843;ng g&#7885;n. T&#7893;ng ti&#7871;t &#273;&#432;&#7907;c c&#7897;ng t&#7921; &#273;&#7897;ng.</p>
-    <div class="weekly-teacher-layout"><div class="weekly-teacher-sidebar">
-      <label class="weekly-teacher-search-label" for="weeklyTeacherSearch">T&#236;m gi&#225;o vi&#234;n</label>
-      <input id="weeklyTeacherSearch" type="search" placeholder="Nh&#7853;p t&#234;n gi&#225;o vi&#234;n..." oninput="weeklyFilterTeachers(this.value)">
-      <div class="weekly-teacher-nav" id="weeklyTeacherNav">${teachers.map((teacher,i)=>{
-        const stats = weeklyTeacherStats(teacher);
-        const key = scheduleAuditEntityKey(teacher);
-        return `<button type="button" class="weekly-teacher-nav-item${key===activeKey ? " is-active" : ""}"
-          data-weekly-teacher-name="${esc(teacher.toLocaleLowerCase('vi-VN'))}" data-weekly-teacher-key="${esc(key)}"
-          aria-pressed="${key===activeKey}" onclick="weeklySelectTeacher(${i})"><span>${esc(teacher)}</span><small class="weekly-teacher-nav-count">${stats.entered}/${stats.total}</small></button>`;
-      }).join("") || '<p>Ch&#432;a c&#243; gi&#225;o vi&#234;n.</p>'}</div>
-    </div><div class="weekly-teacher-workspace" id="weeklyTeacherWorkspace">${weeklyTeacherWorkspace()}</div></div>
-  </details>`;
-}
-function weeklyFilterTeachers(query) {
-  const needle = String(query || "").normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLocaleLowerCase('vi-VN').replace(/\u0111/g,'d').trim();
-  document.querySelectorAll('#weeklyTeacherNav [data-weekly-teacher-name]').forEach(button => {
-    const label = String(button.dataset.weeklyTeacherName || "").normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('vi-VN').replace(/\u0111/g,'d');
-    button.hidden = Boolean(needle && !label.includes(needle));
-  });
-}
-function weeklySelectTeacher(index) {
-  const teachers = weeklyTeacherNames();
-  if (!teachers[index]) return;
-  scheduleAuditSelectedTeacher = teachers[index];
-  scheduleAuditTeacherNotice = "";
-  const area = document.getElementById('weeklyTeacherWorkspace');
-  if (area) area.innerHTML = weeklyTeacherWorkspace();
-  const chosen = scheduleAuditEntityKey(scheduleAuditSelectedTeacher);
-  document.querySelectorAll('#weeklyTeacherNav [data-weekly-teacher-key]').forEach(button => {
-    const active = button.dataset.weeklyTeacherKey === chosen;
-    button.classList.toggle('is-active',active);
-    button.setAttribute('aria-pressed', String(active));
-  });
-}
-function weeklyRefreshTeacherStats() {
-  const teacher = weeklyActiveTeacher();
-  if (!teacher) return;
-  const stats = weeklyTeacherStats(teacher);
-  const ready = stats.ready;
-  const set = (id, text) => {const el=document.getElementById(id); if(el) el.textContent=text;};
-  set('weeklyTeacherProgress', `${weeklyTeacherStatsLabel(stats)} \u00f4 \u0111\u00e3 nh\u1eadp`);
-  set('weeklyTeacherTargetTotal', `${weeklyLoadNumber(stats.expected)}${ready ? '' : ' *'}`);
-  set('weeklyTeacherTotalStatus', ready ? (stats.expected === stats.actual ? '\u0110\u1ee7 ti\u1ebft' : `Ch\u00eanh l\u1ec7ch: ${weeklyLoadNumber(stats.actual-stats.expected)}`) : '* Ch\u01b0a x\u00e1c minh t\u1ed5ng ti\u1ebft');
-  for (const item of weeklyTeacherEntries(teacher)) {
-    const classKey = scheduleAuditEntityKey(item.row.class_name);
-    const cell = document.querySelector('#weeklyTeacherWorkspace [data-weekly-class="'+classKey+'"]');
-    if (!cell) continue;
-    const group = weeklyTeacherEntries(teacher).filter(({row})=>scheduleAuditEntityKey(row.class_name)===classKey);
-    const filled = group.filter(({row})=>weeklyHasPeriods(row.periods));
-    cell.textContent = filled.length ? `${weeklyLoadNumber(filled.reduce((n,{row})=>n+(Number(row.periods)||0),0))}${filled.length<group.length ? ' *' : ''}` : '\u2014';
-  }
-  const all = (scheduleAuditWorkloadLimits?.assignments || []);
-  const count = all.filter(row=>weeklyHasPeriods(row.periods)).length;
-  const summary = document.querySelector('.weekly-teacher-section > summary small');
-  if (summary) summary.textContent = `(${count}/${all.length} \u00f4 \u0111\u00e3 nh\u1eadp)`;
-  const nav = document.querySelector('#weeklyTeacherNav [data-weekly-teacher-key="'+scheduleAuditEntityKey(teacher)+'"] .weekly-teacher-nav-count');
-  if (nav) nav.textContent = weeklyTeacherStatsLabel(stats);
-}
-function weeklyAddTeacherAssignment() {
-  const teacher = weeklyActiveTeacher();
-  const cls = String(document.getElementById('weeklyTeacherNewClass')?.value || '').trim();
-  const subject = String(document.getElementById('weeklyTeacherNewSubject')?.value || '').trim();
-  if (!teacher || !cls || !subject || !scheduleAuditWorkloadLimits) return;
-  const exists = weeklyTeacherEntries(teacher).some(({row}) =>
-    scheduleAuditEntityKey(row.class_name) === scheduleAuditEntityKey(cls) && weeklySubjectCode(row.subject)===weeklySubjectCode(subject));
-  if (exists) {scheduleAuditTeacherNotice='Ph\u00e2n c\u00f4ng n\u00e0y \u0111\u00e3 c\u00f3 trong b\u1ea3ng.'; document.getElementById('weeklyTeacherNotice').textContent=scheduleAuditTeacherNotice;return;}
-  scheduleAuditWorkloadLimits.assignments.push({teacher,class_name:cls,subject,periods:''});
-  weeklyAssignmentChanged();
-  scheduleAuditTeacherOpen = true;
-  scheduleAuditTeacherNotice='\u0110\u00e3 th\u00eam ph\u00e2n c\u00f4ng m\u1edbi. H\u00e3y nh\u1eadp s\u1ed1 ti\u1ebft v\u00e0 L\u01b0u.';
-  redrawScheduleAuditWorkload();
-}
-function weeklyRemoveTeacherAssignment(index) {
-  const rows = scheduleAuditWorkloadLimits?.assignments || [];
-  if (!rows[index]) return;
-  rows.splice(index,1);
-  weeklyAssignmentChanged();
-  scheduleAuditTeacherOpen=true;
-  scheduleAuditTeacherNotice='\u0110\u00e3 b\u1ecf ph\u00e2n c\u00f4ng kh\u1ecfi b\u1ea3ng nh\u1eadp. H\u00e3y L\u01b0u \u0111\u1ec3 ghi nh\u1eadn.';
-  redrawScheduleAuditWorkload();
 }
 function weeklyAssignmentChanged() {
   scheduleAuditLimitsDirty = true;
   scheduleAuditWorkloadOpen = true;
-  scheduleAuditWorkloadError = '';
+  scheduleAuditWorkloadError = "";
   scheduleAuditWorkloadCheckId++;
   scheduleAuditWorkloadBusy = false;
   if (scheduleAuditLastReport) scheduleAuditLastReport.workload = null;
 }
-function weeklyAutofillTeacher() {
-  const teacher = weeklyActiveTeacher();
-  const entries = weeklyTeacherEntries(teacher);
-  const classRules = new Map((scheduleAuditWorkloadLimits?.class_subject || [])
-    .filter(row=>weeklyHasPeriods(row.periods))
-    .map(row=>[`${String(row.grade)}|${weeklySubjectCode(row.subject)}`,Number(row.periods)]));
-  const classTeachers = new Map();
-  for (const cell of scheduleAuditLastReport?.viewer?.cells || []) {
-    const key = `${scheduleAuditEntityKey(cell.class_name)}|${weeklySubjectCode(cell.subject_name)}`;
-    if (!classTeachers.has(key)) classTeachers.set(key,new Set());
-    if (cell.teacher_name) classTeachers.get(key).add(scheduleAuditEntityKey(cell.teacher_name));
+function weeklyMatrixClasses() {
+  const names = new Map();
+  const add = name => {
+    const label = String(name || "").trim();
+    const key = scheduleAuditEntityKey(label);
+    if (key && !names.has(key)) names.set(key, label);
+  };
+  for (const cls of scheduleAuditLastReport?.viewer?.classes || []) add(cls.name);
+  for (const row of scheduleAuditWorkloadLimits?.assignments || []) add(row.class_name);
+  return [...names.values()].sort((a,b) => a.localeCompare(b,"vi",{numeric:true}));
+}
+function weeklyMatrixTeacherNames() {
+  const teachers = new Map();
+  for (const row of scheduleAuditWorkloadLimits?.assignments || []) {
+    const t = String(row.teacher || "").trim(), k = scheduleAuditEntityKey(t);
+    if (k && !teachers.has(k)) teachers.set(k,t);
   }
-  const editable = entries.filter(({row}) => {
-    if (weeklyHasPeriods(row.periods)) return false;
-    const grade = (String(row.class_name).match(/^(1[0-2]|[1-9])[a-z]/i)||[])[1];
-    const clazz = `${scheduleAuditEntityKey(row.class_name)}|${weeklySubjectCode(row.subject)}`;
-    return classRules.has(`${grade}|${weeklySubjectCode(row.subject)}`) && classTeachers.get(clazz)?.size === 1 && classTeachers.get(clazz).has(scheduleAuditEntityKey(teacher));
-  });
-  if (!editable.length) {
-    scheduleAuditTeacherNotice='Kh\u00f4ng c\u00f3 \u00f4 tr\u1ed1ng \u0111\u1ee7 \u0111i\u1ec1u ki\u1ec7n \u0111\u1ec3 \u0111i\u1ec1n nhanh.';
-    const notice = document.getElementById('weeklyTeacherNotice'); if(notice) notice.textContent=scheduleAuditTeacherNotice;
+  for (const cell of scheduleAuditLastReport?.viewer?.cells || []) {
+    const t = String(cell.teacher_name || "").trim(), k = scheduleAuditEntityKey(t);
+    if (k && !scheduleAuditIsUnknownTeacher(t) && !teachers.has(k)) teachers.set(k,t);
+  }
+  return [...teachers.values()].sort((a,b) => a.localeCompare(b,"vi",{numeric:true}));
+}
+function weeklyAssignmentMatrixSubjects() {
+  const subjects = new Map(weeklyMatrixSubjects());
+  for (const row of scheduleAuditWorkloadLimits?.assignments || []) {
+    const name = String(row.subject || "").trim(), key = weeklySubjectCode(name);
+    if (key && !subjects.has(key)) subjects.set(key,name);
+  }
+  return [...subjects.entries()].sort((a,b) => weeklySubjectSortRank(a[1]) - weeklySubjectSortRank(b[1])
+    || a[1].localeCompare(b[1],"vi",{numeric:true}));
+}
+function weeklyMatrixActualCounts() {
+  const counts = new Map();
+  for (const cell of scheduleAuditLastReport?.viewer?.cells || []) {
+    const teacher = String(cell.teacher_name || "").trim();
+    const cls = String(cell.class_name || "").trim();
+    const subject = String(cell.subject_name || "").trim();
+    if (!teacher || !cls || !subject) continue;
+    const key = `${scheduleAuditEntityKey(teacher)}|${scheduleAuditEntityKey(cls)}|${weeklySubjectCode(subject)}`;
+    counts.set(key,(counts.get(key)||0)+1);
+  }
+  return counts;
+}
+function weeklyAssignmentMatrixStats() {
+  const rows = scheduleAuditWorkloadLimits?.assignments || [];
+  const filled = rows.filter(x => weeklyHasPeriods(x.periods));
+  const target = filled.reduce((sum,x) => sum + (Number(x.periods)||0),0);
+  return {filled:filled.length,total:rows.length,target};
+}
+function weeklyMatrixSetGrade(grade) {
+  if (grade !== "all" && !WEEKLY_MATRIX_GRADES.includes(grade)) return;
+  scheduleAuditTeacherMatrixGrade = grade;
+  const node = document.getElementById("weeklyTeacherMatrixWorkspace");
+  if (node) node.innerHTML = weeklyTeacherMatrixWorkspace();
+}
+function weeklyMatrixShowNotice(message) {
+  scheduleAuditTeacherNotice = message;
+  const node = document.getElementById("weeklyTeacherNotice");
+  if (node) node.textContent = message;
+}
+function weeklyMatrixAddByIndex(subjectIndex, classIndex) {
+  const classes=weeklyMatrixClasses().filter(cls => scheduleAuditTeacherMatrixGrade === "all" ||
+    (String(cls).match(/^(1[0-2]|[1-9])[a-z]/i)||[])[1] === scheduleAuditTeacherMatrixGrade);
+  const subject=weeklyAssignmentMatrixSubjects()[subjectIndex];
+  if (!subject || !classes[classIndex]) return;
+  weeklyMatrixAddAssignment(classes[classIndex], subject[1]);
+}
+function weeklyMatrixRedraw() {
+  const area=document.getElementById("weeklyTeacherMatrixWorkspace");
+  if (!area) return;
+  const prev=area.querySelector?.(".weekly-assignment-scroll");
+  const left=prev?.scrollLeft || 0, top=prev?.scrollTop || 0;
+  area.innerHTML=weeklyTeacherMatrixWorkspace();
+  const next=area.querySelector?.(".weekly-assignment-scroll");
+  if (next) {next.scrollLeft=left;next.scrollTop=top;}
+}
+function weeklyMatrixAddAssignment(className, subject) {
+  if (!scheduleAuditWorkloadLimits) return;
+  const cls=String(className||"").trim(), label=String(subject||"").trim();
+  if (!cls || !label) return;
+  if (scheduleAuditWorkloadLimits.assignments.some(row => !String(row.teacher||"").trim() &&
+    scheduleAuditEntityKey(row.class_name)===scheduleAuditEntityKey(cls) &&
+    weeklySubjectCode(row.subject)===weeklySubjectCode(label))) {
+    weeklyMatrixShowNotice("Ô này đã có dòng chưa chọn giáo viên. Hãy điền dòng đó trước khi thêm tiếp.");
     return;
   }
-  if (!window.confirm(`\u0110i\u1ec1n ${editable.length} \u00f4 tr\u1ed1ng theo s\u1ed1 ti\u1ebft kh\u1ed1i cho ${teacher}? Ch\u1ec9 \u00e1p d\u1ee5ng khi TKB ghi m\u1ed9t gi\u00e1o vi\u00ean cho m\u00f4n/l\u1edbp. H\u00e3y r\u00e0 so\u00e1t l\u1ea1i v\u00ec TKB c\u00f3 th\u1ec3 ch\u01b0a \u0111\u1ea7y \u0111\u1ee7.`)) return;
-  for (const {row} of editable) {
-    const grade = (String(row.class_name).match(/^(1[0-2]|[1-9])[a-z]/i)||[])[1];
+  // Empty rows never become permanent until the user explicitly clicks "+".
+  scheduleAuditWorkloadLimits.assignments.push({teacher:"",class_name:cls,subject:label,periods:""});
+  weeklyAssignmentChanged();
+  scheduleAuditTeacherOpen=true;
+  weeklyMatrixShowNotice("Đã thêm một ô phân công. Chọn giáo viên và nhập số tiết trước khi lưu.");
+  weeklyMatrixRedraw();
+}
+function weeklyMatrixChangeTeacher(index, value, input) {
+  const list=scheduleAuditWorkloadLimits?.assignments || [];
+  const row=list[index];
+  if (!row) return;
+  const name=String(value||"").trim();
+  if (!name || scheduleAuditIsUnknownTeacher(name)) {
+    if (input) input.value=row.teacher;
+    weeklyMatrixShowNotice("Hãy chọn hoặc nhập tên giáo viên hợp lệ. Dùng nút × để xóa phân công.");
+    return;
+  }
+  const key=scheduleAuditEntityKey(name);
+  const repeated=list.some((candidate,i) => i !== index &&
+    scheduleAuditEntityKey(candidate.teacher)===key &&
+    scheduleAuditEntityKey(candidate.class_name)===scheduleAuditEntityKey(row.class_name) &&
+    weeklySubjectCode(candidate.subject)===weeklySubjectCode(row.subject));
+  if (repeated) {
+    if (input) input.value=row.teacher;
+    weeklyMatrixShowNotice("Giáo viên đã có phân công cho môn và lớp này; không thể thêm trùng.");
+    return;
+  }
+  if (row.teacher===name) return;
+  row.teacher=name;
+  weeklyAssignmentChanged();
+  weeklyMatrixShowNotice("Đã đổi giáo viên. Hãy lưu bảng phân công khi hoàn thành.");
+  weeklyMatrixRefreshSummary();
+}
+function weeklyRemoveTeacherAssignment(index) {
+  const rows=scheduleAuditWorkloadLimits?.assignments || [];
+  if (!rows[index]) return;
+  rows.splice(index,1);
+  weeklyAssignmentChanged();
+  scheduleAuditTeacherOpen=true;
+  scheduleAuditTeacherNotice="Đã xóa phân công khỏi bảng nhập. Bấm Lưu để ghi nhận.";
+  weeklyMatrixRedraw();
+}
+function weeklyMatrixRefreshSummary() {
+  const stats=weeklyAssignmentMatrixStats();
+  const display=document.getElementById("weeklyMatrixEnteredCount");
+  if (display) display.textContent=`${stats.filled}/${stats.total} ô đã nhập · ${weeklyLoadNumber(stats.target)} tiết`;
+  const summary=document.querySelector(".weekly-teacher-section > summary small");
+  if (summary) summary.textContent=`(${stats.filled}/${stats.total} phân công)`;
+  for (const cls of weeklyMatrixClasses()) {
+    const clskey=scheduleAuditEntityKey(cls);
+    let total=0,ready=true,hasRow=false;
+    for (const row of scheduleAuditWorkloadLimits?.assignments || []) {
+      if (scheduleAuditEntityKey(row.class_name)!==clskey) continue;
+      hasRow=true;
+      if (!weeklyHasPeriods(row.periods) || !String(row.teacher||"").trim()) ready=false;
+      else total+=Number(row.periods)||0;
+    }
+    for (const node of document.querySelectorAll('[data-weekly-matrix-class-total]')) {
+      if (node.dataset.weeklyMatrixClassTotal!==clskey) continue;
+      node.textContent=hasRow ? `${weeklyLoadNumber(total)}${ready?'':' *'}` : "—";
+    }
+  }
+  const actual=weeklyMatrixActualCounts();
+  for (const [index,row] of (scheduleAuditWorkloadLimits?.assignments||[]).entries()) {
+    const badge=document.querySelector(`[data-weekly-matrix-actual="${index}"]`);
+    if (!badge) continue;
+    const n=actual.get(`${scheduleAuditEntityKey(row.teacher)}|${scheduleAuditEntityKey(row.class_name)}|${weeklySubjectCode(row.subject)}`)||0;
+    badge.textContent=`TKB: ${n}`;
+  }
+}
+function weeklyAutofillTeacher() {
+  const entries=(scheduleAuditWorkloadLimits?.assignments||[]).filter(row => !weeklyHasPeriods(row.periods) && row.teacher);
+  const classRules=new Map((scheduleAuditWorkloadLimits?.class_subject||[])
+    .filter(row=>weeklyHasPeriods(row.periods))
+    .map(row=>[`${String(row.grade)}|${weeklySubjectCode(row.subject)}`,Number(row.periods)]));
+  const observed=new Map();
+  for (const cell of scheduleAuditLastReport?.viewer?.cells||[]) {
+    const key=`${scheduleAuditEntityKey(cell.class_name)}|${weeklySubjectCode(cell.subject_name)}`;
+    if (!observed.has(key)) observed.set(key,new Set());
+    if (cell.teacher_name && !scheduleAuditIsUnknownTeacher(cell.teacher_name))
+      observed.get(key).add(scheduleAuditEntityKey(cell.teacher_name));
+  }
+  const eligible=entries.filter(row=>{
+    const grade=(String(row.class_name).match(/^(1[0-2]|[1-9])[a-z]/i)||[])[1];
+    const key=`${scheduleAuditEntityKey(row.class_name)}|${weeklySubjectCode(row.subject)}`;
+    return classRules.has(`${grade}|${weeklySubjectCode(row.subject)}`) &&
+      observed.get(key)?.size===1 && observed.get(key).has(scheduleAuditEntityKey(row.teacher)) &&
+      !((scheduleAuditWorkloadLimits?.assignments||[]).some(other => other!==row &&
+        scheduleAuditEntityKey(other.class_name)===scheduleAuditEntityKey(row.class_name) &&
+        weeklySubjectCode(other.subject)===weeklySubjectCode(row.subject)));
+  });
+  if (!eligible.length) {weeklyMatrixShowNotice("Không có ô trống đủ điều kiện điền nhanh."); return;}
+  if (!window.confirm(`Điền ${eligible.length} phân công trống từ bảng số tiết theo khối? Chỉ áp dụng khi TKB có một giáo viên duy nhất cho môn/lớp; không ghi đè ô đã nhập.`)) return;
+  for (const row of eligible) {
+    const grade=(String(row.class_name).match(/^(1[0-2]|[1-9])[a-z]/i)||[])[1];
     row.periods=classRules.get(`${grade}|${weeklySubjectCode(row.subject)}`);
   }
   weeklyAssignmentChanged();
   scheduleAuditTeacherOpen=true;
-  scheduleAuditTeacherNotice=`\u0110\u00e3 \u0111i\u1ec1n nhanh ${editable.length} \u00f4. Vui l\u00f2ng r\u00e0 so\u00e1t v\u00e0 b\u1ea5m L\u01b0u.`;
-  redrawScheduleAuditWorkload();
+  scheduleAuditTeacherNotice=`Đã điền ${eligible.length} ô. Rà soát và bấm Lưu.`;
+  weeklyMatrixRedraw();
+}
+function weeklyTeacherMatrixWorkspace() {
+  const classes=weeklyMatrixClasses().filter(cls=>scheduleAuditTeacherMatrixGrade==="all" ||
+    (String(cls).match(/^(1[0-2]|[1-9])[a-z]/i)||[])[1]===scheduleAuditTeacherMatrixGrade);
+  const subjects=weeklyAssignmentMatrixSubjects();
+  const entries=scheduleAuditWorkloadLimits?.assignments||[];
+  const byCell=new Map();
+  for (const [index,row] of entries.entries()) {
+    const key=`${scheduleAuditEntityKey(row.class_name)}|${weeklySubjectCode(row.subject)}`;
+    if (!byCell.has(key)) byCell.set(key,[]);
+    byCell.get(key).push({row,index});
+  }
+  const actual=weeklyMatrixActualCounts();
+  const teacherOptions=weeklyMatrixTeacherNames().map(x=>`<option value="${esc(x)}"></option>`).join("");
+  const stats=weeklyAssignmentMatrixStats();
+  const grades=["all",...WEEKLY_MATRIX_GRADES];
+  const buttons=grades.map(g=>`<button type="button" class="weekly-assignment-grade${g===scheduleAuditTeacherMatrixGrade?' active':''}"
+    aria-pressed="${g===scheduleAuditTeacherMatrixGrade}" onclick="weeklyMatrixSetGrade('${g}')">${g==='all'?'Tất cả':`Khối ${g}`}</button>`).join("");
+  const headers=classes.map(x=>`<th colspan="2" scope="colgroup">${esc(x)}</th>`).join("");
+  const subheaders=classes.map(()=>`<th>GV</th><th>Số tiết</th>`).join("");
+  const subjectsRows=subjects.map(([code,label],i)=>`<tr><td class="weekly-assignment-index">${i+1}</td>
+    <th scope="row" class="weekly-assignment-subject">${esc(label)}</th>
+    ${classes.map((cls,cj)=>{
+      const matches=byCell.get(`${scheduleAuditEntityKey(cls)}|${code}`)||[];
+      const body=matches.map(({row,index})=>{
+        const n=actual.get(`${scheduleAuditEntityKey(row.teacher)}|${scheduleAuditEntityKey(cls)}|${code}`)||0;
+        return {teacher:`<div class="weekly-assignment-entry"><input type="text" list="weeklyMatrixTeachers" value="${esc(row.teacher)}"
+          placeholder="Giáo viên" maxlength="120" aria-label="${esc(label+' '+cls+' giáo viên')}" onchange="weeklyMatrixChangeTeacher(${index},this.value,this)">
+          <button type="button" class="weekly-assignment-remove" title="Xóa phân công" aria-label="${esc('Xóa '+row.teacher+' '+cls+' '+label)}" onclick="weeklyRemoveTeacherAssignment(${index})">×</button></div>`,
+          periods:`<div class="weekly-assignment-entry"><input type="number" min="0" max="1000" step="0.5" inputmode="decimal"
+          value="${esc(row.periods??'')}" placeholder="—" aria-label="${esc(label+' '+cls+' số tiết')}"
+          oninput="setScheduleAuditLimit('assignments',${index},'periods',this.value)">
+          <small data-weekly-matrix-actual="${index}">TKB: ${n}</small></div>`};
+      });
+      const add=`<button type="button" class="weekly-assignment-add" title="Thêm giáo viên" aria-label="${esc('Thêm giáo viên '+label+' '+cls)}"
+        onclick="weeklyMatrixAddByIndex(${i},${cj})">+</button>`;
+      return `<td class="weekly-assignment-teacher-cell">${body.map(x=>x.teacher).join('')}${add}</td>
+        <td class="weekly-assignment-period-cell">${body.map(x=>x.periods).join('')}${matches.length?'':'<span class="weekly-assignment-hint">—</span>'}</td>`;
+    }).join('')}</tr>`).join('');
+  const totals=classes.map(cls=>{
+    const current=entries.filter(row=>scheduleAuditEntityKey(row.class_name)===scheduleAuditEntityKey(cls));
+    const ready=current.length>0 && current.every(x=>weeklyHasPeriods(x.periods)&&String(x.teacher||'').trim());
+    const total=current.reduce((s,x)=>s+(weeklyHasPeriods(x.periods)?Number(x.periods)||0:0),0);
+    return `<td colspan="2" data-weekly-matrix-class-total="${esc(scheduleAuditEntityKey(cls))}">${current.length?`${weeklyLoadNumber(total)}${ready?'':' *'}`:'—'}</td>`;
+  }).join('');
+  return `<div class="weekly-assignment-toolbar"><div class="weekly-assignment-tabs">${buttons}</div>
+    <span class="weekly-teacher-progress" id="weeklyMatrixEnteredCount">${stats.filled}/${stats.total} ô đã nhập · ${weeklyLoadNumber(stats.target)} tiết</span></div>
+    <p class="weekly-assignment-help">Mỗi môn là một dòng; mỗi lớp có cột <b>GV</b> và <b>Số tiết</b> như bảng Excel. Bấm <b>+</b> để thêm giáo viên, kể cả khi một môn do nhiều giáo viên cùng dạy. Dấu * nghĩa là còn ô chưa nhập.</p>
+    <datalist id="weeklyMatrixTeachers">${teacherOptions}</datalist>
+    <div class="weekly-assignment-scroll" tabindex="0" aria-label="Bảng phân công giáo viên theo lớp và môn, cuộn ngang để xem các lớp khác">
+      <table class="weekly-assignment-table"><thead><tr><th rowspan="2" class="weekly-assignment-index">TT</th>
+        <th rowspan="2" class="weekly-assignment-subject">Môn</th>${headers}</tr><tr>${subheaders}</tr></thead>
+        <tbody>${subjectsRows || `<tr><td colspan="${2+2*classes.length}">TKB chưa có môn học.</td></tr>`}
+        <tr class="weekly-assignment-total"><th colspan="2">Tổng tiết phân công</th>${totals}</tr></tbody></table></div>
+    <div class="weekly-teacher-tools"><button type="button" class="btn ghost" onclick="weeklyAutofillTeacher()">Điền nhanh từ bảng khối</button>
+      <small>Chỉ điền ô trống khi có một giáo viên duy nhất; không tự ghi đè.</small></div>
+    <p class="weekly-teacher-notice" id="weeklyTeacherNotice" role="status">${esc(scheduleAuditTeacherNotice)}</p>`;
+}
+function renderWeeklyTeacherSection() {
+  const stats=weeklyAssignmentMatrixStats();
+  return `<details class="weekly-load-limits-section weekly-teacher-section" ${scheduleAuditTeacherOpen?'open':''}
+    ontoggle="scheduleAuditTeacherOpen=this.open"><summary>Phân công giáo viên theo lớp, môn
+      <small>(${stats.filled}/${stats.total} phân công)</small></summary>
+    <div id="weeklyTeacherMatrixWorkspace">${weeklyTeacherMatrixWorkspace()}</div>
+  </details>`;
 }
 function weeklyMatrixInput(code, label, index, grade) {
   const rows = scheduleAuditWorkloadLimits?.class_subject || [];
@@ -473,7 +513,7 @@ function setScheduleAuditLimit(type, index, field, value) {
   // Remove stale results without destroying the form being edited.
   const results = document.querySelectorAll("#scheduleAuditView-workload .weekly-load-cards, #scheduleAuditView-workload .weekly-load-section, #scheduleAuditView-workload .weekly-load-notes");
   results.forEach(el => { if (!el.closest(".weekly-load-limits")) el.remove(); });
-  if (type === "assignments" && field === "periods") weeklyRefreshTeacherStats();
+  if (type === "assignments" && field === "periods") weeklyMatrixRefreshSummary();
 }
 function redrawScheduleAuditWorkload() {
   const container = document.getElementById("scheduleAuditView-workload");

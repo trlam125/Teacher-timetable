@@ -1153,6 +1153,8 @@ def _standalone_parse_wide(
     parsed: list[RawLesson] = []
     last_day = ""
     last_session = ""
+    last_period: int | None = None
+    last_period_row = -2
     implicit_sessions = _implicit_session_hints(
         rows,
         start_index=header_index + 1,
@@ -1174,8 +1176,33 @@ def _standalone_parse_wide(
             last_session = session_value
         day = day_value or last_day
         session = session_value or implicit_sessions.get(row_index, "") or last_session
-        if not day or not period or _period_number(period) is None:
+        period_number = _period_number(period)
+        if period_number is None:
+            # A real-world timetable can omit just the period label on a row
+            # while keeping lessons in its class columns. Recover that row
+            # only when it immediately follows a numbered lesson row in the
+            # same day/session, and at least one cell contains a recognizable
+            # subject. Do not turn separator rows or notes into lessons.
+            has_lesson = any(
+                _standalone_subject_from_text(get(col))
+                for col, _header in entity_cols
+                if get(col)
+            )
+            if (
+                not period
+                and has_lesson
+                and last_period is not None
+                and last_period_row == row_index - 1
+                and not day_value
+                and not session_value
+            ):
+                period_number = last_period + 1
+                period = str(period_number)
+        if not day or period_number is None:
+            last_period = None
             continue
+        last_period = period_number
+        last_period_row = row_index
         for col, header in entity_cols:
             lesson = get(col)
             if not lesson or normalize_text(lesson) in {

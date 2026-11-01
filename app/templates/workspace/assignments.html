@@ -46,7 +46,28 @@
             tiết mỗi ngày.
         </p>
     </div>
-    <div class="assignment-filter-panel" aria-label="Bộ lọc phân công">
+    <details class="auto-grade-program" id="autoGradeProgram">
+        <summary>1. Số tiết bắt buộc theo khối – môn <span class="muted">(bấm để mở bảng)</span></summary>
+        <p class="auto-assignment-help">Mỗi ô là số tiết/tuần bắt buộc của môn đó tại <b>mỗi lớp trong khối</b>. Để trống nếu không áp dụng. Lưu riêng từng khối; khi chỉnh sửa chương trình có ảnh hưởng lịch đang xếp, hệ thống sẽ yêu cầu xác nhận.</p>
+        <div id="autoGradeProgramTable"></div>
+    </details>
+    <h2 class="auto-assignment-subheading">2. Phân công giáo viên theo lớp – môn</h2>
+    <div class="auto-assignment-toolbar">
+        <div class="auto-assignment-view-switch" role="group" aria-label="Cách hiển thị phân công">
+            <button id="autoAssignmentMatrixTab" class="btn" type="button" onclick="setAutoAssignmentView('matrix')">Bảng theo lớp – môn</button>
+            <button id="autoAssignmentListTab" class="btn ghost" type="button" onclick="setAutoAssignmentView('list')">Danh sách chi tiết</button>
+        </div>
+        <div class="auto-assignment-matrix-controls" id="autoAssignmentMatrixControls">
+            <label>Khối
+                <select id="autoAssignmentGrade" onchange="setAutoAssignmentGrade(this.value)"></select>
+            </label>
+            <label>Tìm môn
+                <input id="autoAssignmentSubjectSearch" type="search" placeholder="Nhập tên môn..." oninput="renderAssignmentTable()">
+            </label>
+        </div>
+    </div>
+    <div id="autoAssignmentMatrixHelp" class="auto-assignment-help">Mỗi lớp có hai cột <b>Giáo viên</b> và <b>Số tiết/tuần</b>. Chọn giáo viên và số tiết rồi bấm <b>Lưu</b> trong ô. Có thể chọn <b>Chi tiết</b> để đổi chế độ xếp tiết đôi.</div>
+    <div class="assignment-filter-panel" id="autoAssignmentLegacyFilters" hidden aria-label="Bộ lọc phân công">
         <label>
             Lớp
             <select id="assignmentFilterClass" onchange="renderAssignmentTable()">

@@ -662,3 +662,52 @@
   }
 }
 
+
+
+/* Compact grade/subject assignment matrix (automatic scheduler). */
+.auto-assignment-toolbar {display:flex;justify-content:space-between;gap:12px;align-items:end;flex-wrap:wrap;margin:16px 0 10px;}
+.auto-assignment-view-switch {display:flex;gap:8px;flex-wrap:wrap;}
+.auto-assignment-matrix-controls {display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
+.auto-assignment-matrix-controls label {font-size:12px;font-weight:700;color:var(--muted);display:grid;gap:5px;}
+.auto-assignment-matrix-controls select, .auto-assignment-matrix-controls input {min-width:140px;max-width:210px;border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--card-bg);color:var(--ink);}
+.auto-assignment-help {font-size:13px;margin:4px 0 12px;color:var(--muted);line-height:1.6;}
+.auto-assignment-stats {font-weight:700;font-size:13px;color:var(--muted);margin:10px 0;}
+.auto-assignment-scroller {overflow:auto;max-width:100%;max-height:70vh;position:relative;border:1px solid var(--line);border-radius:12px;background:var(--card-bg);}
+.auto-assignment-matrix {border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;}
+.auto-assignment-matrix th,.auto-assignment-matrix td {border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px;vertical-align:middle;}
+.auto-assignment-matrix thead th {background:var(--bg);color:var(--ink);position:sticky;top:0;z-index:3;text-align:center;white-space:nowrap;}
+.auto-assignment-matrix thead tr:nth-child(2) th {top:34px;z-index:3;}
+.auto-assignment-matrix thead tr:first-child th {height:34px;}
+.auto-assignment-matrix .auto-assignment-subject {position:sticky;left:0;z-index:2;min-width:165px;width:165px;max-width:165px;background:var(--card-bg);text-align:left;font-weight:750;box-shadow:2px 0 3px rgba(0,0,0,.06);}
+.auto-assignment-matrix thead .auto-assignment-subject {z-index:5;background:var(--bg);}
+.auto-assignment-no {display:inline-block;min-width:20px;color:var(--muted);font-weight:500;}
+.auto-assignment-teacher {min-width:126px;width:126px;}
+.auto-assignment-teacher select {width:100%;border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);min-height:32px;font-size:12px;padding:4px;}
+.auto-assignment-periods {min-width:107px;width:107px;}
+.auto-assignment-cell {display:flex;gap:3px;align-items:center;}
+.auto-assignment-cell input {width:48px;min-width:48px;min-height:32px;border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);text-align:center;font-size:12px;padding:3px;}
+.auto-assignment-save,.auto-assignment-detail {border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-height:30px;padding:3px 5px;font-size:11px;cursor:pointer;}
+.auto-assignment-save {font-weight:750;color:#0f766e;}
+.auto-assignment-detail {font-size:10px;}
+.auto-assignment-cell.is-dirty {outline:2px solid #0d9488;outline-offset:2px;border-radius:5px;}
+.auto-assignment-not-applicable {text-align:center;color:var(--muted);background:var(--bg);}
+.auto-assignment-mismatch {background:rgba(245,158,11,.12);}
+.auto-assignment-note {font-size:12px;color:var(--muted);line-height:1.5;margin:8px 0;}
+/* The HTML hidden state must win over layout display declarations. */
+.auto-assignment-matrix-controls[hidden],#autoAssignmentLegacyFilters[hidden],#autoAssignmentMatrixHelp[hidden],.auto-assignment-save[hidden] {display:none!important;}
+@media(max-width:600px) {.auto-assignment-toolbar {align-items:stretch;}.auto-assignment-matrix .auto-assignment-subject{min-width:125px;width:125px;max-width:125px;}.auto-assignment-teacher{min-width:115px;width:115px;}}
+
+.auto-grade-program {padding:14px 16px;margin:14px 0;border:1px solid var(--line);border-radius:12px;background:var(--card-bg);}
+.auto-grade-program summary {font-weight:750;cursor:pointer;color:var(--ink);}
+.auto-assignment-subheading {font-size:17px;margin:20px 0 8px;color:var(--ink);}
+.auto-grade-scroller {max-height:67vh;}
+.auto-grade-matrix {border-collapse:separate;border-spacing:0;width:100%;min-width:520px;font-size:13px;}
+.auto-grade-matrix th,.auto-grade-matrix td {border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:7px 9px;text-align:center;}
+.auto-grade-matrix thead th {position:sticky;top:0;z-index:3;background:var(--bg);}
+.auto-grade-matrix tbody th,.auto-grade-matrix tfoot th {text-align:left;position:sticky;left:0;z-index:2;background:var(--card-bg);min-width:150px;}
+.auto-grade-matrix thead th:first-child {left:0;z-index:4;}
+.auto-grade-matrix input {width:63px;border:1px solid var(--line);background:var(--card-bg);color:var(--ink);border-radius:7px;text-align:center;padding:7px 3px;}
+.auto-grade-matrix input:focus {outline:2px solid #0d9488;outline-offset:1px;}
+.auto-grade-matrix tfoot td {position:sticky;bottom:0;background:var(--bg);z-index:2;}
+.auto-grade-save {font-size:12px;padding:6px 8px;white-space:nowrap;}
+.auto-grade-save.is-changed {border-color:#0d9488;color:#0d9488;}
