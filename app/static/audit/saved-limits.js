@@ -49,20 +49,61 @@ function weeklyRowKey(type, row) {
   if (type === "class_subject") return `${String(row.grade || "").trim()}|${weeklySubjectCode(row.subject)}`;
   return `${key(row.teacher)}|${key(row.class_name)}|${weeklySubjectCode(row.subject)}`;
 }
-function weeklyMergeLimits(saved, generated, catalog, removeMissing) {
+// Older imports expanded TKB labels (e.g. NT (Nhạc) -> Âm nhạc).
+// On an explicitly confirmed catalog replacement, migrate an exact saved
+// quota only when there is one old and one new subject in the same known
+// school-sheet category. Never merge KHTN with KHTN(S), LSĐL with LSĐL(Đ),
+// or two distinct labels that coexist in the same timetable.
+function weeklySafeSubjectRenames(previousLabels, nextLabels) {
+  const byRank = labels => {
+    const grouped = new Map();
+    for (const name of labels || []) {
+      const rank = weeklySubjectSortRank(name);
+      if (rank >= 16) continue;
+      if (!grouped.has(rank)) grouped.set(rank, new Map());
+      grouped.get(rank).set(weeklySubjectCode(name), name);
+    }
+    return grouped;
+  };
+  const previous = byRank(previousLabels), next = byRank(nextLabels);
+  const map = new Map();
+  for (const [rank, oldItems] of previous) {
+    const newItems = next.get(rank);
+    if (oldItems.size !== 1 || newItems?.size !== 1) continue;
+    const [oldKey] = oldItems.keys();
+    const [newKey, newName] = newItems.entries().next().value;
+    if (oldKey !== newKey) map.set(oldKey, newName);
+  }
+  return map;
+}
+function weeklyMergeLimits(saved, generated, catalog, removeMissing, previousCatalog = null) {
   const kept = {}, subjects = new Set(catalog.subjects.map(weeklySubjectCode)),
     teachers = new Set(catalog.teachers.map(scheduleAuditEntityKey)),
     classes = new Set(catalog.classes.map(scheduleAuditEntityKey)),
     grades = new Set(catalog.classes.map(x => (String(x).match(/^(1[0-2]|[1-9])[a-z]/i) || [])[1]).filter(Boolean));
+  const renamed = removeMissing && previousCatalog
+    ? weeklySafeSubjectRenames(previousCatalog.subjects, catalog.subjects) : new Map();
+  const currentSubjectLabels = new Map((catalog.subjects || [])
+    .map(name => [weeklySubjectCode(name), name]));
   const valid = (type, row) => !removeMissing || (
     type === "class_subject" ? subjects.has(weeklySubjectCode(row.subject)) && grades.has(String(row.grade || "").trim()) :
     teachers.has(scheduleAuditEntityKey(row.teacher)) &&
     subjects.has(weeklySubjectCode(row.subject)) && classes.has(scheduleAuditEntityKey(row.class_name)));
   for (const type of WEEKLY_LIMIT_TYPES) {
     const rows = new Map();
+    // Exact retained labels win; only then apply safe one-to-one renames.
     for (const source of saved?.[type] || []) {
-      const row = {...source, periods:source.periods ?? ""};
-      if (valid(type, row)) rows.set(weeklyRowKey(type, row), {...row});
+      const currentLabel = currentSubjectLabels.get(weeklySubjectCode(source.subject));
+      const row = {...source, subject:currentLabel || source.subject,
+                   periods:source.periods ?? ""};
+      if (valid(type, row)) rows.set(weeklyRowKey(type, row), row);
+    }
+    for (const source of saved?.[type] || []) {
+      const nextLabel = renamed.get(weeklySubjectCode(source.subject));
+      if (!nextLabel) continue;
+      const row = {...source, subject:nextLabel, periods:source.periods ?? ""};
+      if (valid(type, row) && !rows.has(weeklyRowKey(type, row)))
+        rows.set(weeklyRowKey(type, row), row);
     }
     for (const row of generated?.[type] || []) {
       const key = weeklyRowKey(type, row);
@@ -152,7 +193,7 @@ async function restoreSavedWeeklyLimits(report, runId) {
     scheduleAuditLimitsNotice = "Đã tải số tiết đã lưu. Tên môn và ký hiệu trong ngoặc được giữ riêng như trên TKB mới.";
     return;
   }
-  const updated = weeklyMergeLimits(profile.limits, proposed, newCatalog, true);
+  const updated = weeklyMergeLimits(profile.limits, proposed, newCatalog, true, profile.catalog);
   const toRemove = weeklyCountRemovedRows(profile.limits, updated);
   const confirmed = await promptWeeklyCatalogReplace(diff, toRemove);
   if (runId !== scheduleAuditRunId || report !== scheduleAuditLastReport) return;

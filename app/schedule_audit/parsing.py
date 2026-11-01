@@ -597,6 +597,7 @@ _STANDALONE_SUBJECT_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = t
         # Put longer/full subject names before shorter prefixes. The trailing
         # word boundary prevents cases such as "Sinh hoạt" being consumed as
         # "Sinh" (Sinh học).
+        (r"^\s*HĐTN\s*[,;/]\s*HN\b\s*[-:]?\s*", "HĐTN, HN"),
         (r"^\s*HĐTNHN\b\s*[-:]?\s*", "HĐTNHN"),
         (r"^\s*TNHN\b\s*[-:]?\s*", "TNHN"),
         (r"^\s*HĐTN\b\s*[-:]?\s*", "HĐTN"),
@@ -624,6 +625,7 @@ _STANDALONE_SUBJECT_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = t
         (r"^\s*KHXH(?:\s*\([^)]*\))?\s*[-:]?\s*", "KHXH"),
         (r"^\s*NT\s*\(\s*Nhạc\s*\)\s*[-:]?\s*", "Âm nhạc"),
         (r"^\s*NT\s*\(\s*MT\s*\)\s*[-:]?\s*", "Mỹ thuật"),
+        (r"^\s*NT\s*\(\s*(?:Mỹ|Mĩ)\s*thuật\s*\)\s*[-:]?\s*", "Mỹ thuật"),
         (r"^\s*GDĐP\b\s*[-:]?\s*", "GDĐP"),
         (r"^\s*GDDP\b\s*[-:]?\s*", "GDĐP"),
         (r"^\s*GDKTPL\b\s*[-:]?\s*", "GDKTPL"),
@@ -657,11 +659,19 @@ def _standalone_subject_prefix(value: str) -> tuple[str, str]:
         label = text[component.start():component.end()].strip(" -–—|;/: ")
         return label, text[component.end():].strip(" -–—|;/: ")
 
-    # First handle normalized aliases so the parser behaves the same for
-    # accented and unaccented text (e.g. "Công nghệ" / "cong nghe").
-    # Parenthesized forms are left to the regexes below because they know how
-    # to consume qualifiers such as KHTN(S) or NT(Nhạc) without treating the
-    # qualifier as part of the teacher name.
+    # The timetable's displayed subject label is authoritative. Do not turn
+    # short labels (e.g. N.Văn, T.Anh, NT (Nhạc)) into canonical/full names,
+    # because doing so makes the collision table and quota form disagree.
+    # Try structured prefixes first to keep punctuation and parenthesized
+    # components together while still separating the teacher's name.
+    for pattern, _canonical in _STANDALONE_SUBJECT_PREFIX_PATTERNS:
+        match = pattern.match(text)
+        if match:
+            label = text[:match.end()].strip(" -–—|;/: ")
+            return label, text[match.end():].strip(" -–—|;/:, ")
+
+    # Unaccented and uncommon aliases are supported too, but the literal
+    # matched source prefix is returned, never the replacement label.
     normalized = normalize_text(text)
     for hint in sorted(_STANDALONE_SUBJECT_HINTS, key=len, reverse=True):
         if normalized != hint and not normalized.startswith(f"{hint} "):
@@ -676,12 +686,7 @@ def _standalone_subject_prefix(value: str) -> tuple[str, str]:
         remainder_raw = text[prefix_end:]
         if "(" in text[:prefix_end] or remainder_raw.lstrip().startswith("("):
             continue
-        return _STANDALONE_SUBJECT_HINTS[hint], remainder_raw.strip(" -–—|;/: ")
-
-    for pattern, subject in _STANDALONE_SUBJECT_PREFIX_PATTERNS:
-        match = pattern.match(text)
-        if match:
-            return subject, text[match.end() :].strip(" -–—|;/: ")
+        return text[:prefix_end].strip(), remainder_raw.strip(" -–—|;/:, ")
     return "", ""
 
 
