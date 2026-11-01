@@ -12,17 +12,6 @@ def required_text(data: dict, key: str, label: str, max_length: int) -> str:
     return bounded_text(data.get(key, ""), label, max_length)
 
 
-def required_id(data: dict, key: str, label: str) -> int:
-    value = data.get(key)
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(400, f"{label} không hợp lệ") from exc
-    if parsed <= 0:
-        raise HTTPException(400, f"{label} không hợp lệ")
-    return parsed
-
-
 def schedule_displacement_confirmation(
     db: Session,
     displaced_lesson_ids: list[int],

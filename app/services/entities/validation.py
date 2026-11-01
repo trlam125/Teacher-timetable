@@ -5,6 +5,17 @@ from app.services.web import *
 from app.services.schedule_service import *
 
 
+def required_id(data: dict, key: str, label: str) -> int:
+    value = data.get(key)
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, f"{label} không hợp lệ") from exc
+    if parsed <= 0:
+        raise HTTPException(400, f"{label} không hợp lệ")
+    return parsed
+
+
 def ensure_unique_project_name(
     db: Session,
     model,
