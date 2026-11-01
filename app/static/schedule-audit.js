@@ -26,8 +26,7 @@ function auditErrorMessage(result, status, fallback) {
   const text = typeof raw === "string" ? raw : "";
   const internal = /(?:Traceback|SQLAlchemy|psycopg|\bHTTP\s*\d{3}|\bJSON\b|\bUvicorn\b|GEMINI_API_KEY|<html)/i;
   const visible = !text || internal.test(text) ? auditFriendlyError(status) : text;
-  const reference = result?.error_id;
-  return reference && !visible.includes(reference) ? `${visible} Mã hỗ trợ: ${reference}.` : visible;
+  return visible.replace(/\s*Mã hỗ trợ:\s*[A-Fa-f0-9]{6,32}\.?/g, "").trim();
 }
 const esc = (value) =>
   String(value ?? "").replace(

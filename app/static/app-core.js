@@ -32,7 +32,7 @@ async function readApiResponse(response) {
     throw invalid;
   }
 }
-// Chỉ hiển thị thông báo hướng dẫn; mã chi tiết vẫn có trong nhật ký máy chủ.
+// Hiển thị nguyên nhân có thể xác định; mã tra cứu chỉ giữ trong nhật ký máy chủ.
 function friendlyRequestError(status) {
   if (status === 401) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (status === 403) return "Bạn không có quyền thực hiện thao tác này.";
@@ -53,9 +53,7 @@ function friendlyServerDetail(value, status = 500, reference = "") {
   const visible = !message || internalPattern.test(message)
     ? friendlyRequestError(status)
     : message;
-  return reference && !visible.includes(reference)
-    ? `${visible} Mã hỗ trợ: ${reference}.`
-    : visible;
+  return visible.replace(/\s*Mã hỗ trợ:\s*[A-Fa-f0-9]{6,32}\.?/g, "").trim();
 }
 function formatApiDetail(detail) {
   if (detail == null) return "";
