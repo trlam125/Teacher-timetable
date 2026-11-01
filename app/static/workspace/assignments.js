@@ -436,6 +436,11 @@ function autoAssignmentCell(schoolClass, subject, assignment) {
 function renderAutoAssignmentMatrix() {
   const table = $("#assignmentTable");
   if (!table) return;
+  // A save/delete refresh rebuilds the matrix. Preserve both scroll axes so
+  // editing subjects near the bottom (or classes to the right) stays in view.
+  const previousScroller = table.querySelector(".auto-assignment-scroller");
+  const previousScrollTop = previousScroller?.scrollTop ?? 0;
+  const previousScrollLeft = previousScroller?.scrollLeft ?? 0;
   const grades = autoAssignmentGrades();
   const select = $("#autoAssignmentGrade");
   if (select) {
@@ -471,6 +476,11 @@ function renderAutoAssignmentMatrix() {
         <tr>${subheaders}</tr></thead><tbody>${rows}</tbody></table>
     </div>
     <p class="auto-assignment-note">Bảng phân công dùng trực tiếp cho bộ xếp tự động. Hiện mỗi cặp lớp–môn chỉ được gán một giáo viên trong bộ xếp tự động. Cột số tiết lấy gợi ý từ chương trình khối nếu đã cấu hình.</p>`;
+  const nextScroller = table.querySelector(".auto-assignment-scroller");
+  if (nextScroller) {
+    nextScroller.scrollTop = previousScrollTop;
+    nextScroller.scrollLeft = previousScrollLeft;
+  }
   autoAssignmentDrafts.forEach((_, id) => autoAssignmentCellChanged(id));
 }
 function autoAssignmentCellChanged(id) {
@@ -581,6 +591,9 @@ function renderAssignmentTable() {
 function renderAutoGradeMatrix() {
   const box = $("#autoGradeProgramTable");
   if (!box) return;
+  const previousScroller = box.querySelector(".auto-grade-scroller");
+  const previousTop = previousScroller?.scrollTop ?? 0;
+  const previousLeft = previousScroller?.scrollLeft ?? 0;
   const grades = [...(data.grades || [])];
   const subjects = [...(data.subjects || [])].map(s => ({...s, name:schoolSubjectCatalog.canonical(s.name)})).sort((a,b) =>
     autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
@@ -607,6 +620,11 @@ function renderAutoGradeMatrix() {
     <table class="auto-grade-matrix"><thead><tr><th>Môn</th>${header}</tr></thead>
     <tbody>${body}</tbody><tfoot><tr><th>Lưu định mức</th>${footer}</tr></tfoot></table>
   </div>`;
+  const nextScroller = box.querySelector(".auto-grade-scroller");
+  if (nextScroller) {
+    nextScroller.scrollTop = previousTop;
+    nextScroller.scrollLeft = previousLeft;
+  }
   for (const grade of grades) autoGradeMatrixChanged(grade.id);
 }
 function autoGradeMatrixChanged(gradeId) {

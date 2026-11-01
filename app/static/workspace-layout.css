@@ -62,6 +62,25 @@ body.workspace-viewport .content {
   display: block;
 }
 
+/* Use the unused horizontal space when editing the class/subject matrix.
+   Scope the compact sidebar and inner gutters to this page only. */
+@media (min-width: 901px) {
+  body.workspace-viewport .workspace:has(#assignments.active):not(.sidebar-collapsed) {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .workspace-tabs-stage #assignments.tab {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1350px) {
+  body.workspace-viewport .workspace:has(#assignments.active):not(.sidebar-collapsed) {
+    grid-template-columns: 208px minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
   body.workspace-viewport .workspace {
     display: flex;

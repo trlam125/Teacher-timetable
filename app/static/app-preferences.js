@@ -7,10 +7,22 @@ function preferenceSlotLabel(slot) {
   return `${["T2", "T3", "T4", "T5", "T6", "T7", "CN"][day]} · ${data.project.sessions > 1 ? (session ? "Chiều" : "Sáng") + " · " : ""}Tiết ${period + 1}`;
 }
 async function loadPreferenceInbox() {
+  const scrollState = captureRefreshScrollState();
+  try {
+    return await loadPreferenceInboxContent();
+  } finally {
+    restoreRefreshScrollState(scrollState);
+  }
+}
+async function loadPreferenceInboxContent() {
   const box = $("#preferenceInbox");
   if (!box) return;
-  box.innerHTML =
-    '<div class="empty-state">Đang tải nguyện vọng giáo viên…</div>';
+  // Keep the existing cards visible until new data arrives, so the content
+  // height does not collapse and force the active tab back to its beginning.
+  if (!box.querySelector(".preference-list")) {
+    box.innerHTML =
+      '<div class="empty-state">Đang tải nguyện vọng giáo viên…</div>';
+  }
   const deleteAllButton = $("#deleteAllPreferencesButton");
   if (deleteAllButton) deleteAllButton.disabled = true;
   const projectId = window.PROJECT_ID || data?.project?.id || PROJECT_ID;

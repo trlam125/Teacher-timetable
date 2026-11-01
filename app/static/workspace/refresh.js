@@ -1,8 +1,47 @@
+// Scrollable containers can be replaced by renderAll() (assignment matrices,
+// curriculum grid, timetable and entity tables). Remember their relative DOM
+// paths inside the active tab so their scroll positions survive replacement.
+function captureWorkspaceNestedScroll(tab) {
+  if (!tab) return [];
+  const result = [];
+  for (const element of tab.querySelectorAll("*")) {
+    const top = element.scrollTop;
+    const left = element.scrollLeft;
+    if (top <= 0 && left <= 0) continue;
+    const path = [];
+    let current = element;
+    while (current && current !== tab) {
+      const parent = current.parentElement;
+      if (!parent) break;
+      path.unshift(Array.prototype.indexOf.call(parent.children, current));
+      current = parent;
+    }
+    if (current !== tab) continue;
+    result.push({ path, tag: element.tagName, top, left });
+  }
+  return result;
+}
+function restoreWorkspaceNestedScroll(tab, saved) {
+  if (!tab || !Array.isArray(saved)) return;
+  for (const entry of saved) {
+    let element = tab;
+    for (const index of entry.path) {
+      element = element?.children[index];
+      if (!element) break;
+    }
+    // Avoid restoring a scroll position onto a different element after a
+    // structural change, e.g. an empty state replacing an entire table.
+    if (!element || element.tagName !== entry.tag) continue;
+    element.scrollTop = entry.top;
+    element.scrollLeft = entry.left;
+  }
+}
 function captureRefreshScrollState() {
   const root =
     document.scrollingElement || document.documentElement || document.body,
     table = document.querySelector("#scheduleGrid .timetable"),
-    content = document.querySelector(".workspace .content");
+    content = document.querySelector(".workspace .content"),
+    activeTab = document.querySelector(".workspace-tabs-stage .tab.active");
   const tableRect = table ? table.getBoundingClientRect() : null;
   return {
     pageTop: window.pageYOffset ?? window.scrollY ?? root?.scrollTop ?? 0,
@@ -12,11 +51,20 @@ function captureRefreshScrollState() {
     tableRectTop: tableRect ? tableRect.top : null,
     contentTop: content ? content.scrollTop : null,
     contentLeft: content ? content.scrollLeft : null,
+    // The active tab itself (not .content) owns the page's vertical scroll.
+    activeTabId: activeTab?.id ?? null,
+    activeTabTop: activeTab?.scrollTop ?? null,
+    activeTabLeft: activeTab?.scrollLeft ?? null,
+    nestedScroll: captureWorkspaceNestedScroll(activeTab),
   };
 }
 function restoreRefreshScrollState(state) {
   if (!state) return;
   const apply = () => {
+    // An asynchronous refresh may finish after the user changes tab.
+    // Never move the user back to a former page in that case.
+    const activeTab = document.querySelector(".workspace-tabs-stage .tab.active");
+    if (state.activeTabId && activeTab?.id !== state.activeTabId) return;
     const table = document.querySelector("#scheduleGrid .timetable"),
       content = document.querySelector(".workspace .content"),
       root =
@@ -42,6 +90,14 @@ function restoreRefreshScrollState(state) {
         content.scrollTop = top;
         content.scrollLeft = left;
       }
+    }
+
+    // Restoring .content alone is not sufficient: the active tab has its own
+    // overflow-y:auto, and its position must survive a full renderAll().
+    if (activeTab && state.activeTabId === activeTab.id) {
+      restoreWorkspaceNestedScroll(activeTab, state.nestedScroll);
+      activeTab.scrollTop = state.activeTabTop ?? activeTab.scrollTop;
+      activeTab.scrollLeft = state.activeTabLeft ?? activeTab.scrollLeft;
     }
 
     let targetPageTop = state.pageTop ?? 0;
@@ -78,8 +134,7 @@ let latestAppliedFullRefreshSequence = 0;
 const latestAppliedPartRefreshSequence = new Map();
 
 async function refresh(skipOperationStatus = false, parts = null) {
-  const scrollState = captureRefreshScrollState(),
-    init = skipOperationStatus ? { headers: operationHeaders() } : undefined,
+  const init = skipOperationStatus ? { headers: operationHeaders() } : undefined,
     requestedParts = Array.isArray(parts)
       ? [...new Set(parts.filter(Boolean))]
       : [],
@@ -154,6 +209,9 @@ async function refresh(skipOperationStatus = false, parts = null) {
 
   if (!appliedParts.length) return data;
   data = merged;
+  // Capture immediately before render, not before the network request: the
+  // user may have scrolled while waiting for the response.
+  const scrollState = captureRefreshScrollState();
 
   // Khi đang xếp thủ công, giữ thanh trạng thái "Đang xếp" trong lúc
   // dữ liệu mới được render. Luồng xếp sẽ tự đóng thanh sau khi UI đã vẽ xong.

@@ -106,7 +106,7 @@ function openScheduleAuditWorkload() {
   initScheduleAuditWorkloadLimits(scheduleAuditLastReport);
   scheduleAuditWorkloadOpen = true;
   scheduleAuditActiveView = "workload";
-  renderScheduleAudit(scheduleAuditLastReport, scheduleAuditAiAnalysis);
+  renderScheduleAudit(scheduleAuditLastReport, scheduleAuditAiAnalysis, false);
   document.getElementById("scheduleAuditView-workload")?.scrollIntoView({behavior: "smooth", block: "start"});
 }
 // Excel-style assignment matrix: one row per subject, two columns (GV / Số tiết)
@@ -555,8 +555,27 @@ function setScheduleAuditLimit(type, index, field, value) {
 }
 function redrawScheduleAuditWorkload() {
   const container = document.getElementById("scheduleAuditView-workload");
-  if (container && scheduleAuditLastReport)
-    container.innerHTML = renderScheduleAuditWorkload(scheduleAuditLastReport.workload, scheduleAuditLastReport);
+  if (!container || !scheduleAuditLastReport) return;
+  const oldScroller = container.querySelector(".weekly-assignment-scroll");
+  const left = oldScroller?.scrollLeft ?? 0;
+  const top = oldScroller?.scrollTop ?? 0;
+  const pageTop = window.scrollY;
+  const pageLeft = window.scrollX;
+  container.innerHTML = renderScheduleAuditWorkload(scheduleAuditLastReport.workload, scheduleAuditLastReport);
+  const apply = () => {
+    const scroller = container.querySelector(".weekly-assignment-scroll");
+    if (scroller) {
+      scroller.scrollLeft = left;
+      scroller.scrollTop = top;
+    }
+    try {
+      window.scrollTo({ top: pageTop, left: pageLeft, behavior: "instant" });
+    } catch {
+      window.scrollTo(pageLeft, pageTop);
+    }
+  };
+  apply();
+  requestAnimationFrame(apply);
 }
 async function runScheduleAuditWorkloadCheck() {
   const report = scheduleAuditLastReport;

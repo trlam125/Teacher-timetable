@@ -195,9 +195,42 @@ function renderScheduleAuditDataIssues(issues) {
     .join("")}</div></div>`;
 }
 
-function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis) {
+function captureScheduleAuditRenderScroll(box) {
+  if (!box?.querySelector("[data-audit-panel]")) return null;
+  const timetable = box.querySelector(".schedule-view-table-wrap");
+  const assignments = box.querySelector(".weekly-assignment-scroll");
+  return {
+    pageTop: window.scrollY,
+    pageLeft: window.scrollX,
+    timetableLeft: timetable?.scrollLeft ?? 0,
+    assignmentsLeft: assignments?.scrollLeft ?? 0,
+    assignmentsTop: assignments?.scrollTop ?? 0,
+  };
+}
+function restoreScheduleAuditRenderScroll(box, snapshot) {
+  if (!snapshot) return;
+  const apply = () => {
+    const timetable = box.querySelector(".schedule-view-table-wrap");
+    const assignments = box.querySelector(".weekly-assignment-scroll");
+    if (timetable) timetable.scrollLeft = snapshot.timetableLeft;
+    if (assignments) {
+      assignments.scrollLeft = snapshot.assignmentsLeft;
+      assignments.scrollTop = snapshot.assignmentsTop;
+    }
+    try {
+      window.scrollTo({ left: snapshot.pageLeft, top: snapshot.pageTop, behavior: "instant" });
+    } catch {
+      window.scrollTo(snapshot.pageLeft, snapshot.pageTop);
+    }
+    syncScheduleAuditBottomScroller();
+  };
+  apply();
+  requestAnimationFrame(apply);
+}
+function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis, preserveScroll = true) {
   const box = $("#scheduleAuditResult");
   if (!box) return;
+  const scrollSnapshot = preserveScroll ? captureScheduleAuditRenderScroll(box) : null;
   const summary = report.summary || {},
     viewer = report.viewer || {},
     issues = report.issues || [];
@@ -249,6 +282,7 @@ function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis) {
     ${renderScheduleAuditStatistics(report)}
     <section id="scheduleAuditView-workload" class="schedule-audit-view-panel" data-audit-panel="workload" hidden>${renderScheduleAuditWorkload(report.workload, report)}</section>`;
   switchScheduleAuditView(scheduleAuditActiveView);
+  restoreScheduleAuditRenderScroll(box, scrollSnapshot);
 }
 function renderScheduleAuditError(message) {
   const box = $("#scheduleAuditResult");
