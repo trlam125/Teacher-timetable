@@ -2468,3 +2468,16 @@ html.dark-mode .weekly-catalog-dialog {
 .weekly-assignment-total th,.weekly-assignment-total td {font-weight:800;background:var(--card-bg);text-align:center;}
 .weekly-assignment-total th {position:sticky;left:0;z-index:3;text-align:left;}
 @media(max-width:760px){.weekly-assignment-table th.weekly-assignment-subject{min-width:118px;width:118px}.weekly-assignment-table .weekly-assignment-teacher-cell{min-width:117px;width:117px}.weekly-assignment-scroll{font-size:.76rem}}
+
+/* The same editable table contains standard and manually added subjects/grades. */
+.weekly-matrix-edit-tools { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:end; margin:12px 0 4px; }
+.weekly-matrix-edit-tools label { display:flex; flex-direction:column; gap:4px; font-size:.8rem; color:var(--muted); }
+.weekly-matrix-edit-tools input, .weekly-matrix-edit-tools select { min-width:142px; max-width:260px; height:37px; border:1px solid var(--line); border-radius:7px; padding:6px 9px; background:var(--card-bg); color:var(--ink); font:inherit; }
+.weekly-matrix-edit-tools button { font-size:.8rem; padding:8px 11px; }
+.weekly-matrix-hint { min-height:1.25em; font-size:.79rem!important; margin-top:5px!important; }
+.weekly-matrix-subject-name { display:inline; }
+.weekly-matrix-remove { font:inherit; font-size:1.05rem; border:0; background:transparent; color:var(--muted); cursor:pointer; margin-left:8px; padding:0 4px; }
+.weekly-matrix-remove:hover, .weekly-matrix-remove:focus-visible { color:#c33; outline-offset:2px; }
+.weekly-load-reset { border:1px solid #bd5555!important; color:#b64b4b!important; margin-left:auto; }
+.dark-mode .weekly-load-reset { color:#f4aaaa!important; border-color:#ab6262!important; }
+@media (max-width:640px) { .weekly-matrix-edit-tools input { width:180px; } .weekly-load-reset { margin-left:0; } }

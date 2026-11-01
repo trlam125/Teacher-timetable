@@ -50,7 +50,7 @@ function weeklySubjectSortRank(label) {
 function weeklyMatrixSubjects() {
   const names = new Map();
   for (const row of scheduleAuditWorkloadLimits?.class_subject || []) {
-    if (!WEEKLY_MATRIX_GRADES.includes(String(row.grade))) continue;
+    if (!/^(?:[1-9]|1[0-2])$/.test(String(row.grade))) continue;
     const label = String(row.subject || "").trim(), key = weeklySubjectCode(label);
     if (key && !names.has(key)) names.set(key, label);
   }
@@ -132,22 +132,6 @@ function openScheduleAuditWorkload() {
   scheduleAuditActiveView = "workload";
   renderScheduleAudit(scheduleAuditLastReport, scheduleAuditAiAnalysis);
   document.getElementById("scheduleAuditView-workload")?.scrollIntoView({behavior: "smooth", block: "start"});
-}
-function weeklyLoadInput(type, index, field, value, aria) {
-  const numeric = field === "periods";
-  return `<input type="${numeric ? "number" : "text"}" ${numeric ? 'min="0" max="1000" step="0.5" inputmode="decimal"' : 'maxlength="120"'} value="${esc(value ?? "")}" aria-label="${esc(aria)}" oninput="setScheduleAuditLimit('${type}',${index},'${field}',this.value)">`;
-}
-function renderWeeklyLoadRows(type) {
-  if (type !== "class_subject") return "";
-  const rows = scheduleAuditWorkloadLimits?.class_subject || [];
-  return rows.map((row, i) => ({row, i}))
-    .filter(({row}) => !WEEKLY_MATRIX_GRADES.includes(String(row.grade)) || !weeklySubjectCode(row.subject))
-    .map(({row, i}) => `<tr>
-      <td>${weeklyLoadInput(type, i, "grade", row.grade, "Kh\u1ed1i")}</td>
-      <td>${weeklyLoadInput(type, i, "subject", row.subject, "M\u00f4n")}</td>
-      <td>${weeklyLoadInput(type, i, "periods", row.periods, "S\u1ed1 ti\u1ebft b\u1eaft bu\u1ed9c")}</td>
-      <td><button class="weekly-load-remove" type="button" title="X\u00f3a d\u00f2ng" aria-label="X\u00f3a d\u00f2ng" onclick="removeScheduleAuditLimit('class_subject',${i})">&times;</button></td>
-    </tr>`).join("");
 }
 // Excel-style assignment matrix: one row per subject, two columns (GV / Số tiết)
 // per class. Keep the saved model (teacher, class_name, subject, periods) intact.
@@ -416,6 +400,23 @@ function renderWeeklyTeacherSection() {
     <div id="weeklyTeacherMatrixWorkspace">${weeklyTeacherMatrixWorkspace()}</div>
   </details>`;
 }
+// Extra subjects and grades are managed inside the same matrix as the imported
+// subjects. A blank subject row for a nonstandard grade is a harmless marker
+// that lets a newly added grade remain visible until numbers are entered.
+function weeklyMatrixGrades() {
+  const values = new Set(WEEKLY_MATRIX_GRADES);
+  for (const row of scheduleAuditWorkloadLimits?.class_subject || []) {
+    const grade = String(row.grade || "").trim();
+    if (/^(?:[1-9]|1[0-2])$/.test(grade)) values.add(grade);
+  }
+  return [...WEEKLY_MATRIX_GRADES, ...[...values].filter(g => !WEEKLY_MATRIX_GRADES.includes(g))
+    .sort((a,b) => Number(a) - Number(b))];
+}
+function weeklyMatrixImportedSubjects() {
+  return new Set((scheduleAuditLastReport?.viewer?.cells || [])
+    .filter(row => !scheduleAuditIsUnknownSubject(String(row.subject_name || "")))
+    .map(row => weeklySubjectCode(row.subject_name)));
+}
 function weeklyMatrixInput(code, label, index, grade) {
   const rows = scheduleAuditWorkloadLimits?.class_subject || [];
   const i = rows.findIndex(row => String(row.grade) === grade && weeklySubjectCode(row.subject) === code);
@@ -424,46 +425,107 @@ function weeklyMatrixInput(code, label, index, grade) {
 }
 function renderWeeklyMatrix() {
   const subjects = weeklyMatrixSubjects();
+  const grades = weeklyMatrixGrades();
+  const importedSubjects = weeklyMatrixImportedSubjects();
+  const extraGrades = Array.from({length:12}, (_,i)=>String(i+1)).filter(g=>!grades.includes(g));
+  const gradeSelect = `<select id="weeklyNewGrade" aria-label="Chọn khối cần thêm" ${extraGrades.length?'':'disabled'}>
+    ${extraGrades.map(grade=>`<option value="${grade}">Khối ${grade}</option>`).join('')}</select>`;
   const lines = subjects.map(([code, name], i) => `<tr>
-    <td class="weekly-matrix-index">${i+1}</td><th scope="row">${esc(name)}</th>
-    ${WEEKLY_MATRIX_GRADES.map(grade=>`<td>${weeklyMatrixInput(code,name,i,grade)}</td>`).join("")}
+    <td class="weekly-matrix-index">${i+1}</td><th scope="row"><span class="weekly-matrix-subject-name">${esc(name)}</span>
+    ${importedSubjects.has(code)?'':`<button class="weekly-matrix-remove" type="button" title="Xóa môn tự thêm" aria-label="Xóa môn ${esc(name)}" onclick="weeklyMatrixRemoveSubject(${i})">×</button>`}</th>
+    ${grades.map(grade=>`<td>${weeklyMatrixInput(code,name,i,grade)}</td>`).join("")}
     </tr>`).join("");
+  const headers = grades.map(grade=>`<th id="weeklyMatrixGrade-${grade}">Lớp ${grade}${WEEKLY_MATRIX_GRADES.includes(grade) ? '' :
+    ` <button type="button" class="weekly-matrix-remove" title="Xóa khối ${grade}" aria-label="Xóa khối ${grade}" onclick="weeklyMatrixRemoveGrade('${grade}')">×</button>`}</th>`).join('');
   return `<section class="weekly-matrix-panel">
-    <h3>Số tiết bắt buộc của từng môn theo khối</h3>
-    <p>Danh sách môn lấy tự động từ bảng kiểm tra trùng TKB, giữ nguyên tên môn. <b>KHTN</b> và <b>KHTN(S)</b> được kiểm tra riêng. Mỗi ô là đúng một mức tiết/tuần cho từng lớp trong khối.</p>
+    <h3>1. Số tiết bắt buộc của từng môn theo khối</h3>
+    <p>Giữ tên môn đúng như bảng TKB; <b>KHTN</b> và <b>KHTN(S)</b> là hai môn độc lập. Môn/khối mới được thêm ngay vào bảng này, không tạo bảng phụ.</p>
     <div class="weekly-matrix-wrap"><table class="weekly-matrix-table"><thead>
-    <tr><th rowspan="2">TT</th><th rowspan="2">CÁC MÔN + HĐGD</th><th colspan="4">Số tiết/tuần</th></tr>
-    <tr>${WEEKLY_MATRIX_GRADES.map(grade=>`<th>Lớp ${grade}</th>`).join("")}</tr>
-    </thead><tbody>${lines || '<tr><td colspan="6">TKB chưa có tên môn để thiết lập.</td></tr>'}</tbody></table></div>
+    <tr><th rowspan="2">TT</th><th rowspan="2">CÁC MÔN + HĐGD</th><th colspan="${grades.length}">Số tiết/tuần</th></tr>
+    <tr>${headers}</tr>
+    </thead><tbody>${lines || `<tr><td colspan="${2+grades.length}">Chưa có tên môn học. Có thể nhập môn ở bên dưới.</td></tr>`}</tbody></table></div>
+    <div class="weekly-matrix-edit-tools">
+      <label for="weeklyNewSubject">Môn khác <input id="weeklyNewSubject" type="text" maxlength="120" placeholder="Tên môn đúng như trên TKB" onkeydown="if(event.key==='Enter'){event.preventDefault();weeklyMatrixAddSubject()}"></label>
+      <button type="button" class="btn ghost" onclick="weeklyMatrixAddSubject()">+ Thêm môn vào bảng</button>
+      <label for="weeklyNewGrade">Khối khác ${gradeSelect}</label>
+      <button type="button" class="btn ghost" ${extraGrades.length?'':'disabled'} onclick="weeklyMatrixAddGrade()">+ Thêm khối vào bảng</button>
+    </div>
+    <p class="weekly-matrix-hint" id="weeklyMatrixNotice" role="status"></p>
   </section>`;
 }
 function setScheduleAuditMatrixLimit(index, grade, value) {
   const rows = scheduleAuditWorkloadLimits?.class_subject;
   const subject = weeklyMatrixSubjects()[index];
-  if (!rows || !subject || !WEEKLY_MATRIX_GRADES.includes(grade)) return;
+  if (!rows || !subject || !weeklyMatrixGrades().includes(grade)) return;
   const [code,label] = subject;
   let idx = rows.findIndex(row => String(row.grade) === grade && weeklySubjectCode(row.subject) === code);
   if (idx < 0) { idx = rows.length; rows.push({grade, subject:label, periods:""}); }
   setScheduleAuditLimit("class_subject", idx, "periods", value);
 }
+function weeklyMatrixNote(message) {
+  const node = document.getElementById('weeklyMatrixNotice');
+  if (node) node.textContent = message;
+}
+function weeklyMatrixAddSubject() {
+  if (!scheduleAuditWorkloadLimits) return;
+  const input = document.getElementById('weeklyNewSubject');
+  const name = String(input?.value || '').normalize('NFC').trim();
+  if (!name) { weeklyMatrixNote('Hãy nhập tên môn cần thêm.'); input?.focus(); return; }
+  if (weeklyMatrixSubjects().some(([code])=>code===weeklySubjectCode(name))) {
+    weeklyMatrixNote('Môn này đã có trong bảng. Hãy nhập trực tiếp số tiết tại dòng của môn.');
+    return;
+  }
+  scheduleAuditWorkloadLimits.class_subject.push({grade:WEEKLY_MATRIX_GRADES[0], subject:name, periods:""});
+  weeklyAssignmentChanged();
+  redrawScheduleAuditWorkload();
+  document.getElementById('weeklyNewSubject')?.focus();
+  weeklyMatrixNote(`Đã thêm ${name} vào Mục 1. Hãy nhập tiết cho từng khối rồi bấm Lưu số tiết.`);
+}
+function weeklyMatrixAddGrade() {
+  if (!scheduleAuditWorkloadLimits) return;
+  const grade = String(document.getElementById('weeklyNewGrade')?.value || '');
+  if (!/^(?:[1-9]|1[0-2])$/.test(grade) || weeklyMatrixGrades().includes(grade)) return;
+  scheduleAuditWorkloadLimits.class_subject.push({grade, subject:'', periods:''});
+  weeklyAssignmentChanged();
+  redrawScheduleAuditWorkload();
+  weeklyMatrixNote(`Đã thêm khối ${grade} vào cùng bảng. Hãy nhập số tiết ở cột mới.`);
+}
+function weeklyMatrixRemoveSubject(index) {
+  const subject = weeklyMatrixSubjects()[index];
+  if (!subject || weeklyMatrixImportedSubjects().has(subject[0])) return;
+  const [code, label] = subject;
+  const rows = scheduleAuditWorkloadLimits.class_subject;
+  const affected = rows.filter(x=>weeklySubjectCode(x.subject)===code);
+  const assignments = scheduleAuditWorkloadLimits.assignments.filter(x=>weeklySubjectCode(x.subject)===code);
+  if ((affected.some(x=>weeklyHasPeriods(x.periods)) || assignments.length) &&
+      !window.confirm(`Xóa môn "${label}" và ${assignments.length} phân công liên quan khỏi bảng định mức?`)) return;
+  scheduleAuditWorkloadLimits.class_subject = rows.filter(x=>weeklySubjectCode(x.subject)!==code);
+  scheduleAuditWorkloadLimits.assignments = scheduleAuditWorkloadLimits.assignments.filter(x=>weeklySubjectCode(x.subject)!==code);
+  weeklyAssignmentChanged();
+  redrawScheduleAuditWorkload();
+}
+function weeklyMatrixRemoveGrade(grade) {
+  if (WEEKLY_MATRIX_GRADES.includes(grade) || !weeklyMatrixGrades().includes(grade)) return;
+  const rows = scheduleAuditWorkloadLimits.class_subject.filter(x=>String(x.grade)===grade);
+  if (rows.some(x=>weeklyHasPeriods(x.periods)) &&
+      !window.confirm(`Xóa toàn bộ số tiết đã nhập của khối ${grade} trong bảng định mức?`)) return;
+  scheduleAuditWorkloadLimits.class_subject = scheduleAuditWorkloadLimits.class_subject.filter(x=>String(x.grade)!==grade);
+  weeklyAssignmentChanged();
+  redrawScheduleAuditWorkload();
+}
 function renderWeeklyLoadForm(report) {
   if (!scheduleAuditWorkloadLimits) return '<button class="btn weekly-load-action" type="button" onclick="openScheduleAuditWorkload()">Kiểm tra thừa/thiếu tiết</button>';
-  const extras = renderWeeklyLoadRows("class_subject");
   return `<details id="weeklyLoadLimits" class="weekly-load-limits" ${scheduleAuditWorkloadOpen ? "open" : ""} ontoggle="scheduleAuditWorkloadOpen=this.open">
       <summary>Thiết lập số tiết bắt buộc <span>(Nhấn để mở / thu gọn)</span></summary>
       <div class="weekly-load-limits-content">
         ${renderWeeklyMatrix()}
-        <details class="weekly-load-limits-section"><summary>Môn khác / khối khác (${(extras.match(/<tr>/g)||[]).length} dòng)</summary>
-          <p>Có thể bổ sung thủ công môn khác hoặc khối ngoài 6–9.</p>
-          <div class="weekly-load-table-wrap"><table class="weekly-load-table weekly-load-input-table"><thead><tr><th>Khối</th><th>Môn học</th><th>Tiết/tuần</th><th></th></tr></thead><tbody>${extras}</tbody></table></div>
-          <button class="btn ghost weekly-load-add" type="button" onclick="addScheduleAuditLimit('class_subject')">+ Thêm môn/khối</button>
-        </details>
         ${renderWeeklyTeacherSection()}
         <p class="weekly-load-save-status" role="status">${esc(scheduleAuditLimitsNotice || "Nhập số tiết rồi bấm Lưu để dùng lại vào lần sau.")}${scheduleAuditLimitsDirty ? " · Có thay đổi chưa lưu." : ""}</p>
         <div class="weekly-load-actions">
           <button type="button" class="btn ghost" ${scheduleAuditSavedBusy ? "disabled" : ""} onclick="saveScheduleAuditWorkloadLimits()">${scheduleAuditSavedBusy ? "Đang lưu…" : "Lưu số tiết"}</button>
           <button type="button" class="btn" ${scheduleAuditWorkloadBusy ? "disabled" : ""} onclick="runScheduleAuditWorkloadCheck()">${scheduleAuditWorkloadBusy ? "Đang đối chiếu…" : "Kiểm tra thừa/thiếu tiết"}</button>
-          <small>Nhập đúng 1 mức; thiếu 1 tiết hay thừa 1 tiết đều được báo.</small>
+          <button type="button" class="btn ghost weekly-load-reset" ${scheduleAuditSavedBusy ? "disabled" : ""} onclick="clearAllScheduleAuditWorkloadLimits()">Xóa toàn bộ định mức</button>
+          <small>Nhập một số tiết bắt buộc ở mỗi ô; thừa hoặc thiếu đều bị báo.</small>
         </div>
         <p id="weeklyLoadError" class="weekly-load-error" role="alert" ${scheduleAuditWorkloadError ? "" : "hidden"}>${esc(scheduleAuditWorkloadError)}</p>
       </div>
@@ -519,33 +581,6 @@ function redrawScheduleAuditWorkload() {
   const container = document.getElementById("scheduleAuditView-workload");
   if (container && scheduleAuditLastReport)
     container.innerHTML = renderScheduleAuditWorkload(scheduleAuditLastReport.workload, scheduleAuditLastReport);
-}
-function addScheduleAuditLimit(type) {
-  if (type !== "class_subject" || !scheduleAuditWorkloadLimits) return;
-  scheduleAuditWorkloadCheckId++;
-  scheduleAuditWorkloadBusy = false;
-  if (scheduleAuditLastReport) scheduleAuditLastReport.workload = null;
-  scheduleAuditLimitsDirty = true;
-  scheduleAuditWorkloadLimits[type].push(type === "class_subject" ? {grade: "", subject: "", periods: ""}
-    : {teacher: "", class_name: "", subject: "", periods: ""});
-  scheduleAuditWorkloadOpen = true;
-  redrawScheduleAuditWorkload();
-  const sections = document.querySelectorAll("#weeklyLoadLimits .weekly-load-limits-section");
-  const section = type === "class_subject" ? sections[0] : sections[WEEKLY_LIMIT_TYPES.indexOf(type)];
-  if (section) section.open = true;
-  section?.querySelector("tbody tr:last-child input")?.focus();
-}
-function removeScheduleAuditLimit(type, index) {
-  if (type !== "class_subject" || !scheduleAuditWorkloadLimits?.[type]) return;
-  scheduleAuditWorkloadLimits[type].splice(index, 1);
-  scheduleAuditLimitsDirty = true;
-  scheduleAuditWorkloadCheckId++;
-  scheduleAuditWorkloadBusy = false;
-  if (scheduleAuditLastReport) scheduleAuditLastReport.workload = null;
-  scheduleAuditWorkloadOpen = true;
-  redrawScheduleAuditWorkload();
-  const section = document.querySelectorAll("#weeklyLoadLimits .weekly-load-limits-section")[WEEKLY_LIMIT_TYPES.indexOf(type)];
-  if (section) section.open = true;
 }
 async function runScheduleAuditWorkloadCheck() {
   const report = scheduleAuditLastReport;

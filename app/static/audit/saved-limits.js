@@ -233,3 +233,49 @@ async function saveScheduleAuditWorkloadLimits() {
     if (current === scheduleAuditLastReport) redrawScheduleAuditWorkload();
   }
 }
+
+// Reset the quota editor, not the timetable and not the school's master data.
+// Persist only after an explicit confirmation; on failure retain existing data.
+async function clearAllScheduleAuditWorkloadLimits() {
+  const report = scheduleAuditLastReport;
+  if (!report || !scheduleAuditWorkloadLimits || scheduleAuditSavedBusy) return;
+  const enteredClasses = (scheduleAuditWorkloadLimits.class_subject || []).filter(x => weeklyHasPeriods(x.periods)).length;
+  const enteredAssignments = (scheduleAuditWorkloadLimits.assignments || []).filter(x => weeklyHasPeriods(x.periods)).length;
+  const message = `Xóa toàn bộ định mức đã khai báo?\n\n` +
+    `• ${enteredClasses} ô số tiết theo khối/môn\n` +
+    `• ${enteredAssignments} phân công giáo viên đã nhập tiết\n\n` +
+    `Dữ liệu sẽ bị xóa khỏi tài khoản. Danh sách môn, lớp và giáo viên nhận diện từ TKB vẫn được giữ để nhập lại. File TKB và kết quả kiểm tra trùng lịch không bị xóa.`;
+  if (!window.confirm(message)) return;
+  const cleared = weeklyMakeLimitDraft(report);
+  const revision = scheduleAuditSavedProfile?.revision || 0;
+  const editId = ++scheduleAuditWorkloadCheckId;
+  // Invalidate an in-flight workload check without leaving its busy flag stuck.
+  scheduleAuditWorkloadBusy = false;
+  scheduleAuditSavedBusy = true;
+  scheduleAuditWorkloadError = '';
+  redrawScheduleAuditWorkload();
+  try {
+    const profile = await weeklyStoreProfile(cleared, weeklyCatalogFromReport(report), revision);
+    if (report !== scheduleAuditLastReport) return;
+    scheduleAuditSavedProfile = profile;
+    if (editId !== scheduleAuditWorkloadCheckId) {
+      scheduleAuditLimitsDirty = true;
+      scheduleAuditLimitsNotice = 'Đã đặt lại dữ liệu lưu; bạn còn thay đổi mới chưa lưu trên màn hình.';
+      return;
+    }
+    scheduleAuditWorkloadLimits = weeklyNormalizeLimitDraft(cleared);
+    scheduleAuditWorkloadOpen = true;
+    scheduleAuditTeacherOpen = false;
+    scheduleAuditLimitsDirty = false;
+    scheduleAuditLimitsNotice = 'Đã xóa tất cả số tiết và phân công tự thêm trong bộ định mức đã lưu. Bạn có thể nhập lại từ đầu.';
+    report.workload = null;
+  } catch (error) {
+    if (report !== scheduleAuditLastReport) return;
+    scheduleAuditWorkloadError = error.message || 'Không xóa được dữ liệu đã lưu.';
+    scheduleAuditLimitsNotice = 'Xóa không thành công. Các định mức cũ vẫn được giữ nguyên.';
+    scheduleAuditWorkloadOpen = true;
+  } finally {
+    scheduleAuditSavedBusy = false;
+    if (report === scheduleAuditLastReport) redrawScheduleAuditWorkload();
+  }
+}
