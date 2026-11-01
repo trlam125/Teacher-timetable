@@ -4,19 +4,10 @@ function scheduleAuditDisplayLessonParts(item) {
   const teacher = String(item.teacher_name || "")
     .trim()
     .replace(/^[.\-–—:;,\s]+/, "");
-  let subject = String(item.subject_name || "").trim();
-
-  if (raw && teacher) {
-    const escapedTeacher = teacher
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-      .replace(/\s+/g, "\\s+");
-    const parsedSubject = raw
-      .replace(new RegExp(`[.\\-–—:;,\\s]*${escapedTeacher}\\s*$`, "i"), "")
-      .trim()
-      .replace(/[.\-–—:;,\s]+$/, "")
-      .trim();
-    if (parsedSubject) subject = parsedSubject;
-  }
+  // The server has already parsed and canonicalized subject_name. Never
+  // override it with raw_text: the latter intentionally preserves the
+  // original Excel abbreviations (e.g. "Anh", "Văn", "NT(MT)").
+  const subject = schoolSubjectCatalog.canonical(item.subject_name || "");
   return { subject, teacher, raw };
 }
 function scheduleAuditEditableLessonHtml(item) {
@@ -376,7 +367,10 @@ function refreshScheduleAuditWorkloadAfterEdit(report) {
 }
 function applyScheduleAuditCellRename(field, draftId, newName) {
   const report = scheduleAuditLastReport,
-    newValue = String(newName || "").trim();
+    requested = String(newName || "").trim(),
+    newValue = field === "subject_name"
+      ? schoolSubjectCatalog.canonical(requested)
+      : requested;
   if (!report?.viewer || !newValue || !Number.isFinite(Number(draftId)))
     return false;
   const cells = report.viewer.cells || [];
