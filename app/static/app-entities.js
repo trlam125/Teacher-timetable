@@ -5,14 +5,8 @@ function renderAll() {
       [
         ["Tên", "name"],
         ["Tên rút gọn", "short_name"],
-        ["Tiết liên tiếp tối đa", "max_consecutive"],
       ],
       "subject",
-    );
-    $("#departmentTable").innerHTML = table(
-      data.departments,
-      [["Tên tổ", "name"]],
-      "department",
     );
     $("#teacherTable").innerHTML = table(
       data.teachers,
@@ -27,16 +21,6 @@ function renderAll() {
               .filter(Boolean)
               .join(", ") || "—",
         ],
-        [
-          "Tổ",
-          (r) =>
-            data.departments.find((x) => x.id === r.department_id)?.name || "—",
-        ],
-        [
-          "Tải tuần",
-          (r) => `${r.assigned_periods || 0}/${r.week_capacity ?? "—"} tiết`,
-        ],
-        ["Tối đa tiết/ngày", "max_periods_day"],
       ],
       "teacher",
     );
@@ -201,7 +185,6 @@ function openEntity(type, preset = null) {
   pendingAssignmentGap = type === "assignment" && preset ? preset : null;
   const titles = {
     subject: "Thêm môn học",
-    department: "Thêm tổ chuyên môn",
     teacher: "Thêm giáo viên",
     grade: "Thêm khối / nhóm",
     class: "Thêm lớp",
@@ -211,9 +194,9 @@ function openEntity(type, preset = null) {
   let h = '<label>Tên<input name="name" required></label>';
   if (type === "subject")
     h +=
-      `<label>Tên rút gọn<input name="short_name" required></label><label>Số tiết liên tiếp tối đa<input type="number" name="max_consecutive" value="${Math.min(2, projectMaxConsecutive())}" min="1" max="${projectMaxConsecutive()}"></label><p class="muted">Giới hạn số tiết của môn này được phép xếp liền nhau trong cùng một buổi.</p>`;
+      `<label>Tên rút gọn<input name="short_name" required></label>`;
   if (type === "teacher")
-    h = `<label>Họ tên<input name="name" required></label><label>Tên ngắn<input name="short_name" required></label><label>Tổ chuyên môn<select name="department_id"><option value="">Không chọn</option>${opts(data.departments)}</select></label><label>Tối đa tiết/ngày<input type="number" name="max_periods_day" value="${Math.min(5, projectMaxPeriodsDay())}" min="1" max="${projectMaxPeriodsDay()}"></label>${teacherSubjectPicker()}`;
+    h = `<label>Họ tên<input name="name" required></label><label>Tên ngắn<input name="short_name" required></label>${teacherSubjectPicker()}`;
   if (type === "grade")
     h = `<label>Tên khối / nhóm<input name="name" required></label>${gradeRequirementPicker()}`;
   if (type === "class")
@@ -376,7 +359,7 @@ function renderBulkAssignmentChoices(value) {
       })
       .join("")
     : '<div class="assignment-bulk-empty">Chưa có lớp học.</div>';
-  box.innerHTML = `<div id="bulkTeacherLoad"></div><div class="assignment-bulk-grid"><div class="assignment-pick-panel"><div class="assignment-pick-head"><b>Môn học của giáo viên</b><div class="assignment-pick-actions"><button type="button" onclick="selectBulkAssignmentGroup('subject_ids',true)">Chọn tất cả</button><button type="button" onclick="selectBulkAssignmentGroup('subject_ids',false)">Bỏ chọn</button></div></div><div class="assignment-pick-list">${subjectRows}</div></div><div class="assignment-pick-panel"><div class="assignment-pick-head"><b>Lớp học</b><div class="assignment-pick-actions"><button type="button" onclick="selectBulkAssignmentGroup('class_ids',true)">Chọn tất cả</button><button type="button" onclick="selectBulkAssignmentGroup('class_ids',false)">Bỏ chọn</button></div></div><div class="assignment-pick-list">${classRows}</div></div></div><div id="bulkAssignmentPreview" class="assignment-bulk-preview"></div>`;
+  box.innerHTML = `<div class="assignment-bulk-grid"><div class="assignment-pick-panel"><div class="assignment-pick-head"><b>Môn học của giáo viên</b><div class="assignment-pick-actions"><button type="button" onclick="selectBulkAssignmentGroup('subject_ids',true)">Chọn tất cả</button><button type="button" onclick="selectBulkAssignmentGroup('subject_ids',false)">Bỏ chọn</button></div></div><div class="assignment-pick-list">${subjectRows}</div></div><div class="assignment-pick-panel"><div class="assignment-pick-head"><b>Lớp học</b><div class="assignment-pick-actions"><button type="button" onclick="selectBulkAssignmentGroup('class_ids',true)">Chọn tất cả</button><button type="button" onclick="selectBulkAssignmentGroup('class_ids',false)">Bỏ chọn</button></div></div><div class="assignment-pick-list">${classRows}</div></div></div><div id="bulkAssignmentPreview" class="assignment-bulk-preview"></div>`;
   const form = entityModal.querySelector("form");
   if (pendingAssignmentGap) {
     const subjectInput = form.querySelector(
@@ -465,13 +448,9 @@ function updateBulkAssignmentPreview(form) {
         addedPeriods += periods;
     }
   }
-  const current = Number(teacher?.assigned_periods || 0),
-    projected = current + addedPeriods,
-    loadBox = $("#bulkTeacherLoad");
-  if (loadBox) loadBox.innerHTML = teacherLoadCardHtml(teacher, projected);
   if (!total) {
     preview.innerHTML =
-      "Hãy tick ít nhất 1 môn và 1 lớp. Tải giáo viên phía trên sẽ cập nhật ngay khi bạn chọn.";
+      "Hãy tick ít nhất 1 môn và 1 lớp.";
     return;
   }
   const forbiddenSubjects = subjectIds.filter(
@@ -508,26 +487,17 @@ function updateBulkAssignmentPreview(form) {
         String(item.block_mode || "free") !== String(mode)
       );
     }).length,
-    fresh = Math.max(0, total - duplicates - conflicts),
-    capacity = teacher?.week_capacity;
+    fresh = Math.max(0, total - duplicates - conflicts);
   let status = "";
   if (conflicts)
     status = `<span class="assignment-warning">Có ${conflicts} cặp lớp–môn đã thuộc giáo viên khác; hệ thống sẽ không cho lưu cho đến khi xử lý các phân công đó.</span>`;
   else if (staleDuplicates)
     status = `<span class="assignment-warning">Có ${staleDuplicates} cặp đã tồn tại nhưng số tiết/chế độ khác cấu hình đang chọn. Hệ thống sẽ không bỏ qua âm thầm; hãy sửa phân công hiện có hoặc bỏ các cặp đó khỏi lần phân công này.</span>`;
-  else if (capacity != null && projected > Number(capacity))
-    status = `<span class="assignment-warning">Tải dự kiến ${projected}/${capacity} tiết/tuần vượt khả năng xếp của giáo viên.</span>`;
-  else
-    status =
-      capacity == null
-        ? ""
-        : `<span class="assignment-ok">Tải giáo viên: ${projected}/${capacity} tiết/tuần.</span>`;
   preview.innerHTML = `Đã chọn <b>${subjectIds.length}</b> môn × <b>${classIds.length}</b> lớp = <b>${total}</b> cặp. ${duplicates ? `Có ${duplicates} cặp đã tồn tại; ` : ""}dự kiến tạo mới <b>${fresh}</b> phân công, thêm <b>${addedPeriods}</b> tiết/tuần.${status}`;
 }
 function openEntityEdit(type, id) {
   const rows =
     {
-      department: data.departments,
       subject: data.subjects,
       teacher: data.teachers,
       grade: data.grades,
@@ -541,7 +511,6 @@ function openEntityEdit(type, id) {
     .querySelector(".modal-form")
     ?.classList.remove("assignment-bulk-form");
   const titles = {
-    department: "Sửa tổ chuyên môn",
     subject: "Sửa môn học",
     teacher: "Sửa giáo viên",
     grade: "Sửa khối / nhóm",
@@ -549,12 +518,10 @@ function openEntityEdit(type, id) {
   };
   $("#modalTitle").textContent = titles[type];
   let h = "";
-  if (type === "department")
-    h = `<label>Tên tổ chuyên môn<input name="name" value="${esc(item.name)}" maxlength="120" required></label>`;
   if (type === "subject")
-    h = `<label>Tên môn học<input name="name" value="${esc(item.name)}" required></label><label>Tên rút gọn<input name="short_name" value="${esc(item.short_name)}" required></label><label>Số tiết liên tiếp tối đa<input type="number" name="max_consecutive" value="${Math.min(Number(item.max_consecutive) || 1, projectMaxConsecutive())}" min="1" max="${projectMaxConsecutive()}" required></label><p class="muted">Giới hạn số tiết của môn này được phép xếp liền nhau trong cùng một buổi.</p>`;
+    h = `<label>Tên môn học<input name="name" value="${esc(item.name)}" required></label><label>Tên rút gọn<input name="short_name" value="${esc(item.short_name)}" required></label>`;
   if (type === "teacher")
-    h = `<label>Họ tên<input name="name" value="${esc(item.name)}" required></label><label>Tên ngắn<input name="short_name" value="${esc(item.short_name)}" required></label><label>Tổ chuyên môn<select name="department_id"><option value="">Không chọn</option>${editOpts(data.departments, item.department_id)}</select></label><label>Tối đa tiết/ngày<input type="number" name="max_periods_day" value="${Math.min(Number(item.max_periods_day) || 1, projectMaxPeriodsDay())}" min="1" max="${projectMaxPeriodsDay()}" required></label>${teacherSubjectPicker(item.subject_ids || [])}`;
+    h = `<label>Họ tên<input name="name" value="${esc(item.name)}" required></label><label>Tên ngắn<input name="short_name" value="${esc(item.short_name)}" required></label>${teacherSubjectPicker(item.subject_ids || [])}`;
   if (type === "grade")
     h = `<label>Tên khối / nhóm<input name="name" value="${esc(item.name)}" required></label>${gradeRequirementPicker((data.grade_requirements || []).filter((row) => row.grade_id === item.id))}`;
   if (type === "class")
@@ -571,7 +538,7 @@ function openAssignmentEdit(id) {
     ?.classList.remove("assignment-bulk-form");
   $("#modalTitle").textContent = "Sửa phân công";
   $("#entityFields").innerHTML =
-    `<div class="assignment-summary"><b>${esc(item.class_name)} · ${esc(item.subject_name)}</b><span>${esc(item.teacher_name)}</span></div><input type="hidden" name="assignment_id" value="${item.id}"><label>Số tiết/tuần<input type="number" name="periods_per_week" min="1" max="40" value="${item.periods_per_week}" required oninput="updateAssignmentEditPreview(this.form)" onchange="updateAssignmentEditPreview(this.form)"></label><div data-assignment-edit-load></div>${blockModeEditor(item.block_mode)}`;
+    `<div class="assignment-summary"><b>${esc(item.class_name)} · ${esc(item.subject_name)}</b><span>${esc(item.teacher_name)}</span></div><input type="hidden" name="assignment_id" value="${item.id}"><label>Số tiết/tuần<input type="number" name="periods_per_week" min="1" max="40" value="${item.periods_per_week}" required oninput="updateAssignmentEditPreview(this.form)" onchange="updateAssignmentEditPreview(this.form)"></label>${blockModeEditor(item.block_mode)}`;
   updateAssignmentEditPreview(entityModal.querySelector("form"));
   entityModal.showModal();
 }
@@ -601,7 +568,9 @@ async function updateWithScheduleConfirmation(url, payload) {
       fields.confirm_displacement = true;
       fields.confirmed_displaced_lesson_ids = result.affected_lesson_ids;
     } else {
+      if (!result.removal_fingerprint) throw new Error("Chưa xác định được đầy đủ dữ liệu sẽ bị xóa. Hãy tải lại trang và thử lại.");
       fields.remove_extra_assignments = true;
+      fields.confirmed_extra_assignments_fingerprint = result.removal_fingerprint;
     }
   }
   throw new Error("Dữ liệu lịch đã thay đổi nhiều lần. Hãy tải lại dữ liệu và thử lại.");
@@ -619,14 +588,11 @@ async function submitEntity(e) {
     loading: "Đang lưu...",
   });
   for (const k of [
-    "department_id",
     "grade_id",
     "class_id",
     "subject_id",
     "teacher_id",
     "assignment_id",
-    "max_periods_day",
-    "max_consecutive",
     "periods_per_week",
   ])
     if (o[k]) o[k] = Number(o[k]);

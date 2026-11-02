@@ -135,11 +135,6 @@ def normalized_block_mode(
             f"Số tiết/tuần không được vượt quá {total_slots} ô của thời khóa biểu."
         )
     if mode in {"preferred_double", "required_double"} and total_periods >= 2:
-        if subject.max_consecutive < 2:
-            raise ValueError(
-                f"Môn {subject.name} đang giới hạn tối đa {subject.max_consecutive} tiết liên tiếp; "
-                "hãy tăng giới hạn lên ít nhất 2 trước khi chọn chế độ tiết đôi."
-            )
         if project.periods_per_session < 2:
             raise ValueError("Mỗi buổi phải có ít nhất 2 tiết để dùng chế độ tiết đôi.")
     if mode == "required_double":
@@ -149,12 +144,11 @@ def normalized_block_mode(
                 "Số cặp tiết bắt buộc không thể phân bố trong số ngày, buổi và tiết hiện có."
             )
         if not required_double_structure_feasible(
-            project, total_periods, subject.max_consecutive
+            project, total_periods, project.periods_per_session
         ):
             raise ValueError(
-                f"Không thể phân bố {total_periods} tiết bắt buộc theo cặp mà vẫn giữ "
-                f"tối đa {subject.max_consecutive} tiết liên tiếp trong mỗi buổi. "
-                "Hãy giảm số tiết/tuần, tăng giới hạn tiết liên tiếp hoặc đổi chế độ xếp tiết."
+                f"Không thể phân bố {total_periods} tiết bắt buộc theo cặp trong các buổi hiện có. "
+                "Hãy giảm số tiết/tuần hoặc đổi chế độ xếp tiết."
             )
     return mode
 
@@ -265,18 +259,14 @@ def required_double_hard_feasible(
     school_class: SchoolClass,
     total_periods: int,
     *,
-    max_periods_day: int | None = None,
     teacher_unavailable_slots: set[int] | None = None,
     class_unavailable_slots: set[int] | None = None,
     project_blocked_slots: set[int] | None = None,
-    max_consecutive: int | None = None,
 ) -> bool:
     """Kiểm tra sớm mẫu required_double chỉ với các ràng buộc cứng.
 
-    Khác kiểm tra capacity theo tuần, hàm này chứng minh rằng số cặp 2 tiết
-    thực sự có thể đặt vào các ô còn dùng được, không vượt giới hạn
-    tiết/ngày và không tạo chuỗi môn dài hơn ``max_consecutive``. Các cặp
-    vẫn được phép nằm sát nhau khi giới hạn liên tiếp của môn cho phép.
+    Chứng minh rằng số cặp 2 tiết có thể đặt vào các ô còn dùng được.
+    Cặp tiết phải nằm trong cùng buổi; các cặp được phép nằm sát nhau.
     """
     total = max(0, int(total_periods or 0))
     target_doubles = total // 2
@@ -284,9 +274,7 @@ def required_double_hard_feasible(
     if target_doubles == 0 and target_singles == 0:
         return True
 
-    daily_limit = int(
-        max_periods_day if max_periods_day is not None else teacher.max_periods_day
-    )
+    daily_limit = project.sessions * project.periods_per_session
     if target_doubles and daily_limit < 2:
         return False
 
@@ -322,7 +310,7 @@ def required_double_hard_feasible(
 
     ppd = project.sessions * project.periods_per_session
     pps = project.periods_per_session
-    max_run = max(1, int(max_consecutive if max_consecutive is not None else pps))
+    max_run = pps
     if target_doubles and max_run < 2:
         return False
 
@@ -396,43 +384,25 @@ def ensure_required_double_hard_feasible(
     total_periods: int,
     mode: str,
     *,
-    max_periods_day: int | None = None,
     teacher_unavailable_slots: set[int] | None = None,
     class_unavailable_slots: set[int] | None = None,
     project_blocked_slots: set[int] | None = None,
-    max_consecutive: int | None = None,
 ) -> None:
     if mode != "required_double":
         return
-    daily_limit = int(
-        max_periods_day if max_periods_day is not None else teacher.max_periods_day
-    )
-    if total_periods >= 2 and daily_limit < 2:
-        raise HTTPException(
-            409,
-            f"Không thể dùng bắt buộc tiết đôi cho {school_class.name} – {subject.name}: "
-            f"{teacher.name} chỉ được dạy tối đa {daily_limit} tiết/ngày. "
-            "Cần ít nhất 2 tiết/ngày để xếp một cặp tiết.",
-        )
-    effective_max_consecutive = int(
-        subject.max_consecutive if max_consecutive is None else max_consecutive
-    )
     if not required_double_hard_feasible(
         project,
         teacher,
         school_class,
         total_periods,
-        max_periods_day=max_periods_day,
         teacher_unavailable_slots=teacher_unavailable_slots,
         class_unavailable_slots=class_unavailable_slots,
         project_blocked_slots=project_blocked_slots,
-        max_consecutive=effective_max_consecutive,
     ):
         raise HTTPException(
             409,
             f"Không thể xếp đủ các cặp tiết bắt buộc cho {school_class.name} – {subject.name} "
-            f"với {teacher.name} theo tiết tránh, buổi/tiết khóa, giới hạn tiết/ngày "
-            f"và tối đa {effective_max_consecutive} tiết liên tiếp của môn.",
+            f"với {teacher.name} theo tiết tránh và buổi/tiết khóa hiện tại.",
         )
 
 
@@ -444,11 +414,9 @@ def ensure_assignment_hard_feasible(
     total_periods: int,
     mode: str,
     *,
-    max_periods_day: int | None = None,
     teacher_unavailable_slots: set[int] | None = None,
     class_unavailable_slots: set[int] | None = None,
     project_blocked_slots: set[int] | None = None,
-    max_consecutive: int | None = None,
 ) -> None:
     """Validate common availability for every mode, independent of movable lessons."""
     if mode == "required_double":
@@ -459,11 +427,9 @@ def ensure_assignment_hard_feasible(
             subject,
             total_periods,
             mode,
-            max_periods_day=max_periods_day,
             teacher_unavailable_slots=teacher_unavailable_slots,
             class_unavailable_slots=class_unavailable_slots,
             project_blocked_slots=project_blocked_slots,
-            max_consecutive=max_consecutive,
         )
 
     blocked = (
@@ -476,33 +442,13 @@ def ensure_assignment_hard_feasible(
         (project_blocked_slots, project.blocked_slots_json),
     ):
         blocked.update(parse_slots(stored) if override is None else override)
-    daily_limit = int(
-        teacher.max_periods_day if max_periods_day is None else max_periods_day
-    )
-    run_limit = max(
-        1, int(subject.max_consecutive if max_consecutive is None else max_consecutive)
-    )
-    pps = project.periods_per_session
-    capacity = 0
-    for day in range(project.days):
-        day_capacity = 0
-        for session in range(project.sessions):
-            base = (day * project.sessions + session) * pps
-            run = 0
-            for period in range(pps + 1):
-                if period < pps and base + period not in blocked:
-                    run += 1
-                else:
-                    # Each run_limit+1 usable slots needs one gap in this subject.
-                    day_capacity += run - run // (run_limit + 1)
-                    run = 0
-        capacity += min(max(0, daily_limit), day_capacity)
+    capacity = len(set(all_slots(project)) - blocked)
     if total_periods > capacity:
         raise HTTPException(
             409,
             f"Không thể phân công {school_class.name} – {subject.name} cho {teacher.name}: "
             f"cần {total_periods} tiết/tuần nhưng các ô cùng khả dụng chỉ cho phép "
-            f"tối đa {capacity} tiết theo tiết tránh, khóa lịch và giới hạn tiết. "
+            f"tối đa {capacity} tiết theo tiết tránh và khóa lịch. "
             "Hãy điều chỉnh ràng buộc hoặc giảm số tiết.",
         )
 

@@ -65,7 +65,8 @@ function setGlobalSlotLockState(button, locked, animate = true) {
 function setSessionLockState(button, locked, animate = true) {
   if (!button) return;
   button.classList.toggle("is-locked", locked);
-  const label = button.dataset.label;
+  const label = button.dataset.inherited === "true"
+    ? `${button.dataset.label} · Khóa chung` : button.dataset.label;
   let host = button.querySelector(".session-lock-state");
   if (!host) {
     const old = button.querySelector("span");
@@ -137,26 +138,30 @@ function ensureGlobalSessionLockPanel() {
   return panel;
 }
 function toggleSessionLock(button) {
-  if (globalSaveInFlight) return;
+  if (globalSaveInFlight || button.disabled) return;
   const locked = !button.classList.contains("is-locked"),
     key = Number(button.dataset.sessionLock);
-  setSessionLockState(button, locked);
   document
     .querySelectorAll(`[data-global-session="${key}"]`)
     .forEach((slot) => setGlobalSlotLockState(slot, locked));
+  syncSessionLockButton(button);
   syncGlobalLocksDraftDirty();
+}
+function syncSessionLockButton(button) {
+  if (!button) return;
+  const slots = [...document.querySelectorAll(`[data-global-session="${Number(button.dataset.sessionLock)}"]`)];
+  const inherited = slots.length > 0 && slots.every(slot => slot.disabled);
+  button.dataset.ownLocked = String(slots.length > 0 && slots.every(slot => slot.classList.contains("is-locked")));
+  button.dataset.inherited = String(inherited);
+  button.disabled = inherited;
+  button.title = inherited ? "Buổi đã khóa toàn trường; chọn phạm vi Toàn trường để mở khóa" : "Khóa hoặc mở các tiết của phạm vi đang chọn";
+  setSessionLockState(button, slots.length > 0 && slots.every(slot => slot.disabled || slot.classList.contains("is-locked")));
 }
 function toggleGlobalSlotLock(button) {
   if (globalSaveInFlight || button.disabled) return;
   const selected = !button.classList.contains("is-locked");
   setGlobalSlotLockState(button, selected);
-  const key = Number(button.dataset.globalSession),
-    slots = [...document.querySelectorAll(`[data-global-session="${key}"]`)],
-    sessionButton = document.querySelector(`[data-session-lock="${key}"]`),
-    locked =
-      slots.length > 0 &&
-      slots.every((slot) => slot.classList.contains("is-locked"));
-  if (sessionButton) setSessionLockState(sessionButton, locked);
+  syncSessionLockButton(document.querySelector(`[data-session-lock="${Number(button.dataset.globalSession)}"]`));
   syncGlobalLocksDraftDirty();
 }
 function renderGlobalSessionLocks() {
@@ -193,7 +198,7 @@ function renderGlobalSessionLocks() {
       const key = day * sessions + session,
         start = day * ppd + session * pps,
         locked = Array.from({ length: pps }, (_, index) => start + index).every(
-          (slot) => blocked.has(slot),
+          (slot) => blocked.has(slot) || inherited.has(slot),
         ),
         sessionName =
           sessions === 1
@@ -222,6 +227,7 @@ function renderGlobalSessionLocks() {
       }
     }
   slotGrid.innerHTML = slotHtml;
+  grid.querySelectorAll("[data-session-lock]").forEach(syncSessionLockButton);
 }
 async function saveGlobalSessionLocks(button) {
   if (constraintSaveInFlight || globalSaveInFlight) {
@@ -229,7 +235,7 @@ async function saveGlobalSessionLocks(button) {
     return;
   }
   const sessions = [
-    ...document.querySelectorAll("[data-session-lock].is-locked"),
+    ...document.querySelectorAll('[data-session-lock][data-own-locked="true"]'),
   ].map((button) => Number(button.dataset.sessionLock)),
     slots = [...document.querySelectorAll("[data-global-slot].is-locked")].map(
       (button) => Number(button.dataset.globalSlot),

@@ -1,6 +1,7 @@
 /* Manual lesson placement and schedule editing actions. */
 const pendingLessonPlacements = new Set();
 function renderScheduleAfterLessonChange() {
+  if (typeof renderScheduleAttemptDetails === "function") renderScheduleAttemptDetails(null);
   const scrollState = captureRefreshScrollState();
   renderSchedule(true);
   renderScheduleCoverage();

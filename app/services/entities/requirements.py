@@ -1,7 +1,6 @@
 """Compatibility entry point; implementations live in focused modules."""
 from app.services.entities.curriculum.capacity import (
     assignment_project_reference_issues,
-    schedule_teacher_capacity_issues,
     schedule_class_capacity_issues,
 )
 from app.services.entities.curriculum.validation import (
@@ -18,7 +17,6 @@ from app.services.entities.curriculum.sync import sync_assignments_to_grade_requ
 
 __all__ = [
     'assignment_project_reference_issues',
-    'schedule_teacher_capacity_issues',
     'schedule_class_capacity_issues',
     'grade_requirement_assignment_issues',
     'block_mode_text',

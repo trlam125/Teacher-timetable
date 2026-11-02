@@ -5,9 +5,9 @@
 @import "styles/workspace.css?v=2";
 @import "styles/responsive-and-print.css?v=2";
 @import "styles/placement.css?v=2";
-@import "styles/mobile.css?v=2";
+@import "styles/mobile.css?v=3";
 @import "styles/feedback-and-conflicts.css?v=2";
-@import "styles/assignments.css?v=7";
+@import "styles/assignments.css?v=9";
 @import "styles/bulk-actions.css?v=2";
 @import "styles/appbar-and-sharing.css?v=2";
 @import "styles/placement-validation.css?v=2";

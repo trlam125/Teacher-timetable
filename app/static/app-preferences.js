@@ -787,7 +787,6 @@ document.addEventListener("click", (event) => {
   }
 
   if (
-    window.READ_ONLY ||
     event.target.closest("button,a,input,select,textarea,label")
   )
     return;
@@ -798,6 +797,7 @@ document.addEventListener("click", (event) => {
     showToast(avoided.dataset.avoidReason, "warning", 4200);
     return;
   }
+  if (window.READ_ONLY) return;
 
   const source = event.target.closest("[data-tap-payload]");
   const sourcePayload = source?.dataset.tapPayload || "";

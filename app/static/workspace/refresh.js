@@ -236,6 +236,7 @@ async function refresh(skipOperationStatus = false, parts = null) {
 async function refreshAfterSuccessfulMutation(parts = null, message = null) {
   try {
     await refresh(true, parts);
+    if (typeof renderScheduleAttemptDetails === "function") renderScheduleAttemptDetails(null);
     return true;
   } catch (error) {
     showToast(

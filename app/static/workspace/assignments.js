@@ -8,58 +8,8 @@ function describeBlockMode(mode, total) {
     return "Ưu tiên tiết đôi · có thể tách khi cần";
   return "Tự do · xếp riêng hoặc liền nhau";
 }
-function teacherLoadStats(teacher, projected = null) {
-  const current = Number(teacher?.assigned_periods || 0),
-    capacity =
-      teacher?.week_capacity == null ? null : Number(teacher.week_capacity),
-    maxDay = Number(teacher?.max_periods_day || 0);
-  const next =
-    projected == null || !Number.isFinite(Number(projected))
-      ? current
-      : Math.max(0, Number(projected));
-  const remaining =
-    capacity == null || !Number.isFinite(capacity) ? null : capacity - next;
-  return {
-    current,
-    capacity,
-    maxDay,
-    projected: next,
-    remaining,
-    over: remaining != null && remaining < 0,
-  };
-}
-function teacherLoadCardHtml(teacher, projected = null) {
-  if (!teacher) return "";
-  const load = teacherLoadStats(teacher, projected),
-    capacityText = load.capacity == null ? "—" : load.capacity;
-  return `<div class="assignment-load-card assignment-load-card-live"><div class="assignment-load-metric ${load.over ? "over" : ""}"><small>Tải giáo viên</small><b>${load.projected}/${capacityText} tiết/tuần</b></div><div class="assignment-load-metric"><small>Tối đa/ngày</small><b>${load.maxDay || "—"} tiết/ngày</b></div></div>`;
-}
-function teacherLoadCellHtml(teacher) {
-  if (!teacher) return '<span class="muted">—</span>';
-  const load = teacherLoadStats(teacher),
-    capacityText = load.capacity == null ? "—" : load.capacity;
-  return `<div class="assignment-load-cell ${load.over ? "over" : ""}"><b>${load.current}/${capacityText} tiết/tuần</b><small>Tối đa ${load.maxDay || "—"} tiết/ngày</small></div>`;
-}
-function updateAssignmentEditLoad(form) {
-  if (!form) return;
-  const assignmentId = Number(
-    form.querySelector('[name="assignment_id"]')?.value || 0,
-  ),
-    item = data.assignments.find((row) => row.id === assignmentId),
-    box = form.querySelector("[data-assignment-edit-load]");
-  if (!item || !box) return;
-  const teacher = data.teachers.find((row) => row.id === item.teacher_id),
-    nextPeriods = Number(
-      form.querySelector('[name="periods_per_week"]')?.value || 0,
-    ),
-    currentTeacherLoad = Number(teacher?.assigned_periods || 0),
-    oldPeriods = Number(item.periods_per_week || 0),
-    projected = Math.max(0, currentTeacherLoad - oldPeriods + nextPeriods);
-  box.innerHTML = teacherLoadCardHtml(teacher, projected);
-}
 function updateAssignmentEditPreview(form) {
   updateBlockModePreview(form);
-  updateAssignmentEditLoad(form);
 }
 function assignmentFilterState() {
   return {
@@ -347,10 +297,10 @@ function assignmentTable() {
     rows = rows.filter((item) => item.teacher_id === state.teacherId);
   if (!rows.length)
     return `<div class="assignment-filter-empty">${data.assignments?.length ? "Không có phân công phù hợp với bộ lọc hiện tại." : "Chưa có phân công. Hãy gắn lớp – môn – giáo viên và số tiết/tuần trước khi xếp lịch."}</div>`;
-  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader("assignment")}<th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Tiết/tuần</th><th>Tải giáo viên</th><th>Chế độ xếp</th><th class="entity-actions-col"></th></tr></thead><tbody>${rows
+  const tableHtml = `<table class="data-table"><thead><tr>${bulkEntityHeader("assignment")}<th>Lớp</th><th>Môn</th><th>Định mức khối</th><th>Giáo viên</th><th>Tiết/tuần</th><th>Chế độ xếp</th><th class="entity-actions-col"></th></tr></thead><tbody>${rows
     .map((item) => {
-      const teacher = data.teachers.find((row) => row.id === item.teacher_id);
-      return `<tr>${bulkEntityCell("assignment", item.id)}<td>${esc(item.class_name)}</td><td>${esc(item.subject_name)}</td><td>${esc(item.teacher_name)}</td><td><b>${item.periods_per_week}</b></td><td>${teacherLoadCellHtml(teacher)}</td><td>${esc(describeBlockMode(item.block_mode, item.periods_per_week))}</td><td class="entity-actions-cell"><div class="entity-row-actions"><button class="action-link" title="Sửa phân công" onclick="openAssignmentEdit(${item.id})">Sửa</button><button class="danger-link" title="Xóa phân công" onclick="delEntity('assignment',${item.id},this)">Xóa</button></div></td></tr>`;
+      const gradeId = (data.classes || []).find((row) => Number(row.id) === Number(item.class_id))?.grade_id || 0;
+      return `<tr>${bulkEntityCell("assignment", item.id)}<td>${esc(item.class_name)}</td><td>${esc(item.subject_name)}</td><td data-subject-norm="${item.subject_id}" data-norm-grade="${gradeId}">${assignmentSubjectNormHtml(item.subject_id, gradeId)}</td><td>${esc(item.teacher_name)}</td><td><b>${item.periods_per_week}</b></td><td>${esc(describeBlockMode(item.block_mode, item.periods_per_week))}</td><td class="entity-actions-cell"><div class="entity-row-actions"><button class="action-link" title="Sửa phân công" onclick="openAssignmentEdit(${item.id})">Sửa</button><button class="danger-link" title="Xóa phân công" onclick="delEntity('assignment',${item.id},this)">Xóa</button></div></td></tr>`;
     })
     .join("")}</tbody></table>`;
   return bulkEntityTableShell("assignment", tableHtml);
@@ -369,6 +319,8 @@ let autoAssignmentView = "matrix";
 let autoAssignmentGrade = "";
 const autoAssignmentDrafts = new Map();
 const autoGradeDrafts = new Map();
+const autoAssignmentSaves = new Set();
+const autoGradeSaves = new Set();
 function autoAssignmentSubjectRank(name) {return schoolSubjectCatalog.rank(name);}
 
 function setAutoAssignmentView(view) {
@@ -401,6 +353,29 @@ function autoAssignmentCurriculum(schoolClass, subjectId) {
   return {configured: rows.length > 0, requirement: rows.find(row =>
     Number(row.subject_id) === Number(subjectId)) || null};
 }
+function assignmentSubjectNormHtml(subjectId, gradeId = null) {
+  const classes = autoAssignmentClassNames().filter((row) =>
+    autoAssignmentGrade === "all" || String(row.grade_id) === String(autoAssignmentGrade));
+  const gradeIds = gradeId == null ? new Set(classes.map((row) => Number(row.grade_id)).filter(Boolean)) : new Set([Number(gradeId)]);
+  const grades = (data.grades || []).filter((row) => gradeIds.has(Number(row.id)));
+  if (!grades.length) return '<span class="muted">Chưa gán khối</span>';
+  return grades.map((grade) => {
+    const requirement = (data.grade_requirements || []).find((row) =>
+      Number(row.grade_id) === Number(grade.id) && Number(row.subject_id) === Number(subjectId));
+    const key = `${grade.id}-${subjectId}`;
+    const pending = autoGradeDrafts.has(key);
+    const raw = pending ? autoGradeDrafts.get(key) : requirement?.periods_per_week;
+    const periods = Number(raw);
+    const label = String(raw ?? "").trim() && Number.isInteger(periods) && periods > 0
+      ? `${periods} tiết/tuần` : "Chưa quy định";
+    return `<div class="assignment-subject-norm-row"><b>${esc(grade.name)}</b><span>${label}</span>${pending ? '<small>Chưa lưu</small>' : ""}</div>`;
+  }).join("");
+}
+function refreshAssignmentSubjectNorms() {
+  document.querySelectorAll("[data-subject-norm]").forEach((cell) => {
+    cell.innerHTML = assignmentSubjectNormHtml(Number(cell.dataset.subjectNorm), cell.dataset.normGrade == null ? null : Number(cell.dataset.normGrade));
+  });
+}
 function autoAssignmentCell(schoolClass, subject, assignment) {
   const c = autoAssignmentCurriculum(schoolClass, subject.id);
   // The grade curriculum is strict when configured. Show an existing extra
@@ -418,7 +393,7 @@ function autoAssignmentCell(schoolClass, subject, assignment) {
     ? " auto-assignment-mismatch" : "";
   const label = `${schoolClass.name} – ${subject.name}`;
   return `<td class="auto-assignment-teacher${badge}">
-      <select aria-label="Giáo viên ${esc(label)}" data-matrix-teacher data-matrix-cell="${id}" data-initial="${teacherId}"
+      <select aria-label="Giáo viên ${esc(label)}" data-matrix-teacher data-matrix-cell="${id}" data-initial="${Number(assignment?.teacher_id || 0)}"
         onchange="autoAssignmentCellChanged('${id}')">${autoAssignmentTeacherOptions(subject.id, teacherId)}</select>
     </td><td class="auto-assignment-periods${badge}">
       <div class="auto-assignment-cell" data-auto-assignment-cell="${id}" data-class="${schoolClass.id}" data-subject="${subject.id}"
@@ -466,15 +441,16 @@ function renderAutoAssignmentMatrix() {
     [`${a.class_id}-${a.subject_id}`,a]));
   const headers = classes.map(c => `<th colspan="2" scope="colgroup">${esc(c.name)}</th>`).join("");
   const subheaders = classes.map(() => '<th>GV</th><th>Số tiết</th>').join("");
-  const columns = `<colgroup><col class="auto-assignment-col-subject">${classes.map(() =>
+  const columns = `<colgroup><col class="auto-assignment-col-subject"><col class="auto-assignment-col-norm">${classes.map(() =>
     '<col class="auto-assignment-col-teacher"><col class="auto-assignment-col-periods">').join("")}</colgroup>`;
   const rows = subjects.map((subject, i) => `<tr><th scope="row" class="auto-assignment-subject" title="${esc(subject.name)}">
         <span class="auto-assignment-no">${i + 1}</span> ${esc(subject.name)}</th>
+        <td class="auto-assignment-norm" data-subject-norm="${subject.id}">${assignmentSubjectNormHtml(subject.id)}</td>
         ${classes.map(c => autoAssignmentCell(c,subject,byPair.get(`${c.id}-${subject.id}`))).join("")}</tr>`).join("");
   const assigned = (data.assignments || []).length;
   table.innerHTML = `<div class="auto-assignment-stats">${assigned} phân công đang lưu · ${classes.length} lớp · ${subjects.length} môn đang hiển thị</div>
     <div class="auto-assignment-scroller" tabindex="0" aria-label="Bảng phân công giáo viên theo lớp và môn, cuộn ngang để xem các lớp">
-      <table class="auto-assignment-matrix" style="--assignment-class-count:${classes.length}">${columns}<thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th>${headers}</tr>
+      <table class="auto-assignment-matrix" style="--assignment-class-count:${classes.length}">${columns}<thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th><th rowspan="2" class="auto-assignment-norm" title="Số tiết/tuần cho mỗi lớp, theo cấu hình Khối / nhóm">Định mức khối</th>${headers}</tr>
         <tr>${subheaders}</tr></thead><tbody>${rows}</tbody></table>
     </div>
     <p class="auto-assignment-note">Bảng phân công dùng trực tiếp cho bộ xếp tự động. Hiện mỗi cặp lớp–môn chỉ được gán một giáo viên trong bộ xếp tự động. Cột số tiết lấy gợi ý từ chương trình khối nếu đã cấu hình.</p>`;
@@ -495,16 +471,17 @@ function autoAssignmentCellChanged(id) {
     || periods.value !== periods.dataset.initial;
   if (button) {
     button.hidden = !changed;
-    button.textContent = !teacher.value && Number(cell.dataset.assignment) ? "Xóa" : "Lưu";
+    button.disabled = autoAssignmentSaves.has(id);
+    button.textContent = button.disabled ? "Đang lưu..." : !teacher.value && Number(cell.dataset.assignment) ? "Xóa" : "Lưu";
   }
   cell.classList.toggle("is-dirty", changed);
-  if (changed) autoAssignmentDrafts.set(id, {teacherId: Number(teacher.value || 0), periods: periods.value});
+  if (changed || autoAssignmentSaves.has(id)) autoAssignmentDrafts.set(id, {teacherId: Number(teacher.value || 0), periods: periods.value});
   else autoAssignmentDrafts.delete(id);
 }
 async function saveAutoAssignmentCell(id, button) {
   const cell = document.querySelector(`[data-auto-assignment-cell="${id}"]`),
     teacherEl = document.querySelector(`[data-matrix-teacher][data-matrix-cell="${id}"]`);
-  if (!cell || !teacherEl || button.disabled) return;
+  if (!cell || !teacherEl || button.disabled || autoAssignmentSaves.has(id)) return;
   const teacherId = Number(teacherEl.value || 0),
     periodsEl = cell.querySelector("[data-matrix-periods]"),
     periods = Number(periodsEl?.value),
@@ -523,6 +500,8 @@ async function saveAutoAssignmentCell(id, button) {
       && periods === Number(assigned.periods_per_week)) { autoAssignmentCellChanged(id); return; }
   button.disabled = true;
   button.textContent = "Đang lưu...";
+  const submitted = {teacherId, periods: periodsEl.value};
+  autoAssignmentSaves.add(id);
   try {
     let response, result, cancelled = false;
     if (assignmentId) {
@@ -542,12 +521,22 @@ async function saveAutoAssignmentCell(id, button) {
     }
     if (cancelled) {showToast("Đã hủy. Dữ liệu cũ được giữ nguyên.", "info");return;}
     if (!response.ok) {showToast(apiErrorMessage(result,"Không thể lưu phân công."),"error",6000);return;}
-    autoAssignmentDrafts.delete(id);
+    const liveCell = document.querySelector(`[data-auto-assignment-cell="${id}"]`);
+    const liveTeacher = document.querySelector(`[data-matrix-teacher][data-matrix-cell="${id}"]`);
+    const latest = liveCell && liveTeacher
+      ? {teacherId: Number(liveTeacher.value || 0), periods: liveCell.querySelector("[data-matrix-periods]").value}
+      : autoAssignmentDrafts.get(id) || submitted;
+    // Keep the visible intent until refresh finishes, including a reversal to
+    // the old saved value while either the mutation or reload is in flight.
+    autoAssignmentDrafts.set(id, latest);
     showToast("Đã lưu phân công.","success");
     await refreshAfterSuccessfulMutation();
   } catch(err) {
     showToast(err?.message || requestFailureMessage(err),"error",6000);
-  } finally {if (button.isConnected) {button.disabled = false; button.textContent="Lưu";}}
+  } finally {
+    autoAssignmentSaves.delete(id);
+    autoAssignmentCellChanged(id);
+  }
 }
 // Shared delete flow for the visible Xóa button and the former "clear GV → Xóa" shortcut.
 // Confirm even when the assignment has no scheduled lessons; the backend will
@@ -635,17 +624,19 @@ function autoGradeMatrixChanged(gradeId) {
   const inputs = [...box.querySelectorAll(`[data-grade-id="${gradeId}"]`)];
   for (const x of inputs) {
     const key = `${gradeId}-${x.dataset.subjectId}`;
-    if (String(x.value).trim() !== String(x.dataset.original).trim()) autoGradeDrafts.set(key, x.value);
+    if (autoGradeSaves.has(Number(gradeId)) || String(x.value).trim() !== String(x.dataset.original).trim()) autoGradeDrafts.set(key, x.value);
     else autoGradeDrafts.delete(key);
   }
   const changed=inputs.some(x=>String(x.value).trim()!==String(x.dataset.original).trim());
-  button.disabled = !changed;
+  button.disabled = autoGradeSaves.has(Number(gradeId)) || !changed;
+  button.textContent = autoGradeSaves.has(Number(gradeId)) ? "Đang lưu..." : `Lưu ${(data.grades || []).find(row => Number(row.id) === Number(gradeId))?.name || "khối"}`;
   button.classList.toggle('is-changed',changed);
+  refreshAssignmentSubjectNorms();
 }
 async function saveAutoGradeColumn(gradeId,button) {
   const grade=(data.grades || []).find(x => Number(x.id) === Number(gradeId)),
     box=$("#autoGradeProgramTable");
-  if (!grade || !box || button.disabled) return;
+  if (!grade || !box || button.disabled || autoGradeSaves.has(Number(gradeId))) return;
   const items=[...box.querySelectorAll(`[data-grade-id="${gradeId}"]`)];
   const configs=[];
   for (const input of items) {
@@ -661,18 +652,26 @@ async function saveAutoGradeColumn(gradeId,button) {
   }
   button.disabled=true;
   button.textContent='Đang lưu...';
+  const submitted = new Map(items.map(input => [String(input.dataset.subjectId), input.value]));
+  autoGradeSaves.add(Number(gradeId));
   try {
     const {response,result,cancelled}=await updateWithScheduleConfirmation(
       `/api/projects/${PROJECT_ID}/entity/grade/${grade.id}`,
       {type:'grade', data:{name:grade.name,subject_requirements:configs}});
     if (cancelled) {showToast('Đã hủy. Chương trình hiện tại được giữ nguyên.','info');return;}
     if (!response.ok) {showToast(apiErrorMessage(result,'Không thể lưu chương trình khối.'),'error',6000);return;}
-    for (const input of items) autoGradeDrafts.delete(`${gradeId}-${input.dataset.subjectId}`);
+    const live = new Map([...box.querySelectorAll(`[data-grade-id="${gradeId}"]`)].map(input => [String(input.dataset.subjectId), input.value]));
+    for (const [subjectId, value] of submitted) {
+      const key = `${gradeId}-${subjectId}`;
+      const latest = live.has(subjectId) ? live.get(subjectId) : autoGradeDrafts.get(key) ?? value;
+      autoGradeDrafts.set(key, latest);
+    }
     showToast(`Đã lưu định mức ${grade.name}.`,'success');
     await refreshAfterSuccessfulMutation();
   } catch(error) {
     showToast(error?.message || requestFailureMessage(error),'error',6000);
   } finally {
-    if (button.isConnected) {button.textContent=`Lưu ${grade.name}`;button.disabled=false;}
+    autoGradeSaves.delete(Number(gradeId));
+    autoGradeMatrixChanged(gradeId);
   }
 }

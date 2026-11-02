@@ -135,7 +135,7 @@ def _minimal_schedule_invalid_lesson_analysis(
             reject(lesson, f"Trùng lịch lớp {school_class.name} trong cùng một tiết.")
             continue
 
-        daily_limit = int(teacher.max_periods_day or 0)
+        daily_limit = periods_per_day
         if teacher_day_counts[teacher_day_key] >= daily_limit:
             reject(
                 lesson,
@@ -143,7 +143,7 @@ def _minimal_schedule_invalid_lesson_analysis(
             )
             continue
 
-        consecutive_limit = int(subject.max_consecutive or 0)
+        consecutive_limit = project.periods_per_session
         if exceeds_subject_run(
             class_subject_session_periods[subject_run_key],
             period,
@@ -242,7 +242,7 @@ def schedule_ui_validation_report(
     return {
         "invalid_lesson_ids": [lesson.id for lesson, _reason in invalid_analysis],
         "invalid_lesson_conflicts": [
-            {"lesson_id": lesson.id, "message": reason}
+            {"lesson_id": lesson.id, "assignment_id": lesson.assignment_id, "message": reason}
             for lesson, reason in invalid_analysis
         ],
         "required_double_conflicts": required_double_conflicts,
@@ -270,9 +270,10 @@ def schedule_integrity_report(
     )
     lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
 
-    invalid_lessons = minimal_schedule_invalid_lessons(
+    invalid_analysis = _minimal_schedule_invalid_lesson_analysis(
         db, project, assignments, lessons
     )
+    invalid_lessons = [lesson for lesson, _reason in invalid_analysis]
     by_assignment: dict[int, list[Lesson]] = defaultdict(list)
     for lesson in lessons:
         by_assignment[lesson.assignment_id].append(lesson)
@@ -340,10 +341,6 @@ def schedule_integrity_report(
             parts.append(
                 f"{len(input_report['teacher_subject_issues'])} phân công sai chuyên môn giáo viên"
             )
-        if input_report["capacity_issues"]:
-            parts.append(
-                f"{len(input_report['capacity_issues'])} giáo viên vượt tải khả dụng"
-            )
         if input_report["class_capacity_issues"]:
             parts.append(
                 f"{len(input_report['class_capacity_issues'])} lớp vượt số ô khả dụng"
@@ -380,6 +377,10 @@ def schedule_integrity_report(
         "message": message,
         "input_validation": input_report,
         "invalid_lesson_ids": [lesson.id for lesson in invalid_lessons],
+        "invalid_lesson_conflicts": [
+            {"lesson_id": lesson.id, "assignment_id": lesson.assignment_id, "message": reason}
+            for lesson, reason in invalid_analysis
+        ],
         "count_errors": count_errors,
         "required_double_errors": required_double_errors,
         "fixed_errors": fixed_errors,

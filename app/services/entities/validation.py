@@ -107,8 +107,26 @@ def replace_teacher_subjects(
             )
 
 
+def ensure_grade_program_fits(
+    project: Project, grade: Grade | None, total_periods: int, *,
+    project_blocked_slots: set[int] | None = None,
+    grade_blocked_slots: set[int] | None = None,
+) -> None:
+    blocked = set(parse_slots(project.blocked_slots_json) if project_blocked_slots is None else project_blocked_slots)
+    blocked.update(
+        parse_slots(grade.blocked_slots_json) if grade is not None and grade_blocked_slots is None
+        else grade_blocked_slots or set()
+    )
+    capacity = len(set(all_slots(project)) - blocked)
+    if total_periods > capacity:
+        label = grade.name if grade is not None else "khối"
+        raise HTTPException(409,
+            f"Chương trình {label} cần {total_periods} tiết/tuần nhưng chỉ còn {capacity} ô "
+            "sau khi trừ khóa toàn trường và khóa khối. Hãy điều chỉnh chương trình hoặc khóa lịch.")
+
+
 def normalized_grade_requirements(
-    db: Session, project: Project, values
+    db: Session, project: Project, values, grade_id: int | None = None,
 ) -> list[tuple[int, int, str]]:
     if values is None:
         return []
@@ -133,26 +151,10 @@ def normalized_grade_requirements(
             raise HTTPException(400, f"{subject.name}: {exc}") from exc
         configs[subject_id] = (periods, mode)
 
-    blocked_slots = set(
-        valid_slots(
-            project,
-            parse_slots(project.blocked_slots_json),
-            strict=False,
-        )
-    )
-    weekly_capacity = max(
-        0,
-        project.days * project.sessions * project.periods_per_session
-        - len(blocked_slots),
-    )
-    total_periods = sum(periods for periods, _ in configs.values())
-    if total_periods > weekly_capacity:
-        raise HTTPException(
-            409,
-            f"Tổng chương trình khối là {total_periods} tiết/tuần, vượt sức chứa "
-            f"tối đa {weekly_capacity} tiết/tuần của thời khóa biểu hiện tại "
-            f"(đã trừ {len(blocked_slots)} ô khóa toàn cục).",
-        )
+    grade = db.get(Grade, grade_id) if grade_id is not None else None
+    if grade_id is not None and (grade is None or grade.project_id != project.id):
+        raise HTTPException(404, "Không tìm thấy khối lớp")
+    ensure_grade_program_fits(project, grade, sum(periods for periods, _ in configs.values()))
 
     return [
         (subject_id, periods, mode) for subject_id, (periods, mode) in configs.items()
@@ -162,7 +164,7 @@ def normalized_grade_requirements(
 def replace_grade_requirements(
     db: Session, project: Project, grade_id: int, values
 ) -> None:
-    configs = normalized_grade_requirements(db, project, values)
+    configs = normalized_grade_requirements(db, project, values, grade_id=grade_id)
     rows = db.scalars(
         select(GradeSubjectRequirement).where(
             GradeSubjectRequirement.project_id == project.id,
@@ -189,46 +191,6 @@ def replace_grade_requirements(
         else:
             row.periods_per_week = periods
             row.block_mode = mode
-
-
-def teacher_week_capacity(
-    project: Project,
-    teacher: Teacher,
-    max_periods_day: int | None = None,
-    unavailable_slots: set[int] | None = None,
-    project_blocked_slots: set[int] | None = None,
-) -> int:
-    daily_limit = (
-        max_periods_day if max_periods_day is not None else teacher.max_periods_day
-    )
-    periods_per_day = project.sessions * project.periods_per_session
-    project_blocked = (
-        project_blocked_slots
-        if project_blocked_slots is not None
-        else set(
-            valid_slots(
-                project,
-                parse_slots(project.blocked_slots_json),
-                strict=False,
-            )
-        )
-    )
-    teacher_blocked = (
-        parse_slots(teacher.unavailable_json)
-        if unavailable_slots is None
-        else set(unavailable_slots)
-    )
-    teacher_blocked = set(valid_slots(project, teacher_blocked, strict=False))
-    capacity = 0
-    for day in range(project.days):
-        start = day * periods_per_day
-        available = sum(
-            1
-            for slot in range(start, start + periods_per_day)
-            if slot not in project_blocked and slot not in teacher_blocked
-        )
-        capacity += min(daily_limit, available)
-    return capacity
 
 
 def class_week_capacity(
@@ -258,16 +220,6 @@ def class_week_capacity(
     return maximum - len(project_blocked | class_blocked)
 
 
-def teacher_assigned_periods(db: Session, project_id: int, teacher_id: int) -> int:
-    value = db.scalar(
-        select(func.coalesce(func.sum(Assignment.periods_per_week), 0)).where(
-            Assignment.project_id == project_id,
-            Assignment.teacher_id == teacher_id,
-        )
-    )
-    return int(value or 0)
-
-
 def class_assigned_periods(db: Session, project_id: int, class_id: int) -> int:
     value = db.scalar(
         select(func.coalesce(func.sum(Assignment.periods_per_week), 0)).where(
@@ -276,31 +228,6 @@ def class_assigned_periods(db: Session, project_id: int, class_id: int) -> int:
         )
     )
     return int(value or 0)
-
-
-def ensure_teacher_load_fits(
-    db: Session,
-    project: Project,
-    teacher: Teacher,
-    projected_periods: int,
-    max_periods_day: int | None = None,
-    unavailable_slots: set[int] | None = None,
-    project_blocked_slots: set[int] | None = None,
-) -> None:
-    capacity = teacher_week_capacity(
-        project,
-        teacher,
-        max_periods_day=max_periods_day,
-        unavailable_slots=unavailable_slots,
-        project_blocked_slots=project_blocked_slots,
-    )
-    if projected_periods > capacity:
-        raise HTTPException(
-            409,
-            f"Tải dạy của {teacher.name} sẽ là {projected_periods} tiết/tuần, "
-            f"vượt khả năng tối đa hiện tại {capacity} tiết/tuần theo số ngày, "
-            "tiết tránh và giới hạn tiết/ngày.",
-        )
 
 
 def ensure_class_load_fits(

@@ -380,7 +380,6 @@ def _compact_project_data(data: dict[str, Any]) -> dict[str, Any]:
             "periods_per_session": project.get("periods"),
             "globally_blocked_slots": project.get("blocked_slots", []),
         },
-        "departments": data.get("departments", []),
         "subjects": data.get("subjects", []),
         "teachers": data.get("teachers", []),
         "grades": data.get("grades", []),
@@ -395,7 +394,7 @@ SYSTEM_INSTRUCTION = """Bạn là trợ lý phân công giảng dạy và thời
 
 Nhiệm vụ:
 - Phân tích phân công hiện tại, thời khóa biểu đã xếp và bảng người dùng đính kèm.
-- Kiểm tra đủ lớp, môn, số tiết; tải giáo viên; đúng chuyên môn; các giới hạn và mâu thuẫn nhìn thấy trong dữ liệu.
+- Kiểm tra đủ lớp, môn, số tiết theo định mức khối; đúng chuyên môn; khóa lịch, tiết tránh và mâu thuẫn nhìn thấy trong dữ liệu. Không áp dụng giới hạn tải tuần, tối đa tiết/ngày của giáo viên hoặc tối đa tiết liên tiếp của môn.
 - Đề xuất phương án cụ thể, ưu tiên danh sách gạch đầu dòng dễ đọc trên màn hình nhỏ. Với phân công giáo viên, mỗi giáo viên là một mục theo mẫu: **Tên giáo viên** — Môn: ... — Lớp: ... — Số tiết/tuần: ... — Lý do: ...
 - Phân biệt rõ yêu cầu bắt buộc, giả định và gợi ý tối ưu.
 

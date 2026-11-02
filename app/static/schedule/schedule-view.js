@@ -62,6 +62,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
 
   setScheduleActionState("loading");
   setScheduleFeedback("", "info", 0);
+  renderScheduleAttemptDetails(null);
 
   if (modal && typeof modal.showModal === "function") {
     modal.showModal();
@@ -82,6 +83,10 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
       }),
     });
     const j = await readApiResponse(r);
+    if (!r.ok) {
+      renderScheduleAttemptDetails(j);
+      if (typeof activateWorkspaceTab === "function") await activateWorkspaceTab("schedule");
+    }
 
     if (r.ok) {
       setProgress("complete", "Đã xếp xong. Đang đồng bộ thời khóa biểu...");
@@ -161,6 +166,59 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     setScheduleFeedback(message, "error", 5200);
   }
 }
+function renderScheduleAttemptDetails(payload) {
+  const box = $("#scheduleAttemptDetails");
+  if (!box) return;
+  if (!payload) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  const input = payload.integrity?.input_validation || payload;
+  const rows = [];
+  const assignmentById = new Map((data.assignments || []).map((row) => [Number(row.id), row]));
+  const add = (issue, message) => {
+    const assignment = assignmentById.get(Number(issue.assignment_id)) || {};
+    rows.push({ ...assignment, ...issue, message });
+  };
+  for (const issue of payload.unscheduled_assignments || [])
+    add(issue, `Cần ${issue.required_periods} tiết; xếp được ${issue.scheduled_periods} tiết trong lần thử, còn thiếu ${issue.missing_periods} tiết.`);
+  for (const issue of input.teacher_subject_issues || [])
+    add(issue, "Giáo viên chưa được cấu hình dạy môn này. Hãy sửa chuyên môn hoặc đổi giáo viên.");
+  for (const issue of input.grade_requirement_issues || [])
+    add(issue, issue.issue_type === "missing" ? `Chưa có giáo viên phụ trách; định mức ${issue.required_periods} tiết/tuần.`
+      : issue.issue_type === "extra" ? "Môn không thuộc chương trình của khối."
+      : `Phân công chưa khớp định mức ${issue.required_periods} tiết/tuần hoặc chế độ xếp của khối.`);
+  for (const issue of input.assignment_availability_issues || []) add(issue, issue.message);
+  for (const issue of input.assignment_reference_issues || [])
+    add(issue, "Phân công tham chiếu lớp, môn hoặc giáo viên không còn tồn tại hoặc thuộc bộ thời khóa biểu khác.");
+  for (const issue of input.fixed_definition_issues || []) add(issue, issue.message);
+  for (const issue of input.duplicate_assignment_issues || [])
+    add(issue, "Một lớp–môn đang có nhiều phân công. Hãy giữ lại một giáo viên phụ trách.");
+  for (const issue of input.class_capacity_issues || [])
+    add(issue, `Lớp cần ${issue.assigned} tiết nhưng chỉ còn ${issue.capacity} ô khả dụng.`);
+  for (const issue of payload.integrity?.count_errors || [])
+    add(issue, `Lịch hiện có ${issue.actual}/${issue.expected} tiết.`);
+  for (const assignmentId of payload.integrity?.required_double_errors || [])
+    add({assignment_id: assignmentId}, "Cấu trúc tiết đôi không khớp các block bắt buộc của phân công.");
+  for (const issue of payload.integrity?.fixed_errors || [])
+    add(issue, `Cụm cố định đang thiếu ${issue.missing_slots?.length || 0} tiết. Hãy xếp bổ sung hoặc bỏ ghim liên quan.`);
+  const lessonById = new Map((data.lessons || []).map(row => [Number(row.id), row]));
+  const invalidDetails = payload.integrity?.invalid_lesson_conflicts || [];
+  const describedLessons = new Set(invalidDetails.map(row => Number(row.lesson_id)));
+  for (const issue of invalidDetails) {
+    const lesson = lessonById.get(Number(issue.lesson_id));
+    add({assignment_id: issue.assignment_id ?? lesson?.assignment_id}, issue.message || "Tiết học vi phạm ràng buộc.");
+  }
+  for (const lessonId of payload.integrity?.invalid_lesson_ids || []) {
+    if (describedLessons.has(Number(lessonId))) continue;
+    const lesson = lessonById.get(Number(lessonId));
+    add({assignment_id: lesson?.assignment_id}, "Tiết học vi phạm khóa lịch, tiết tránh hoặc bị trùng lịch.");
+  }
+  box.hidden = false;
+  box.innerHTML = `<h2>Chi tiết phân công cần kiểm tra</h2><p>${esc(payload.message || "Chưa xếp được thời khóa biểu.")}</p>${rows.length
+    ? `<p>${rows.length} mục cần kiểm tra.${payload.unscheduled_assignments?.length ? " Số tiết xếp được dưới đây thuộc lần thử vừa rồi; lịch đang lưu vẫn được giữ nguyên. Các phân công có thể ảnh hưởng lẫn nhau." : ""}</p><div class="schedule-details-scroll" tabindex="0" aria-label="Chi tiết phân công chưa xếp được"><table class="data-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Chi tiết</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${esc(row.class_name || "—")}</td><td>${esc(row.subject_name || "—")}</td><td>${esc(row.teacher_name || row.assigned_teacher_name || "Chưa phân công")}</td><td>${esc(row.message || "Kiểm tra lại dữ liệu phân công.")}</td></tr>`).join("")}</tbody></table></div>` : ""}<button class="btn ghost" type="button" onclick="goToAssignments()">Đến mục Phân công</button>`;
+}
 function goToAssignments() {
   document.querySelector('.nav[data-tab="assignments"]')?.click();
 }
@@ -179,7 +237,6 @@ function renderScheduleCoverage() {
   if (!coverageBox) return;
   const coverage = data.coverage || {};
   const duplicates = coverage.duplicate_assignments || [];
-  const overloaded = coverage.over_capacity_teachers || [];
   const overloadedClasses = coverage.over_capacity_classes || [];
   const groups = [
     ["Giáo viên chưa phân công", coverage.unassigned_teachers || []],
@@ -189,9 +246,6 @@ function renderScheduleCoverage() {
   const duplicateHtml = duplicates.length
     ? `<div><b>Không thể xếp do phân công lớp–môn bị trùng</b><p>${duplicates.map((row) => `${esc(row.class_name)} – ${esc(row.subject_name)}: ID ${(row.assignment_ids || []).join(", ")}`).join("; ")}. Hãy xóa hoặc chuyển để mỗi lớp–môn chỉ còn một giáo viên.</p></div>`
     : "";
-  const overloadHtml = overloaded.length
-    ? `<div><b>Không thể xếp đầy đủ do giáo viên quá tải</b><p>${overloaded.map((row) => `${esc(row.teacher_name)}: ${row.assigned}/${row.capacity} tiết (dư ${row.excess})`).join("; ")}. Hãy giảm/chuyển phân công, tăng giới hạn tiết/ngày hoặc bỏ bớt tiết tránh.</p></div>`
-    : "";
   const classOverloadHtml = overloadedClasses.length
     ? `<div><b>Không thể xếp đầy đủ do lớp vượt số ô học</b><p>${overloadedClasses.map((row) => `${esc(row.class_name)}: ${row.assigned}/${row.capacity} tiết (dư ${row.excess})`).join("; ")}. Hãy giảm phân công hoặc bỏ bớt khóa/tiết tránh của lớp.</p></div>`
     : "";
@@ -199,8 +253,8 @@ function renderScheduleCoverage() {
     ? `<div><b>Một số dữ liệu chưa được phân công</b><p>Giáo viên, môn hoặc lớp chỉ xuất hiện trên thời khóa biểu sau khi được tạo ở mục Phân công.</p>${groups.map(([label, rows]) => `<div><strong>${label}:</strong> ${rows.map((row) => esc(row.name)).join(", ")}</div>`).join("")}</div>`
     : "";
   const coverageHtml =
-    duplicateHtml || overloadHtml || classOverloadHtml || gapsHtml
-      ? `<div class="coverage-warning">${duplicateHtml}${overloadHtml}${classOverloadHtml}${gapsHtml}<button class="btn ghost" onclick="goToAssignments()">Đến mục Phân công</button></div>`
+    duplicateHtml || classOverloadHtml || gapsHtml
+      ? `<div class="coverage-warning">${duplicateHtml}${classOverloadHtml}${gapsHtml}<button class="btn ghost" onclick="goToAssignments()">Đến mục Phân công</button></div>`
       : "";
   if (coverageBox && coverageBox.innerHTML !== coverageHtml) {
     coverageBox.innerHTML = coverageHtml;

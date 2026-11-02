@@ -14,12 +14,14 @@ from app.services.entities.curriculum.comparison import (
     grade_requirement_missing_assignments,
 )
 from app.services.entities.curriculum.sync import sync_assignments_to_grade_requirements
-from app.services.entities.deletion import delete_entity_related_rows
+from app.services.entities.deletion import delete_entity_related_rows, extra_assignment_removal_confirmation
 from app.services.entities.validation import (
     class_assigned_periods,
     ensure_class_load_fits,
+    ensure_grade_program_fits,
     ensure_unique_project_name,
 )
+from app.services.schedule_operations.feasibility import ensure_pinned_assignments_feasible
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -58,6 +60,7 @@ def update_class_fields(db: Session, project: Project, obj, d: dict, name: str, 
             (row.subject_id, int(row.periods_per_week), row.block_mode or "free")
             for row in proposed_rows
         ]
+        ensure_grade_program_fits(project, db.get(Grade, grade_id), sum(row[1] for row in proposed_configs))
         missing_grade_assignments = grade_requirement_missing_assignments(
             db,
             project,
@@ -69,40 +72,13 @@ def update_class_fields(db: Session, project: Project, obj, d: dict, name: str, 
         extra_assignments = grade_requirement_extra_assignments(
             db, project, grade_id, classes=[obj]
         )
-        if extra_assignments and d.get("remove_extra_assignments") is not True:
-            grade = db.get(Grade, grade_id)
-            preview = "; ".join(
-                f"{item['class_name']} – {item['subject_name']}"
-                for item in extra_assignments[:5]
-            )
-            suffix = (
-                f"; và {len(extra_assignments) - 5} phân công khác"
-                if len(extra_assignments) > 5
-                else ""
-            )
-            return JSONResponse(
-                {
-                    "ok": False,
-                    "reason": "class_grade_extra_assignments",
-                    "extra_assignments": extra_assignments,
-                    "message": (
-                        f"{obj.name} đang có phân công không thuộc chương trình "
-                        f"{grade.name if grade else 'khối mới'}: {preview}{suffix}. "
-                        "Nếu tiếp tục, các phân công này và các tiết đã xếp/ghim tương ứng sẽ bị xóa."
-                    ),
-                },
-                409,
-            )
+        confirmation = extra_assignment_removal_confirmation(
+            db, extra_assignments, d, reason="class_grade_extra_assignments",
+        )
+        if confirmation is not None:
+            return confirmation
 
         obj.grade = db.get(Grade, grade_id)
-        synced_assignments += sync_assignments_to_grade_requirements(
-            db,
-            project,
-            grade_id,
-            proposed_configs,
-            classes=[obj],
-            displaced_lesson_ids=displaced_lesson_ids,
-        )
         if extra_assignments:
             for item in extra_assignments:
                 assignment = db.get(Assignment, item["assignment_id"])
@@ -111,6 +87,15 @@ def update_class_fields(db: Session, project: Project, obj, d: dict, name: str, 
                 delete_entity_related_rows(db, "assignment", assignment.id)
                 db.delete(assignment)
                 removed_extra_assignments += 1
+        db.flush()
+        synced_assignments += sync_assignments_to_grade_requirements(
+            db,
+            project,
+            grade_id,
+            proposed_configs,
+            classes=[obj],
+            displaced_lesson_ids=displaced_lesson_ids,
+        )
     obj.name = name
     obj.grade_id = grade_id
     if changing_grade:
@@ -153,4 +138,5 @@ def update_class_fields(db: Session, project: Project, obj, d: dict, name: str, 
                     "Lớp có tiết đã xếp hoặc cố định xung đột với khóa lịch của khối mới. "
                     "Hãy chuyển/gỡ các tiết đó hoặc điều chỉnh khóa khối trước.",
                 )
+        ensure_pinned_assignments_feasible(db, project, assignments)
     return synced_assignments, displaced_lesson_ids, removed_extra_assignments, missing_grade_assignments

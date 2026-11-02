@@ -205,7 +205,6 @@ def schedule_input_validation_report(
         duplicate_assignment_issues,
         grade_requirement_assignment_issues,
         schedule_class_capacity_issues,
-        schedule_teacher_capacity_issues,
     )
 
     if assignments is None:
@@ -223,7 +222,6 @@ def schedule_input_validation_report(
         db, project, assignments, classes
     )
     teacher_subject_issues = teacher_subject_assignment_issues(db, project, assignments)
-    teacher_capacity_issues = schedule_teacher_capacity_issues(db, project, assignments)
     class_capacity_issues = schedule_class_capacity_issues(
         project, classes, assignments
     )
@@ -237,7 +235,6 @@ def schedule_input_validation_report(
             duplicate_issues,
             curriculum_issues,
             teacher_subject_issues,
-            teacher_capacity_issues,
             class_capacity_issues,
             fixed_definition_issues,
             availability_issues,
@@ -253,7 +250,6 @@ def schedule_input_validation_report(
         "duplicate_assignment_issues": duplicate_issues,
         "grade_requirement_issues": curriculum_issues,
         "teacher_subject_issues": teacher_subject_issues,
-        "capacity_issues": teacher_capacity_issues,
         "class_capacity_issues": class_capacity_issues,
         "fixed_definition_issues": fixed_definition_issues,
         "assignment_availability_issues": availability_issues,

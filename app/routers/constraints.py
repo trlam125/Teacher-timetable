@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from app.services.runtime import *
+from app.services.schedule_operations.feasibility import ensure_pinned_assignments_feasible
 
 router = APIRouter()
 
@@ -178,19 +179,16 @@ def constraints(
                 )
             removed_ids.update(row.id for row in affected)
 
+    ensure_pinned_assignments_feasible(
+        db, p, assignments,
+        teacher_unavailable={obj.id: slots} if payload.entity_type == "teacher" else None,
+        class_unavailable={obj.id: slots | class_grade_blocked_slots(obj)} if payload.entity_type == "class" else None,
+    )
     confirmation = displacement_confirmation(removed_ids, payload)
     if confirmation is not None:
         return confirmation
 
-    if payload.entity_type == "teacher":
-        ensure_teacher_load_fits(
-            db,
-            p,
-            obj,
-            teacher_assigned_periods(db, pid, obj.id),
-            unavailable_slots=slots,
-        )
-    else:
+    if payload.entity_type == "class":
         ensure_class_load_fits(
             p,
             obj,
@@ -255,6 +253,15 @@ def save_session_locks(
     global_blocked_set = (
         parse_slots(project.blocked_slots_json) if grade is not None else blocked_set
     )
+    target_grades = [grade] if grade is not None else db.scalars(select(Grade).where(Grade.project_id == pid)).all()
+    for target_grade in target_grades:
+        total = db.scalar(select(func.coalesce(func.sum(GradeSubjectRequirement.periods_per_week), 0)).where(
+            GradeSubjectRequirement.project_id == pid, GradeSubjectRequirement.grade_id == target_grade.id,
+        )) or 0
+        ensure_grade_program_fits(
+            project, target_grade, int(total), project_blocked_slots=global_blocked_set,
+            grade_blocked_slots=blocked_set if grade is not None else None,
+        )
     removed_ids = set()
     fixed_coverage = fixed_coverage_slots(db, project)
 
@@ -293,16 +300,6 @@ def save_session_locks(
         )
 
     teachers = db.scalars(select(Teacher).where(Teacher.project_id == pid)).all()
-    for teacher in (teachers if grade is None else []):
-        assigned = teacher_assigned_periods(db, pid, teacher.id)
-        if assigned:
-            ensure_teacher_load_fits(
-                db,
-                project,
-                teacher,
-                assigned,
-                project_blocked_slots=global_blocked_set,
-            )
     for school_class in classes:
         assigned = class_assigned_periods(db, pid, school_class.id)
         if assigned:
@@ -380,6 +377,11 @@ def save_session_locks(
                     409,
                 )
             removed_ids.update(row.id for row in affected)
+    ensure_pinned_assignments_feasible(
+        db, project, assignments, project_blocked_slots=global_blocked_set,
+        class_unavailable={row.id: blocked_set | parse_slots(row.unavailable_json) for row in classes}
+        if grade is not None else None,
+    )
     confirmation = displacement_confirmation(removed_ids, payload)
     if confirmation is not None:
         return confirmation

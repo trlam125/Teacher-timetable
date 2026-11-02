@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.models import Assignment, Project, SchoolClass, Subject, Teacher
 from app.scheduling.rules import parse_slots, valid_slots
-from app.services.entities.validation import class_week_capacity, teacher_week_capacity
+from app.services.entities.validation import class_week_capacity
 from collections import Counter
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -79,53 +79,6 @@ def assignment_project_reference_issues(
                 }
             )
     return issues
-
-
-def schedule_teacher_capacity_issues(
-    db: Session,
-    project: Project,
-    assignments: list[Assignment],
-) -> list[dict]:
-    """Return teacher loads that cannot fit even before conflict solving.
-
-    This necessary (but not sufficient) feasibility check also covers legacy
-    and imported data that predates assignment-time load validation. It lets the
-    scheduler explain the real constraint instead of appearing to skip teachers.
-    """
-    assigned_by_teacher = Counter()
-    for assignment in assignments:
-        assigned_by_teacher[assignment.teacher_id] += int(
-            assignment.periods_per_week or 0
-        )
-
-    project_blocked = set(
-        valid_slots(
-            project,
-            parse_slots(project.blocked_slots_json),
-            strict=False,
-        )
-    )
-    issues = []
-    for teacher_id, assigned in assigned_by_teacher.items():
-        teacher = db.get(Teacher, teacher_id)
-        if not teacher:
-            continue
-        capacity = teacher_week_capacity(
-            project,
-            teacher,
-            project_blocked_slots=project_blocked,
-        )
-        if assigned > capacity:
-            issues.append(
-                {
-                    "teacher_id": teacher.id,
-                    "teacher_name": teacher.name,
-                    "assigned": assigned,
-                    "capacity": capacity,
-                    "excess": assigned - capacity,
-                }
-            )
-    return sorted(issues, key=lambda item: (-item["excess"], item["teacher_name"]))
 
 
 def schedule_class_capacity_issues(

@@ -374,7 +374,7 @@ def ga_schedule(
             | frozenset(global_blocked)
         )
         subject = subjects[assignment.subject_id]
-        max_run = max(1, int(subject.max_consecutive or 1))
+        max_run = max(1, int(p.periods_per_session))
         static_subject_slots = existing_class_subject_slots[
             (assignment.class_id, assignment.subject_id)
         ]
@@ -413,7 +413,7 @@ def ga_schedule(
                 continue
             if (
                 existing_teacher_day[(assignment.teacher_id, day)] + missing_size
-                > teachers[assignment.teacher_id].max_periods_day
+                > ppd
             ):
                 continue
 
@@ -550,7 +550,7 @@ def ga_schedule(
             model.Add(
                 sum(var * weight for var, weight in weighted)
                 + existing_teacher_day[(teacher_id, day)]
-                <= teachers[teacher_id].max_periods_day
+                <= ppd
             )
 
         # Subject max-consecutive constraint.  Iterate each class/subject pair
@@ -570,7 +570,7 @@ def ga_schedule(
         }
         for class_id, subject_id in class_subject_pairs:
             subject = subjects[subject_id]
-            max_run = max(1, int(subject.max_consecutive or 1))
+            max_run = max(1, int(p.periods_per_session))
             window = max_run + 1
             if window > p.periods_per_session:
                 continue
@@ -922,7 +922,7 @@ def ga_schedule(
                 return False
             if (
                 teacher_day[(assignment.teacher_id, day)] + missing_size
-                > teachers[assignment.teacher_id].max_periods_day
+                > ppd
             ):
                 return False
             existing_periods = [
@@ -938,7 +938,7 @@ def ga_schedule(
                 current = current + 1 if right == left + 1 else 1
                 longest = max(longest, current)
             return longest <= max(
-                1, int(subjects[assignment.subject_id].max_consecutive or 1)
+                1, int(p.periods_per_session)
             )
 
         def row_soft_score(index: int, row, gene: int | None) -> float:
@@ -1150,7 +1150,7 @@ def ga_schedule(
                     continue
                 if (
                     teacher_day[(assignment.teacher_id, day)] + missing_size
-                    > teachers[assignment.teacher_id].max_periods_day
+                    > ppd
                 ):
                     continue
                 existing_periods = [
@@ -1166,7 +1166,7 @@ def ga_schedule(
                     current = current + 1 if right == left + 1 else 1
                     longest = max(longest, current)
                 if longest > max(
-                    1, int(subjects[assignment.subject_id].max_consecutive or 1)
+                    1, int(p.periods_per_session)
                 ):
                     continue
                 adjacent_same = 0

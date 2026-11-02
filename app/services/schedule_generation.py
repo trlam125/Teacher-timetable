@@ -18,6 +18,7 @@ from app.services.schedule_operations.validation import (
     schedule_integrity_report,
 )
 from app.services.schedule_validation import schedule_input_validation_report
+from app.services.schedule_diagnostics import unscheduled_assignment_details
 from collections import Counter, defaultdict
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -155,31 +156,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                     + "; ".join(details)
                     + suffix
                     + ". Hãy bổ sung, chỉnh hoặc xóa phân công dư trước khi xếp tự động."
-                ),
-            },
-            409,
-        )
-    capacity_issues = input_validation["capacity_issues"]
-    if capacity_issues:
-        details = "; ".join(
-            f"{item['teacher_name']}: đã phân công {item['assigned']} tiết, "
-            f"tối đa xếp được {item['capacity']} tiết (dư {item['excess']})"
-            for item in capacity_issues[:5]
-        )
-        suffix = (
-            f"; và {len(capacity_issues) - 5} giáo viên khác"
-            if len(capacity_issues) > 5
-            else ""
-        )
-        return JSONResponse(
-            {
-                "ok": False,
-                "reason": "teacher_over_capacity",
-                "capacity_issues": capacity_issues,
-                "message": (
-                    "Không thể xếp đầy đủ vì tải dạy vượt số ô khả dụng: "
-                    f"{details}{suffix}. Hãy giảm/chuyển phân công, tăng giới hạn "
-                    "tiết/ngày hoặc bỏ bớt tiết tránh rồi xếp lại."
                 ),
             },
             409,
@@ -396,6 +372,10 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
         return JSONResponse(
             {
                 "ok": False,
+                "assignment_availability_issues": [
+                    {"assignment_id": assignment_id, "message": "Tiết cố định xung đột với ràng buộc hoặc cấu trúc tiết đôi. Hãy kiểm tra và bỏ ghim liên quan."}
+                    for assignment_id in sorted({row.assignment_id for row in locked_invalid})
+                ],
                 "message": f"Có {len(locked_invalid)} tiết cố định xung đột với ràng buộc hoặc chế độ xếp tiết mới. Hãy bỏ cố định hoặc điều chỉnh ràng buộc trước khi xếp lại.",
             },
             409,
@@ -556,6 +536,9 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                         "ok": False,
                         "score": rebuild["score"],
                         "unscheduled": rebuild["unscheduled"],
+                        "unscheduled_assignments": unscheduled_assignment_details(
+                            db, p, assignments, rebuild, "rebuild"
+                        ),
                         "message": message,
                     },
                     409,
@@ -599,6 +582,9 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                     "affected_lesson_ids": rebuild_lesson_ids,
                     "score": result["score"],
                     "unscheduled": result["unscheduled"],
+                    "unscheduled_assignments": unscheduled_assignment_details(
+                        db, p, assignments, result, "missing"
+                    ),
                     "message": (
                         "Không thể chỉ bổ sung phần còn thiếu mà giữ nguyên toàn bộ "
                         "lịch hiện tại. Hệ thống cần được phép thử xếp lại tối đa "
@@ -636,6 +622,9 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 "ok": False,
                 "score": result["score"],
                 "unscheduled": result["unscheduled"],
+                "unscheduled_assignments": unscheduled_assignment_details(
+                    db, p, assignments, result, "full"
+                ),
                 "message": message,
             },
             409,

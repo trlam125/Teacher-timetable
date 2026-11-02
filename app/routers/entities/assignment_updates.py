@@ -16,8 +16,6 @@ from app.services.entities.schemas import AssignmentUpdateIn
 from app.services.entities.validation import (
     class_assigned_periods,
     ensure_class_load_fits,
-    ensure_teacher_load_fits,
-    teacher_assigned_periods,
 )
 from app.services.projects import get_project_for_update
 from app.services.schedule_operations.blocks import (
@@ -98,12 +96,6 @@ def update_assignment(
         )
         if authorized is None:
             raise HTTPException(409, f"{teacher.name} chưa được cấu hình dạy môn {subject.name}")
-    projected_total = (
-        teacher_assigned_periods(db, pid, teacher.id)
-        + periods
-        - (old_periods if not teacher_changed else 0)
-    )
-    ensure_teacher_load_fits(db, project, teacher, projected_total)
     school_class = db.get(SchoolClass, assignment.class_id)
     if not school_class or school_class.project_id != pid:
         raise HTTPException(409, "Lớp của phân công không còn tồn tại")

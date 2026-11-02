@@ -5,8 +5,6 @@ from app.scheduling.rules import assignment_requires_double, ensure_assignment_h
 from app.services.entities.validation import (
     class_assigned_periods,
     ensure_class_load_fits,
-    ensure_teacher_load_fits,
-    teacher_assigned_periods,
 )
 from app.services.schedule_operations.blocks import (
     normalize_assignment_fixed_rows,
@@ -81,7 +79,6 @@ def sync_assignments_to_grade_requirements(
     }
 
     changes = []
-    teacher_deltas: Counter[int] = Counter()
     class_deltas: Counter[int] = Counter()
     for assignment in assignments:
         desired = config_by_subject.get(assignment.subject_id)
@@ -120,7 +117,6 @@ def sync_assignments_to_grade_requirements(
             project, teacher, school_class, subject, periods, mode
         )
         delta = periods - old_periods
-        teacher_deltas[teacher.id] += delta
         class_deltas[school_class.id] += delta
         changes.append(
             (
@@ -136,14 +132,6 @@ def sync_assignments_to_grade_requirements(
             )
         )
 
-    for teacher_id, delta in teacher_deltas.items():
-        teacher = teachers[teacher_id]
-        ensure_teacher_load_fits(
-            db,
-            project,
-            teacher,
-            teacher_assigned_periods(db, project.id, teacher_id) + delta,
-        )
     for class_id, delta in class_deltas.items():
         school_class = class_by_id[class_id]
         ensure_class_load_fits(

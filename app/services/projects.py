@@ -249,7 +249,6 @@ def project_lessons_data(db: Session, project_id: int):
 
 
 def project_data(db: Session, p: Project):
-    deps = db.scalars(select(Department).where(Department.project_id == p.id)).all()
     subs = db.scalars(select(Subject).where(Subject.project_id == p.id)).all()
     teas = db.scalars(select(Teacher).where(Teacher.project_id == p.id)).all()
     grades = db.scalars(select(Grade).where(Grade.project_id == p.id)).all()
@@ -275,10 +274,6 @@ def project_data(db: Session, p: Project):
     teacher_subject_map = defaultdict(list)
     for row in teacher_subject_rows:
         teacher_subject_map[row.teacher_id].append(row.subject_id)
-    teacher_loads = Counter()
-    for assignment in assignments:
-        teacher_loads[assignment.teacher_id] += assignment.periods_per_week
-    capacity_issues = schedule_teacher_capacity_issues(db, p, assignments)
     class_capacity_issues = schedule_class_capacity_issues(p, classes, assignments)
     duplicate_issues = duplicate_assignment_issues(db, assignments)
     assigned_teacher_ids = {x.teacher_id for x in assignments}
@@ -297,13 +292,11 @@ def project_data(db: Session, p: Project):
                 p, parse_slots(p.blocked_slots_json), strict=False
             ),
         },
-        "departments": [{"id": x.id, "name": x.name} for x in deps],
         "subjects": [
             {
                 "id": x.id,
                 "name": canonical_subject_name(x.name),
                 "short_name": canonical_subject_short_name(x.short_name, x.name),
-                "max_consecutive": x.max_consecutive,
             }
             for x in sorted(subs, key=lambda item: subject_sort_key(item.name))
         ],
@@ -312,12 +305,8 @@ def project_data(db: Session, p: Project):
                 "id": x.id,
                 "name": x.name,
                 "short_name": x.short_name,
-                "department_id": x.department_id,
-                "max_periods_day": x.max_periods_day,
                 "unavailable": list(parse_slots(x.unavailable_json)),
                 "subject_ids": sorted(teacher_subject_map.get(x.id, [])),
-                "assigned_periods": teacher_loads.get(x.id, 0),
-                "week_capacity": teacher_week_capacity(p, x),
             }
             for x in teas
         ],
@@ -390,7 +379,6 @@ def project_data(db: Session, p: Project):
         "schedule_validation": schedule_ui_validation_report(db, p),
         "coverage": {
             "duplicate_assignments": duplicate_issues,
-            "over_capacity_teachers": capacity_issues,
             "over_capacity_classes": class_capacity_issues,
             "unassigned_teachers": [
                 {"id": x.id, "name": x.name}
@@ -412,6 +400,7 @@ def project_data(db: Session, p: Project):
 
 
 def public_project_data(db: Session, p: Project):
+    grades = db.scalars(select(Grade).where(Grade.project_id == p.id)).all()
     subjects = {
         x.id: x
         for x in db.scalars(select(Subject).where(Subject.project_id == p.id)).all()
@@ -442,7 +431,15 @@ def public_project_data(db: Session, p: Project):
                 p, parse_slots(p.blocked_slots_json), strict=False
             ),
         },
-        "classes": [{"id": item.id, "name": item.name} for item in classes.values()],
+        "grades": [
+            {"id": row.id, "name": row.name,
+             "blocked_slots": valid_slots(p, parse_slots(row.blocked_slots_json), strict=False)}
+            for row in grades
+        ],
+        "classes": [
+            {"id": item.id, "name": item.name, "grade_id": item.grade_id}
+            for item in classes.values()
+        ],
         "teachers": [
             {"id": item.id, "name": item.name, "short_name": item.short_name}
             for item in teachers.values()

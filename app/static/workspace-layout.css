@@ -12,6 +12,212 @@ body.workspace-viewport {
   overflow: hidden;
 }
 
+/* Keep long project names inside their share of the toolbar. Auxiliary
+   widgets are inserted dynamically, so size direct controls explicitly. */
+.workspace-appbar.appbar {
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 64px;
+  padding: 10px clamp(12px, 1.7vw, 32px);
+  gap: clamp(8px, 1vw, 16px);
+  flex-wrap: nowrap;
+}
+
+.workspace-appbar .workspace-appbar-brand {
+  flex: 0 0 auto;
+}
+
+.workspace-appbar .workspace-appbar-project {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.workspace-appbar-project b,
+.workspace-appbar-project small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-appbar-project b {
+  font-size: clamp(13px, 1vw, 16px);
+  line-height: 1.4;
+}
+
+.workspace-appbar-project small {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.workspace-appbar > .spacer {
+  display: none;
+}
+
+.workspace-appbar > .theme-switch,
+.workspace-appbar > .appbar-datetime,
+.workspace-appbar > .appbar-weather,
+.workspace-appbar > .workspace-desktop-actions,
+.workspace-appbar > .workspace-mobile-actions,
+.workspace-appbar > .tkb-notification-wrap,
+.workspace-appbar > .user-avatar-wrap {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.workspace-appbar > .theme-switch {
+  margin-right: 0 !important;
+}
+
+.workspace-appbar .workspace-desktop-actions {
+  gap: 8px;
+}
+
+.workspace-appbar .workspace-desktop-actions > * {
+  flex-shrink: 0;
+}
+
+.workspace-appbar .workspace-mobile-actions {
+  position: relative;
+}
+
+.workspace-mobile-menu-button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--header-bg);
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.workspace-mobile-menu-button::-webkit-details-marker {
+  display: none;
+}
+
+.workspace-mobile-menu-button svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.workspace-mobile-actions[open] .workspace-mobile-menu-button {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--soft);
+}
+
+.workspace-mobile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  min-width: 168px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--header-bg);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.16);
+}
+
+.workspace-mobile-menu button,
+.workspace-mobile-menu a {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.workspace-mobile-menu button:hover,
+.workspace-mobile-menu a:hover {
+  background: var(--soft);
+  color: var(--primary);
+}
+
+@media (max-width: 1440px) {
+  .workspace-appbar .workspace-appbar-brand span {
+    display: none;
+  }
+
+  .workspace-appbar > .appbar-datetime {
+    font-size: 12px;
+    padding-inline: 8px;
+  }
+
+  .workspace-appbar .appbar-weather-city {
+    display: none;
+  }
+}
+
+@media (max-width: 1280px) {
+  .workspace-appbar .workspace-desktop-actions {
+    display: none;
+  }
+
+  .workspace-appbar .workspace-mobile-actions {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-appbar.appbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) repeat(3, auto);
+    gap: 8px;
+  }
+
+  .workspace-appbar .workspace-appbar-project {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .workspace-appbar > .theme-switch {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .workspace-appbar > .appbar-weather {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .workspace-appbar .workspace-mobile-actions {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .workspace-appbar > .tkb-notification-wrap {
+    grid-column: 4;
+    grid-row: 2;
+  }
+
+  .workspace-appbar > .user-avatar-wrap {
+    grid-column: 5;
+    grid-row: 2;
+  }
+}
+
 body.workspace-viewport .workspace {
   height: calc(100vh - var(--workspace-appbar-height, 64px));
   height: calc(100dvh - var(--workspace-appbar-height, 64px));

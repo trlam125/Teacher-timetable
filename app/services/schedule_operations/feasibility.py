@@ -13,12 +13,20 @@ from app.scheduling.rules import (
 from collections import Counter, defaultdict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from types import SimpleNamespace
+from fastapi import HTTPException
+from app.services.schedule_operations.blocks import fixed_coverage_slots
 
 
 def assignment_feasibility_context(
     db: Session,
     project: Project,
     assignment: Assignment,
+    *,
+    fixed_only: bool = False,
+    project_blocked_slots: set[int] | None = None,
+    teacher_unavailable_slots: set[int] | None = None,
+    class_unavailable_slots: set[int] | None = None,
 ):
     """Preload immutable inputs reused while evaluating many candidate slots."""
     pps = project.periods_per_session
@@ -35,11 +43,21 @@ def assignment_feasibility_context(
             select(Assignment).where(Assignment.project_id == project.id)
         ).all()
     }
-    lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
+    all_lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
+    lessons = all_lessons
+    if fixed_only:
+        coverage = fixed_coverage_slots(db, project)
+        lessons = [row for row in all_lessons if row.locked or row.slot in coverage.get(row.assignment_id, set())]
+        present = {(row.assignment_id, row.slot) for row in lessons}
+        lessons.extend(
+            SimpleNamespace(assignment_id=assignment_id, slot=slot, locked=True)
+            for assignment_id, slots in coverage.items() for slot in slots
+            if (assignment_id, slot) not in present
+        )
     forbidden = (
-        parse_slots(project.blocked_slots_json)
-        | parse_slots(teacher.unavailable_json)
-        | class_blocked_slots(school_class)
+        (parse_slots(project.blocked_slots_json) if project_blocked_slots is None else set(project_blocked_slots))
+        | (parse_slots(teacher.unavailable_json) if teacher_unavailable_slots is None else set(teacher_unavailable_slots))
+        | (class_blocked_slots(school_class) if class_unavailable_slots is None else set(class_unavailable_slots))
     )
     teacher_day = Counter()
     subject_masks = defaultdict(int)
@@ -65,7 +83,7 @@ def assignment_feasibility_context(
     ).all()
     same_lessons = [row for row in lessons if row.assignment_id == assignment.id]
     specs = [
-        (row.slot, fixed_row_size(project, assignment, row, same_lessons))
+        (row.slot, fixed_row_size(project, assignment, row, [lesson for lesson in all_lessons if lesson.assignment_id == assignment.id]))
         for row in fixed_rows
     ]
     fixed_error = fixed_group_validation_error(
@@ -133,10 +151,10 @@ def assignment_completion_feasible(
         return False
     double = assignment_requires_double(assignment) and enforce_pattern
     single_limit = total % 2 if double else 0
-    max_run = max(1, int(subject.max_consecutive or 1))
+    max_run = pps
     reachable = {(0, 0)}
     for day in range(project.days):
-        budget = min(total, teacher.max_periods_day - teacher_day[day])
+        budget = min(total, ppd - teacher_day[day])
         if budget < 0:
             return False
         day_options = {(0, 0)}
@@ -200,6 +218,29 @@ def assignment_completion_feasible(
         if not reachable:
             return False
     return (total, single_limit) in reachable
+
+
+def ensure_pinned_assignments_feasible(
+    db: Session, project: Project, assignments: list[Assignment], *,
+    project_blocked_slots: set[int] | None = None,
+    teacher_unavailable: dict[int, set[int]] | None = None,
+    class_unavailable: dict[int, set[int]] | None = None,
+) -> None:
+    """Check proposed rules with pins held and all movable lessons free to move."""
+    for assignment in assignments:
+        context = assignment_feasibility_context(
+            db, project, assignment, fixed_only=True,
+            project_blocked_slots=project_blocked_slots,
+            teacher_unavailable_slots=(teacher_unavailable or {}).get(assignment.teacher_id),
+            class_unavailable_slots=(class_unavailable or {}).get(assignment.class_id),
+        )
+        if not assignment_completion_feasible(db, project, assignment, [], context=context):
+            school_class = db.get(SchoolClass, assignment.class_id)
+            subject = db.get(Subject, assignment.subject_id)
+            raise HTTPException(409,
+                f"Không thể hoàn thành {school_class.name if school_class else '?'} – "
+                f"{subject.name if subject else '?'} khi giữ các tiết cố định. "
+                "Hãy điều chỉnh khóa/tiết tránh hoặc bỏ ghim liên quan trước.")
 
 
 def assignment_pattern_label(assignment: Assignment):

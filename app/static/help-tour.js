@@ -94,9 +94,8 @@
         { target: '#overview [data-schedule-action]', title: 'Xếp tự động', text: 'Sau khi dữ liệu và ràng buộc đã đủ, bấm nút này để hệ thống tạo thời khóa biểu tự động.' }
       ]
     },
-    subjects: entitySteps('Môn học', '#subjects', '#subjectTable', 'môn', 'Khai báo tên môn, tên rút gọn và giới hạn số tiết liên tiếp.'),
-    departments: entitySteps('Tổ chuyên môn', '#departments', '#departmentTable', 'tổ', 'Nhóm giáo viên theo chuyên môn để dữ liệu quản lý rõ ràng hơn.'),
-    teachers: entitySteps('Giáo viên', '#teachers', '#teacherTable', 'giáo viên', 'Quản lý giáo viên, tải dạy và tổ chuyên môn trước khi tạo phân công.'),
+    subjects: entitySteps('Môn học', '#subjects', '#subjectTable', 'môn', 'Khai báo tên môn và tên rút gọn.'),
+    teachers: entitySteps('Giáo viên', '#teachers', '#teacherTable', 'giáo viên', 'Khai báo giáo viên và các môn có thể giảng dạy trước khi tạo phân công.'),
     grades: entitySteps('Khối / nhóm lớp', '#grades', '#gradeTable', 'khối', 'Thiết lập khối và chương trình chuẩn để kiểm tra phân công thiếu hoặc sai.'),
     classes: entitySteps('Lớp học', '#classes', '#classTable', 'lớp', 'Tạo các lớp và gắn từng lớp vào khối tương ứng.'),
     assignments: {
@@ -104,7 +103,7 @@
       steps: [
         { target: '#assignments .section-head', title: 'Phân công giảng dạy', text: 'Mỗi phân công xác định giáo viên, lớp, môn và số tiết phải dạy trong một tuần.' },
         { target: '#assignments .section-head .btn', title: 'Thêm phân công', text: 'Bấm vào đây để tạo một phân công mới. Hệ thống sẽ dùng các phân công này làm đầu vào khi xếp lịch.' },
-        { target: '.assignment-explanation', title: 'Hiểu đúng số tiết', text: 'Phần giải thích này giúp phân biệt số buổi/ngày, tiết/tuần và giới hạn tiết/ngày của giáo viên.' },
+        { target: '.assignment-explanation', title: 'Hiểu đúng số tiết', text: 'Số tiết/tuần là số tiết của một môn tại một lớp. Cột Định mức khối hiển thị số tiết đã quy định cho từng môn của từng khối.' },
         { target: '.assignment-filter-panel', title: 'Lọc và kiểm tra phân công', text: 'Lọc theo lớp, môn, giáo viên hoặc trạng thái để nhanh chóng tìm các phân công cần xử lý.' },
         { target: '#assignmentCompletenessSummary', title: 'Kiểm tra độ đầy đủ', text: 'Khu vực này đối chiếu phân công hiện tại với chương trình chuẩn của lớp và khối.' },
         { target: '#assignmentTable', title: 'Danh sách phân công', text: 'Xem, sửa hoặc xóa các phân công hiện có tại bảng này.' }

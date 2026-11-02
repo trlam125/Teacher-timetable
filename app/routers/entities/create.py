@@ -26,38 +26,15 @@ def add_entity(
         if any(subject_key(existing.name) == subject_key(name) for existing in db.scalars(select(Subject).where(Subject.project_id == pid)).all()):
             raise HTTPException(409, f"Môn {name} đã tồn tại dưới tên tương đương. Hãy sửa bản ghi cũ thay vì tạo trùng.")
         ensure_unique_project_name(db, Subject, pid, name, "Môn học")
-        max_consecutive = bounded_int(
-            d.get("max_consecutive"),
-            min(2, project.periods_per_session),
-            1,
-            project.periods_per_session,
-            "Số tiết liên tiếp tối đa",
-        )
         short_name = canonical_subject_short_name(str(d.get("short_name") or "").strip() or name, name)[:20]
         obj = Subject(
             project_id=pid,
             name=name,
             short_name=short_name,
-            max_consecutive=max_consecutive,
+            max_consecutive=project.periods_per_session,
         )
     elif payload.type == "teacher":
         name = required_text(d, "name", "Tên giáo viên", 120)
-        department_id = d.get("department_id") or None
-        if department_id:
-            try:
-                department_id = int(department_id)
-            except (TypeError, ValueError) as exc:
-                raise HTTPException(400, "Tổ chuyên môn không hợp lệ") from exc
-            department = db.get(Department, department_id)
-            if not department or department.project_id != pid:
-                raise HTTPException(400, "Tổ chuyên môn không hợp lệ")
-        max_periods_day = bounded_int(
-            d.get("max_periods_day"),
-            min(5, project.sessions * project.periods_per_session),
-            1,
-            project.sessions * project.periods_per_session,
-            "Số tiết tối đa mỗi ngày",
-        )
         short_name = (str(d.get("short_name") or "").strip() or name)[:30]
         ensure_unique_teacher_short_name(db, pid, short_name)
         teacher_subject_ids = validated_subject_ids(db, pid, d.get("subject_ids", []))
@@ -65,8 +42,7 @@ def add_entity(
             project_id=pid,
             name=name,
             short_name=short_name,
-            department_id=department_id,
-            max_periods_day=max_periods_day,
+            max_periods_day=project.sessions * project.periods_per_session,
             unavailable_json=json.dumps(valid_slots(project, d.get("unavailable", []))),
         )
     elif payload.type == "grade":
@@ -142,12 +118,6 @@ def add_entity(
             raise HTTPException(400, str(exc)) from exc
         ensure_assignment_matches_grade_requirement(
             db, project, school_class, subject, periods, mode
-        )
-        ensure_teacher_load_fits(
-            db,
-            project,
-            teacher,
-            teacher_assigned_periods(db, pid, teacher.id) + periods,
         )
         ensure_class_load_fits(
             project,
@@ -400,8 +370,6 @@ def add_assignments_bulk(
             if (subject_id, class_id) not in existing_pairs:
                 added_periods += periods
                 added_periods_by_class[class_id] += periods
-    current_periods = teacher_assigned_periods(db, pid, teacher.id)
-    ensure_teacher_load_fits(db, project, teacher, current_periods + added_periods)
     for class_id, class_added_periods in added_periods_by_class.items():
         ensure_class_load_fits(
             project,

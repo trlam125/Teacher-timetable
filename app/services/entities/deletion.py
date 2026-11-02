@@ -171,6 +171,42 @@ def assignment_delete_impact(
     return {"lesson_ids": lesson_ids, "fixed_lesson_ids": fixed_lesson_ids}
 
 
+def extra_assignment_removal_confirmation(
+    db: Session, extras: list[dict], fields: dict, *, reason: str,
+):
+    """Bind curriculum deletion consent to the exact current assignments and pins."""
+    if not extras:
+        return None
+    ids = sorted(item["assignment_id"] for item in extras)
+    snapshots = {}
+    for model, key in ((Assignment, "assignments"), (Lesson, "lessons"), (FixedLesson, "pins")):
+        owner = model.id if model is Assignment else model.assignment_id
+        rows = db.scalars(select(model).where(owner.in_(ids)).order_by(model.id)).all()
+        snapshots[key] = [
+            {column.name: getattr(row, column.name) for column in model.__table__.columns}
+            for row in rows
+        ]
+    fingerprint = hashlib.sha256(
+        json.dumps(snapshots, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    ).hexdigest()
+    if fields.get("remove_extra_assignments") is True and fields.get("confirmed_extra_assignments_fingerprint") == fingerprint:
+        return None
+    labels = "; ".join(f"{item['class_name']} – {item['subject_name']}" for item in extras)
+    return JSONResponse({
+        "ok": False,
+        "reason": reason,
+        "extra_assignments": extras,
+        "removal_fingerprint": fingerprint,
+        "affected_lessons": len(snapshots["lessons"]),
+        "affected_fixed_lessons": len(snapshots["pins"]),
+        "message": (
+            f"Thay đổi sẽ xóa {len(ids)} phân công không thuộc chương trình mới: {labels}. "
+            f"Kèm theo {len(snapshots['lessons'])} tiết đã xếp và {len(snapshots['pins'])} ghim. "
+            "Hãy xác nhận danh sách hiện tại trước khi tiếp tục."
+        ),
+    }, 409)
+
+
 def assignment_delete_confirmation(
     impact: dict[str, list[int]],
     payload: EntityDeleteIn | None,

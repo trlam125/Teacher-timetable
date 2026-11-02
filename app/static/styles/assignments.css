@@ -788,10 +788,11 @@
 }
 #assignments .auto-assignment-matrix {
   --assignment-subject-width: clamp(108px, 10cqw, 132px);
+  --assignment-norm-width: 142px;
   --assignment-periods-width: 124px;
-  --assignment-teacher-width: max(102px, calc((100cqw - var(--assignment-subject-width)) / 4 - var(--assignment-periods-width)));
+  --assignment-teacher-width: max(102px, calc((100cqw - var(--assignment-subject-width) - var(--assignment-norm-width)) / 4 - var(--assignment-periods-width)));
   --assignment-class-width: calc(var(--assignment-teacher-width) + var(--assignment-periods-width));
-  width: max(100%, calc(var(--assignment-subject-width) + var(--assignment-class-count, 4) * var(--assignment-class-width)));
+  width: max(100%, calc(var(--assignment-subject-width) + var(--assignment-norm-width) + var(--assignment-class-count, 4) * var(--assignment-class-width)));
   min-width: 0;
   table-layout: fixed;
   border-spacing: 0;
@@ -799,6 +800,32 @@
 #assignments .auto-assignment-matrix col.auto-assignment-col-subject {
   width: var(--assignment-subject-width);
 }
+#assignments .auto-assignment-matrix col.auto-assignment-col-norm {
+  width: var(--assignment-norm-width);
+}
+#assignments .auto-assignment-matrix .auto-assignment-norm {
+  position: sticky;
+  left: var(--assignment-subject-width);
+  z-index: 2;
+  width: var(--assignment-norm-width);
+  min-width: var(--assignment-norm-width);
+  background: var(--card-bg);
+  white-space: normal;
+  text-align: left;
+  box-shadow: 2px 0 3px rgba(0,0,0,.06);
+}
+#assignments .auto-assignment-matrix thead .auto-assignment-norm {
+  z-index: 5;
+  background: var(--bg);
+}
+.assignment-subject-norm-row {display: grid; gap: 2px; padding: 3px 0; font-size: 12px;}
+.assignment-subject-norm-row small {color: var(--muted);}
+.schedule-attempt-details {border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: var(--card-bg);}
+.schedule-attempt-details[hidden] {display: none;}
+.schedule-attempt-details h2 {margin: 0 0 8px; font-size: 18px;}
+.schedule-details-scroll {max-height: 420px; overflow: auto; margin-bottom: 12px;}
+.schedule-details-scroll .data-table {min-width: 650px;}
+.schedule-details-scroll thead th {position: sticky; top: 0; background: var(--card-bg); z-index: 1;}
 #assignments .auto-assignment-matrix col.auto-assignment-col-teacher {
   width: var(--assignment-teacher-width);
 }
@@ -908,5 +935,13 @@
 @media (max-width: 600px) {
   #assignments .auto-assignment-matrix {
     --assignment-subject-width: 100px;
+  }
+  /* Only phones: scroll both descriptor columns with the table so every
+     teacher and period input can be brought fully into view. */
+  #assignments .auto-assignment-matrix .auto-assignment-subject,
+  #assignments .auto-assignment-matrix .auto-assignment-norm {
+    position: static;
+    left: auto;
+    box-shadow: none;
   }
 }

@@ -195,6 +195,7 @@ class Subject(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     name: Mapped[str] = mapped_column(String(120))
     short_name: Mapped[str] = mapped_column(String(20))
+    # Legacy storage only; scheduling now uses the project's session length.
     max_consecutive: Mapped[int] = mapped_column(Integer, default=2)
 
 
@@ -207,6 +208,7 @@ class Teacher(Base):
     )
     name: Mapped[str] = mapped_column(String(120))
     short_name: Mapped[str] = mapped_column(String(30))
+    # Legacy storage only; no configurable daily or weekly teacher load limit.
     max_periods_day: Mapped[int] = mapped_column(Integer, default=5)
     unavailable_json: Mapped[str] = mapped_column(Text, default="[]")
 
