@@ -205,6 +205,40 @@ function renderScheduleCoverage() {
   if (coverageBox && coverageBox.innerHTML !== coverageHtml) {
     coverageBox.innerHTML = coverageHtml;
   }
+  renderCompactUnscheduledTray();
+}
+
+
+function renderCompactUnscheduledTray() {
+  const tray = $("#unscheduledTray");
+  const countEl = $("#unscheduledTrayCount");
+  if (!tray || !countEl) return;
+  const viewType = $("#viewType")?.value || "overview";
+  const selectedId = Number($("#viewEntity")?.value);
+  const scheduledCounts = new Map();
+  for (const lesson of data.lessons || []) {
+    const id = Number(lesson.assignment_id);
+    scheduledCounts.set(id, (scheduledCounts.get(id) || 0) + 1);
+  }
+  const gradeClasses = viewType === "grade" ? scheduleGradeClassIds(selectedId) : null;
+  const assignments = (data.assignments || []).filter((assignment) => {
+    if (viewType === "grade") return gradeClasses.has(Number(assignment.class_id));
+    if (viewType === "class") return Number(assignment.class_id) === selectedId;
+    if (viewType === "teacher") return Number(assignment.teacher_id) === selectedId;
+    if (viewType === "subject") return Number(assignment.subject_id) === selectedId;
+    return true;
+  });
+  const pending = assignments.map((assignment) => ({
+    ...assignment,
+    remaining: Math.max(0, Number(assignment.periods_per_week || 0) - (scheduledCounts.get(Number(assignment.id)) || 0)),
+  })).filter((assignment) => assignment.remaining > 0);
+  const total = pending.reduce((sum, assignment) => sum + assignment.remaining, 0);
+  countEl.textContent = `${total} tiết chưa xếp`;
+  const pool = pending.length
+    ? pending.map((item) => `<div class="tray-lesson" data-tap-payload="assignment:${Number(item.id)}" role="button" tabindex="0" title="Chọn tiết để xếp vào thời khóa biểu"><div><b>${esc(item.subject_short || item.subject_name || "Môn học")}</b><small>${esc(item.class_name || "")} · ${esc(item.teacher_short || item.teacher_name || "")}</small></div><span>Còn ${item.remaining}</span></div>`).join("")
+    : '<div class="empty-state">Không có tiết chưa xếp trong phạm vi đang xem.</div>';
+  const markup = '<div class="tray-action-hint">Chọn một thẻ tiết, sau đó chọn ô hợp lệ trên thời khóa biểu để xếp.</div>' + pool;
+  if (tray.innerHTML !== markup) tray.innerHTML = markup;
 }
 
 function requiredDoubleBlockLessons(lessonId) {

@@ -45,6 +45,15 @@
         </div>
     </div>
     <div id="assignmentCoverage"></div>
+    <!-- Compact, expandable unscheduled lessons pool; it remains visible as a summary even when collapsed. -->
+    <details id="manualTrayDisclosure" class="manual-tray-panel compact-tray-panel">
+        <summary class="compact-tray-summary">
+            <span class="compact-tray-title">Kho tiết chưa xếp</span>
+            <span id="unscheduledTrayCount" class="compact-tray-count" aria-live="polite">Đang tải số tiết...</span>
+            <span class="compact-tray-chevron" aria-hidden="true"></span>
+        </summary>
+        <div id="unscheduledTray" class="unscheduled-tray" aria-label="Danh sách các tiết chưa xếp"></div>
+    </details>
     <div id="scheduleGrid"></div>
     <div class="print-approval" aria-hidden="true">
         <div>

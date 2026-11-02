@@ -490,8 +490,7 @@ document.addEventListener("pointerdown", (event) => {
 function tapAssignCapabilities(payload) {
   return {
     schedule: Boolean(payload) && !payload.startsWith("scheduled-assignment:"),
-    // The separate lesson tray is no longer part of the scheduling interface.
-    tray: false,
+    tray: Boolean(payload) && !payload.startsWith("assignment:"),
   };
 }
 
@@ -592,10 +591,18 @@ function tapAssignNeedsMoveScope(_payload) {
 }
 
 function tapAssignInstruction(payload) {
-  const clusterSize = tapAssignClusterSize(payload);
-  if (clusterSize > 1 && activeTapAssign?.moveScope === "group")
-    return `Bắt buộc tiết đôi: bấm ô bắt đầu để chuyển cả block ${clusterSize} tiết`;
-  return "Bấm một ô được đánh dấu trên lịch để chuyển tiết";
+  const capabilities = tapAssignCapabilities(payload);
+  if (capabilities.schedule && capabilities.tray) {
+    const clusterSize = tapAssignClusterSize(payload);
+    if (clusterSize > 1 && activeTapAssign?.moveScope === "group")
+      return `Bắt buộc tiết đôi: bấm ô bắt đầu để chuyển cả block ${clusterSize} tiết`;
+    return "Bấm ô trên lịch để chuyển, hoặc bấm khay để thu hồi";
+  }
+  if (capabilities.tray) return "Bấm vào khay để thu hồi";
+  const pendingBlockSize = Number(activeTapAssign?.groupSize || 0);
+  if (pendingBlockSize > 1)
+    return `Bấm ô bắt đầu để xếp block ${pendingBlockSize} tiết liên tiếp`;
+  return "Bấm một ô được đánh dấu để xếp";
 }
 
 function syncTapAssignSelectionHighlight() {
@@ -845,6 +852,13 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const tray = event.target.closest(".unscheduled-tray");
+  if (tray) {
+    event.preventDefault();
+    finishTapAssignToTray();
+    return;
+  }
+
   if (sourcePayload) {
     event.preventDefault();
     handleTapToSelect(source, sourcePayload);
@@ -857,6 +871,11 @@ document.addEventListener("click", (event) => {
 document.addEventListener(
   "keydown",
   (event) => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("#unscheduledTray .tray-lesson")) {
+      event.preventDefault();
+      event.target.click();
+      return;
+    }
     if (event.key === "Escape" && activeTapAssign) {
       event.preventDefault();
       if (tapAssignIsBusy()) return;
