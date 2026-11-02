@@ -90,7 +90,9 @@ def constraints(
             teacher_unavailable_slots=slots
             if payload.entity_type == "teacher"
             else None,
-            class_unavailable_slots=slots if payload.entity_type == "class" else None,
+            class_unavailable_slots=(slots | class_grade_blocked_slots(school_class))
+            if payload.entity_type == "class"
+            else None,
         )
 
     fixed_rows = (
@@ -193,7 +195,7 @@ def constraints(
             p,
             obj,
             class_assigned_periods(db, pid, obj.id),
-            unavailable_slots=slots,
+            unavailable_slots=slots | class_grade_blocked_slots(obj),
         )
     obj.unavailable_json = json.dumps(sorted(slots))
     for lesson in lessons:
@@ -211,6 +213,9 @@ def save_session_locks(
     db: Session = Depends(db_session),
 ):
     project = get_project_for_update(pid, user, db)
+    grade = db.get(Grade, payload.grade_id) if payload.grade_id is not None else None
+    if payload.grade_id is not None and (not grade or grade.project_id != pid):
+        raise HTTPException(404, "Không tìm thấy khối lớp")
     maximum = project.days * project.sessions
     try:
         session_keys = normalize_slot_values(payload.sessions, maximum, strict=True)
@@ -225,14 +230,31 @@ def save_session_locks(
         start = day * ppd + session * project.periods_per_session
         blocked.extend(range(start, start + project.periods_per_session))
     blocked = valid_slots(project, [*blocked, *payload.slots])
-    all_lessons = db.scalars(select(Lesson).where(Lesson.project_id == pid)).all()
+    classes = db.scalars(select(SchoolClass).where(SchoolClass.project_id == pid)).all()
+    if grade is not None:
+        classes = [row for row in classes if row.grade_id == grade.id]
+    class_ids = {row.id for row in classes}
+    assignments = db.scalars(select(Assignment).where(Assignment.project_id == pid)).all()
+    if grade is not None:
+        assignments = [row for row in assignments if row.class_id in class_ids]
+    assignment_ids = {row.id for row in assignments}
+    all_lessons = db.scalars(
+        select(Lesson).where(Lesson.project_id == pid)
+    ).all()
+    if grade is not None:
+        all_lessons = [row for row in all_lessons if row.assignment_id in assignment_ids]
     lessons_by_assignment = defaultdict(list)
     for lesson in all_lessons:
         lessons_by_assignment[lesson.assignment_id].append(lesson)
     fixed_rows = db.scalars(
         select(FixedLesson).where(FixedLesson.project_id == pid)
     ).all()
+    if grade is not None:
+        fixed_rows = [row for row in fixed_rows if row.assignment_id in assignment_ids]
     blocked_set = set(blocked)
+    global_blocked_set = (
+        parse_slots(project.blocked_slots_json) if grade is not None else blocked_set
+    )
     removed_ids = set()
     fixed_coverage = fixed_coverage_slots(db, project)
 
@@ -271,7 +293,7 @@ def save_session_locks(
         )
 
     teachers = db.scalars(select(Teacher).where(Teacher.project_id == pid)).all()
-    for teacher in teachers:
+    for teacher in (teachers if grade is None else []):
         assigned = teacher_assigned_periods(db, pid, teacher.id)
         if assigned:
             ensure_teacher_load_fits(
@@ -279,9 +301,8 @@ def save_session_locks(
                 project,
                 teacher,
                 assigned,
-                project_blocked_slots=blocked_set,
+                project_blocked_slots=global_blocked_set,
             )
-    classes = db.scalars(select(SchoolClass).where(SchoolClass.project_id == pid)).all()
     for school_class in classes:
         assigned = class_assigned_periods(db, pid, school_class.id)
         if assigned:
@@ -289,14 +310,15 @@ def save_session_locks(
                 project,
                 school_class,
                 assigned,
-                project_blocked_slots=blocked_set,
+                project_blocked_slots=global_blocked_set,
+                unavailable_slots=(blocked_set | parse_slots(school_class.unavailable_json))
+                if grade is not None
+                else None,
             )
 
     teacher_map = {teacher.id: teacher for teacher in teachers}
     class_map = {school_class.id: school_class for school_class in classes}
-    for assignment in db.scalars(
-        select(Assignment).where(Assignment.project_id == pid)
-    ).all():
+    for assignment in assignments:
         teacher = teacher_map.get(assignment.teacher_id)
         school_class = class_map.get(assignment.class_id)
         subject = db.get(Subject, assignment.subject_id)
@@ -308,7 +330,10 @@ def save_session_locks(
                 subject,
                 assignment.periods_per_week,
                 assignment.block_mode,
-                project_blocked_slots=blocked_set,
+                project_blocked_slots=global_blocked_set,
+                class_unavailable_slots=(blocked_set | parse_slots(school_class.unavailable_json))
+                if grade is not None
+                else None,
             )
 
     for assignment_id, lessons in lessons_by_assignment.items():
@@ -359,9 +384,17 @@ def save_session_locks(
     if confirmation is not None:
         return confirmation
 
-    project.blocked_slots_json = json.dumps(blocked)
+    if grade is None:
+        project.blocked_slots_json = json.dumps(blocked)
+    else:
+        grade.blocked_slots_json = json.dumps(blocked)
     for lesson in all_lessons:
         if lesson.id in removed_ids:
             db.delete(lesson)
     db.commit()
-    return {"ok": True, "sessions": session_keys, "removed": len(removed_ids)}
+    return {
+        "ok": True,
+        "grade_id": payload.grade_id,
+        "sessions": session_keys,
+        "removed": len(removed_ids),
+    }

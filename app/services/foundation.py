@@ -54,6 +54,8 @@ from app.scheduling.rules import (
     assignment_requires_double,
     assignment_run_groups,
     bounded_int,
+    class_blocked_slots,
+    class_grade_blocked_slots,
     ensure_assignment_hard_feasible,
     ensure_required_double_hard_feasible,
     fixed_row_size,

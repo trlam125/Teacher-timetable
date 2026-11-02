@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.logic import schedule_validation_peers
 from app.models import Assignment, Lesson, Project, SchoolClass, Subject, Teacher
-from app.scheduling.rules import all_slots, parse_slots
+from app.scheduling.rules import all_slots, class_grade_blocked_slots, parse_slots
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -28,6 +28,8 @@ def lesson_slot_error(
         return "Phân công không còn đầy đủ lớp, môn hoặc giáo viên."
     if slot in parse_slots(teacher.unavailable_json):
         return "Giáo viên không thể dạy ở tiết này theo ràng buộc chính thức."
+    if slot in class_grade_blocked_slots(school_class):
+        return "Tiết này đã bị khóa theo khối của lớp và không được xếp lịch."
     if slot in parse_slots(school_class.unavailable_json):
         return "Lớp không học ở tiết này."
     existing_lessons = db.scalars(

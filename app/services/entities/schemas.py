@@ -54,6 +54,7 @@ class ConstraintIn(BaseModel):
 
 
 class SessionLocksIn(BaseModel):
+    grade_id: int | None = Field(default=None, gt=0)
     sessions: list[int] = Field(default_factory=list)
     slots: list[int] = Field(default_factory=list)
     confirm_displacement: bool = False

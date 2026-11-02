@@ -30,7 +30,7 @@ function showPlacementConflict(slot, message) {
 // Placement validity is authoritative on the server. The browser only renders
 // /placement-options and surfaces the mutation endpoint's validation message.
 
-function scheduleAvoidReason(slot) {
+function scheduleAvoidReason(slot, cellClassId = null) {
   let assignment = null;
   const payload = typeof activeTapAssign !== "undefined" ? activeTapAssign?.payload : null;
   if (payload?.startsWith("assignment:")) {
@@ -42,7 +42,7 @@ function scheduleAvoidReason(slot) {
   const view = $("#viewType")?.value;
   const entityId = Number($("#viewEntity")?.value);
   const teacherId = assignment?.teacher_id ?? (view === "teacher" ? entityId : null);
-  const classId = assignment?.class_id ?? (view === "class" ? entityId : null);
+  const classId = cellClassId ?? assignment?.class_id ?? (view === "class" ? entityId : null);
   const teacher = (data.teachers || []).find((row) => row.id === teacherId);
   const schoolClass = (data.classes || []).find((row) => row.id === classId);
   const reasons = [];
@@ -50,12 +50,15 @@ function scheduleAvoidReason(slot) {
     reasons.push(`Giáo viên ${teacher.name} đã đặt tránh tiết này.`);
   if ((schoolClass?.unavailable || []).some((value) => Number(value) === slot))
     reasons.push(`Lớp ${schoolClass.name} đã đặt tránh tiết này.`);
+  const grade = (data.grades || []).find((row) => row.id === schoolClass?.grade_id);
+  if ((grade?.blocked_slots || []).some((value) => Number(value) === slot))
+    reasons.push(`${grade.name} đã khóa tiết này.`);
   return reasons.join(" ");
 }
 
 function markScheduleAvoidSlots() {
   document.querySelectorAll("#scheduleGrid .cell.available[data-slot]").forEach((cell) => {
-    const reason = scheduleAvoidReason(Number(cell.dataset.slot));
+    const reason = scheduleAvoidReason(Number(cell.dataset.slot), cell.dataset.classId ? Number(cell.dataset.classId) : null);
     cell.classList.toggle("entity-unavailable-slot", Boolean(reason));
     if (reason) {
       cell.dataset.avoidReason = reason;

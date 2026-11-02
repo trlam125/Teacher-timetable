@@ -250,7 +250,7 @@ def class_week_capacity(
         )
     )
     class_blocked = (
-        parse_slots(school_class.unavailable_json)
+        class_blocked_slots(school_class)
         if unavailable_slots is None
         else unavailable_slots
     )

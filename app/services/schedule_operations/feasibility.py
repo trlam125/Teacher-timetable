@@ -6,6 +6,7 @@ from app.scheduling.rules import (
     assignment_groups,
     assignment_prefers_double,
     assignment_requires_double,
+    class_blocked_slots,
     fixed_row_size,
     parse_slots,
 )
@@ -38,7 +39,7 @@ def assignment_feasibility_context(
     forbidden = (
         parse_slots(project.blocked_slots_json)
         | parse_slots(teacher.unavailable_json)
-        | parse_slots(school_class.unavailable_json)
+        | class_blocked_slots(school_class)
     )
     teacher_day = Counter()
     subject_masks = defaultdict(int)

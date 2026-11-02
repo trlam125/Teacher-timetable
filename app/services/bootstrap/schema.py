@@ -5,6 +5,7 @@ from app.database import engine
 from app.services.bootstrap.migrations.account_roles import migrate_account_roles
 from app.services.bootstrap.migrations.accounts import migrate_accounts
 from app.services.bootstrap.migrations.curriculum import migrate_curriculum
+from app.services.bootstrap.migrations.grade_locks import migrate_grade_locks
 from app.services.bootstrap.migrations.entity_integrity import migrate_entity_integrity
 from app.services.bootstrap.migrations.legacy_projects import migrate_legacy_projects
 from app.services.bootstrap.migrations.lesson_blocks import migrate_lesson_blocks
@@ -30,6 +31,7 @@ def migrate_schema():
         migrate_schools_and_chat(connection, inspector)
         migrate_account_roles(connection, inspector)
         migrate_curriculum(connection, inspector)
+        migrate_grade_locks(connection, inspector)
         migrate_lesson_blocks(connection, inspector)
         migrate_entity_integrity(connection, inspector)
         migrate_lesson_integrity(connection, inspector)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.models import Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher
 from app.scheduling.rules import (
     assignment_requires_double,
+    class_blocked_slots,
     parse_slots,
     required_double_block_state,
 )
@@ -51,7 +52,7 @@ def _minimal_schedule_invalid_lesson_analysis(
         for teacher_id, teacher in teachers.items()
     }
     class_unavailable = {
-        class_id: parse_slots(school_class.unavailable_json)
+        class_id: class_blocked_slots(school_class)
         for class_id, school_class in classes.items()
     }
 

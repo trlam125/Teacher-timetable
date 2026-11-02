@@ -321,7 +321,16 @@ def project_data(db: Session, p: Project):
             }
             for x in teas
         ],
-        "grades": [{"id": x.id, "name": x.name} for x in grades],
+        "grades": [
+            {
+                "id": x.id,
+                "name": x.name,
+                "blocked_slots": valid_slots(
+                    p, parse_slots(x.blocked_slots_json), strict=False
+                ),
+            }
+            for x in grades
+        ],
         "grade_requirements": [
             {
                 "id": x.id,

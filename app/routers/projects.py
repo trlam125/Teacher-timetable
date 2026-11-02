@@ -218,7 +218,7 @@ def clone_project(
         )
     # Nguyện vọng là lịch sử tham khảo nên không sao chép sang project mới.
     for x in rows["grades"]:
-        n = Grade(project_id=p.id, name=x.name)
+        n = Grade(project_id=p.id, name=x.name, blocked_slots_json=x.blocked_slots_json)
         db.add(n)
         db.flush()
         maps["grade"][x.id] = n.id

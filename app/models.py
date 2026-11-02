@@ -5,7 +5,7 @@ import secrets
 from typing import Optional
 
 from sqlalchemy import Boolean, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -229,6 +229,7 @@ class Grade(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     name: Mapped[str] = mapped_column(String(80))
+    blocked_slots_json: Mapped[str] = mapped_column(Text, default="[]", server_default="[]")
 
 
 class GradeSubjectRequirement(Base):
@@ -255,6 +256,7 @@ class SchoolClass(Base):
     )
     name: Mapped[str] = mapped_column(String(80))
     unavailable_json: Mapped[str] = mapped_column(Text, default="[]")
+    grade: Mapped[Optional[Grade]] = relationship(lazy="selectin")
 
 
 class Assignment(Base):

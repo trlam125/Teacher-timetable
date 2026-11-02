@@ -115,6 +115,7 @@ def migrate_legacy_projects(connection, inspector):
             json_slot_columns = {
                 "teachers": ("unavailable_json",),
                 "classes": ("unavailable_json",),
+                "grades": ("blocked_slots_json",),
                 "teacher_preferences": ("preferred_json", "unavailable_json"),
             }
             for table_name, column_names in json_slot_columns.items():

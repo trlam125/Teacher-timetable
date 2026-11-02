@@ -39,6 +39,18 @@ def parse_slots(text: str):
     return parse_integer_set(text)
 
 
+def class_grade_blocked_slots(school_class: SchoolClass) -> set[int]:
+    """Resolve inherited locks without mixing them into the class's own rules."""
+    grade = school_class.grade
+    if grade is None or grade.project_id != school_class.project_id:
+        return set()
+    return parse_slots(grade.blocked_slots_json)
+
+
+def class_blocked_slots(school_class: SchoolClass) -> set[int]:
+    return parse_slots(school_class.unavailable_json) | class_grade_blocked_slots(school_class)
+
+
 def required_double_structure_feasible(
     project: Project, total_periods: int, max_consecutive: int
 ) -> bool:
@@ -298,7 +310,7 @@ def required_double_hard_feasible(
         if class_unavailable_slots is not None
         else set(
             valid_slots(
-                project, parse_slots(school_class.unavailable_json), strict=False
+                project, class_blocked_slots(school_class), strict=False
             )
         )
     )
@@ -454,10 +466,13 @@ def ensure_assignment_hard_feasible(
             max_consecutive=max_consecutive,
         )
 
-    blocked = set()
+    blocked = (
+        class_blocked_slots(school_class)
+        if class_unavailable_slots is None
+        else set(class_unavailable_slots)
+    )
     for override, stored in (
         (teacher_unavailable_slots, teacher.unavailable_json),
-        (class_unavailable_slots, school_class.unavailable_json),
         (project_blocked_slots, project.blocked_slots_json),
     ):
         blocked.update(parse_slots(stored) if override is None else override)

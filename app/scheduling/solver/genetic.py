@@ -25,6 +25,7 @@ from app.scheduling.rules import (
     assignment_groups,
     assignment_prefers_double,
     assignment_requires_double,
+    class_blocked_slots,
     fixed_row_size,
     parse_slots,
     pattern_completion_plan,
@@ -300,7 +301,7 @@ def ga_schedule(
         for teacher_id, teacher in teachers.items()
     }
     class_unavailable = {
-        class_id: frozenset(parse_slots(row.unavailable_json))
+        class_id: frozenset(class_blocked_slots(row))
         for class_id, row in classes.items()
     }
     slot_set = frozenset(slots)
