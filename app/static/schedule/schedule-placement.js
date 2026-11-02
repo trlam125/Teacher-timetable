@@ -7,9 +7,19 @@ function renderScheduleAfterLessonChange() {
   if ($("#statLessons")) $("#statLessons").textContent = data.lessons.length;
   restoreRefreshScrollState(scrollState);
 }
+function schedulePlacementCellForSlot(slot) {
+  const classId = selectedPlacementClassId();
+  if (classId != null) {
+    const sameClass = document.querySelector(
+      `#scheduleGrid .matrix-class-slot[data-slot="${Number(slot)}"][data-class-id="${classId}"]`,
+    );
+    if (sameClass) return sameClass;
+  }
+  return document.querySelector(`#scheduleGrid .cell.available[data-slot="${Number(slot)}"]`);
+}
 function showPlacementConflict(slot, message) {
   const text = message || "Không thể xếp tiết";
-  const cell = document.querySelector(`.cell.available[data-slot="${slot}"]`);
+  const cell = schedulePlacementCellForSlot(slot);
   if (cell) {
     cell.title = text;
     cell.classList.add("conflict-shake");
@@ -80,6 +90,22 @@ function clearPlacementTargetState() {
     });
 }
 
+// In the class matrix every displayed class shares the same slot number.
+// Placement must target the selected assignment's class, never another column.
+function selectedPlacementClassId() {
+  const payload = typeof activeTapAssign !== "undefined" ? activeTapAssign?.payload : null;
+  if (!payload) return null;
+  const assignmentId = payload.startsWith("assignment:")
+    ? Number(payload.slice("assignment:".length))
+    : Number((data.lessons || []).find((lesson) => Number(lesson.id) === Number(payload))?.assignment_id);
+  const assignment = (data.assignments || []).find((item) => Number(item.id) === assignmentId);
+  return assignment ? Number(assignment.class_id) : null;
+}
+function matrixCellAcceptsPlacement(cell) {
+  const classId = cell?.dataset?.classId;
+  return !classId || selectedPlacementClassId() === Number(classId);
+}
+
 function applyPlacementTargetOptions(validSlots, message = "") {
   const valid = validSlots instanceof Set ? validSlots : new Set(validSlots || []);
   const workspace = document.querySelector(".workspace");
@@ -89,12 +115,14 @@ function applyPlacementTargetOptions(validSlots, message = "") {
     .querySelectorAll("#scheduleGrid .cell.available[data-slot]")
     .forEach((cell) => {
       const slot = Number(cell.dataset.slot);
-      const allowed = valid.has(slot);
+      const allowed = valid.has(slot) && matrixCellAcceptsPlacement(cell);
       cell.classList.toggle("placement-valid-slot", allowed);
       cell.classList.toggle("placement-invalid-slot", !allowed);
       if (!allowed) {
         cell.dataset.placementInvalidReason =
-          message || "Ô này không hợp lệ với các ràng buộc hiện tại.";
+          !matrixCellAcceptsPlacement(cell)
+            ? "Chỉ có thể xếp tiết vào cột của lớp đã phân công."
+            : message || "Ô này không hợp lệ với các ràng buộc hiện tại.";
       } else {
         delete cell.dataset.placementInvalidReason;
       }
@@ -222,9 +250,7 @@ async function placeLessonPayload(raw, slot) {
   }
   if (selectedState?.validSlots instanceof Set && !selectedState.validSlots.has(numericSlot)) {
     const message =
-      document.querySelector(
-        `#scheduleGrid .cell.available[data-slot="${numericSlot}"]`,
-      )?.dataset.placementInvalidReason ||
+      schedulePlacementCellForSlot(numericSlot)?.dataset.placementInvalidReason ||
       selectedState.placementMessage ||
       "Ô này không hợp lệ với các ràng buộc hiện tại.";
     showPlacementConflict(numericSlot, message);

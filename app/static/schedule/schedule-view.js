@@ -394,6 +394,93 @@ function renderSchedule(preserveScroll = false) {
     };
   };
 
+  // Excel-style matrix for whole-school and grade views. Every cell means
+  // ONE class at ONE slot (the former layout put all classes into one slot).
+  // Keep every card as a selectable lesson with the existing pin/remove API.
+  if (vt.value === "overview" || vt.value === "grade") {
+    const classes = (data.classes || [])
+      .filter((schoolClass) => !selectedGradeClassIds || selectedGradeClassIds.has(Number(schoolClass.id)))
+      .sort((a, b) => scheduleCollator.compare(String(a.name || ""), String(b.name || "")));
+    if (!classes.length) {
+      box.innerHTML = legend + '<div class="empty-state">Chưa có lớp trong phạm vi đang xem.</div>';
+      return;
+    }
+
+    const matrixKey = classes.map((schoolClass) => Number(schoolClass.id)).join(",");
+    const lessonsByClassSlot = new Map();
+    for (const [slot, lessons] of lessonsBySlot) {
+      for (const lesson of lessons) {
+        const assignment = assignmentById.get(lesson.assignment_id);
+        if (!assignment) continue;
+        const key = `${Number(assignment.class_id)}:${slot}`;
+        if (!lessonsByClassSlot.has(key)) lessonsByClassSlot.set(key, []);
+        lessonsByClassSlot.get(key).push(lesson);
+      }
+    }
+    const matrixCellContent = (slot, classId) => {
+      const cellLessons = lessonsByClassSlot.get(`${classId}:${slot}`) || [];
+      const reasons = [...new Set(cellLessons.flatMap((lesson) =>
+        conflicts.conflictsByLessonId.get(lesson.id) || []))];
+      return {
+        conflictTitle: reasons.join("; "),
+        hasConflict: reasons.length > 0,
+        html: cellLessons.map((lesson) => lessonHtml(
+          lesson, "matrix", clustered.has(lesson.id),
+          conflicts.conflictsByLessonId.get(lesson.id) || [],
+          assignmentById.get(lesson.assignment_id),
+        )).join(""),
+      };
+    };
+    const oldMatrix = box.querySelector(".class-matrix-timetable");
+    if (oldMatrix && oldMatrix.dataset.matrixKey === matrixKey &&
+      oldMatrix.querySelectorAll(".matrix-class-slot").length === days * sessions * pps * classes.length) {
+      for (const cell of oldMatrix.querySelectorAll(".matrix-class-slot")) {
+        const result = matrixCellContent(Number(cell.dataset.slot), Number(cell.dataset.classId));
+        cell.classList.toggle("has-conflict", result.hasConflict);
+        cell.dataset.conflictTitle = result.conflictTitle;
+        if (cell.title !== result.conflictTitle) cell.title = result.conflictTitle;
+        if (cell.innerHTML !== result.html) cell.innerHTML = result.html;
+      }
+      applyScheduleHighlight();
+      return;
+    }
+
+    const scrollState = preserveScroll ? captureRefreshScrollState() : null;
+    const periodCount = days * sessions * pps;
+    const columns = `64px 46px 46px repeat(${classes.length}, minmax(144px, 1fr))`;
+    let html = `<div class="timetable class-matrix-timetable" data-matrix-key="${matrixKey}" style="grid-template-columns:${columns}; --matrix-class-count:${classes.length}">`;
+    for (const [label, column] of [["Thứ", 1], ["Buổi", 2], ["Tiết", 3]]) {
+      html += `<div class="cell head matrix-corner matrix-corner-${column}" style="grid-column:${column};grid-row:1">${label}</div>`;
+    }
+    classes.forEach((schoolClass, index) => {
+      html += `<div class="cell head matrix-class-head" style="grid-column:${index + 4};grid-row:1" title="${esc(schoolClass.name)}">${esc(schoolClass.name)}</div>`;
+    });
+    for (let day = 0; day < days; day++) {
+      const firstDayRow = day * sessions * pps + 2;
+      const dayLabel = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][day] || `Ngày ${day + 1}`;
+      html += `<div class="cell matrix-day" style="grid-column:1;grid-row:${firstDayRow}/span ${sessions * pps}">${dayLabel}</div>`;
+      for (let session = 0; session < sessions; session++) {
+        const firstSessionRow = firstDayRow + session * pps;
+        html += `<div class="cell matrix-session" style="grid-column:2;grid-row:${firstSessionRow}/span ${pps}">${sessions > 1 ? (session === 0 ? "S" : "C") : "—"}</div>`;
+        for (let period = 0; period < pps; period++) {
+          const row = firstSessionRow + period;
+          const slot = day * (sessions * pps) + session * pps + period;
+          html += `<div class="cell matrix-period" style="grid-column:3;grid-row:${row}">${period + 1}</div>`;
+          classes.forEach((schoolClass, index) => {
+            const classId = Number(schoolClass.id);
+            const content = matrixCellContent(slot, classId);
+            html += `<div class="cell available matrix-class-slot ${content.hasConflict ? "has-conflict" : ""}" data-class-id="${classId}" data-slot="${slot}" data-conflict-title="${esc(content.conflictTitle)}" title="${esc(content.conflictTitle)}" style="grid-column:${index + 4};grid-row:${row}">${content.html}</div>`;
+          });
+        }
+      }
+    }
+    html += "</div>";
+    box.innerHTML = legend + html;
+    applyScheduleHighlight();
+    if (scrollState) restoreRefreshScrollState(scrollState);
+    return;
+  }
+
   const currentTable = box.querySelector(".timetable");
   const totalSlots = days * sessions * pps;
   const isOverview = ["overview", "grade", "subject"].includes(vt.value);
@@ -466,7 +553,8 @@ function lessonHtml(
   const a = assignment || data.assignments.find((x) => x.id === l.assignment_id);
   if (!a) return "";
   const detail = `${a.class_name || ""} · ${a.teacher_short || a.teacher_name || ""}`;
-  const compact = ["overview", "grade", "subject"].includes(view);
+  const compact = ["overview", "grade", "subject", "matrix"].includes(view);
+  const matrix = view === "matrix";
   const className = String(a.class_name || "");
   const subjectName = String(a.subject_short || a.subject_name || "Môn học");
   const teacherName = String(a.teacher_short || a.teacher_name || "");
@@ -499,7 +587,7 @@ function lessonHtml(
     ? `<button type="button" class="conflict-badge" title="${esc(conflictText)}" aria-label="Xem ${normalizedConflictReasons.length} xung đột" data-conflict-message="${esc(conflictText)}">!</button>`
     : "";
   const content = compact
-    ? `<b class="lesson-primary">${esc(className)} · ${esc(subjectName)}</b><small class="lesson-secondary">${esc(teacherName)}</small>`
+    ? `<b class="lesson-primary">${matrix ? esc(subjectName) : `${esc(className)} · ${esc(subjectName)}`}</b><small class="lesson-secondary">${esc(teacherName)}</small>`
     : `<b>${esc(subjectName)}</b><small>${esc(detail)}</small>`;
   const title = conflictText ? `${lessonTitle} | ${conflictText}` : lessonTitle;
   return `<div class="lesson ${compact ? "lesson-overview lesson-compact" : ""} ${inCluster ? "lesson-cluster" : ""} ${conflictText ? "has-conflict" : ""} ${l.locked ? "lesson-is-locked" : ""} ${actions ? "lesson-has-actions" : ""}" data-search-text="${esc(searchText)}"${tapPayload} title="${esc(title)}">${content}${l.locked ? ` <span class="lesson-lock-status" title="Tiết cố định" aria-label="Tiết cố định">${lessonActionIcon("lock")}</span>` : ""}${conflictBadge}${actions}</div>`;
@@ -603,3 +691,41 @@ document.addEventListener("click", (event) => {
   );
 });
 
+
+
+// Expand only the scheduling workspace; the tray, search and editor remain
+// accessible. Fallback supports browsers without element requestFullscreen.
+function syncScheduleFullscreenButton() {
+  const section = document.getElementById("schedule");
+  const button = document.getElementById("scheduleFullscreenBtn");
+  if (!section || !button) return;
+  const active = document.fullscreenElement === section || section.classList.contains("schedule-faux-fullscreen");
+  button.setAttribute("aria-pressed", String(active));
+  button.setAttribute("aria-label", active ? "Thu nhỏ thời khóa biểu" : "Phóng to thời khóa biểu toàn màn hình");
+  button.title = active ? "Thu nhỏ thời khóa biểu" : "Phóng to thời khóa biểu toàn màn hình";
+  const text = button.querySelector(".schedule-fullscreen-label");
+  if (text) text.textContent = active ? "Thu nhỏ" : "Phóng to";
+}
+async function toggleScheduleFullscreen() {
+  const section = document.getElementById("schedule");
+  if (!section) return;
+  if (document.fullscreenElement === section) {
+    try { await document.exitFullscreen(); } catch (error) { showToast("Không thể thoát toàn màn hình.", "warning"); }
+  } else if (section.classList.contains("schedule-faux-fullscreen")) {
+    section.classList.remove("schedule-faux-fullscreen");
+  } else if (typeof section.requestFullscreen === "function" && document.fullscreenEnabled !== false) {
+    try { await section.requestFullscreen(); }
+    catch (error) { section.classList.add("schedule-faux-fullscreen"); }
+  } else {
+    section.classList.add("schedule-faux-fullscreen");
+  }
+  syncScheduleFullscreenButton();
+}
+document.addEventListener("fullscreenchange", syncScheduleFullscreenButton);
+document.addEventListener("keydown", (event) => {
+  const section = document.getElementById("schedule");
+  if (event.key === "Escape" && section?.classList.contains("schedule-faux-fullscreen")) {
+    section.classList.remove("schedule-faux-fullscreen");
+    syncScheduleFullscreenButton();
+  }
+});

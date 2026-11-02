@@ -721,8 +721,12 @@ function handleTapToSelect(source, payload) {
   }
 }
 
-async function finishTapAssignToSchedule(slot) {
+async function finishTapAssignToSchedule(slot, targetClassId = null) {
   if (!activeTapAssign || !Number.isInteger(slot) || tapAssignIsBusy()) return;
+  if (targetClassId != null && selectedPlacementClassId() !== Number(targetClassId)) {
+    showToast("Hãy chọn ô thuộc đúng cột lớp của tiết đang xếp.", "warning", 3400);
+    return;
+  }
   const payload = activeTapAssign.payload;
   if (!tapAssignCapabilities(payload).schedule) {
     showToast("Phân công này chỉ có thể đưa về khay.", "warning", 2800);
@@ -734,9 +738,7 @@ async function finishTapAssignToSchedule(slot) {
   if (!(activeTapAssign.validSlots instanceof Set)) return;
   if (!activeTapAssign.validSlots.has(slot)) {
     const message =
-      document.querySelector(
-        `#scheduleGrid .cell.available[data-slot="${slot}"]`,
-      )?.dataset.placementInvalidReason ||
+      schedulePlacementCellForSlot(slot)?.dataset.placementInvalidReason ||
       activeTapAssign.placementMessage ||
       "Ô này không hợp lệ với các ràng buộc hiện tại.";
     showPlacementConflict(slot, message);
@@ -848,7 +850,7 @@ document.addEventListener("click", (event) => {
   );
   if (cell) {
     event.preventDefault();
-    finishTapAssignToSchedule(Number(cell.dataset.slot));
+    finishTapAssignToSchedule(Number(cell.dataset.slot), cell.dataset.classId || null);
     return;
   }
 

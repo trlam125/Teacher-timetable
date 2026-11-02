@@ -12,6 +12,13 @@
                 <option value="subject">Xem theo môn học</option>
             </select>
             <select id="viewEntity" hidden disabled aria-label="Đối tượng lọc thời khóa biểu"></select>
+            <button type="button" id="scheduleFullscreenBtn" class="btn ghost schedule-fullscreen-btn"
+                onclick="toggleScheduleFullscreen()" title="Phóng to thời khóa biểu toàn màn hình"
+                aria-label="Phóng to thời khóa biểu toàn màn hình" aria-pressed="false">
+                <svg class="schedule-fullscreen-expand" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></svg>
+                <svg class="schedule-fullscreen-shrink" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h6V3M21 9h-6V3M3 15h6v6M21 15h-6v6"/></svg>
+                <span class="schedule-fullscreen-label">Phóng to</span>
+            </button>
             <div class="action-feedback-stack">
                 <button class="btn schedule-action-btn btn-23" data-schedule-action onclick="generateSchedule()">
                     <span class="schedule-action-stage"><span class="schedule-action-content"><span
