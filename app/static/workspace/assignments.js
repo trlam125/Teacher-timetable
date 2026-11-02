@@ -1,3 +1,53 @@
+let assignmentResetInFlight = false;
+async function resetAssignments(button) {
+  if (assignmentResetInFlight || autoAssignmentSaves.size) {
+    showToast("Đang lưu phân công. Vui lòng chờ hoàn tất.", "info");
+    return;
+  }
+  assignmentResetInFlight = true;
+  const idle = "Reset phân công";
+  setInlineActionState(button, "loading", { idle, loading: "Đang kiểm tra..." });
+  try {
+    let confirmation = {};
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const response = await fetch(`/api/projects/${PROJECT_ID}/assignments/reset`, {
+        method: "POST",
+        headers: operationHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(confirmation),
+      });
+      const result = await readApiResponse(response);
+      if (!response.ok && result?.requires_confirmation) {
+        if (!(await confirmAction(result.message, {
+          title: "Reset toàn bộ phân công",
+          confirmText: `Reset ${result.assignment_count} phân công`,
+        }))) {
+          setInlineActionState(button, "idle", { idle });
+          return;
+        }
+        confirmation = {
+          confirm_assignment_cascade: true,
+          confirmed_assignment_ids: result.assignment_ids,
+          confirmed_lesson_ids: result.lesson_ids,
+          confirmed_fixed_lesson_ids: result.fixed_lesson_ids,
+        };
+        setInlineActionState(button, "loading", { idle, loading: "Đang đặt lại..." });
+        continue;
+      }
+      if (!response.ok) throw new Error(apiErrorMessage(result, "Không thể reset phân công."));
+      autoAssignmentDrafts.clear();
+      setInlineActionState(button, "success", { idle, success: "Đã đặt lại" }, 1800);
+      showToast(result.message || "Đã đặt lại phân công.", "success");
+      await refreshAfterSuccessfulMutation();
+      return;
+    }
+    throw new Error("Phân công đã thay đổi trong lúc xác nhận. Hãy thử Reset lại.");
+  } catch (error) {
+    setInlineActionState(button, "error", { idle, error: "Chưa đặt lại được" }, 2200);
+    showToast(error?.message || requestFailureMessage(error), "error", 5000);
+  } finally {
+    assignmentResetInFlight = false;
+  }
+}
 function describeBlockMode(mode, total) {
   if (mode === "required_double") {
     const pairs = Math.floor(total / 2),
@@ -480,6 +530,7 @@ function autoAssignmentCellChanged(id) {
   else autoAssignmentDrafts.delete(id);
 }
 async function saveAutoAssignmentCell(id, button) {
+  if (assignmentResetInFlight) return;
   const cell = document.querySelector(`[data-auto-assignment-cell="${id}"]`),
     teacherEl = document.querySelector(`[data-matrix-teacher][data-matrix-cell="${id}"]`);
   if (!cell || !teacherEl || button.disabled || autoAssignmentSaves.has(id)) return;

@@ -2,6 +2,45 @@
 let constraintSaveInFlight = false;
 let globalSaveInFlight = false;
 let globalLockGradeId = null;
+function syncConstraintSaveControls() {
+  const scope = $("#lockScope");
+  if (scope) scope.disabled = globalSaveInFlight || constraintSaveInFlight;
+  [$("#constraintType"), $("#constraintEntity")].forEach((el) => {
+    if (el) el.disabled = constraintSaveInFlight;
+  });
+}
+async function resetConstraintSection(section, button) {
+  if (constraintSaveInFlight || globalSaveInFlight) {
+    showToast("Đang lưu thay đổi. Vui lòng chờ hoàn tất.", "info");
+    return;
+  }
+  const isEntity = section === "entity",
+    entityType = $("#constraintType")?.value,
+    entityId = $("#constraintEntity")?.value,
+    gradeId = globalLockGradeId;
+  if (isEntity && !entityId) {
+    showToast("Hãy chọn giáo viên hoặc lớp học trước.", "warning");
+    return;
+  }
+  const name = isEntity
+    ? (entityType === "teacher" ? data.teachers : data.classes).find(row => row.id === Number(entityId))?.name
+    : gradeId == null ? "Toàn trường" : (data.grades || []).find(row => row.id === gradeId)?.name;
+  const confirmed = await confirmAction(
+    isEntity
+      ? `Xóa toàn bộ ngày nghỉ / tiết tránh của ${entityType === "teacher" ? "giáo viên" : "lớp"} ${name}? Khóa toàn trường và khóa khối vẫn có hiệu lực. Thay đổi sẽ được lưu ngay.`
+      : `Xóa toàn bộ khóa buổi / tiết trong phạm vi ${name}? Khóa ở các phạm vi khác được giữ nguyên. Thay đổi sẽ được lưu ngay.`,
+    { title: isEntity ? "Reset tiết tránh" : "Reset khóa lịch", confirmText: "Reset" },
+  );
+  if (!confirmed) return;
+  // Never apply consent to a different selector or scope after the dialog closes.
+  if ((isEntity && (entityType !== $("#constraintType")?.value || entityId !== $("#constraintEntity")?.value))
+      || (!isEntity && gradeId !== globalLockGradeId)) {
+    showToast("Phạm vi đã thay đổi. Hãy chọn lại và bấm Reset.", "info");
+    return;
+  }
+  if (isEntity) await saveConstraints(button, { reset: true });
+  else await saveGlobalSessionLocks(button, { reset: true });
+}
 function selectedLockSlots() {
   return globalLockGradeId == null
     ? data.project.blocked_slots || []
@@ -132,7 +171,7 @@ function ensureGlobalSessionLockPanel() {
   panel.id = "globalSessionLocks";
   panel.className = "global-session-locks";
   panel.innerHTML =
-    '<h2>Khóa lịch toàn trường / theo khối</h2><p>Chọn phạm vi để khóa nguyên buổi hoặc từng tiết. Khóa theo khối áp dụng cho mọi lớp thuộc khối, kể cả lớp thêm sau này. Khóa toàn trường luôn có hiệu lực với tất cả các khối.</p><div class="constraint-toolbar"><label for="lockScope">Phạm vi khóa</label><select id="lockScope" onchange="changeLockScope(this)"></select></div><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
+    '<h2>Khóa lịch toàn trường / theo khối</h2><p>Chọn phạm vi để khóa nguyên buổi hoặc từng tiết. Khóa theo khối áp dụng cho mọi lớp thuộc khối, kể cả lớp thêm sau này. Khóa toàn trường luôn có hiệu lực với tất cả các khối.</p><div class="constraint-toolbar"><label for="lockScope">Phạm vi khóa</label><select id="lockScope" onchange="changeLockScope(this)"></select></div><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button class="btn btn-danger" type="button" onclick="resetConstraintSection(\'locks\',this)">Reset khóa lịch</button><button class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
   const toolbar = section.querySelector(".constraint-toolbar");
   section.insertBefore(panel, toolbar);
   return panel;
@@ -174,7 +213,7 @@ function renderGlobalSessionLocks() {
   scope.innerHTML = '<option value="all">Toàn trường</option>' + grades
     .map((grade) => `<option value="${grade.id}">Theo khối: ${esc(grade.name)}</option>`).join("");
   scope.value = globalLockGradeId == null ? "all" : String(globalLockGradeId);
-  scope.disabled = globalSaveInFlight || constraintSaveInFlight;
+  syncConstraintSaveControls();
   const grid = $("#sessionLockGrid"),
     slotGrid = $("#globalSlotLockGrid"),
     blocked = new Set(selectedLockSlots().map(Number)),
@@ -229,23 +268,24 @@ function renderGlobalSessionLocks() {
   slotGrid.innerHTML = slotHtml;
   grid.querySelectorAll("[data-session-lock]").forEach(syncSessionLockButton);
 }
-async function saveGlobalSessionLocks(button) {
+async function saveGlobalSessionLocks(button, { reset = false } = {}) {
   if (constraintSaveInFlight || globalSaveInFlight) {
     showInlineActionFeedback(button, "Đang lưu thay đổi. Vui lòng chờ một chút.", "info", 2400);
     return;
   }
-  const sessions = [
+  const idleLabel = reset ? "Reset khóa lịch" : "Lưu khóa lịch";
+  const sessions = reset ? [] : [
     ...document.querySelectorAll('[data-session-lock][data-own-locked="true"]'),
   ].map((button) => Number(button.dataset.sessionLock)),
-    slots = [...document.querySelectorAll("[data-global-slot].is-locked")].map(
+    slots = reset ? [] : [...document.querySelectorAll("[data-global-slot].is-locked")].map(
       (button) => Number(button.dataset.globalSlot),
     );
   setInlineActionState(button, "loading", {
-    idle: "Lưu khóa lịch",
+    idle: idleLabel,
     loading: "Đang lưu...",
   });
   globalSaveInFlight = true;
-  $("#lockScope").disabled = true;
+  syncConstraintSaveControls();
   try {
     const { response: r, result, cancelled } =
       await postJsonWithDisplacementConfirmation(
@@ -254,7 +294,7 @@ async function saveGlobalSessionLocks(button) {
         { title: "Xác nhận khóa lịch", confirmText: "Lưu và đưa về khay" },
       );
     if (cancelled) {
-      setInlineActionState(button, "idle", { idle: "Lưu khóa lịch" });
+      setInlineActionState(button, "idle", { idle: idleLabel });
       showInlineActionFeedback(
         button,
         "Đã hủy. Lịch hiện tại chưa bị thay đổi.",
@@ -271,7 +311,7 @@ async function saveGlobalSessionLocks(button) {
         setInlineActionState(
           button,
           "success",
-          { idle: "Lưu khóa lịch", success: "Đã lưu" },
+          { idle: idleLabel, success: "Đã lưu" },
           2200,
         );
         showInlineActionFeedback(
@@ -285,14 +325,14 @@ async function saveGlobalSessionLocks(button) {
       setInlineActionState(
         button,
         "success",
-        { idle: "Lưu khóa lịch", success: "Đã lưu" },
+        { idle: idleLabel, success: "Đã lưu" },
         1700,
       );
       showInlineActionFeedback(
         button,
         result.removed
           ? `Đã đưa ${result.removed} tiết bị ảnh hưởng về khay.`
-          : "Khóa lịch đã được lưu.",
+          : reset ? "Đã reset khóa lịch trong phạm vi đang chọn." : "Khóa lịch đã được lưu.",
         "success",
         2800,
       );
@@ -300,7 +340,7 @@ async function saveGlobalSessionLocks(button) {
       setInlineActionState(
         button,
         "error",
-        { idle: "Lưu khóa lịch", error: "Chưa lưu được" },
+        { idle: idleLabel, error: "Chưa lưu được" },
         2200,
       );
       showInlineActionFeedback(
@@ -314,19 +354,23 @@ async function saveGlobalSessionLocks(button) {
     setInlineActionState(
       button,
       "error",
-      { idle: "Lưu khóa lịch", error: "Chưa lưu được" },
+      { idle: idleLabel, error: "Chưa lưu được" },
       2200,
     );
     showToast(requestFailureMessage(error), "error", 5000);
   } finally {
     globalSaveInFlight = false;
-    if ($("#lockScope")) $("#lockScope").disabled = false;
+    syncConstraintSaveControls();
   }
 }
 function renderConstraintSelectors({ force = false } = {}) {
-  if (!force && constraintDraftDirty) return;
+  // Each editor owns its draft; unsaved availability must not hide saved locks.
   if (!globalLocksDraftDirty || !$("#globalSessionLocks"))
     renderGlobalSessionLocks();
+  if (!force && constraintDraftDirty) {
+    renderConstraintGrid({ preserveDraft: true });
+    return;
+  }
   const type = $("#constraintType"),
     ent = $("#constraintEntity");
   if (!type || !ent) return;
@@ -370,7 +414,7 @@ function renderConstraintSelectors({ force = false } = {}) {
   };
   renderConstraintGrid();
 }
-function renderConstraintGrid() {
+function renderConstraintGrid({ preserveDraft = false } = {}) {
   const box = $("#constraintGrid"),
     type = $("#constraintType"),
     ent = $("#constraintEntity");
@@ -383,7 +427,9 @@ function renderConstraintGrid() {
   const obj = (type.value === "teacher" ? data.teachers : data.classes).find(
     (x) => x.id === Number(ent.value),
   );
-  const blocked = new Set((obj?.unavailable || []).map(Number)),
+  const blocked = preserveDraft
+    ? new Set([...box.querySelectorAll("[data-cslot].blocked")].map((cell) => Number(cell.dataset.cslot)))
+    : new Set((obj?.unavailable || []).map(Number)),
     globalBlocked = new Set((data.project.blocked_slots || []).map(Number)),
     gradeBlocked = new Set(type.value === "class"
       ? ((data.grades || []).find((grade) => grade.id === obj?.grade_id)?.blocked_slots || []).map(Number)
@@ -413,7 +459,8 @@ function renderConstraintGrid() {
   h += "</div>";
   box.innerHTML = h;
 }
-async function saveConstraints(button) {
+async function saveConstraints(button, { reset = false } = {}) {
+  const idleLabel = reset ? "Reset tiết tránh" : "Lưu ràng buộc";
   if (constraintSaveInFlight || globalSaveInFlight) {
     showInlineActionFeedback(button, "Đang lưu thay đổi. Vui lòng chờ một chút.", "info", 2400);
     return;
@@ -423,7 +470,7 @@ async function saveConstraints(button) {
     setInlineActionState(
       button,
       "error",
-      { idle: "Lưu ràng buộc", error: "Chọn đối tượng" },
+      { idle: idleLabel, error: "Chọn đối tượng" },
       1800,
     );
     showInlineActionFeedback(
@@ -434,15 +481,15 @@ async function saveConstraints(button) {
     );
     return;
   }
-  const slots = [...document.querySelectorAll("[data-cslot].blocked")].map(
+  const slots = reset ? [] : [...document.querySelectorAll("[data-cslot].blocked")].map(
     (x) => Number(x.dataset.cslot),
   );
   setInlineActionState(button, "loading", {
-    idle: "Lưu ràng buộc",
+    idle: idleLabel,
     loading: "Đang lưu...",
   });
   constraintSaveInFlight = true;
-  [$("#constraintType"), $("#constraintEntity")].forEach((el) => { if (el) el.disabled = true; });
+  syncConstraintSaveControls();
   try {
     const { response: r, result, cancelled } =
       await postJsonWithDisplacementConfirmation(
@@ -455,7 +502,7 @@ async function saveConstraints(button) {
         { title: "Xác nhận tiết tránh", confirmText: "Lưu và đưa về khay" },
       );
     if (cancelled) {
-      setInlineActionState(button, "idle", { idle: "Lưu ràng buộc" });
+      setInlineActionState(button, "idle", { idle: idleLabel });
       showInlineActionFeedback(
         button,
         "Đã hủy. Lịch hiện tại chưa bị thay đổi.",
@@ -472,7 +519,7 @@ async function saveConstraints(button) {
         setInlineActionState(
           button,
           "success",
-          { idle: "Lưu ràng buộc", success: "Đã lưu" },
+          { idle: idleLabel, success: "Đã lưu" },
           2200,
         );
         showInlineActionFeedback(
@@ -486,14 +533,14 @@ async function saveConstraints(button) {
       setInlineActionState(
         button,
         "success",
-        { idle: "Lưu ràng buộc", success: "Đã lưu" },
+        { idle: idleLabel, success: "Đã lưu" },
         1700,
       );
       showInlineActionFeedback(
         button,
         result.removed
           ? `Đã đưa ${result.removed} tiết bị ảnh hưởng về khay.`
-          : "Đã lưu tiết tránh.",
+          : reset ? "Đã reset tiết tránh của đối tượng đang chọn." : "Đã lưu tiết tránh.",
         "success",
         2800,
       );
@@ -501,7 +548,7 @@ async function saveConstraints(button) {
       setInlineActionState(
         button,
         "error",
-        { idle: "Lưu ràng buộc", error: "Chưa lưu được" },
+        { idle: idleLabel, error: "Chưa lưu được" },
         2200,
       );
       showInlineActionFeedback(
@@ -515,12 +562,12 @@ async function saveConstraints(button) {
     setInlineActionState(
       button,
       "error",
-      { idle: "Lưu ràng buộc", error: "Chưa lưu được" },
+      { idle: idleLabel, error: "Chưa lưu được" },
       2200,
     );
     showToast(requestFailureMessage(error), "error", 5000);
   } finally {
     constraintSaveInFlight = false;
-    [$("#constraintType"), $("#constraintEntity")].forEach((el) => { if (el) el.disabled = false; });
+    syncConstraintSaveControls();
   }
 }

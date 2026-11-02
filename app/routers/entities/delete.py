@@ -1,10 +1,58 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from sqlalchemy import delete
 from app.services.runtime import *
 from .common import ENTITY_MODELS
 
 router = APIRouter()
+
+
+@router.post("/api/projects/{pid}/assignments/reset")
+def reset_assignments(
+    pid: int,
+    payload: AssignmentResetIn,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    get_project_for_update(pid, user, db)
+    rows = db.scalars(
+        select(Assignment).where(Assignment.project_id == pid).order_by(Assignment.id)
+    ).all()
+    ids = [row.id for row in rows]
+    if not ids:
+        return {"ok": True, "deleted": 0, "message": "Chưa có phân công để đặt lại."}
+
+    impact = assignment_delete_impact(db, ids)
+    confirmation = assignment_delete_confirmation(
+        impact, payload, assignment_count=len(ids)
+    )
+    # Confirm the assignment list too, including assignments added since preview.
+    if confirmation is not None or sorted(set(payload.confirmed_assignment_ids)) != ids:
+        return JSONResponse(
+            {
+                "ok": False,
+                "requires_confirmation": True,
+                "assignment_ids": ids,
+                "assignment_count": len(ids),
+                **impact,
+                "message": (
+                    f"Reset sẽ xóa toàn bộ {len(ids)} phân công trong bộ thời khóa biểu này, "
+                    f"kèm {len(impact['lesson_ids'])} tiết đã xếp và "
+                    f"{len(impact['fixed_lesson_ids'])} tiết ghim liên quan. "
+                    "Danh sách giáo viên, lớp, môn và chương trình khối được giữ nguyên. "
+                    "Thao tác này không thể hoàn tác. Bạn có muốn tiếp tục?"
+                ),
+            },
+            409,
+        )
+
+    # Delete dependent rows first, explicitly, before their assignments.
+    for model in (Lesson, FixedLesson):
+        db.execute(delete(model).where(model.project_id == pid, model.assignment_id.in_(ids)))
+    db.execute(delete(Assignment).where(Assignment.project_id == pid, Assignment.id.in_(ids)))
+    db.commit()
+    return {"ok": True, "deleted": len(ids), "message": f"Đã đặt lại {len(ids)} phân công."}
 
 
 @router.delete("/api/projects/{pid}/entity/{typ}/{eid}")

@@ -45,6 +45,10 @@ class BulkEntityDeleteIn(EntityDeleteIn):
     ids: list[int]
 
 
+class AssignmentResetIn(EntityDeleteIn):
+    confirmed_assignment_ids: list[int] = Field(default_factory=list)
+
+
 class ConstraintIn(BaseModel):
     entity_type: str
     entity_id: int
