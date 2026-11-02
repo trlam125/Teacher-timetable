@@ -6,6 +6,7 @@
         <div class="row">
             <select id="viewType" aria-label="Kiểu lọc thời khóa biểu">
                 <option value="overview" selected>Xem tổng quát</option>
+                <option value="grade">Xem theo khối</option>
                 <option value="class">Xem theo lớp</option>
                 <option value="teacher">Xem theo giáo viên</option>
                 <option value="subject">Xem theo môn học</option>
@@ -28,19 +29,6 @@
         </div>
     </div>
     <div id="assignmentCoverage"></div>
-    <div class="manual-tray-panel">
-        <div class="manual-tray-head">
-            <div>
-                <h2>Kho tiết chưa xếp</h2>
-            </div>
-            <div class="action-feedback-stack">
-                <button class="btn ghost" onclick="returnAllToTray(this)">Đưa tiết chưa cố định về
-                    khay</button>
-            </div>
-        </div>
-        <div id="scheduledAssignmentTray" class="scheduled-assignment-tray"></div>
-        <div id="unscheduledTray" class="unscheduled-tray"></div>
-    </div>
     <div id="scheduleGrid"></div>
     <div class="print-approval" aria-hidden="true">
         <div>

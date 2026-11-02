@@ -490,7 +490,8 @@ document.addEventListener("pointerdown", (event) => {
 function tapAssignCapabilities(payload) {
   return {
     schedule: Boolean(payload) && !payload.startsWith("scheduled-assignment:"),
-    tray: Boolean(payload) && !payload.startsWith("assignment:"),
+    // The separate lesson tray is no longer part of the scheduling interface.
+    tray: false,
   };
 }
 
@@ -591,18 +592,10 @@ function tapAssignNeedsMoveScope(_payload) {
 }
 
 function tapAssignInstruction(payload) {
-  const capabilities = tapAssignCapabilities(payload);
-  if (capabilities.schedule && capabilities.tray) {
-    const clusterSize = tapAssignClusterSize(payload);
-    if (clusterSize > 1 && activeTapAssign?.moveScope === "group")
-      return `Bắt buộc tiết đôi: bấm ô bắt đầu để chuyển cả block ${clusterSize} tiết`;
-    return "Bấm ô trên lịch để chuyển, hoặc bấm khay để thu hồi";
-  }
-  if (capabilities.tray) return "Bấm vào khay để thu hồi";
-  const pendingBlockSize = Number(activeTapAssign?.groupSize || 0);
-  if (pendingBlockSize > 1)
-    return `Bấm ô bắt đầu để xếp block ${pendingBlockSize} tiết liên tiếp`;
-  return "Bấm một ô được đánh dấu để xếp";
+  const clusterSize = tapAssignClusterSize(payload);
+  if (clusterSize > 1 && activeTapAssign?.moveScope === "group")
+    return `Bắt buộc tiết đôi: bấm ô bắt đầu để chuyển cả block ${clusterSize} tiết`;
+  return "Bấm một ô được đánh dấu trên lịch để chuyển tiết";
 }
 
 function syncTapAssignSelectionHighlight() {
@@ -849,13 +842,6 @@ document.addEventListener("click", (event) => {
   if (cell) {
     event.preventDefault();
     finishTapAssignToSchedule(Number(cell.dataset.slot));
-    return;
-  }
-
-  const tray = event.target.closest(".unscheduled-tray");
-  if (tray) {
-    event.preventDefault();
-    finishTapAssignToTray();
     return;
   }
 

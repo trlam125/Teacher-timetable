@@ -97,7 +97,8 @@ function renderScheduleSelectors() {
     const previousValue = preserveValue ? entity.value : "";
     const filterType = type.value;
     let rows = [];
-    if (filterType === "class") rows = data.classes || [];
+    if (filterType === "grade") rows = data.grades || [];
+    else if (filterType === "class") rows = data.classes || [];
     else if (filterType === "teacher") rows = data.teachers || [];
     else if (filterType === "subject") rows = data.subjects || [];
 
@@ -119,7 +120,7 @@ function renderScheduleSelectors() {
 
   const rerender = () => {
     renderSchedule(true);
-    if ($("#unscheduledTray")) renderManualTray();
+    renderScheduleCoverage();
   };
 
   updateEntity(true);

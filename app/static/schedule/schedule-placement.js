@@ -3,7 +3,7 @@ const pendingLessonPlacements = new Set();
 function renderScheduleAfterLessonChange() {
   const scrollState = captureRefreshScrollState();
   renderSchedule(true);
-  renderManualTray();
+  renderScheduleCoverage();
   if ($("#statLessons")) $("#statLessons").textContent = data.lessons.length;
   restoreRefreshScrollState(scrollState);
 }

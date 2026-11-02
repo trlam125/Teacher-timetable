@@ -164,13 +164,19 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
 function goToAssignments() {
   document.querySelector('.nav[data-tab="assignments"]')?.click();
 }
-function renderManualTray() {
-  const tray = $("#unscheduledTray"),
-    scheduledBox = $("#scheduledAssignmentTray"),
-    coverageBox = $("#assignmentCoverage"),
-    vt = $("#viewType"),
-    ve = $("#viewEntity");
-  if (!tray) return;
+// A grade can contain any number of classes. Use the project's real
+// class.grade_id relationships; do not guess the grade from class names.
+function scheduleGradeClassIds(gradeId) {
+  return new Set(
+    (data.classes || [])
+      .filter((schoolClass) => Number(schoolClass.grade_id) === Number(gradeId))
+      .map((schoolClass) => Number(schoolClass.id)),
+  );
+}
+
+function renderScheduleCoverage() {
+  const coverageBox = $("#assignmentCoverage");
+  if (!coverageBox) return;
   const coverage = data.coverage || {};
   const duplicates = coverage.duplicate_assignments || [];
   const overloaded = coverage.over_capacity_teachers || [];
@@ -198,60 +204,6 @@ function renderManualTray() {
       : "";
   if (coverageBox && coverageBox.innerHTML !== coverageHtml) {
     coverageBox.innerHTML = coverageHtml;
-  }
-  const counts = {};
-  data.lessons.forEach(
-    (lesson) =>
-      (counts[lesson.assignment_id] = (counts[lesson.assignment_id] || 0) + 1),
-  );
-  let rows = data.assignments.map((item) => ({
-    ...item,
-    scheduled: counts[item.id] || 0,
-    remaining: Math.max(0, item.periods_per_week - (counts[item.id] || 0)),
-  }));
-  if (vt && ve && vt.value === "class")
-    rows = rows.filter((item) => item.class_id === Number(ve.value));
-  if (vt && ve && vt.value === "teacher")
-    rows = rows.filter((item) => item.teacher_id === Number(ve.value));
-  if (vt && ve && vt.value === "subject")
-    rows = rows.filter((item) => item.subject_id === Number(ve.value));
-  if (!rows.length) {
-    if (scheduledBox && scheduledBox.innerHTML !== "") scheduledBox.innerHTML = "";
-    const filtered =
-      vt &&
-      ve &&
-      (vt.value === "class" || vt.value === "teacher" || vt.value === "subject");
-    const filterLabel =
-      vt?.value === "class"
-        ? "lớp"
-        : vt?.value === "teacher"
-          ? "giáo viên"
-          : "môn học";
-    const emptyHtml = `<div class="empty-state">${filtered ? "Không có phân công cho " + filterLabel + " đang chọn." : "Chưa có phân công để xếp. Hãy tạo phân công lớp – môn – giáo viên – số tiết/tuần."}</div>`;
-    if (tray.innerHTML !== emptyHtml) tray.innerHTML = emptyHtml;
-    return;
-  }
-  const scheduled = rows.filter((item) => item.scheduled > 0),
-    pending = rows.filter((item) => item.remaining > 0);
-  const scheduledHtml = scheduled.length
-    ? `<div class="scheduled-label">Đang có trên lịch</div><div class="scheduled-cards">${scheduled.map((item) => `<div class="scheduled-assignment" data-tap-payload="scheduled-assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>${item.scheduled}/${item.periods_per_week} tiết</span></div>`).join("")}</div>`
-    : "";
-  if (scheduledBox && scheduledBox.innerHTML !== scheduledHtml) {
-    scheduledBox.innerHTML = scheduledHtml;
-  }
-  const hint =
-    '<div class="tray-action-hint" title="Bấm một tiết trên thời khóa biểu hoặc thẻ đang có trên lịch, sau đó bấm vào khay để thu hồi">Chọn tiết trên lịch, rồi bấm khay để thu hồi.</div>';
-  const pendingHtml = pending.length
-    ? pending
-      .map(
-        (item) =>
-          `<div class="tray-lesson" data-tap-payload="assignment:${item.id}"><div><b>${esc(item.subject_short)}</b><small>${esc(item.class_name)} · ${esc(item.teacher_short)}</small></div><span>Còn ${item.remaining}</span></div>`,
-      )
-      .join("")
-    : '<div class="empty-state">Đã xếp đủ tất cả phân công.</div>';
-  const trayHtml = hint + pendingHtml;
-  if (tray.innerHTML !== trayHtml) {
-    tray.innerHTML = trayHtml;
   }
 }
 
@@ -350,9 +302,13 @@ function renderSchedule(preserveScroll = false) {
     data.assignments.map((assignment) => [assignment.id, assignment]),
   );
   const selectedEntityId = Number(ve.value);
+  const selectedGradeClassIds = vt.value === "grade"
+    ? scheduleGradeClassIds(selectedEntityId)
+    : null;
   const matchesCurrentView = (assignment) => {
     if (!assignment) return false;
     if (vt.value === "overview") return true;
+    if (vt.value === "grade") return selectedGradeClassIds.has(Number(assignment.class_id));
     if (vt.value === "class") return assignment.class_id === selectedEntityId;
     if (vt.value === "subject") return assignment.subject_id === selectedEntityId;
     return assignment.teacher_id === selectedEntityId;
@@ -401,7 +357,7 @@ function renderSchedule(preserveScroll = false) {
 
   const currentTable = box.querySelector(".timetable");
   const totalSlots = days * sessions * pps;
-  const isOverview = ["overview", "subject"].includes(vt.value);
+  const isOverview = ["overview", "grade", "subject"].includes(vt.value);
   const canUpdateInPlace =
     currentTable &&
     currentTable.classList.contains("overview-timetable") === isOverview &&
@@ -495,7 +451,7 @@ function lessonHtml(
   const conflictBadge = conflictText
     ? `<button type="button" class="conflict-badge" title="${esc(conflictText)}" aria-label="Xem ${normalizedConflictReasons.length} xung đột" data-conflict-message="${esc(conflictText)}">!</button>`
     : "";
-  return `<div class="lesson ${["overview", "subject"].includes(view) ? "lesson-overview" : ""} ${inCluster ? "lesson-cluster" : ""} ${conflictText ? "has-conflict" : ""} ${actions ? "lesson-has-actions" : ""}"${tapPayload} title="${esc(conflictText)}"><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked ? ` <span class="lesson-lock-status" title="Tiết cố định" aria-label="Tiết cố định">${lessonActionIcon("lock")}</span>` : ""}${conflictBadge}${actions}</div>`;
+  return `<div class="lesson ${["overview", "grade", "subject"].includes(view) ? "lesson-overview" : ""} ${inCluster ? "lesson-cluster" : ""} ${conflictText ? "has-conflict" : ""} ${actions ? "lesson-has-actions" : ""}"${tapPayload} title="${esc(conflictText)}"><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked ? ` <span class="lesson-lock-status" title="Tiết cố định" aria-label="Tiết cố định">${lessonActionIcon("lock")}</span>` : ""}${conflictBadge}${actions}</div>`;
 }
 
 function showToast(message, type = "info", duration = 3200) {
