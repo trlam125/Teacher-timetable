@@ -674,22 +674,18 @@
 .auto-assignment-help {font-size:13px;margin:4px 0 12px;color:var(--muted);line-height:1.6;}
 .auto-assignment-stats {font-weight:700;font-size:13px;color:var(--muted);margin:10px 0;}
 .auto-assignment-scroller {overflow:auto;max-width:100%;max-height:70vh;position:relative;border:1px solid var(--line);border-radius:12px;background:var(--card-bg);}
-.auto-assignment-matrix {border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;}
+.auto-assignment-matrix {border-collapse:separate;font-size:12px;}
 .auto-assignment-matrix th,.auto-assignment-matrix td {border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px;vertical-align:middle;}
 .auto-assignment-matrix thead th {background:var(--bg);color:var(--ink);position:sticky;top:0;z-index:3;text-align:center;white-space:nowrap;}
 .auto-assignment-matrix thead tr:nth-child(2) th {top:34px;z-index:3;}
 .auto-assignment-matrix thead tr:first-child th {height:34px;}
-.auto-assignment-matrix .auto-assignment-subject {position:sticky;left:0;z-index:2;min-width:124px;width:124px;max-width:124px;background:var(--card-bg);text-align:left;font-weight:750;box-shadow:2px 0 3px rgba(0,0,0,.06);}
+.auto-assignment-matrix .auto-assignment-subject {position:sticky;left:0;z-index:2;background:var(--card-bg);text-align:left;font-weight:750;box-shadow:2px 0 3px rgba(0,0,0,.06);}
 .auto-assignment-matrix thead .auto-assignment-subject {z-index:5;background:var(--bg);}
 .auto-assignment-no {display:inline-block;min-width:20px;color:var(--muted);font-weight:500;}
-.auto-assignment-teacher {min-width:108px;width:108px;max-width:108px;}
-.auto-assignment-teacher select {display:block;width:100%;min-width:0;max-width:100%;border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);min-height:32px;font-size:12px;padding:4px;}
-.auto-assignment-periods {min-width:128px;width:128px;max-width:128px;}
-.auto-assignment-cell {display:flex;gap:3px;align-items:center;flex-wrap:wrap;min-width:0;}
-.auto-assignment-cell input {width:42px;min-width:42px;min-height:32px;border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);text-align:center;font-size:12px;padding:3px;}
-.auto-assignment-save,.auto-assignment-detail,.auto-assignment-delete {border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-height:30px;padding:3px 4px;font-size:10px;cursor:pointer;white-space:nowrap;}
+.auto-assignment-teacher select {border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);min-height:32px;}
+.auto-assignment-cell input {border:1px solid var(--line);border-radius:6px;background:var(--card-bg);color:var(--ink);}
+.auto-assignment-save,.auto-assignment-detail,.auto-assignment-delete {border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer;white-space:nowrap;}
 .auto-assignment-save {font-weight:750;color:#0f766e;}
-.auto-assignment-detail {font-size:10px;}
 .auto-assignment-delete {color:#b91c1c;border-color:rgba(185,28,28,.3);font-weight:700;}
 .auto-assignment-delete:hover,.auto-assignment-delete:focus-visible {background:rgba(185,28,28,.09);border-color:#b91c1c;}
 .auto-assignment-delete:disabled {opacity:.55;cursor:wait;}
@@ -699,13 +695,8 @@
 .auto-assignment-note {font-size:12px;color:var(--muted);line-height:1.5;margin:8px 0;}
 /* The HTML hidden state must win over layout display declarations. */
 .auto-assignment-matrix-controls[hidden],#autoAssignmentLegacyFilters[hidden],#autoAssignmentMatrixHelp[hidden],.auto-assignment-save[hidden] {display:none!important;}
-@media(max-width:600px) {.auto-assignment-toolbar {align-items:stretch;}.auto-assignment-matrix .auto-assignment-subject{min-width:125px;width:125px;max-width:125px;}.auto-assignment-teacher{min-width:115px;width:115px;max-width:115px;}}
-
-@media (min-width:901px) and (max-width:1350px) {
-  .auto-assignment-matrix .auto-assignment-subject {min-width:112px;width:112px;max-width:112px;}
-  .auto-assignment-teacher {min-width:100px;width:100px;max-width:100px;}
-  .auto-assignment-periods {min-width:123px;width:123px;max-width:123px;}
-  .auto-assignment-save,.auto-assignment-detail,.auto-assignment-delete {padding-left:2px;padding-right:2px;}
+@media (max-width: 600px) {
+  .auto-assignment-toolbar {align-items: stretch;}
 }
 
 .auto-grade-program {padding:14px 16px;margin:14px 0;border:1px solid var(--line);border-radius:12px;background:var(--card-bg);}
@@ -723,58 +714,6 @@
 .auto-grade-save {font-size:12px;padding:6px 8px;white-space:nowrap;}
 .auto-grade-save.is-changed {border-color:#0d9488;color:#0d9488;}
 
-/* Compact matrix: keep number, details and delete on one line, even in light mode. */
-.auto-assignment-matrix .auto-assignment-subject {
-  min-width: 108px;
-  width: 108px;
-  max-width: 108px;
-}
-.auto-assignment-matrix .auto-assignment-teacher {
-  min-width: 82px;
-  width: 82px;
-  max-width: 82px;
-}
-.auto-assignment-matrix .auto-assignment-teacher select {
-  min-width: 0;
-  width: 100%;
-  max-width: 100%;
-  padding: 3px 1px;
-  text-overflow: ellipsis;
-}
-.auto-assignment-matrix .auto-assignment-periods {
-  min-width: 142px;
-  width: 142px;
-  max-width: 142px;
-}
-.auto-assignment-matrix .auto-assignment-cell {
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  gap: 3px;
-}
-.auto-assignment-matrix .auto-assignment-cell input {
-  flex: 0 0 35px;
-  width: 35px;
-  min-width: 35px;
-  padding: 2px 1px;
-}
-.auto-assignment-matrix .auto-assignment-save,
-.auto-assignment-matrix .auto-assignment-detail,
-.auto-assignment-matrix .auto-assignment-delete {
-  flex: 0 0 auto;
-  padding: 3px 2px;
-  font-size: 9px;
-}
-/* Editing shows Save first without growing the row on narrow screens. */
-.auto-assignment-matrix .auto-assignment-cell.is-dirty .auto-assignment-detail,
-.auto-assignment-matrix .auto-assignment-cell.is-dirty .auto-assignment-delete {
-  display: none;
-}
-@media (max-width: 600px) {
-  .auto-assignment-matrix .auto-assignment-subject {min-width: 98px; width: 98px; max-width: 98px;}
-  .auto-assignment-matrix .auto-assignment-teacher {min-width: 82px; width: 82px; max-width: 82px;}
-}
-
-
 /* Four class groups per desktop viewport, without pagination.
    The scrolling element is a size container, so cqw uses the ACTUAL width
    remaining after the sidebar, page padding, and vertical scrollbar.
@@ -788,7 +727,7 @@
 }
 #assignments .auto-assignment-matrix {
   --assignment-subject-width: clamp(108px, 10cqw, 132px);
-  --assignment-norm-width: 142px;
+  --assignment-norm-width: 92px;
   --assignment-periods-width: 124px;
   --assignment-teacher-width: max(102px, calc((100cqw - var(--assignment-subject-width) - var(--assignment-norm-width)) / 4 - var(--assignment-periods-width)));
   --assignment-class-width: calc(var(--assignment-teacher-width) + var(--assignment-periods-width));
@@ -811,15 +750,17 @@
   min-width: var(--assignment-norm-width);
   background: var(--card-bg);
   white-space: normal;
-  text-align: left;
+  text-align: center;
   box-shadow: 2px 0 3px rgba(0,0,0,.06);
 }
 #assignments .auto-assignment-matrix thead .auto-assignment-norm {
   z-index: 5;
   background: var(--bg);
 }
-.assignment-subject-norm-row {display: grid; gap: 2px; padding: 3px 0; font-size: 12px;}
-.assignment-subject-norm-row small {color: var(--muted);}
+.assignment-subject-norm-row {display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 4px; padding: 2px 0; font-size: 12px;}
+.assignment-subject-norm-row.is-multi-grade {justify-content: flex-start; text-align: left;}
+.assignment-subject-norm-row b {white-space: nowrap;}
+.assignment-subject-norm-row small {flex-basis: 100%; color: var(--muted);}
 .schedule-attempt-details {border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; background: var(--card-bg);}
 .schedule-attempt-details[hidden] {display: none;}
 .schedule-attempt-details h2 {margin: 0 0 8px; font-size: 18px;}
@@ -905,6 +846,7 @@
   min-height: 32px;
   padding: 0;
   border-radius: 6px;
+  font-size: 9px;
 }
 #assignments .auto-assignment-matrix .auto-assignment-detail svg,
 #assignments .auto-assignment-matrix .auto-assignment-delete svg {

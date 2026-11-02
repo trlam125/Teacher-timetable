@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from math import isfinite
 from typing import Any
-from .custom_limits import SECTIONS, validate_limits, _subject_key, _key, _class_name
+from .custom_limits import SECTIONS, validate_limits, _subject_key
 from app.subject_catalog import canonical_subject_name
 
 

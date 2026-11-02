@@ -12,7 +12,6 @@ from app.services.entities.validation import (
     normalized_grade_requirements,
     replace_grade_requirements,
 )
-from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 

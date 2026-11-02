@@ -500,7 +500,6 @@ function renderSchedule(preserveScroll = false) {
     }
 
     const scrollState = preserveScroll ? captureRefreshScrollState() : null;
-    const periodCount = days * sessions * pps;
     const columns = `64px 46px 46px repeat(${classes.length}, minmax(144px, 1fr))`;
     let html = `<div class="timetable class-matrix-timetable" data-matrix-key="${matrixKey}" style="grid-template-columns:${columns}; --matrix-class-count:${classes.length}">`;
     for (const [label, column] of [["Thứ", 1], ["Buổi", 2], ["Tiết", 3]]) {

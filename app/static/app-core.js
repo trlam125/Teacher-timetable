@@ -126,16 +126,6 @@ const esc = (s) =>
       c
       ],
   );
-function projectMaxConsecutive() {
-  return Math.max(1, Number(data?.project?.periods) || 1);
-}
-function projectMaxPeriodsDay() {
-  return Math.max(
-    1,
-    (Number(data?.project?.sessions) || 1) *
-    (Number(data?.project?.periods) || 1),
-  );
-}
 function confirmAction(message, options = {}) {
   const customConfirm = window.OperationStatus?.confirm;
   if (typeof customConfirm === "function") {

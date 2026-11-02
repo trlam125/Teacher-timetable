@@ -103,7 +103,7 @@
       steps: [
         { target: '#assignments .section-head', title: 'Phân công giảng dạy', text: 'Mỗi phân công xác định giáo viên, lớp, môn và số tiết phải dạy trong một tuần.' },
         { target: '#assignments .section-head .btn', title: 'Thêm phân công', text: 'Bấm vào đây để tạo một phân công mới. Hệ thống sẽ dùng các phân công này làm đầu vào khi xếp lịch.' },
-        { target: '.assignment-explanation', title: 'Hiểu đúng số tiết', text: 'Số tiết/tuần là số tiết của một môn tại một lớp. Cột Định mức khối hiển thị số tiết đã quy định cho từng môn của từng khối.' },
+        { target: '.assignment-explanation', title: 'Hiểu đúng số tiết', text: 'Số tiết/tuần là số tiết của một môn tại một lớp. Cột Tiết/tuần hiển thị số tiết đã quy định theo khối; khi chọn một khối, chỉ hiển thị con số.' },
         { target: '.assignment-filter-panel', title: 'Lọc và kiểm tra phân công', text: 'Lọc theo lớp, môn, giáo viên hoặc trạng thái để nhanh chóng tìm các phân công cần xử lý.' },
         { target: '#assignmentCompletenessSummary', title: 'Kiểm tra độ đầy đủ', text: 'Khu vực này đối chiếu phân công hiện tại với chương trình chuẩn của lớp và khối.' },
         { target: '#assignmentTable', title: 'Danh sách phân công', text: 'Xem, sửa hoặc xóa các phân công hiện có tại bảng này.' }

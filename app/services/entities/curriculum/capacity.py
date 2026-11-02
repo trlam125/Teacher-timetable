@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.models import Assignment, Project, SchoolClass, Subject, Teacher
-from app.scheduling.rules import parse_slots, valid_slots
 from app.services.entities.validation import class_week_capacity
 from collections import Counter
 from sqlalchemy import select

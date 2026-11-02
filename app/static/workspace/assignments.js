@@ -358,6 +358,7 @@ function assignmentSubjectNormHtml(subjectId, gradeId = null) {
     autoAssignmentGrade === "all" || String(row.grade_id) === String(autoAssignmentGrade));
   const gradeIds = gradeId == null ? new Set(classes.map((row) => Number(row.grade_id)).filter(Boolean)) : new Set([Number(gradeId)]);
   const grades = (data.grades || []).filter((row) => gradeIds.has(Number(row.id)));
+  const showGrade = gradeId == null && autoAssignmentGrade === "all";
   if (!grades.length) return '<span class="muted">Chưa gán khối</span>';
   return grades.map((grade) => {
     const requirement = (data.grade_requirements || []).find((row) =>
@@ -367,8 +368,8 @@ function assignmentSubjectNormHtml(subjectId, gradeId = null) {
     const raw = pending ? autoGradeDrafts.get(key) : requirement?.periods_per_week;
     const periods = Number(raw);
     const label = String(raw ?? "").trim() && Number.isInteger(periods) && periods > 0
-      ? `${periods} tiết/tuần` : "Chưa quy định";
-    return `<div class="assignment-subject-norm-row"><b>${esc(grade.name)}</b><span>${label}</span>${pending ? '<small>Chưa lưu</small>' : ""}</div>`;
+      ? String(periods) : '<span class="muted" title="Chưa quy định">—</span>';
+    return `<div class="assignment-subject-norm-row${showGrade ? " is-multi-grade" : ""}">${showGrade ? `<b>${esc(grade.name)}:</b> ` : ""}<span>${label}</span>${pending ? '<small>Chưa lưu</small>' : ""}</div>`;
   }).join("");
 }
 function refreshAssignmentSubjectNorms() {
@@ -450,7 +451,7 @@ function renderAutoAssignmentMatrix() {
   const assigned = (data.assignments || []).length;
   table.innerHTML = `<div class="auto-assignment-stats">${assigned} phân công đang lưu · ${classes.length} lớp · ${subjects.length} môn đang hiển thị</div>
     <div class="auto-assignment-scroller" tabindex="0" aria-label="Bảng phân công giáo viên theo lớp và môn, cuộn ngang để xem các lớp">
-      <table class="auto-assignment-matrix" style="--assignment-class-count:${classes.length}">${columns}<thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th><th rowspan="2" class="auto-assignment-norm" title="Số tiết/tuần cho mỗi lớp, theo cấu hình Khối / nhóm">Định mức khối</th>${headers}</tr>
+      <table class="auto-assignment-matrix" style="--assignment-class-count:${classes.length}">${columns}<thead><tr><th rowspan="2" class="auto-assignment-subject">TT · Môn</th><th rowspan="2" class="auto-assignment-norm" title="Số tiết/tuần cho mỗi lớp, theo cấu hình Khối / nhóm">Tiết/tuần</th>${headers}</tr>
         <tr>${subheaders}</tr></thead><tbody>${rows}</tbody></table>
     </div>
     <p class="auto-assignment-note">Bảng phân công dùng trực tiếp cho bộ xếp tự động. Hiện mỗi cặp lớp–môn chỉ được gán một giáo viên trong bộ xếp tự động. Cột số tiết lấy gợi ý từ chương trình khối nếu đã cấu hình.</p>`;

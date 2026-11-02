@@ -23,7 +23,6 @@ from app.services.entities.validation import (
 )
 from app.services.schedule_operations.feasibility import ensure_pinned_assignments_feasible
 from fastapi import HTTPException
-from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
