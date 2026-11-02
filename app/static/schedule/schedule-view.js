@@ -347,10 +347,15 @@ function renderSchedule(preserveScroll = false) {
     if (vt.value === "subject") return assignment.subject_id === selectedEntityId;
     return assignment.teacher_id === selectedEntityId;
   };
+  // Natural, deterministic class order (6A2 before 6A10) across every day/slot.
+  const scheduleCollator = new Intl.Collator("vi", { numeric: true, sensitivity: "base" });
   const sortLessons = (left, right) => {
     const a = assignmentById.get(left.assignment_id);
     const b = assignmentById.get(right.assignment_id);
-    return (a?.class_name || "").localeCompare(b?.class_name || "", "vi");
+    return scheduleCollator.compare(a?.class_name || "", b?.class_name || "") ||
+      scheduleCollator.compare(a?.subject_short || a?.subject_name || "", b?.subject_short || b?.subject_name || "") ||
+      scheduleCollator.compare(a?.teacher_short || a?.teacher_name || "", b?.teacher_short || b?.teacher_name || "") ||
+      Number(left.id) - Number(right.id);
   };
   const lessonsBySlot = new Map();
   for (const lesson of data.lessons) {
@@ -412,6 +417,7 @@ function renderSchedule(preserveScroll = false) {
       if (cell.title !== slotConflictText) cell.title = slotConflictText;
       if (cell.innerHTML !== lessonMarkup) cell.innerHTML = lessonMarkup;
     }
+    applyScheduleHighlight();
     return;
   }
 
@@ -433,6 +439,7 @@ function renderSchedule(preserveScroll = false) {
   }
   html += "</div>";
   box.innerHTML = legend + html;
+  applyScheduleHighlight();
 
   if (scrollState) {
     restoreRefreshScrollState(scrollState);
@@ -458,7 +465,13 @@ function lessonHtml(
 ) {
   const a = assignment || data.assignments.find((x) => x.id === l.assignment_id);
   if (!a) return "";
-  const detail = `${a.class_name} · ${a.teacher_short}`;
+  const detail = `${a.class_name || ""} · ${a.teacher_short || a.teacher_name || ""}`;
+  const compact = ["overview", "grade", "subject"].includes(view);
+  const className = String(a.class_name || "");
+  const subjectName = String(a.subject_short || a.subject_name || "Môn học");
+  const teacherName = String(a.teacher_short || a.teacher_name || "");
+  const lessonTitle = `${className} · ${a.subject_name || subjectName} · ${a.teacher_name || teacherName}`;
+  const searchText = `${className} ${subjectName} ${a.subject_name || ""} ${teacherName} ${a.teacher_name || ""}`;
   const fixesWholeBlock = a.block_mode === "required_double" && inCluster;
   const fixTitle = fixesWholeBlock
     ? "Cố định cả block tiết đôi"
@@ -485,8 +498,61 @@ function lessonHtml(
   const conflictBadge = conflictText
     ? `<button type="button" class="conflict-badge" title="${esc(conflictText)}" aria-label="Xem ${normalizedConflictReasons.length} xung đột" data-conflict-message="${esc(conflictText)}">!</button>`
     : "";
-  return `<div class="lesson ${["overview", "grade", "subject"].includes(view) ? "lesson-overview" : ""} ${inCluster ? "lesson-cluster" : ""} ${conflictText ? "has-conflict" : ""} ${actions ? "lesson-has-actions" : ""}"${tapPayload} title="${esc(conflictText)}"><b>${esc(a.subject_short)}</b><small>${esc(detail)}</small>${l.locked ? ` <span class="lesson-lock-status" title="Tiết cố định" aria-label="Tiết cố định">${lessonActionIcon("lock")}</span>` : ""}${conflictBadge}${actions}</div>`;
+  const content = compact
+    ? `<b class="lesson-primary">${esc(className)} · ${esc(subjectName)}</b><small class="lesson-secondary">${esc(teacherName)}</small>`
+    : `<b>${esc(subjectName)}</b><small>${esc(detail)}</small>`;
+  const title = conflictText ? `${lessonTitle} | ${conflictText}` : lessonTitle;
+  return `<div class="lesson ${compact ? "lesson-overview lesson-compact" : ""} ${inCluster ? "lesson-cluster" : ""} ${conflictText ? "has-conflict" : ""} ${l.locked ? "lesson-is-locked" : ""} ${actions ? "lesson-has-actions" : ""}" data-search-text="${esc(searchText)}"${tapPayload} title="${esc(title)}">${content}${l.locked ? ` <span class="lesson-lock-status" title="Tiết cố định" aria-label="Tiết cố định">${lessonActionIcon("lock")}</span>` : ""}${conflictBadge}${actions}</div>`;
 }
+
+// Highlight matching lessons without filtering the dataset or changing placement actions.
+// The control is deliberately outside #scheduleGrid, which is replaced on refresh.
+function normalizeScheduleSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .toLocaleLowerCase("vi")
+    .trim();
+}
+
+function applyScheduleHighlight() {
+  const input = document.getElementById("scheduleHighlightQuery");
+  const status = document.getElementById("scheduleHighlightCount");
+  const table = document.querySelector("#scheduleGrid .timetable");
+  if (!table) return;
+  const query = normalizeScheduleSearch(input?.value);
+  const terms = query.split(/\s+/).filter(Boolean);
+  const cards = table.querySelectorAll(".lesson[data-search-text]");
+  let matching = 0;
+  table.classList.toggle("schedule-search-active", terms.length > 0);
+  cards.forEach((card) => {
+    const text = normalizeScheduleSearch(card.dataset.searchText);
+    const match = !terms.length || terms.every((term) => text.includes(term));
+    card.classList.toggle("schedule-search-match", terms.length > 0 && match);
+    card.classList.toggle("schedule-search-dimmed", terms.length > 0 && !match);
+    if (terms.length && match) matching++;
+  });
+  if (status) {
+    status.textContent = terms.length
+      ? `${matching} tiết phù hợp${matching ? " · Các tiết khác vẫn hiển thị" : ""}`
+      : "Tìm theo lớp, giáo viên hoặc môn; các tiết khác sẽ chỉ mờ đi.";
+  }
+  const clear = document.getElementById("scheduleHighlightClear");
+  if (clear) clear.hidden = !query;
+}
+
+function clearScheduleHighlight() {
+  const input = document.getElementById("scheduleHighlightQuery");
+  if (!input) return;
+  input.value = "";
+  applyScheduleHighlight();
+  input.focus({ preventScroll: true });
+}
+
+document.addEventListener("input", (event) => {
+  if (event.target?.id === "scheduleHighlightQuery") applyScheduleHighlight();
+});
 
 function showToast(message, type = "info", duration = 3200) {
   if (!message) return;

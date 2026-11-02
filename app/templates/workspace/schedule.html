@@ -54,6 +54,17 @@
         </summary>
         <div id="unscheduledTray" class="unscheduled-tray" aria-label="Danh sách các tiết chưa xếp"></div>
     </details>
+    <div class="schedule-highlight-toolbar" role="search" aria-label="Tìm và tô sáng tiết học">
+        <label for="scheduleHighlightQuery">Tìm &amp; tô sáng tiết học</label>
+        <div class="schedule-highlight-input-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="scheduleHighlightQuery" type="search" autocomplete="off"
+                placeholder="Nhập lớp, giáo viên hoặc môn..." aria-describedby="scheduleHighlightCount">
+            <button type="button" id="scheduleHighlightClear" class="schedule-highlight-clear"
+                onclick="clearScheduleHighlight()" aria-label="Xóa tìm kiếm" title="Xóa tìm kiếm" hidden>×</button>
+        </div>
+        <span id="scheduleHighlightCount" class="schedule-highlight-status" aria-live="polite">Tìm theo lớp, giáo viên hoặc môn; các tiết khác sẽ chỉ mờ đi.</span>
+    </div>
     <div id="scheduleGrid"></div>
     <div class="print-approval" aria-hidden="true">
         <div>

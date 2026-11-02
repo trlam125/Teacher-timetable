@@ -429,3 +429,144 @@
   #schedule .compact-tray-title { font-size: 13px; }
   #schedule .compact-tray-count { font-size: 11px; }
 }
+
+/* Compact detailed timetable: retain every lesson and all edit actions. */
+#schedule .overview-timetable .cell.available {
+  gap: 3px;
+  padding: 4px;
+  min-height: 72px;
+  align-items: stretch;
+}
+#schedule .overview-timetable .lesson.lesson-overview.lesson-compact {
+  box-sizing: border-box;
+  min-width: 0;
+  height: auto;
+  min-height: 39px;
+  padding: 4px 6px 5px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+#schedule .lesson-compact.lesson-has-actions { padding-right: 6px; }
+#schedule .lesson-compact .lesson-primary,
+#schedule .lesson-compact .lesson-secondary {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+#schedule .lesson-compact .lesson-primary { font-size: 11px; font-weight: 700; }
+#schedule .lesson-compact .lesson-secondary { font-size: 10px; }
+#schedule .lesson-compact.lesson-has-actions .lesson-secondary { padding-right: 49px; }
+#schedule .lesson-compact.lesson-is-locked:not(.lesson-has-actions) .lesson-secondary { padding-right: 20px; }
+#schedule .lesson-compact.has-conflict .lesson-primary { padding-right: 20px; }
+#schedule .lesson-compact .lesson-pin,
+#schedule .lesson-compact .lesson-remove {
+  position: absolute;
+  top: auto;
+  bottom: 2px;
+  width: 21px;
+  height: 21px;
+  border-radius: 5px;
+  line-height: normal;
+  z-index: 2;
+}
+#schedule .lesson-compact .lesson-pin { right: 26px; }
+#schedule .lesson-compact .lesson-remove { right: 3px; }
+#schedule .lesson-compact .lesson-action-icon { width: 13px; height: 13px; }
+#schedule .lesson-compact .lesson-lock-status { position: absolute; right: 28px; bottom: 5px; }
+#schedule .lesson-compact .conflict-badge {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  margin: 0;
+  min-width: 16px;
+  min-height: 16px;
+  width: 16px;
+  height: 16px;
+  z-index: 3;
+}
+
+/* Live search highlights matches but never removes cards from the grid. */
+#schedule .schedule-highlight-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 9px 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+#schedule .schedule-highlight-toolbar > label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+}
+#schedule .schedule-highlight-input-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 0 1 260px;
+  min-width: min(100%, 185px);
+  height: 35px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0 9px;
+  gap: 7px;
+}
+#schedule .schedule-highlight-input-wrap:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+#schedule .schedule-highlight-input-wrap svg { flex: 0 0 auto; opacity: .6; }
+#schedule #scheduleHighlightQuery {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  box-shadow: none;
+  padding: 0;
+}
+#schedule .schedule-highlight-clear {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 3px;
+}
+#schedule .schedule-highlight-clear[hidden] { display: none; }
+#schedule .schedule-highlight-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+#schedule .timetable .lesson.schedule-search-dimmed { opacity: .30; }
+#schedule .timetable .lesson.schedule-search-match:not(.selected-for-assign) {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .14);
+}
+#schedule .timetable .lesson.schedule-search-match:hover,
+#schedule .timetable .lesson.schedule-search-dimmed:hover,
+#schedule .timetable .lesson.schedule-search-dimmed:focus-within { opacity: 1; }
+@media (max-width: 560px) {
+  #schedule .schedule-highlight-toolbar > label { width: 100%; }
+  #schedule .schedule-highlight-input-wrap { flex: 1 1 100%; }
+  #schedule .schedule-highlight-status { width: 100%; }
+}
+@media print {
+  #schedule .schedule-highlight-toolbar { display: none !important; }
+  #schedule .timetable .lesson.schedule-search-dimmed { opacity: 1 !important; }
+  #schedule .timetable .lesson.schedule-search-match { outline: none !important; box-shadow: none !important; }
+}
