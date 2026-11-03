@@ -1,0 +1,22 @@
+#schedulerDiagnostics .section-head { flex-wrap: wrap; gap: 16px; }
+#schedulerDiagnosticsStatus { color: var(--muted); margin: 0 0 16px; }
+#schedulerDiagnosticsStatus.is-error { color: var(--danger); }
+.scheduler-diagnostic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.scheduler-diagnostic-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--card-bg); margin-bottom: 16px; }
+.scheduler-diagnostic-card h2 { margin: 0 0 14px; font-size: 18px; }
+.scheduler-diagnostic-card h3 { margin: 0 0 8px; font-size: 16px; }
+.scheduler-diagnostic-card p { overflow-wrap: anywhere; }
+.scheduler-diagnostic-card dl { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 1fr); gap: 10px 18px; margin: 0; }
+.scheduler-diagnostic-card dt { color: var(--muted); }
+.scheduler-diagnostic-card dd { margin: 0; overflow-wrap: anywhere; }
+.scheduler-diagnostic-summary { font-weight: 600; }
+.scheduler-diagnostic-issue { padding: 16px 0; border-top: 1px solid var(--line); }
+.scheduler-diagnostic-issue:first-of-type { padding-top: 0; border-top: 0; }
+.scheduler-diagnostic-slots { margin: 10px 0 0; padding-left: 22px; }
+.scheduler-diagnostic-slots li { margin-bottom: 8px; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  #schedulerDiagnostics .section-head .row { width: 100%; flex-wrap: wrap; }
+  .scheduler-diagnostic-card { padding: 16px; }
+  .scheduler-diagnostic-card dl { grid-template-columns: 1fr; gap: 4px; }
+  .scheduler-diagnostic-card dd { margin-bottom: 10px; }
+}

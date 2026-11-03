@@ -165,8 +165,44 @@ function toggleConstraintCell(cell) {
   const blocked = !cell.classList.contains("blocked");
   cell.classList.toggle("blocked", blocked);
   cell.setAttribute("aria-pressed", blocked ? "true" : "false");
-  animateConstraintState(cell, blocked, blocked ? "Tiết tránh" : "Có thể xếp");
+  const allGradesLocked = cell.dataset.allGradeLocked === "true";
+  const label = blocked ? "Tiết tránh" : allGradesLocked ? "Khóa khối" : "Có thể xếp";
+  animateConstraintState(cell, blocked || allGradesLocked, label);
+  if (cell.dataset.gradeLockHint) cell.setAttribute("aria-label", `${label}. ${cell.dataset.gradeLockHint}`);
   syncConstraintDraftDirty();
+}
+
+function teacherConstraintGradeContext(teacherId) {
+  const assignedClassIds = new Set((data.assignments || [])
+    .filter(assignment => Number(assignment.teacher_id) === Number(teacherId))
+    .map(assignment => Number(assignment.class_id)));
+  const gradeById = new Map((data.grades || []).map(grade => [Number(grade.id), grade]));
+  const assignedGrades = new Map();
+  let hasUngradedClasses = false;
+  for (const schoolClass of data.classes || []) {
+    if (!assignedClassIds.has(Number(schoolClass.id))) continue;
+    const grade = schoolClass.grade_id == null ? null : gradeById.get(Number(schoolClass.grade_id));
+    if (!grade) hasUngradedClasses = true;
+    else assignedGrades.set(Number(grade.id), grade);
+  }
+  const grades = [...assignedGrades.values()].sort((a, b) =>
+    String(a.name).localeCompare(String(b.name), "vi", { numeric: true }) || Number(a.id) - Number(b.id));
+  return { grades: grades.map(grade => ({ ...grade, lockedSlots: new Set((grade.blocked_slots || []).map(Number)) })), hasUngradedClasses };
+}
+
+function teacherConstraintGradeLock(context, slot) {
+  const locked = context.grades.filter(grade => grade.lockedSlots.has(slot));
+  const available = context.grades.filter(grade => !grade.lockedSlots.has(slot));
+  const allLocked = locked.length > 0 && available.length === 0 && !context.hasUngradedClasses;
+  if (!locked.length) return { locked, allLocked, hint: "" };
+  const otherTargets = [...available.map(grade => grade.name), ...(context.hasUngradedClasses ? ["các lớp chưa có khối"] : [])];
+  const explanation = allLocked
+    ? "Tất cả khối giáo viên đang dạy đều khóa tiết này."
+    : `Vẫn có thể xếp cho ${otherTargets.join(", ")} nếu thỏa các ràng buộc khác.`;
+  return {
+    locked, allLocked,
+    hint: `Khóa khối: ${locked.map(grade => grade.name).join(", ")}. ${explanation} Bấm vào ô để đặt hoặc bỏ tiết tránh riêng của giáo viên.`,
+  };
 }
 function ensureGlobalSessionLockPanel() {
   const section = $("#constraints");
@@ -219,6 +255,7 @@ function renderGlobalSessionLocks() {
     .map((grade) => `<option value="${grade.id}">Theo khối: ${esc(grade.name)}</option>`).join("")
     : '<option value="">Chưa có khối lớp</option>';
   scope.value = globalLockGradeId == null ? "" : String(globalLockGradeId);
+  $("#sessionLockGrid").dataset.editToken = (data.grades || []).find(grade => grade.id === globalLockGradeId)?.locks_token || "";
   syncConstraintSaveControls();
   const grid = $("#sessionLockGrid"),
     slotGrid = $("#globalSlotLockGrid"),
@@ -304,7 +341,7 @@ async function saveGlobalSessionLocks(button, { reset = false } = {}) {
     const { response: r, result, cancelled } =
       await postJsonWithDisplacementConfirmation(
         `/api/projects/${PROJECT_ID}/session-locks`,
-        { grade_id: globalLockGradeId, sessions, slots },
+        { grade_id: globalLockGradeId, sessions, slots, expected_token: $("#sessionLockGrid").dataset.editToken },
         { title: "Xác nhận khóa lịch", confirmText: "Lưu và đưa về khay" },
       );
     if (cancelled) {
@@ -441,6 +478,9 @@ function renderConstraintGrid({ preserveDraft = false } = {}) {
   const obj = (type.value === "teacher" ? data.teachers : data.classes).find(
     (x) => x.id === Number(ent.value),
   );
+  if (!preserveDraft) box.dataset.editToken = obj?.availability_token || "";
+  const isTeacher = type.value === "teacher";
+  const teacherGrades = isTeacher ? teacherConstraintGradeContext(obj?.id) : null;
   const blocked = preserveDraft
     ? new Set([...box.querySelectorAll("[data-cslot].blocked")].map((cell) => Number(cell.dataset.cslot)))
     : new Set((obj?.unavailable || []).map(Number)),
@@ -450,7 +490,12 @@ function renderConstraintGrid({ preserveDraft = false } = {}) {
     days = data.project.days,
     pps = data.project.periods,
     sessions = data.project.sessions;
-  let h = `<p class="constraint-global-lock-note">Ô <b>Khóa khối</b> của lớp được kế thừa từ bảng khóa lịch phía trên. Muốn mở, chọn khối tương ứng rồi bấm <b>Lưu khóa lịch</b>.</p><div class="timetable constraint-timetable" style="grid-template-columns:90px repeat(${days},minmax(110px,1fr))"><div class="cell head">Tiết</div>`;
+  const note = isTeacher
+    ? (teacherGrades.grades.length
+      ? `Khóa khối theo phân công của giáo viên: <b>${teacherGrades.grades.map(grade => esc(grade.name)).join(", ")}</b>. Nhãn <b>Khóa:</b> ghi rõ khối bị khóa ở từng tiết. Nếu chỉ một số khối bị khóa, giáo viên vẫn có thể dạy các khối còn lại khi thỏa ràng buộc. Bấm ô để đặt tiết tránh riêng; mở khóa khối ở bảng phía trên.`
+      : "Giáo viên chưa có phân công cho lớp thuộc khối, nên chưa có khóa khối để hiển thị. Bấm ô để đặt tiết tránh riêng của giáo viên.")
+    : "Ô <b>Khóa khối</b> của lớp được kế thừa từ bảng khóa lịch phía trên. Muốn mở, chọn khối tương ứng rồi bấm <b>Lưu khóa lịch</b>.";
+  let h = `<p class="constraint-global-lock-note">${note}</p><div class="timetable constraint-timetable" style="grid-template-columns:90px repeat(${days},minmax(110px,1fr))"><div class="cell head">Tiết</div>`;
   for (let d = 0; d < days; d++)
     h += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
   for (let s = 0; s < sessions; s++)
@@ -460,12 +505,21 @@ function renderConstraintGrid({ preserveDraft = false } = {}) {
         const slot = d * (sessions * pps) + s * pps + p,
           isBlocked = blocked.has(slot),
           isInherited = gradeBlocked.has(slot),
-          label = isInherited ? "Khóa khối" : (isBlocked ? "Tiết tránh" : "Có thể xếp"),
+          teacherLock = isTeacher ? teacherConstraintGradeLock(teacherGrades, slot) : null,
+          allTeacherGradesLocked = teacherLock?.allLocked || false,
+          label = isInherited ? "Khóa khối" : (isBlocked ? "Tiết tránh" : allTeacherGradesLocked ? "Khóa khối" : "Có thể xếp"),
           interactive = isInherited ? 'aria-disabled="true" tabindex="-1" title="Tiết đã khóa theo phạm vi; mở khóa ở bảng phía trên"' :
             `role="button" tabindex="0" aria-pressed="${isBlocked ? "true" : "false"}" onclick="toggleConstraintCell(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleConstraintCell(this)}"`;
+        const teacherLockAttributes = teacherLock?.locked.length
+          ? `data-all-grade-locked="${allTeacherGradesLocked}" data-grade-lock-hint="${esc(teacherLock.hint)}" title="${esc(teacherLock.hint)}" aria-label="${esc(`${label}. ${teacherLock.hint}`)}"`
+          : "";
+        const teacherLockClass = teacherLock?.locked.length
+          ? `has-teacher-grade-locks ${allTeacherGradesLocked ? "all-teacher-grades-locked" : "some-teacher-grades-locked"}` : "";
+        const teacherLockBadge = teacherLock?.locked.length
+          ? `<small class="constraint-grade-lock-badge">Khóa: ${esc(teacherLock.locked.map(grade => grade.name).join(", "))}</small>` : "";
         // Keep the entity-specific .blocked flag even when a grade lock
         // overlaps it, so saving does not erase existing teacher/class rules.
-        h += `<div ${interactive} data-cslot="${slot}" class="cell available constraint-state-cell ${isBlocked ? "blocked" : ""} ${isInherited ? "global-locked" : ""}"><span class="constraint-state-stage"><span class="constraint-state-content ${isInherited || isBlocked ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(isInherited || isBlocked, label)}</span></span></div>`;
+        h += `<div ${interactive} ${teacherLockAttributes} data-cslot="${slot}" class="cell available constraint-state-cell ${isBlocked ? "blocked" : ""} ${isInherited ? "global-locked" : ""} ${teacherLockClass}"><span class="constraint-state-stage"><span class="constraint-state-content ${isInherited || isBlocked || allTeacherGradesLocked ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(isInherited || isBlocked || allTeacherGradesLocked, label)}</span></span>${teacherLockBadge}</div>`;
       }
     }
   h += "</div>";
@@ -509,6 +563,7 @@ async function saveConstraints(button, { reset = false } = {}) {
         {
           entity_type: $("#constraintType").value,
           entity_id: Number(entity.value),
+          expected_token: $("#constraintGrid").dataset.editToken,
           slots,
         },
         { title: "Xác nhận tiết tránh", confirmText: "Lưu và đưa về khay" },

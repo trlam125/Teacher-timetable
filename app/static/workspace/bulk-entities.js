@@ -1,3 +1,20 @@
+function captureEntitySelections() {
+  return [...document.querySelectorAll("[data-bulk-table]")].map(root => ({
+    type: root.dataset.bulkTable,
+    ids: [...root.querySelectorAll(".entity-row-select:checked")].map(input => String(input.dataset.entityId)),
+  }));
+}
+function restoreEntitySelections(saved) {
+  for (const { type, ids } of saved || []) {
+    const root = entityBulkRoot(type);
+    if (!root) continue;
+    const selected = new Set(ids);
+    root.querySelectorAll(".entity-row-select").forEach(input => {
+      input.checked = selected.has(String(input.dataset.entityId));
+    });
+    syncEntityBulkControls(type);
+  }
+}
 function bulkEntityToolbar(type) {
   return `<div class="entity-bulk-toolbar" data-bulk-toolbar="${type}"><span class="entity-bulk-count"><b data-bulk-count>0</b> mục được chọn</span><button class="btn btn-danger entity-bulk-delete" type="button" onclick="deleteSelectedEntities('${type}',this)" disabled>Xóa đã chọn</button></div>`;
 }

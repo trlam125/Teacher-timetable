@@ -19,9 +19,11 @@ from app.routers.teacher import router as teacher_router
 from app.routers.share_export import router as share_export_router
 from app.routers.notifications import router as notifications_router
 from app.services.schedule_notifications import register_schedule_notifications
+from app.services.schedule_live import register_schedule_live
 
 # Model thong bao phai duoc import TRUOC khi bootstrap DB tao bang.
 register_schedule_notifications()
+register_schedule_live()
 
 
 def create_app() -> FastAPI:

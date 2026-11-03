@@ -7,6 +7,8 @@ from app.services.web import *
 from app.services.auth import *
 from app.services.schedule_service import *
 from app.services.entities import *
+from app.services.schedule_live import schedule_revision
+from app.services.edit_conflicts import edit_token
 
 
 def ensure_school_for_name(db: Session, school_name: str) -> School:
@@ -260,6 +262,7 @@ def ordered_project_grades(db: Session, project_id: int) -> list[Grade]:
 
 
 def project_data(db: Session, p: Project):
+    revision = schedule_revision(db, p.id)
     subs = db.scalars(select(Subject).where(Subject.project_id == p.id)).all()
     teas = db.scalars(select(Teacher).where(Teacher.project_id == p.id)).all()
     grades = ordered_project_grades(db, p.id)
@@ -285,12 +288,16 @@ def project_data(db: Session, p: Project):
     teacher_subject_map = defaultdict(list)
     for row in teacher_subject_rows:
         teacher_subject_map[row.teacher_id].append(row.subject_id)
+    requirements_by_grade = defaultdict(list)
+    for row in grade_requirements:
+        requirements_by_grade[row.grade_id].append(row)
     class_capacity_issues = schedule_class_capacity_issues(p, classes, assignments)
     duplicate_issues = duplicate_assignment_issues(db, assignments)
     assigned_teacher_ids = {x.teacher_id for x in assignments}
     assigned_subject_ids = {x.subject_id for x in assignments}
     assigned_class_ids = {x.class_id for x in assignments}
     return {
+        "schedule_revision": revision,
         "project": {
             "id": p.id,
             "name": p.name,
@@ -306,6 +313,7 @@ def project_data(db: Session, p: Project):
         "subjects": [
             {
                 "id": x.id,
+                "edit_token": edit_token("subject", x),
                 "name": canonical_subject_name(x.name),
                 "short_name": canonical_subject_short_name(x.short_name, x.name),
             }
@@ -314,6 +322,8 @@ def project_data(db: Session, p: Project):
         "teachers": [
             {
                 "id": x.id,
+                "edit_token": edit_token("teacher", x, subject_ids=teacher_subject_map.get(x.id, [])),
+                "availability_token": edit_token("availability", x),
                 "name": x.name,
                 "short_name": x.short_name,
                 "unavailable": list(parse_slots(x.unavailable_json)),
@@ -324,6 +334,8 @@ def project_data(db: Session, p: Project):
         "grades": [
             {
                 "id": x.id,
+                "edit_token": edit_token("grade", x, requirements=requirements_by_grade.get(x.id, [])),
+                "locks_token": edit_token("grade_locks", x),
                 "name": x.name,
                 "blocked_slots": valid_slots(
                     p, parse_slots(x.blocked_slots_json), strict=False
@@ -344,6 +356,8 @@ def project_data(db: Session, p: Project):
         "classes": [
             {
                 "id": x.id,
+                "edit_token": edit_token("class", x),
+                "availability_token": edit_token("availability", x),
                 "name": x.name,
                 "grade_id": x.grade_id,
                 "unavailable": list(parse_slots(x.unavailable_json)),
@@ -353,6 +367,7 @@ def project_data(db: Session, p: Project):
         "assignments": [
             {
                 "id": x.id,
+                "edit_token": edit_token("assignment", x),
                 "class_id": x.class_id,
                 "subject_id": x.subject_id,
                 "teacher_id": x.teacher_id,
@@ -411,6 +426,7 @@ def project_data(db: Session, p: Project):
 
 
 def public_project_data(db: Session, p: Project):
+    revision = schedule_revision(db, p.id)
     grades = ordered_project_grades(db, p.id)
     subjects = {
         x.id: x
@@ -431,6 +447,7 @@ def public_project_data(db: Session, p: Project):
     ).all()
     lessons = db.scalars(select(Lesson).where(Lesson.project_id == p.id)).all()
     return {
+        "schedule_revision": revision,
         "project": {
             "id": p.id,
             "name": p.name,

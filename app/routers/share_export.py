@@ -2,8 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from app.services.runtime import *
+from app.services.schedule_live_payload import live_schedule_response
 
 router = APIRouter()
+
+
+@router.get("/api/share/{token}/live")
+def shared_live(token: str, revision: Optional[str] = None, db: Session = Depends(db_session)):
+    project = db.scalar(select(Project).where(Project.share_token == token))
+    if project is None:
+        raise HTTPException(404, "Liên kết chia sẻ không còn khả dụng")
+    return live_schedule_response(db, project, revision, public=True)
 
 
 @router.get("/share/{token}", response_class=HTMLResponse)

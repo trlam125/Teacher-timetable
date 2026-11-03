@@ -369,6 +369,7 @@ let autoAssignmentView = "matrix";
 let autoAssignmentGrade = "";
 const autoAssignmentDrafts = new Map();
 const autoGradeDrafts = new Map();
+const autoGradeEditTokens = new Map();
 const autoAssignmentSaves = new Set();
 const autoGradeSaves = new Set();
 function autoAssignmentSubjectRank(name) {return schoolSubjectCatalog.rank(name);}
@@ -448,7 +449,7 @@ function autoAssignmentCell(schoolClass, subject, assignment) {
         onchange="autoAssignmentCellChanged('${id}')">${autoAssignmentTeacherOptions(subject.id, teacherId)}</select>
     </td><td class="auto-assignment-periods${badge}">
       <div class="auto-assignment-cell" data-auto-assignment-cell="${id}" data-class="${schoolClass.id}" data-subject="${subject.id}"
-        data-assignment="${Number(assignment?.id || 0)}" data-mode="${esc(mode)}">
+        data-assignment="${Number(assignment?.id || 0)}" data-mode="${esc(mode)}" data-edit-token="${esc(draft?.editToken || assignment?.edit_token || "")}">
         <input type="number" min="1" max="40" step="1" aria-label="Số tiết ${esc(label)}"
           data-matrix-periods data-initial="${assignment?.periods_per_week ?? ""}"
           value="${esc(periods)}" oninput="autoAssignmentCellChanged('${id}')">
@@ -526,7 +527,7 @@ function autoAssignmentCellChanged(id) {
     button.textContent = button.disabled ? "Đang lưu..." : !teacher.value && Number(cell.dataset.assignment) ? "Xóa" : "Lưu";
   }
   cell.classList.toggle("is-dirty", changed);
-  if (changed || autoAssignmentSaves.has(id)) autoAssignmentDrafts.set(id, {teacherId: Number(teacher.value || 0), periods: periods.value});
+  if (changed || autoAssignmentSaves.has(id)) autoAssignmentDrafts.set(id, {teacherId: Number(teacher.value || 0), periods: periods.value, editToken: cell.dataset.editToken});
   else autoAssignmentDrafts.delete(id);
 }
 async function saveAutoAssignmentCell(id, button) {
@@ -559,7 +560,7 @@ async function saveAutoAssignmentCell(id, button) {
     if (assignmentId) {
       const outcome = await updateWithScheduleConfirmation(
         `/api/projects/${PROJECT_ID}/assignments/${assignmentId}`,
-        {teacher_id: teacherId, periods_per_week: periods, block_mode: cell.dataset.mode || "free"});
+        {teacher_id: teacherId, periods_per_week: periods, block_mode: cell.dataset.mode || "free", expected_token: cell.dataset.editToken});
       ({response, result, cancelled} = outcome);
     } else {
       response = await fetch(`/api/projects/${PROJECT_ID}/entity`, {
@@ -580,6 +581,7 @@ async function saveAutoAssignmentCell(id, button) {
       : autoAssignmentDrafts.get(id) || submitted;
     // Keep the visible intent until refresh finishes, including a reversal to
     // the old saved value while either the mutation or reload is in flight.
+    latest.editToken = result.edit_token || cell.dataset.editToken;
     autoAssignmentDrafts.set(id, latest);
     showToast("Đã lưu phân công.","success");
     await refreshAfterSuccessfulMutation();
@@ -654,7 +656,7 @@ function renderAutoGradeMatrix() {
     const shown = autoGradeDrafts.has(key) ? autoGradeDrafts.get(key) : (item?.periods_per_week ?? '');
     return `<td><input type="number" min="1" max="40" step="1" placeholder="—" data-grade-id="${g.id}"
       data-subject-id="${s.id}" data-mode="${esc(item?.block_mode || 'free')}"
-      data-original="${item?.periods_per_week ?? ''}" value="${shown}"
+      data-original="${item?.periods_per_week ?? ''}" value="${shown}" data-edit-token="${esc(autoGradeEditTokens.get(Number(g.id)) || g.edit_token || '')}"
       oninput="autoGradeMatrixChanged(${g.id})" aria-label="${esc(g.name)} ${esc(s.name)}"></td>`;
   }).join("")}</tr>`).join("");
   const footer=grades.map(g => `<td><button type="button" class="btn ghost auto-grade-save" data-grade-save="${g.id}"
@@ -680,6 +682,8 @@ function autoGradeMatrixChanged(gradeId) {
     else autoGradeDrafts.delete(key);
   }
   const changed=inputs.some(x=>String(x.value).trim()!==String(x.dataset.original).trim());
+  if (changed && !autoGradeEditTokens.has(Number(gradeId))) autoGradeEditTokens.set(Number(gradeId), inputs[0]?.dataset.editToken || "");
+  if (!changed && !autoGradeSaves.has(Number(gradeId))) autoGradeEditTokens.delete(Number(gradeId));
   button.disabled = autoGradeSaves.has(Number(gradeId)) || !changed;
   button.textContent = autoGradeSaves.has(Number(gradeId)) ? "Đang lưu..." : `Lưu ${(data.grades || []).find(row => Number(row.id) === Number(gradeId))?.name || "khối"}`;
   button.classList.toggle('is-changed',changed);
@@ -709,9 +713,10 @@ async function saveAutoGradeColumn(gradeId,button) {
   try {
     const {response,result,cancelled}=await updateWithScheduleConfirmation(
       `/api/projects/${PROJECT_ID}/entity/grade/${grade.id}`,
-      {type:'grade', data:{name:grade.name,subject_requirements:configs}});
+      {type:'grade', data:{name:grade.name,subject_requirements:configs}, expected_token:autoGradeEditTokens.get(Number(gradeId)) || items[0]?.dataset.editToken});
     if (cancelled) {showToast('Đã hủy. Chương trình hiện tại được giữ nguyên.','info');return;}
     if (!response.ok) {showToast(apiErrorMessage(result,'Không thể lưu chương trình khối.'),'error',6000);return;}
+    autoGradeEditTokens.set(Number(gradeId), result.edit_token || autoGradeEditTokens.get(Number(gradeId)));
     const live = new Map([...box.querySelectorAll(`[data-grade-id="${gradeId}"]`)].map(input => [String(input.dataset.subjectId), input.value]));
     for (const [subjectId, value] of submitted) {
       const key = `${gradeId}-${subjectId}`;

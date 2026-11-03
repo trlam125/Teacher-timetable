@@ -1,4 +1,5 @@
 function renderAll() {
+  const selectedRows = captureEntitySelections();
   if ($("#subjectTable")) {
     $("#subjectTable").innerHTML = table(
       data.subjects,
@@ -65,6 +66,7 @@ function renderAll() {
     renderScheduleSelectors();
     renderConstraintSelectors();
   }
+  restoreEntitySelections(selectedRows);
 }
 function opts(rows, label = "name") {
   return rows
@@ -507,6 +509,7 @@ function openEntityEdit(type, id) {
   if (!item) return;
   entityType = `${type}_edit`;
   entityId = item.id;
+  entityModal.querySelector("form").dataset.editToken = item.edit_token || "";
   entityModal
     .querySelector(".modal-form")
     ?.classList.remove("assignment-bulk-form");
@@ -533,6 +536,7 @@ function openAssignmentEdit(id) {
   const item = data.assignments.find((x) => x.id === id);
   if (!item) return;
   entityType = "assignment_edit";
+  entityModal.querySelector("form").dataset.editToken = item.edit_token || "";
   entityModal
     .querySelector(".modal-form")
     ?.classList.remove("assignment-bulk-form");
@@ -721,7 +725,7 @@ async function submitEntity(e) {
     if (entityType === "assignment_edit") {
       const { response: r, result, cancelled } = await updateWithScheduleConfirmation(
         `/api/projects/${PROJECT_ID}/assignments/${o.assignment_id}`,
-        { periods_per_week: o.periods_per_week, block_mode: o.block_mode },
+        { periods_per_week: o.periods_per_week, block_mode: o.block_mode, expected_token: form.dataset.editToken },
       );
       if (cancelled) {
         setInlineActionState(submitButton, "idle", { idle: "Lưu" });
@@ -753,7 +757,7 @@ async function submitEntity(e) {
       const type = entityType.replace("_edit", "");
       const { response: r, result, cancelled } = await updateWithScheduleConfirmation(
         `/api/projects/${PROJECT_ID}/entity/${type}/${entityId}`,
-        { type, data: o },
+        { type, data: o, expected_token: form.dataset.editToken },
       );
       if (cancelled) {
         setInlineActionState(submitButton, "idle", { idle: "Lưu" });

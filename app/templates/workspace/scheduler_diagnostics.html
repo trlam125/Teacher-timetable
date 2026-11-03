@@ -1,0 +1,16 @@
+{% if user.role == "super_admin" %}
+<section id="schedulerDiagnostics" class="tab">
+    <div class="section-head">
+        <div>
+            <h1>Chẩn đoán bộ xếp</h1>
+            <p>Kiểm tra môi trường, ràng buộc và kết quả xếp lịch của dự án.</p>
+        </div>
+        <div class="row">
+            <button class="btn ghost" id="schedulerDiagnosticsDownload" type="button" onclick="downloadSchedulerDiagnostics()" disabled>Tải báo cáo JSON</button>
+            <button class="btn" id="schedulerDiagnosticsRefresh" type="button" onclick="loadSchedulerDiagnostics()">Kiểm tra lại</button>
+        </div>
+    </div>
+    <p id="schedulerDiagnosticsStatus" role="status" aria-live="polite">Chọn mục này để tải báo cáo chẩn đoán.</p>
+    <div id="schedulerDiagnosticsContent"></div>
+</section>
+{% endif %}

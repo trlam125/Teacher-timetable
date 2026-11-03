@@ -27,23 +27,24 @@ def assignment_feasibility_context(
     project_blocked_slots: set[int] | None = None,
     teacher_unavailable_slots: set[int] | None = None,
     class_unavailable_slots: set[int] | None = None,
+    snapshot: dict | None = None,
 ):
     """Preload immutable inputs reused while evaluating many candidate slots."""
     pps = project.periods_per_session
     ppd = project.sessions * pps
-    teacher = db.get(Teacher, assignment.teacher_id)
-    school_class = db.get(SchoolClass, assignment.class_id)
-    subject = db.get(Subject, assignment.subject_id)
+    teacher = snapshot["teachers"].get(assignment.teacher_id) if snapshot is not None else db.get(Teacher, assignment.teacher_id)
+    school_class = snapshot["classes"].get(assignment.class_id) if snapshot is not None else db.get(SchoolClass, assignment.class_id)
+    subject = snapshot["subjects"].get(assignment.subject_id) if snapshot is not None else db.get(Subject, assignment.subject_id)
     if not teacher or not school_class or not subject:
         return None
 
-    assignments = {
+    assignments = snapshot["assignments"] if snapshot is not None else {
         row.id: row
         for row in db.scalars(
             select(Assignment).where(Assignment.project_id == project.id)
         ).all()
     }
-    all_lessons = db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
+    all_lessons = snapshot["lessons"] if snapshot is not None else db.scalars(select(Lesson).where(Lesson.project_id == project.id)).all()
     lessons = all_lessons
     if fixed_only:
         coverage = fixed_coverage_slots(db, project)
@@ -75,7 +76,7 @@ def assignment_feasibility_context(
             if other.subject_id == assignment.subject_id:
                 subject_masks[lesson.slot // pps] |= 1 << (lesson.slot % pps)
 
-    fixed_rows = db.scalars(
+    fixed_rows = snapshot["fixed_by_assignment"].get(assignment.id, []) if snapshot is not None else db.scalars(
         select(FixedLesson).where(
             FixedLesson.project_id == project.id,
             FixedLesson.assignment_id == assignment.id,

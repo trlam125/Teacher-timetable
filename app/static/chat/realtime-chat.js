@@ -909,6 +909,7 @@ import {
       try { data = JSON.parse(event.data); } catch { return; }
 
       if (data.type === "ready") {
+        window.dispatchEvent(new CustomEvent("schedule-realtime-ready"));
         globalOnlineUsers.clear();
         (data.online_user_ids || []).forEach(id => globalOnlineUsers.add(Number(id)));
         refreshAllPresenceRows();
@@ -921,6 +922,11 @@ import {
         (data.online_user_ids || []).forEach(id => globalOnlineUsers.add(Number(id)));
         refreshAllPresenceRows();
         joinActiveSchool();
+        return;
+      }
+
+      if (data.type === "schedule_changed") {
+        window.dispatchEvent(new CustomEvent("schedule-changed", { detail: data }));
         return;
       }
 

@@ -167,6 +167,15 @@ class Project(Base):
     )
 
 
+class SchedulerRunDiagnostic(Base):
+    __tablename__ = "scheduler_run_diagnostics"
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    recorded_at: Mapped[str] = mapped_column(String(40))
+    report_json: Mapped[str] = mapped_column(Text)
+
+
 class CaptchaUse(Base):
     __tablename__ = "captcha_uses"
     nonce_hash: Mapped[str] = mapped_column(String(64), primary_key=True)

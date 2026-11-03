@@ -1,5 +1,28 @@
 /* Manual scheduling tray, lesson controls and editor-specific states. */
 
+.constraint-timetable .constraint-state-cell.has-teacher-grade-locks {
+  align-content: center;
+  gap: 5px;
+  border-bottom: 3px solid var(--warning);
+}
+.constraint-timetable .constraint-state-cell.all-teacher-grades-locked:not(.blocked) {
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warning) 10%, var(--card-bg)) 0 9px, color-mix(in srgb, var(--warning) 22%, var(--card-bg)) 9px 18px);
+}
+.constraint-grade-lock-badge {
+  display: block;
+  max-width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--warning-border);
+  border-radius: 6px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .overview-timetable .cell.available {
   display: flex;
   flex-direction: column;

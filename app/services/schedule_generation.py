@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import time
 from app.scheduling.solver.diagnostics import SCHEDULER_REVISION
+from app.services.scheduler_diagnostics import record_scheduler_run
 
 
 def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[GenerateScheduleIn]):
@@ -409,14 +410,31 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
 
     search_diagnostics = None
 
+    def record_failed_run(outcome):
+        db.rollback()
+        if search_diagnostics is not None:
+            try:
+                record_scheduler_run(db, pid, search_diagnostics, outcome)
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("Could not persist failed scheduler diagnostic for project %s", pid)
+
     def run_solver(solver, mode, tries):
         nonlocal search_diagnostics
         started = time.monotonic()
-        result = solver(db, p, tries=tries)
         search_diagnostics = {
             "scheduler_revision": SCHEDULER_REVISION,
             "mode": mode,
             "initial_lessons": len(existing),
+        }
+        try:
+            result = solver(db, p, tries=tries)
+        except Exception:
+            search_diagnostics["elapsed_seconds"] = round(time.monotonic() - started, 3)
+            record_failed_run({"status": "error", "saved": False, "message": "Bộ xếp gặp sự cố; lịch trước thao tác được giữ lại."})
+            raise
+        search_diagnostics.update({
             "solver": result.get("solver"),
             "elapsed_seconds": round(time.monotonic() - started, 3),
             "result_periods": len(result["lessons"]),
@@ -424,7 +442,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             "optimal": result.get("optimal", False),
             "search_limited": result.get("search_limited", not result.get("optimal", False)),
             "maximum_placed": result.get("maximum_placed", result["unscheduled"] == 0),
-        }
+        })
         logger.info("Schedule generation diagnostic: %s", search_diagnostics)
         return result
 
@@ -439,7 +457,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 "Generated/current timetable failed final validation: %s",
                 integrity,
             )
-            db.rollback()
+            record_failed_run({"status": "rejected", "saved": False, "message": "Kết quả xếp bị từ chối do không vượt qua kiểm tra toàn vẹn.", "integrity": integrity})
             return JSONResponse(
                 {
                     "ok": False,
@@ -493,6 +511,16 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 affected_lesson_ids=movable_ids,
                 moved_count=len(movable_ids),
             )
+        if search_diagnostics is not None:
+            record_scheduler_run(db, pid, search_diagnostics, {
+                "status": "partial" if response_payload["partial"] else "complete",
+                "saved": True,
+                "scheduled": len(current_lessons),
+                "unscheduled": missing_periods,
+                "score": response_payload.get("score"),
+                "preserved_current": response_payload.get("preserved_current", False),
+                "message": response_payload["message"],
+            })
         db.commit()
         return response_payload
 

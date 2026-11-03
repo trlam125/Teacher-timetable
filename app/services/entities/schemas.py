@@ -8,6 +8,7 @@ from app.services.schedule_service import *
 class EntityIn(BaseModel):
     type: str
     data: dict
+    expected_token: str | None = None
 
 
 class BulkAssignmentSubjectIn(BaseModel):
@@ -27,6 +28,7 @@ class BulkAssignmentIn(BaseModel):
 
 
 class AssignmentUpdateIn(BaseModel):
+    expected_token: str | None = None
     teacher_id: int | None = None
     periods_per_week: int
     block_mode: str = "free"
@@ -50,6 +52,7 @@ class AssignmentResetIn(EntityDeleteIn):
 
 
 class ConstraintIn(BaseModel):
+    expected_token: str | None = None
     entity_type: str
     entity_id: int
     slots: list[int]
@@ -58,6 +61,7 @@ class ConstraintIn(BaseModel):
 
 
 class SessionLocksIn(BaseModel):
+    expected_token: str | None = None
     grade_id: int = Field(gt=0)
     sessions: list[int] = Field(default_factory=list)
     slots: list[int] = Field(default_factory=list)

@@ -11,6 +11,7 @@ from app.services.entities.updates.subject import update_subject_fields
 from app.services.entities.updates.teacher import update_teacher_fields
 from app.services.projects import get_project_for_update
 from app.services.web import bounded_text
+from app.services.edit_conflicts import current_edit_token, require_current_edit
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -47,6 +48,7 @@ def update_entity(
     obj = db.get(model, eid)
     if not obj or obj.project_id != pid:
         raise HTTPException(404, "Không tìm thấy dữ liệu cần sửa")
+    require_current_edit(payload.expected_token, current_edit_token(db, typ, obj))
     d = payload.data
     name_limit = {
         "department": 120,
@@ -78,6 +80,7 @@ def update_entity(
     db.commit()
     return {
         "ok": True,
+        "edit_token": current_edit_token(db, typ, obj),
         "displaced_lessons": len(set(displaced_lesson_ids)),
         "synced_assignments": synced_assignments,
         "removed_extra_assignments": removed_extra_assignments,

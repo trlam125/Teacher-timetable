@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from app.services.runtime import *
+from app.services.edit_conflicts import edit_token, require_current_edit
 from app.services.schedule_operations.feasibility import ensure_pinned_assignments_feasible
 
 router = APIRouter()
@@ -51,6 +52,7 @@ def constraints(
     obj = db.get(model, payload.entity_id)
     if not obj or obj.project_id != pid:
         raise HTTPException(404)
+    require_current_edit(payload.expected_token, edit_token("availability", obj))
     slots = set(valid_slots(p, payload.slots))
     assignments = db.scalars(
         select(Assignment).where(
@@ -188,6 +190,7 @@ def save_session_locks(
     grade = db.get(Grade, payload.grade_id)
     if not grade or grade.project_id != pid:
         raise HTTPException(404, "Không tìm thấy khối lớp")
+    require_current_edit(payload.expected_token, edit_token("grade_locks", grade))
     maximum = project.days * project.sessions
     try:
         session_keys = normalize_slot_values(payload.sessions, maximum, strict=True)

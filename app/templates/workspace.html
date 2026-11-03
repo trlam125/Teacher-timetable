@@ -19,7 +19,7 @@
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/schedule/schedule-base.css?v=1">
     <link rel="stylesheet" href="/static/preferences.css?v=1">
-    <link rel="stylesheet" href="/static/schedule/schedule-editor.css?v=5">
+    <link rel="stylesheet" href="/static/schedule/schedule-editor.css?v=6">
     <link rel="stylesheet" href="/static/workspace-layout.css?v=3">
     <link rel="preload" href="/static/x.gif?v=1" as="image">
     <link rel="preload" href="/static/tick.gif?v=1" as="image">
@@ -37,6 +37,9 @@
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=2">
+    {% if user.role == "super_admin" %}
+    <link rel="stylesheet" href="/static/schedule/scheduler-diagnostics.css?v=1">
+    {% endif %}
     <script src="/static/profile-avatar.js?v=1" defer></script>
 </head>
 
@@ -138,7 +141,7 @@
             <div class="workspace-tabs-stage" id="workspaceTabsStage">
                 {% include "workspace/overview.html" %}{% include "workspace/entities.html" %}{% include
                 "workspace/assignments.html" %}{% include "workspace/constraints.html" %}{% include
-                "workspace/preferences.html" %}{% include "workspace/schedule.html" %} </div>
+                "workspace/preferences.html" %}{% include "workspace/schedule.html" %}{% include "workspace/scheduler_diagnostics.html" %} </div>
         </main>
     </div>
     {% include "workspace/dialogs.html" %}
@@ -181,15 +184,19 @@
     <script src="/static/subject-catalog.js?v=1"></script>
     <script src="/static/app-core.js?v=3"></script>
     <script src="/static/workspace/feedback.js?v=2"></script>
+    {% if user.role == "super_admin" %}
+    <script src="/static/schedule/scheduler-diagnostics.js?v=1"></script>
+    {% endif %}
     <script src="/static/workspace/refresh.js?v=6"></script>
-    <script src="/static/workspace/navigation.js?v=2"></script>
-    <script src="/static/workspace/bulk-entities.js?v=2"></script>
-    <script src="/static/workspace/assignments.js?v=11"></script>
-    <script src="/static/app-entities.js?v=6"></script>
+    <script src="/static/workspace/navigation.js?v=3"></script>
+    <script src="/static/workspace/bulk-entities.js?v=3"></script>
+    <script src="/static/workspace/assignments.js?v=12"></script>
+    <script src="/static/app-entities.js?v=7"></script>
     <script src="/static/schedule/schedule-view.js?v=12"></script>
     <script src="/static/schedule/schedule-placement.js?v=6"></script>
-    <script src="/static/schedule/schedule-constraints.js?v=8"></script>
+    <script src="/static/schedule/schedule-constraints.js?v=10"></script>
     <script src="/static/app-preferences.js?v=6"></script>
+    <script src="/static/schedule/schedule-live.js?v=2"></script>
 </body>
 
 </html>

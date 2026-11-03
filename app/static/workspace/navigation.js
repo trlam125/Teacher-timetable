@@ -116,6 +116,7 @@ async function activateWorkspaceTab(tabName, options = {}) {
     if (tabName === "schedule") renderSchedule();
     if (tabName === "constraints") renderConstraintSelectors({ force: true });
     if (tabName === "preferences") loadPreferenceInbox();
+    if (tabName === "schedulerDiagnostics" && typeof loadSchedulerDiagnostics === "function") void loadSchedulerDiagnostics();
     return true;
   }
 
@@ -123,6 +124,7 @@ async function activateWorkspaceTab(tabName, options = {}) {
   if (tabName === "schedule") renderSchedule();
   if (tabName === "constraints") renderConstraintSelectors({ force: true });
   if (tabName === "preferences") loadPreferenceInbox();
+  if (tabName === "schedulerDiagnostics" && typeof loadSchedulerDiagnostics === "function") void loadSchedulerDiagnostics();
 
   // Reset scroll of the incoming tab to the top so it enters cleanly
   tabNew.scrollTop = 0;

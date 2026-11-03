@@ -18,6 +18,7 @@ from app.services.entities.validation import (
     ensure_class_load_fits,
 )
 from app.services.projects import get_project_for_update
+from app.services.edit_conflicts import current_edit_token, require_current_edit
 from app.services.schedule_operations.blocks import (
     normalize_assignment_fixed_rows,
     reconcile_assignment_lesson_blocks,
@@ -44,6 +45,7 @@ def update_assignment(
     assignment = db.get(Assignment, assignment_id)
     if not assignment or assignment.project_id != pid:
         raise HTTPException(404)
+    require_current_edit(payload.expected_token, current_edit_token(db, "assignment", assignment))
     periods = bounded_int(payload.periods_per_week, 1, 1, 40, "Số tiết mỗi tuần")
     lessons = db.scalars(
         select(Lesson).where(Lesson.assignment_id == assignment.id)
@@ -166,6 +168,7 @@ def update_assignment(
     db.commit()
     return {
         "ok": True,
+        "edit_token": current_edit_token(db, "assignment", assignment),
         "scheduled_preserved": scheduled_preserved,
         "displaced_lessons": len(displaced_lesson_ids),
     }

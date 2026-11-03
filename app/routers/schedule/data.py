@@ -2,8 +2,25 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from app.services.runtime import *
+from app.services.schedule_live_payload import live_schedule_response
 
 router = APIRouter()
+
+
+@router.get("/api/projects/{pid}/live")
+def live_data(
+    pid: int,
+    revision: Optional[str] = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if user.role == "teacher":
+        project = teacher_view_project(user, db, pid)
+        if project is None:
+            raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+        return live_schedule_response(db, project, revision, public=True)
+    project = get_project(pid, user, db)
+    return live_schedule_response(db, project, revision)
 
 
 @router.get("/api/projects/{pid}/data")
