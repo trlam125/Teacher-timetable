@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_sort_key
 
 from app.services.foundation import *
@@ -248,10 +249,20 @@ def project_lessons_data(db: Session, project_id: int):
     ]
 
 
+def ordered_project_grades(db: Session, project_id: int) -> list[Grade]:
+    """Use stable natural ordering even after a grade row is updated."""
+    grades = db.scalars(select(Grade).where(Grade.project_id == project_id)).all()
+    return sorted(grades, key=lambda grade: (
+        tuple((1, int(part)) if part.isdecimal() else (0, part.casefold())
+              for part in re.split(r"(\d+)", grade.name)),
+        grade.id,
+    ))
+
+
 def project_data(db: Session, p: Project):
     subs = db.scalars(select(Subject).where(Subject.project_id == p.id)).all()
     teas = db.scalars(select(Teacher).where(Teacher.project_id == p.id)).all()
-    grades = db.scalars(select(Grade).where(Grade.project_id == p.id)).all()
+    grades = ordered_project_grades(db, p.id)
     grade_requirements = db.scalars(
         select(GradeSubjectRequirement).where(
             GradeSubjectRequirement.project_id == p.id
@@ -400,7 +411,7 @@ def project_data(db: Session, p: Project):
 
 
 def public_project_data(db: Session, p: Project):
-    grades = db.scalars(select(Grade).where(Grade.project_id == p.id)).all()
+    grades = ordered_project_grades(db, p.id)
     subjects = {
         x.id: x
         for x in db.scalars(select(Subject).where(Subject.project_id == p.id)).all()

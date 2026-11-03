@@ -253,14 +253,14 @@ def schedule_integrity_report(
     db: Session,
     project: Project,
     *,
-    allow_partial: bool = False,
+    allow_partial: bool = True,
 ) -> dict:
     """Return the authoritative timetable integrity diagnostic report.
 
     Generation/final solver validation may still use this as a hard gate. Sharing
     and Excel export intentionally do not: users can publish/export the timetable
     in its current state and use this report separately to see remaining issues.
-    With allow_partial, missing periods/capacity are diagnostic only; collisions,
+    By default, missing periods/capacity are diagnostic only; collisions,
     invalid blocks, excess periods and missing fixed lessons remain hard errors.
     """
     assignments = db.scalars(
@@ -283,11 +283,19 @@ def schedule_integrity_report(
         by_assignment[lesson.assignment_id].append(lesson)
 
     count_errors = []
+    missing_assignments = []
     required_double_errors = []
     for assignment in assignments:
         rows = by_assignment.get(assignment.id, [])
         expected = int(assignment.periods_per_week or 0)
         actual = len(rows)
+        if actual < expected:
+            missing_assignments.append({
+                "assignment_id": assignment.id,
+                "expected": expected,
+                "actual": actual,
+                "missing_periods": expected - actual,
+            })
         if actual != expected and (not allow_partial or actual > expected):
             count_errors.append(
                 {
@@ -332,8 +340,23 @@ def schedule_integrity_report(
         )
     issue_count = input_issue_count + schedule_issue_count
     valid = issue_count == 0
+    missing_periods = sum(row["missing_periods"] for row in missing_assignments)
+    missing_curriculum = sum(
+        row["issue_type"] == "missing" for row in input_report["grade_requirement_issues"]
+    )
+    incomplete = bool(missing_periods or missing_curriculum)
 
-    if valid:
+    if valid and incomplete:
+        remaining = []
+        if missing_periods:
+            remaining.append(f"{missing_periods} tiết chưa xếp, còn trong khay")
+        if missing_curriculum:
+            remaining.append(f"{missing_curriculum} mục chương trình khối chưa được phân công")
+        message = (
+            "Các tiết đã xếp hợp lệ. Còn " + ", ".join(remaining)
+            + ". Bạn có thể tiếp tục chỉnh sửa, chia sẻ hoặc xuất Excel."
+        )
+    elif valid:
         message = "Thời khóa biểu hợp lệ. Bạn có thể chia sẻ hoặc xuất Excel."
     else:
         parts = []
@@ -384,6 +407,11 @@ def schedule_integrity_report(
     return {
         "ok": valid,
         "valid": valid,
+        "complete": valid and not incomplete,
+        "partial": incomplete,
+        "missing_periods": missing_periods,
+        "missing_assignments": missing_assignments,
+        "missing_curriculum": missing_curriculum,
         "reason": None if valid else "schedule_integrity_failed",
         "issue_count": issue_count,
         "message": message,

@@ -78,7 +78,7 @@ def build_timetable_workbook(
     sheet.row_dimensions[2].height = 32
 
     header_row = 3
-    if integrity is not None and not integrity["valid"]:
+    if integrity is not None and (not integrity["valid"] or integrity.get("partial")):
         sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=last_col)
         warning = sheet.cell(
             3,

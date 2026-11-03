@@ -61,7 +61,7 @@ def placement_options(
             target_slots = list(range(slot, slot + group_size))
             proposed = [*current_slots, *target_slots]
             if assignment_completion_feasible(
-                db, project, assignment, proposed, context=feasibility
+                db, project, assignment, proposed, allow_partial=True, context=feasibility
             ):
                 valid.append(slot)
         return {
@@ -72,7 +72,7 @@ def placement_options(
             "message": (
                 f"Block {group_size} tiết sẽ được đặt cùng nhau; chỉ các vị trí hợp lệ được đánh dấu."
                 if group_size > 1
-                else "Chỉ các ô được đánh dấu mới có thể hoàn thành lịch hợp lệ."
+                else "Các ô được đánh dấu cho phép đặt tiết mà vẫn thỏa các ràng buộc hiện tại."
             ),
         }
 
@@ -148,6 +148,7 @@ def placement_options(
             assignment,
             proposed,
             enforce_pattern=True,
+            allow_partial=True,
             context=feasibility,
         ):
             valid.append(start)
@@ -234,7 +235,7 @@ def move(
         item.slot for item in lessons if item.id not in moving_ids
     ] + target_slots
     if not assignment_completion_feasible(
-        db, project, assignment, proposed, enforce_pattern=True
+        db, project, assignment, proposed, enforce_pattern=True, allow_partial=True
     ):
         raise HTTPException(
             409,
@@ -339,12 +340,12 @@ def add_manual_lesson(
             return JSONResponse({"ok": False, "message": error}, 409)
     current_slots = [row.slot for row in current_lessons]
     if not assignment_completion_feasible(
-        db, project, assignment, [*current_slots, *target_slots]
+        db, project, assignment, [*current_slots, *target_slots], allow_partial=True
     ):
         return JSONResponse(
             {
                 "ok": False,
-                "message": f"Vị trí này không thể hoàn thành hợp lệ theo chế độ {assignment_pattern_label(assignment)} và các ràng buộc hiện tại.",
+                "message": f"Vị trí này vi phạm chế độ {assignment_pattern_label(assignment)} hoặc các ràng buộc hiện tại.",
             },
             409,
         )

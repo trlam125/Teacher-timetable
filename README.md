@@ -6,6 +6,7 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 
 - Quản lý môn học, giáo viên, lớp và phân công giảng dạy.
 - Xếp thời khóa biểu tự động theo các ràng buộc.
+- Lượt xếp đầu ưu tiên xếp đủ tiết, sau đó tối ưu phân bố môn theo ngày, tiết đôi ưu tiên và khoảng trống của giáo viên. Nếu chưa tìm được lịch đầy đủ, hệ thống giữ phương án xếp được nhiều tiết nhất đã tìm thấy; có thể thử xếp lại phần không cố định ở bước cuối.
 - Điều chỉnh thời khóa biểu thủ công bằng cách bấm/chạm chọn tiết rồi chọn ô đích hoặc khay.
 - Xem lịch theo lớp hoặc giáo viên.
 - Quản lý tài khoản Admin và giáo viên.

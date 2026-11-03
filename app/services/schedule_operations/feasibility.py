@@ -112,6 +112,7 @@ def assignment_completion_feasible(
     proposed_slots: list[int] | set[int],
     *,
     enforce_pattern: bool = True,
+    allow_partial: bool = False,
     context=None,
 ) -> bool:
     """Exact bounded DP over session masks (at most 2**8 per session).
@@ -119,6 +120,8 @@ def assignment_completion_feasible(
     Avoid exploring permutations of every remaining period. A state only needs
     the number of periods and compulsory singles used; day budgets are applied
     before combining days. Existing and fixed slots must be covered exactly.
+    Partial editing validates only the proposed/fixed periods; it never requires
+    enough remaining free slots to complete the entire assignment.
     """
     values = list(proposed_slots)
     current = set(values)
@@ -163,6 +166,8 @@ def assignment_completion_feasible(
             base = key * pps
             allowed = sum(1 << i for i in range(pps) if base + i not in forbidden)
             mandatory = sum(1 << i for i in range(pps) if base + i in required)
+            if allow_partial:
+                allowed &= mandatory
             forced = forced_by_session[key]
             options = set()
             mask = allowed
@@ -217,6 +222,8 @@ def assignment_completion_feasible(
         }
         if not reachable:
             return False
+    if allow_partial:
+        return any(used == len(required) for used, _odd in reachable)
     return (total, single_limit) in reachable
 
 
@@ -226,7 +233,7 @@ def ensure_pinned_assignments_feasible(
     teacher_unavailable: dict[int, set[int]] | None = None,
     class_unavailable: dict[int, set[int]] | None = None,
 ) -> None:
-    """Check proposed rules with pins held and all movable lessons free to move."""
+    """Check that proposed rules preserve valid pins, allowing missing lessons."""
     for assignment in assignments:
         context = assignment_feasibility_context(
             db, project, assignment, fixed_only=True,
@@ -234,12 +241,14 @@ def ensure_pinned_assignments_feasible(
             teacher_unavailable_slots=(teacher_unavailable or {}).get(assignment.teacher_id),
             class_unavailable_slots=(class_unavailable or {}).get(assignment.class_id),
         )
-        if not assignment_completion_feasible(db, project, assignment, [], context=context):
+        if not assignment_completion_feasible(
+            db, project, assignment, [], allow_partial=True, context=context
+        ):
             school_class = db.get(SchoolClass, assignment.class_id)
             subject = db.get(Subject, assignment.subject_id)
             raise HTTPException(409,
-                f"Không thể hoàn thành {school_class.name if school_class else '?'} – "
-                f"{subject.name if subject else '?'} khi giữ các tiết cố định. "
+                f"Không thể giữ các tiết cố định của {school_class.name if school_class else '?'} – "
+                f"{subject.name if subject else '?'} theo các ràng buộc mới. "
                 "Hãy điều chỉnh khóa/tiết tránh hoặc bỏ ghim liên quan trước.")
 
 

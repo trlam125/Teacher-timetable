@@ -20,7 +20,7 @@ def shared(token: str, request: Request, db: Session = Depends(db_session)):
             "data": public_project_data(db, p),
             "days": DAYS,
             "integrity_warning": integrity["message"]
-            if not integrity["valid"]
+            if not integrity["valid"] or integrity["partial"]
             else None,
         },
         headers={"Cache-Control": "no-store"},

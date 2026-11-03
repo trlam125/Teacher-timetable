@@ -55,11 +55,11 @@ def fixed(
         db.rollback()
         raise HTTPException(409, error)
     db.flush()
-    if not assignment_completion_feasible(db, p, assignment, slots):
+    if not assignment_completion_feasible(db, p, assignment, slots, allow_partial=True):
         db.rollback()
         raise HTTPException(
             409,
-            "Lịch hiện tại không thể hoàn thành hợp lệ. Hãy điều chỉnh trước khi ghim.",
+            "Các tiết hiện có vi phạm ràng buộc. Hãy điều chỉnh trước khi ghim.",
         )
     db.commit()
     return {

@@ -58,9 +58,9 @@ def _schedule_soft_score(
 
 def _solver_timeout_seconds() -> float:
     try:
-        value = float(os.getenv("SCHEDULE_SOLVER_TIMEOUT_SECONDS", "15"))
+        value = float(os.getenv("SCHEDULE_SOLVER_TIMEOUT_SECONDS", "30"))
     except (TypeError, ValueError):
-        value = 15.0
+        value = 30.0
     return max(3.0, min(60.0, value))
 
 

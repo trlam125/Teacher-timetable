@@ -75,27 +75,6 @@ def constraints(
     for lesson in lessons:
         lessons_by_assignment[lesson.assignment_id].append(lesson)
 
-    for assignment in assignments:
-        teacher = db.get(Teacher, assignment.teacher_id)
-        school_class = db.get(SchoolClass, assignment.class_id)
-        subject = db.get(Subject, assignment.subject_id)
-        if not teacher or not school_class or not subject:
-            continue
-        ensure_assignment_hard_feasible(
-            p,
-            teacher,
-            school_class,
-            subject,
-            assignment.periods_per_week,
-            assignment.block_mode,
-            teacher_unavailable_slots=slots
-            if payload.entity_type == "teacher"
-            else None,
-            class_unavailable_slots=(slots | class_grade_blocked_slots(school_class))
-            if payload.entity_type == "class"
-            else None,
-        )
-
     fixed_rows = (
         db.scalars(
             select(FixedLesson).where(
@@ -188,13 +167,8 @@ def constraints(
     if confirmation is not None:
         return confirmation
 
-    if payload.entity_type == "class":
-        ensure_class_load_fits(
-            p,
-            obj,
-            class_assigned_periods(db, pid, obj.id),
-            unavailable_slots=slots | class_grade_blocked_slots(obj),
-        )
+    # A rule may leave periods in the tray. Only conflicts with placed/fixed
+    # blocks require rejection or explicit displacement confirmation.
     obj.unavailable_json = json.dumps(sorted(slots))
     for lesson in lessons:
         if lesson.id in removed_ids:
@@ -247,10 +221,6 @@ def save_session_locks(
     ).all()
     fixed_rows = [row for row in fixed_rows if row.assignment_id in assignment_ids]
     blocked_set = set(blocked)
-    total = db.scalar(select(func.coalesce(func.sum(GradeSubjectRequirement.periods_per_week), 0)).where(
-        GradeSubjectRequirement.project_id == pid, GradeSubjectRequirement.grade_id == grade.id,
-    )) or 0
-    ensure_grade_program_fits(project, grade, int(total), grade_blocked_slots=blocked_set)
     removed_ids = set()
     fixed_coverage = fixed_coverage_slots(db, project)
 
@@ -287,34 +257,6 @@ def save_session_locks(
             },
             409,
         )
-
-    teachers = db.scalars(select(Teacher).where(Teacher.project_id == pid)).all()
-    for school_class in classes:
-        assigned = class_assigned_periods(db, pid, school_class.id)
-        if assigned:
-            ensure_class_load_fits(
-                project,
-                school_class,
-                assigned,
-                unavailable_slots=blocked_set | parse_slots(school_class.unavailable_json),
-            )
-
-    teacher_map = {teacher.id: teacher for teacher in teachers}
-    class_map = {school_class.id: school_class for school_class in classes}
-    for assignment in assignments:
-        teacher = teacher_map.get(assignment.teacher_id)
-        school_class = class_map.get(assignment.class_id)
-        subject = db.get(Subject, assignment.subject_id)
-        if teacher and school_class and subject:
-            ensure_assignment_hard_feasible(
-                project,
-                teacher,
-                school_class,
-                subject,
-                assignment.periods_per_week,
-                assignment.block_mode,
-                class_unavailable_slots=blocked_set | parse_slots(school_class.unavailable_json),
-            )
 
     for assignment_id, lessons in lessons_by_assignment.items():
         if not any(lesson.slot in blocked_set for lesson in lessons):

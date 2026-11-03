@@ -68,7 +68,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     modal.showModal();
     setProgress(
       "running",
-      "Đang kiểm tra các điều kiện và xếp thời khóa biểu. Lịch có nhiều lớp và giáo viên có thể cần thêm thời gian...",
+      "Đang ưu tiên xếp đủ tiết, sau đó tối ưu cách phân bố lịch. Lịch có nhiều lớp và giáo viên có thể cần thêm thời gian...",
     );
   }
 
@@ -175,8 +175,8 @@ async function confirmPartialScheduleRebuild() {
   const ids = partialScheduleRebuildIds?.slice();
   if (!ids?.length) return;
   if (await confirmAction(
-    `Thử xếp lại ${ids.length} tiết không cố định để tìm thêm chỗ cho các tiết còn thiếu? Các tiết cố định sẽ được giữ nguyên.`,
-    { title: "Thử xếp lại thời khóa biểu", confirmText: "Xếp lại" },
+    `Lượt xếp trước vẫn còn thiếu tiết. Bước cuối này sẽ dành thêm thời gian để thử xếp lại ${ids.length} tiết không cố định và tìm chỗ cho phần còn thiếu. Các tiết cố định sẽ được giữ nguyên. Tiếp tục?`,
+    { title: "Phương án cuối: thử xếp lại", confirmText: "Thử xếp lại" },
   )) await generateSchedule(ids);
 }
 function renderScheduleAttemptDetails(payload) {

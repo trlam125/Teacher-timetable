@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import time
+
 from .genetic import *
+from .scoring import _solver_timeout_seconds
 
 
 def solve_missing(
@@ -22,7 +25,9 @@ def solve_missing(
 
 
 def solve_rebuild(db: Session, p: Project, tries=220, deadline: float | None = None):
-    """Giữ tiết cố định, xếp lại toàn bộ phần còn lại."""
+    """Final retry: retain pins and give the remaining search a larger budget."""
+    if deadline is None:
+        deadline = time.monotonic() + min(60.0, _solver_timeout_seconds() * 2)
     return ga_schedule(db, p, mode="rebuild", tries=tries, deadline=deadline)
 
 

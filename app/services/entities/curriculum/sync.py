@@ -180,12 +180,12 @@ def sync_assignments_to_grade_requirements(
                     f"Không thể đổi chương trình cho {school_class.name} – {subject.name}: {fixed_error}",
                 )
             if not assignment_completion_feasible(
-                db, project, assignment, [lesson.slot for lesson in lessons]
+                db, project, assignment, [lesson.slot for lesson in lessons], allow_partial=True
             ):
                 raise HTTPException(
                     409,
                     f"Không thể đổi chương trình cho {school_class.name} – {subject.name} vì "
-                    "các tiết hiện có không thể hoàn thành hợp lệ theo chế độ mới và các ràng buộc hiện tại.",
+                    "các tiết hiện có vi phạm chế độ mới hoặc các ràng buộc hiện tại.",
                 )
 
     return len(changes)

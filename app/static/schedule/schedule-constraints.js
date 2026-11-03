@@ -208,7 +208,9 @@ function toggleGlobalSlotLock(button) {
 }
 function renderGlobalSessionLocks() {
   if (!ensureGlobalSessionLockPanel()) return;
-  const scope = $("#lockScope"), grades = data.grades || [];
+  const scope = $("#lockScope"), grades = [...(data.grades || [])].sort((a, b) =>
+    String(a.name).localeCompare(String(b.name), "vi", { numeric: true, sensitivity: "base" })
+      || Number(a.id) - Number(b.id));
   if (!grades.some((grade) => grade.id === globalLockGradeId)) {
     globalLockGradeId = grades[0]?.id ?? null;
     globalLocksDraftDirty = false;

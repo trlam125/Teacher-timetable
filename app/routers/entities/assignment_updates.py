@@ -135,19 +135,18 @@ def update_assignment(
             db.rollback()
             return JSONResponse({"ok": False, "message": fixed_error}, 409)
 
-    # Chỉ các thay đổi ảnh hưởng cấu trúc cụm mới cần chứng minh rằng những tiết
-    # đã xếp vẫn có ít nhất một cách hoàn thành. Tăng số tiết ở chế độ tự do/
-    # ưu tiên chỉ tạo phần còn thiếu trong khay và giữ nguyên toàn bộ lịch cũ.
+    # Structural edits must preserve valid placed blocks. Missing blocks remain
+    # in the tray even when the current constraints prevent full completion.
     if (
         mode_changed or (periods_changed and assignment_requires_double(assignment))
     ) and not assignment_completion_feasible(
-        db, project, assignment, [lesson.slot for lesson in lessons]
+        db, project, assignment, [lesson.slot for lesson in lessons], allow_partial=True
     ):
         db.rollback()
         return JSONResponse(
             {
                 "ok": False,
-                "message": "Không thể áp dụng thay đổi vì các tiết hiện có không thể hoàn thành hợp lệ theo chế độ mới và các ràng buộc hiện tại. Lịch cũ được giữ nguyên.",
+                "message": "Không thể áp dụng thay đổi vì các tiết hiện có vi phạm chế độ mới hoặc các ràng buộc hiện tại. Lịch cũ được giữ nguyên.",
             },
             409,
         )

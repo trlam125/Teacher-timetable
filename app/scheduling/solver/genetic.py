@@ -617,134 +617,136 @@ def ga_schedule(
             for (_left_group, left), (_right_group, right) in zip(group, group[1:]):
                 model.Add(task_start_vars[left] <= task_start_vars[right])
 
-        # Soft objective for preferred_double.  Reward only an isolated run of
-        # exactly two periods, matching the UI's definition.
-        for assignment in assignments:
-            if not assignment_prefers_double(assignment):
-                continue
-            for day in range(p.days):
-                for session in range(p.sessions):
-                    base = day * ppd + session * p.periods_per_session
-                    for period in range(p.periods_per_session - 1):
-                        left = base + period
-                        right = left + 1
-                        left_vars = assignment_slot_vars[(assignment.id, left)]
-                        right_vars = assignment_slot_vars[(assignment.id, right)]
-                        left_fixed = (
-                            1 if left in existing_assignment_slots[assignment.id] else 0
-                        )
-                        right_fixed = (
-                            1
-                            if right in existing_assignment_slots[assignment.id]
-                            else 0
-                        )
-                        if not (left_fixed or left_vars) or not (
-                            right_fixed or right_vars
-                        ):
+        def add_soft_objective():
+            """Build preference variables only after a valid placement exists."""
+            # Soft objective for preferred_double.  Reward only an isolated run of
+            # exactly two periods, matching the UI's definition.
+            for assignment in assignments:
+                if not assignment_prefers_double(assignment):
+                    continue
+                for day in range(p.days):
+                    for session in range(p.sessions):
+                        base = day * ppd + session * p.periods_per_session
+                        for period in range(p.periods_per_session - 1):
+                            left = base + period
+                            right = left + 1
+                            left_vars = assignment_slot_vars[(assignment.id, left)]
+                            right_vars = assignment_slot_vars[(assignment.id, right)]
+                            left_fixed = (
+                                1 if left in existing_assignment_slots[assignment.id] else 0
+                            )
+                            right_fixed = (
+                                1
+                                if right in existing_assignment_slots[assignment.id]
+                                else 0
+                            )
+                            if not (left_fixed or left_vars) or not (
+                                right_fixed or right_vars
+                            ):
+                                continue
+
+                            previous = left - 1 if period > 0 else None
+                            following = (
+                                right + 1 if period + 2 < p.periods_per_session else None
+                            )
+                            previous_vars = (
+                                assignment_slot_vars[(assignment.id, previous)]
+                                if previous is not None
+                                else []
+                            )
+                            following_vars = (
+                                assignment_slot_vars[(assignment.id, following)]
+                                if following is not None
+                                else []
+                            )
+                            previous_fixed = (
+                                1
+                                if previous is not None
+                                and previous in existing_assignment_slots[assignment.id]
+                                else 0
+                            )
+                            following_fixed = (
+                                1
+                                if following is not None
+                                and following in existing_assignment_slots[assignment.id]
+                                else 0
+                            )
+
+                            pair = model.NewBoolVar(
+                                f"preferred_pair_{assignment.id}_{left}_{right}"
+                            )
+                            left_occupancy = sum(left_vars) + left_fixed
+                            right_occupancy = sum(right_vars) + right_fixed
+                            previous_occupancy = sum(previous_vars) + previous_fixed
+                            following_occupancy = sum(following_vars) + following_fixed
+                            model.Add(pair <= left_occupancy)
+                            model.Add(pair <= right_occupancy)
+                            model.Add(pair <= 1 - previous_occupancy)
+                            model.Add(pair <= 1 - following_occupancy)
+                            objective_terms.append(-14 * pair)
+
+            # Spread the same class/subject across days.
+            for (class_id, subject_id, day), weighted in day_var_by_class_subject.items():
+                existing_count = existing_class_subject_day[(class_id, subject_id, day)]
+                total = sum(var * weight for var, weight in weighted) + existing_count
+                overflow = model.NewIntVar(
+                    0,
+                    p.periods_per_session * p.sessions,
+                    f"spread_{class_id}_{subject_id}_{day}",
+                )
+                model.Add(overflow >= total - 1)
+                objective_terms.append(8 * overflow)
+
+            # Match the public score exactly: each empty period *inside* a teacher's
+            # occupied span in one session costs 2.  The previous adjacency reward
+            # was only an approximation and could mark a timetable "optimal" while
+            # another timetable had fewer actual idle gaps.
+            for teacher_id in teachers:
+                for day in range(p.days):
+                    for session in range(p.sessions):
+                        base = day * ppd + session * p.periods_per_session
+                        possible = []
+                        for period in range(p.periods_per_session):
+                            slot = base + period
+                            possible.append(
+                                bool(
+                                    existing_teacher_slot[(teacher_id, slot)]
+                                    or slot_var_by_teacher[(teacher_id, slot)]
+                                )
+                            )
+                        if sum(possible) < 2:
                             continue
 
-                        previous = left - 1 if period > 0 else None
-                        following = (
-                            right + 1 if period + 2 < p.periods_per_session else None
-                        )
-                        previous_vars = (
-                            assignment_slot_vars[(assignment.id, previous)]
-                            if previous is not None
-                            else []
-                        )
-                        following_vars = (
-                            assignment_slot_vars[(assignment.id, following)]
-                            if following is not None
-                            else []
-                        )
-                        previous_fixed = (
-                            1
-                            if previous is not None
-                            and previous in existing_assignment_slots[assignment.id]
-                            else 0
-                        )
-                        following_fixed = (
-                            1
-                            if following is not None
-                            and following in existing_assignment_slots[assignment.id]
-                            else 0
-                        )
-
-                        pair = model.NewBoolVar(
-                            f"preferred_pair_{assignment.id}_{left}_{right}"
-                        )
-                        left_occupancy = sum(left_vars) + left_fixed
-                        right_occupancy = sum(right_vars) + right_fixed
-                        previous_occupancy = sum(previous_vars) + previous_fixed
-                        following_occupancy = sum(following_vars) + following_fixed
-                        model.Add(pair <= left_occupancy)
-                        model.Add(pair <= right_occupancy)
-                        model.Add(pair <= 1 - previous_occupancy)
-                        model.Add(pair <= 1 - following_occupancy)
-                        objective_terms.append(-14 * pair)
-
-        # Spread the same class/subject across days.
-        for (class_id, subject_id, day), weighted in day_var_by_class_subject.items():
-            existing_count = existing_class_subject_day[(class_id, subject_id, day)]
-            total = sum(var * weight for var, weight in weighted) + existing_count
-            overflow = model.NewIntVar(
-                0,
-                p.periods_per_session * p.sessions,
-                f"spread_{class_id}_{subject_id}_{day}",
-            )
-            model.Add(overflow >= total - 1)
-            objective_terms.append(8 * overflow)
-
-        # Match the public score exactly: each empty period *inside* a teacher's
-        # occupied span in one session costs 2.  The previous adjacency reward
-        # was only an approximation and could mark a timetable "optimal" while
-        # another timetable had fewer actual idle gaps.
-        for teacher_id in teachers:
-            for day in range(p.days):
-                for session in range(p.sessions):
-                    base = day * ppd + session * p.periods_per_session
-                    possible = []
-                    for period in range(p.periods_per_session):
-                        slot = base + period
-                        possible.append(
-                            bool(
-                                existing_teacher_slot[(teacher_id, slot)]
-                                or slot_var_by_teacher[(teacher_id, slot)]
+                        occupancy = []
+                        for period in range(p.periods_per_session):
+                            slot = base + period
+                            fixed = existing_teacher_slot[(teacher_id, slot)]
+                            vars_for_slot = slot_var_by_teacher[(teacher_id, slot)]
+                            occ = model.NewBoolVar(
+                                f"teacher_occ_{teacher_id}_{day}_{session}_{period}"
                             )
-                        )
-                    if sum(possible) < 2:
-                        continue
+                            model.Add(occ == sum(vars_for_slot) + fixed)
+                            occupancy.append(occ)
 
-                    occupancy = []
-                    for period in range(p.periods_per_session):
-                        slot = base + period
-                        fixed = existing_teacher_slot[(teacher_id, slot)]
-                        vars_for_slot = slot_var_by_teacher[(teacher_id, slot)]
-                        occ = model.NewBoolVar(
-                            f"teacher_occ_{teacher_id}_{day}_{session}_{period}"
-                        )
-                        model.Add(occ == sum(vars_for_slot) + fixed)
-                        occupancy.append(occ)
+                        for period in range(1, p.periods_per_session - 1):
+                            before = model.NewBoolVar(
+                                f"teacher_before_{teacher_id}_{day}_{session}_{period}"
+                            )
+                            after = model.NewBoolVar(
+                                f"teacher_after_{teacher_id}_{day}_{session}_{period}"
+                            )
+                            model.AddMaxEquality(before, occupancy[:period])
+                            model.AddMaxEquality(after, occupancy[period + 1 :])
+                            gap = model.NewBoolVar(
+                                f"teacher_gap_{teacher_id}_{day}_{session}_{period}"
+                            )
+                            model.Add(gap <= before)
+                            model.Add(gap <= after)
+                            model.Add(gap + occupancy[period] <= 1)
+                            model.Add(gap >= before + after - occupancy[period] - 1)
+                            objective_terms.append(2 * gap)
 
-                    for period in range(1, p.periods_per_session - 1):
-                        before = model.NewBoolVar(
-                            f"teacher_before_{teacher_id}_{day}_{session}_{period}"
-                        )
-                        after = model.NewBoolVar(
-                            f"teacher_after_{teacher_id}_{day}_{session}_{period}"
-                        )
-                        model.AddMaxEquality(before, occupancy[:period])
-                        model.AddMaxEquality(after, occupancy[period + 1 :])
-                        gap = model.NewBoolVar(
-                            f"teacher_gap_{teacher_id}_{day}_{session}_{period}"
-                        )
-                        model.Add(gap <= before)
-                        model.Add(gap <= after)
-                        model.Add(gap + occupancy[period] <= 1)
-                        model.Add(gap >= before + after - occupancy[period] - 1)
-                        objective_terms.append(2 * gap)
-
-        total_budget = min(_solver_timeout_seconds(), time_left())
+        total_budget = time_left()
 
         def make_solver(time_limit: float):
             solver = cp_model.CpSolver()
@@ -809,26 +811,54 @@ def ga_schedule(
             return None
 
         if allow_partial:
-            # Optimize period count before cosmetic preferences. Retain a little
-            # budget for the existing fallback if no feasible incumbent is found.
-            model.Minimize(sum(
+            # First maximize placed periods. A feasible partial incumbent must
+            # not stop the remaining repair search unless its count is proven.
+            omitted_periods = sum(
                 var * (task_rows[index][2] - len(task_rows[index][5]))
                 for index, var in enumerate(optional_unscheduled_by_task)
                 if var is not None
-            ))
-            solver = make_solver(total_budget * 0.75)
+            )
+            model.Minimize(omitted_periods)
+            solver = make_solver(total_budget * 0.65)
             status = solver.Solve(model)
             if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 result = extract_result(solver, status, "cp_sat_partial")
-                result["maximum_placed"] = status == cp_model.OPTIMAL
+                result["maximum_placed"] = (
+                    status == cp_model.OPTIMAL or result["unscheduled"] == 0
+                )
                 result["optimal"] = False
+                result["search_limited"] = not result["maximum_placed"]
+                if not result["maximum_placed"] or time_left() <= 0.10:
+                    return result
+
+                # Count is now fixed at its best value. Improve preferences
+                # without ever exchanging a placed period for a prettier grid.
+                model.Add(omitted_periods == result["unscheduled"])
+                for var in all_option_vars:
+                    model.AddHint(var, solver.Value(var))
+                for var in optional_unscheduled_by_task:
+                    if var is not None:
+                        model.AddHint(var, solver.Value(var))
+                add_soft_objective()
+                if objective_terms and time_left() > 0.10:
+                    model.Minimize(sum(objective_terms))
+                    optimize_solver = make_solver(time_left())
+                    optimize_status = optimize_solver.Solve(model)
+                    if optimize_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                        optimized = extract_result(
+                            optimize_solver, optimize_status, "cp_sat_partial_optimize"
+                        )
+                        if optimized["score"] <= result["score"]:
+                            optimized["maximum_placed"] = True
+                            optimized["search_limited"] = optimize_status != cp_model.OPTIMAL
+                            return optimized
                 return result
             return None
 
         # Phase 1: pure hard-feasibility search, no soft objective.  Reserve part
         # of the request-wide deadline for GA/backtracking only when CP-SAT fails
         # to find a complete schedule in time.
-        hard_time = min(total_budget, max(0.2, total_budget * 0.60))
+        hard_time = min(total_budget, max(0.2, total_budget * 0.75))
         solver = make_solver(hard_time)
         status = solver.Solve(model)
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
@@ -856,14 +886,16 @@ def ga_schedule(
 
         # Phase 2: reuse the complete timetable as a hint and spend only the
         # remaining global budget improving the canonical soft score.
-        remaining = time_left()
-        if not objective_terms or remaining <= 0.10:
+        if time_left() <= 0.10:
             return hard_result
         for var in all_option_vars:
             model.AddHint(var, solver.Value(var))
+        add_soft_objective()
+        if not objective_terms or time_left() <= 0.10:
+            return hard_result
         model.Minimize(sum(objective_terms))
 
-        optimize_solver = make_solver(remaining)
+        optimize_solver = make_solver(time_left())
         optimize_status = optimize_solver.Solve(model)
         if optimize_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             optimized = extract_result(
@@ -872,7 +904,9 @@ def ga_schedule(
             optimized["wall_time"] = round(
                 hard_result.get("wall_time", 0) + optimize_solver.WallTime(), 3
             )
-            return optimized
+            if optimized["score"] <= hard_result["score"]:
+                return optimized
+            return hard_result
 
         hard_result["search_limited"] = True
         hard_result["wall_time"] = round(
@@ -888,7 +922,11 @@ def ga_schedule(
         partial_result["proven_infeasible"] = bool(
             cp_result and cp_result.get("proven_infeasible")
         )
-        return partial_result
+        if partial_result["unscheduled"] == 0 or partial_result["maximum_placed"]:
+            return partial_result
+        # Keep the incumbent while the bounded GA/exact fallback continues to
+        # repair unsaved placements inside this very first generation request.
+        cp_result = partial_result
 
     candidate_by_start = [
         {row[0]: row for row in candidates} for candidates in task_candidates
