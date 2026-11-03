@@ -112,7 +112,10 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             },
             409,
         )
-    curriculum_issues = input_validation["grade_requirement_issues"]
+    curriculum_issues = [
+        row for row in input_validation["grade_requirement_issues"]
+        if row["issue_type"] != "missing"
+    ]
     if curriculum_issues:
         details = []
         for item in curriculum_issues[:5]:
@@ -160,30 +163,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             },
             409,
         )
-    class_capacity_issues = input_validation["class_capacity_issues"]
-    if class_capacity_issues:
-        details = "; ".join(
-            f"{item['class_name']}: cần {item['assigned']} tiết, "
-            f"chỉ còn {item['capacity']} ô (dư {item['excess']})"
-            for item in class_capacity_issues[:5]
-        )
-        suffix = (
-            f"; và {len(class_capacity_issues) - 5} lớp khác"
-            if len(class_capacity_issues) > 5
-            else ""
-        )
-        return JSONResponse(
-            {
-                "ok": False,
-                "reason": "class_over_capacity",
-                "class_capacity_issues": class_capacity_issues,
-                "message": (
-                    "Không thể xếp đầy đủ vì tải học của lớp vượt số ô khả dụng: "
-                    f"{details}{suffix}. Hãy giảm phân công hoặc bỏ bớt khóa/tiết tránh của lớp."
-                ),
-            },
-            409,
-        )
     fixed_definition_issues = input_validation["fixed_definition_issues"]
     if fixed_definition_issues:
         details = "; ".join(
@@ -204,24 +183,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                     "Không thể xếp lịch vì dữ liệu tiết cố định không hợp lệ: "
                     f"{details}{suffix} Hãy bỏ ghim lỗi rồi cố định lại."
                 ),
-            },
-            409,
-        )
-
-    availability_issues = input_validation["assignment_availability_issues"]
-    if availability_issues:
-        details = "; ".join(item["message"] for item in availability_issues[:5])
-        suffix = (
-            f"; và {len(availability_issues) - 5} phân công khác"
-            if len(availability_issues) > 5
-            else ""
-        )
-        return JSONResponse(
-            {
-                "ok": False,
-                "reason": "assignment_availability_invalid",
-                "assignment_availability_issues": availability_issues,
-                "message": details + suffix,
             },
             409,
         )
@@ -449,7 +410,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
     ):
         """Run the same authoritative integrity gate before committing."""
         db.flush()
-        integrity = schedule_integrity_report(db, p)
+        integrity = schedule_integrity_report(db, p, allow_partial=True)
         if not integrity["valid"]:
             logger.error(
                 "Generated/current timetable failed final validation: %s",
@@ -473,6 +434,40 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 invalid_status_code,
             )
 
+        remaining = unscheduled_assignment_details(
+            db, p, assignments, {"lessons": []}, "missing"
+        )
+        missing_periods = sum(row["missing_periods"] for row in remaining)
+        missing_curriculum = [
+            row for row in input_validation["grade_requirement_issues"]
+            if row["issue_type"] == "missing"
+        ]
+        current_lessons = db.scalars(select(Lesson).where(Lesson.project_id == pid)).all()
+        response_payload.update(
+            saved=True,
+            partial=bool(missing_periods or missing_curriculum),
+            scheduled=len(current_lessons),
+            unscheduled=missing_periods,
+            unscheduled_assignments=remaining,
+            grade_requirement_issues=missing_curriculum,
+            class_capacity_issues=input_validation["class_capacity_issues"],
+            assignment_availability_issues=input_validation["assignment_availability_issues"],
+        )
+        if response_payload["partial"]:
+            response_payload["message"] = (
+                f"Đã lưu {len(current_lessons)} tiết lên thời khóa biểu; "
+                f"còn {missing_periods} tiết chưa xếp trong khay."
+            )
+            if missing_curriculum:
+                response_payload["message"] += (
+                    f" Còn {len(missing_curriculum)} mục lớp–môn chưa được phân công giáo viên."
+                )
+            movable_ids = sorted(row.id for row in current_lessons if not row.locked)
+            response_payload.update(
+                can_rebuild=bool(missing_periods and movable_ids),
+                affected_lesson_ids=movable_ids,
+                moved_count=len(movable_ids),
+            )
         db.commit()
         return response_payload
 
@@ -519,30 +514,10 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 )
 
             rebuild = solve_rebuild(db, p, tries=260)
-            if rebuild["unscheduled"] > 0:
-                if rebuild.get("proven_infeasible"):
-                    message = (
-                        "Các ràng buộc và tiết cố định hiện tại không cho phép "
-                        "tạo một thời khóa biểu đầy đủ."
-                    )
-                else:
-                    message = (
-                        "Chưa tìm được lịch đầy đủ trong giới hạn tìm kiếm hiện tại; "
-                        f"còn {rebuild['unscheduled']} tiết chưa xếp. "
-                        "Dữ liệu lịch hiện tại chưa bị thay đổi."
-                    )
-                return JSONResponse(
-                    {
-                        "ok": False,
-                        "score": rebuild["score"],
-                        "unscheduled": rebuild["unscheduled"],
-                        "unscheduled_assignments": unscheduled_assignment_details(
-                            db, p, assignments, rebuild, "rebuild"
-                        ),
-                        "message": message,
-                    },
-                    409,
-                )
+            if rebuild["unscheduled"] > 0 and len(rebuild["lessons"]) < len(rebuild_lesson_ids):
+                return finalize_generated_schedule({
+                    "ok": True, "score": rebuild["score"], "preserved_current": True,
+                })
 
             moved_count = len(rebuild_lesson_ids)
             for lesson in current_lessons:
@@ -563,38 +538,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             )
 
         result = solve_missing(db, p, tries=160)
-        if result["unscheduled"] > 0:
-            # Không chạy solve_rebuild ở request này. Người dùng chưa cho phép
-            # di chuyển lịch hiện có, nên chỉ xin xác nhận và để request sau đi
-            # thẳng vào rebuild. Điều này loại bỏ một lần giải nặng bị lặp lại.
-            current_lessons = db.scalars(
-                select(Lesson).where(Lesson.project_id == pid)
-            ).all()
-            rebuild_lesson_ids = sorted(
-                lesson.id for lesson in current_lessons if not lesson.locked
-            )
-            moved_count = len(rebuild_lesson_ids)
-            return JSONResponse(
-                {
-                    "ok": False,
-                    "requires_confirmation": True,
-                    "moved_count": moved_count,
-                    "affected_lesson_ids": rebuild_lesson_ids,
-                    "score": result["score"],
-                    "unscheduled": result["unscheduled"],
-                    "unscheduled_assignments": unscheduled_assignment_details(
-                        db, p, assignments, result, "missing"
-                    ),
-                    "message": (
-                        "Không thể chỉ bổ sung phần còn thiếu mà giữ nguyên toàn bộ "
-                        "lịch hiện tại. Hệ thống cần được phép thử xếp lại tối đa "
-                        f"{moved_count} tiết không cố định; các tiết cố định vẫn "
-                        "được giữ nguyên."
-                    ),
-                },
-                409,
-            )
-
         add_generated_lessons(db, p, result["lessons"])
         return finalize_generated_schedule(
             {
@@ -610,25 +553,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
 
     # Chỉ khi lịch hoàn toàn trống mới chạy bộ xếp toàn bộ.
     result = solve(db, p, tries=120)
-    if result["unscheduled"] > 0:
-        if result.get("proven_infeasible"):
-            message = (
-                "Các ràng buộc hiện tại không cho phép tạo một thời khóa biểu đầy đủ."
-            )
-        else:
-            message = f"Chưa tìm được lịch đầy đủ trong giới hạn tìm kiếm hiện tại; còn {result['unscheduled']} tiết chưa xếp. Lịch hiện tại được giữ nguyên."
-        return JSONResponse(
-            {
-                "ok": False,
-                "score": result["score"],
-                "unscheduled": result["unscheduled"],
-                "unscheduled_assignments": unscheduled_assignment_details(
-                    db, p, assignments, result, "full"
-                ),
-                "message": message,
-            },
-            409,
-        )
     for l in existing:
         db.delete(l)
     add_generated_lessons(db, p, result["lessons"])

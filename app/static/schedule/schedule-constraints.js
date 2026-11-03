@@ -1,10 +1,14 @@
-/* Constraint editor and global/session lock handling. */
+/* Constraint editor and grade/session lock handling. */
 let constraintSaveInFlight = false;
 let globalSaveInFlight = false;
 let globalLockGradeId = null;
 function syncConstraintSaveControls() {
   const scope = $("#lockScope");
-  if (scope) scope.disabled = globalSaveInFlight || constraintSaveInFlight;
+  const lockDisabled = globalSaveInFlight || constraintSaveInFlight || globalLockGradeId == null;
+  if (scope) scope.disabled = lockDisabled;
+  [$("#gradeLockSaveButton"), $("#gradeLockResetButton")].forEach((button) => {
+    if (button) button.disabled = lockDisabled;
+  });
   [$("#constraintType"), $("#constraintEntity")].forEach((el) => {
     if (el) el.disabled = constraintSaveInFlight;
   });
@@ -22,12 +26,16 @@ async function resetConstraintSection(section, button) {
     showToast("Hãy chọn giáo viên hoặc lớp học trước.", "warning");
     return;
   }
+  if (!isEntity && gradeId == null) {
+    showToast("Hãy thêm và chọn khối lớp trước khi đặt lại khóa lịch.", "warning");
+    return;
+  }
   const name = isEntity
     ? (entityType === "teacher" ? data.teachers : data.classes).find(row => row.id === Number(entityId))?.name
-    : gradeId == null ? "Toàn trường" : (data.grades || []).find(row => row.id === gradeId)?.name;
+    : (data.grades || []).find(row => row.id === gradeId)?.name;
   const confirmed = await confirmAction(
     isEntity
-      ? `Xóa toàn bộ ngày nghỉ / tiết tránh của ${entityType === "teacher" ? "giáo viên" : "lớp"} ${name}? Khóa toàn trường và khóa khối vẫn có hiệu lực. Thay đổi sẽ được lưu ngay.`
+      ? `Xóa toàn bộ ngày nghỉ / tiết tránh của ${entityType === "teacher" ? "giáo viên" : "lớp"} ${name}? Khóa khối vẫn có hiệu lực. Thay đổi sẽ được lưu ngay.`
       : `Xóa toàn bộ khóa buổi / tiết trong phạm vi ${name}? Khóa ở các phạm vi khác được giữ nguyên. Thay đổi sẽ được lưu ngay.`,
     { title: isEntity ? "Reset tiết tránh" : "Reset khóa lịch", confirmText: "Reset" },
   );
@@ -42,23 +50,23 @@ async function resetConstraintSection(section, button) {
   else await saveGlobalSessionLocks(button, { reset: true });
 }
 function selectedLockSlots() {
-  return globalLockGradeId == null
-    ? data.project.blocked_slots || []
-    : (data.grades || []).find((grade) => grade.id === globalLockGradeId)?.blocked_slots || [];
+  return (data.grades || []).find((grade) => grade.id === globalLockGradeId)?.blocked_slots || [];
 }
 async function changeLockScope(select) {
   if (globalSaveInFlight || constraintSaveInFlight) {
-    select.value = globalLockGradeId == null ? "all" : String(globalLockGradeId);
+    select.value = globalLockGradeId == null ? "" : String(globalLockGradeId);
     return;
   }
   if (globalLocksDraftDirty && !(await confirmAction(
     "Bạn có thay đổi khóa lịch chưa lưu. Đổi phạm vi sẽ bỏ các thay đổi đó.",
     { title: "Thay đổi chưa lưu", confirmText: "Bỏ thay đổi" },
   ))) {
-    select.value = globalLockGradeId == null ? "all" : String(globalLockGradeId);
+    select.value = globalLockGradeId == null ? "" : String(globalLockGradeId);
     return;
   }
-  globalLockGradeId = select.value === "all" ? null : Number(select.value);
+  const gradeId = Number(select.value);
+  if (!(data.grades || []).some(grade => grade.id === gradeId)) return;
+  globalLockGradeId = gradeId;
   globalLocksDraftDirty = false;
   renderGlobalSessionLocks();
 }
@@ -104,8 +112,7 @@ function setGlobalSlotLockState(button, locked, animate = true) {
 function setSessionLockState(button, locked, animate = true) {
   if (!button) return;
   button.classList.toggle("is-locked", locked);
-  const label = button.dataset.inherited === "true"
-    ? `${button.dataset.label} · Khóa chung` : button.dataset.label;
+  const label = button.dataset.label;
   let host = button.querySelector(".session-lock-state");
   if (!host) {
     const old = button.querySelector("span");
@@ -153,8 +160,7 @@ function syncGlobalLocksDraftDirty() {
   return globalLocksDraftDirty;
 }
 function toggleConstraintCell(cell) {
-  // A school-wide lock is authoritative. It can only be changed in the
-  // school-wide lock editor, not by the teacher/class availability grid.
+  // Inherited grade locks are changed in the grade lock editor.
   if (constraintSaveInFlight || cell.classList.contains("global-locked")) return;
   const blocked = !cell.classList.contains("blocked");
   cell.classList.toggle("blocked", blocked);
@@ -171,7 +177,7 @@ function ensureGlobalSessionLockPanel() {
   panel.id = "globalSessionLocks";
   panel.className = "global-session-locks";
   panel.innerHTML =
-    '<h2>Khóa lịch toàn trường / theo khối</h2><p>Chọn phạm vi để khóa nguyên buổi hoặc từng tiết. Khóa theo khối áp dụng cho mọi lớp thuộc khối, kể cả lớp thêm sau này. Khóa toàn trường luôn có hiệu lực với tất cả các khối.</p><div class="constraint-toolbar"><label for="lockScope">Phạm vi khóa</label><select id="lockScope" onchange="changeLockScope(this)"></select></div><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button class="btn btn-danger" type="button" onclick="resetConstraintSection(\'locks\',this)">Reset khóa lịch</button><button class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
+    '<h2>Khóa lịch theo khối</h2><p>Chọn khối để khóa nguyên buổi hoặc từng tiết. Khóa áp dụng cho mọi lớp thuộc khối đã chọn, kể cả lớp thêm sau này.</p><div class="constraint-toolbar"><label for="lockScope">Khối lớp</label><select id="lockScope" onchange="changeLockScope(this)"></select></div><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button id="gradeLockResetButton" class="btn btn-danger" type="button" onclick="resetConstraintSection(\'locks\',this)">Reset khóa lịch</button><button id="gradeLockSaveButton" class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
   const toolbar = section.querySelector(".constraint-toolbar");
   section.insertBefore(panel, toolbar);
   return panel;
@@ -189,12 +195,9 @@ function toggleSessionLock(button) {
 function syncSessionLockButton(button) {
   if (!button) return;
   const slots = [...document.querySelectorAll(`[data-global-session="${Number(button.dataset.sessionLock)}"]`)];
-  const inherited = slots.length > 0 && slots.every(slot => slot.disabled);
   button.dataset.ownLocked = String(slots.length > 0 && slots.every(slot => slot.classList.contains("is-locked")));
-  button.dataset.inherited = String(inherited);
-  button.disabled = inherited;
-  button.title = inherited ? "Buổi đã khóa toàn trường; chọn phạm vi Toàn trường để mở khóa" : "Khóa hoặc mở các tiết của phạm vi đang chọn";
-  setSessionLockState(button, slots.length > 0 && slots.every(slot => slot.disabled || slot.classList.contains("is-locked")));
+  button.title = "Khóa hoặc mở các tiết của khối đang chọn";
+  setSessionLockState(button, button.dataset.ownLocked === "true");
 }
 function toggleGlobalSlotLock(button) {
   if (globalSaveInFlight || button.disabled) return;
@@ -206,18 +209,18 @@ function toggleGlobalSlotLock(button) {
 function renderGlobalSessionLocks() {
   if (!ensureGlobalSessionLockPanel()) return;
   const scope = $("#lockScope"), grades = data.grades || [];
-  if (globalLockGradeId != null && !grades.some((grade) => grade.id === globalLockGradeId)) {
-    globalLockGradeId = null;
+  if (!grades.some((grade) => grade.id === globalLockGradeId)) {
+    globalLockGradeId = grades[0]?.id ?? null;
     globalLocksDraftDirty = false;
   }
-  scope.innerHTML = '<option value="all">Toàn trường</option>' + grades
-    .map((grade) => `<option value="${grade.id}">Theo khối: ${esc(grade.name)}</option>`).join("");
-  scope.value = globalLockGradeId == null ? "all" : String(globalLockGradeId);
+  scope.innerHTML = grades.length ? grades
+    .map((grade) => `<option value="${grade.id}">Theo khối: ${esc(grade.name)}</option>`).join("")
+    : '<option value="">Chưa có khối lớp</option>';
+  scope.value = globalLockGradeId == null ? "" : String(globalLockGradeId);
   syncConstraintSaveControls();
   const grid = $("#sessionLockGrid"),
     slotGrid = $("#globalSlotLockGrid"),
     blocked = new Set(selectedLockSlots().map(Number)),
-    inherited = new Set(globalLockGradeId == null ? [] : (data.project.blocked_slots || []).map(Number)),
     days = data.project.days,
     sessions = data.project.sessions,
     pps = data.project.periods,
@@ -231,13 +234,18 @@ function renderGlobalSessionLocks() {
       "Thứ 7",
       "Chủ nhật",
     ];
+  if (globalLockGradeId == null) {
+    grid.innerHTML = '<div class="empty-state">Hãy thêm khối lớp ở mục Khối / nhóm trước khi khóa lịch.</div>';
+    slotGrid.innerHTML = "";
+    return;
+  }
   let html = "";
   for (let day = 0; day < days; day++)
     for (let session = 0; session < sessions; session++) {
       const key = day * sessions + session,
         start = day * ppd + session * pps,
         locked = Array.from({ length: pps }, (_, index) => start + index).every(
-          (slot) => blocked.has(slot) || inherited.has(slot),
+          (slot) => blocked.has(slot),
         ),
         sessionName =
           sessions === 1
@@ -261,8 +269,8 @@ function renderGlobalSessionLocks() {
       for (let day = 0; day < days; day++) {
         const slot = day * ppd + session * pps + period,
           key = day * sessions + session,
-          locked = blocked.has(slot), isInherited = inherited.has(slot);
-        slotHtml += `<button type="button" class="global-slot-lock ${locked ? "is-locked" : ""}" ${isInherited ? 'disabled title="Tiết đã khóa toàn trường; chọn phạm vi Toàn trường để mở khóa"' : ""} data-global-slot="${slot}" data-global-session="${key}" onclick="toggleGlobalSlotLock(this)"><span class="constraint-state-stage"><span class="constraint-state-content ${locked || isInherited ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(locked || isInherited, isInherited ? "Khóa chung" : locked ? "Đã khóa" : "Cho phép")}</span></span></button>`;
+          locked = blocked.has(slot);
+        slotHtml += `<button type="button" class="global-slot-lock ${locked ? "is-locked" : ""}" data-global-slot="${slot}" data-global-session="${key}" onclick="toggleGlobalSlotLock(this)"><span class="constraint-state-stage"><span class="constraint-state-content ${locked ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(locked, locked ? "Đã khóa" : "Cho phép")}</span></span></button>`;
       }
     }
   slotGrid.innerHTML = slotHtml;
@@ -271,6 +279,10 @@ function renderGlobalSessionLocks() {
 async function saveGlobalSessionLocks(button, { reset = false } = {}) {
   if (constraintSaveInFlight || globalSaveInFlight) {
     showInlineActionFeedback(button, "Đang lưu thay đổi. Vui lòng chờ một chút.", "info", 2400);
+    return;
+  }
+  if (globalLockGradeId == null) {
+    showInlineActionFeedback(button, "Hãy thêm và chọn khối lớp trước.", "warning", 3000);
     return;
   }
   const idleLabel = reset ? "Reset khóa lịch" : "Lưu khóa lịch";
@@ -430,14 +442,13 @@ function renderConstraintGrid({ preserveDraft = false } = {}) {
   const blocked = preserveDraft
     ? new Set([...box.querySelectorAll("[data-cslot].blocked")].map((cell) => Number(cell.dataset.cslot)))
     : new Set((obj?.unavailable || []).map(Number)),
-    globalBlocked = new Set((data.project.blocked_slots || []).map(Number)),
     gradeBlocked = new Set(type.value === "class"
       ? ((data.grades || []).find((grade) => grade.id === obj?.grade_id)?.blocked_slots || []).map(Number)
       : []),
     days = data.project.days,
     pps = data.project.periods,
     sessions = data.project.sessions;
-  let h = `<p class="constraint-global-lock-note">Ô <b>Khóa chung</b> và <b>Khóa khối</b> được kế thừa từ bảng khóa lịch phía trên. Muốn mở, chọn phạm vi tương ứng ở bảng phía trên rồi bấm <b>Lưu khóa lịch</b>.</p><div class="timetable constraint-timetable" style="grid-template-columns:90px repeat(${days},minmax(110px,1fr))"><div class="cell head">Tiết</div>`;
+  let h = `<p class="constraint-global-lock-note">Ô <b>Khóa khối</b> của lớp được kế thừa từ bảng khóa lịch phía trên. Muốn mở, chọn khối tương ứng rồi bấm <b>Lưu khóa lịch</b>.</p><div class="timetable constraint-timetable" style="grid-template-columns:90px repeat(${days},minmax(110px,1fr))"><div class="cell head">Tiết</div>`;
   for (let d = 0; d < days; d++)
     h += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
   for (let s = 0; s < sessions; s++)
@@ -446,12 +457,11 @@ function renderConstraintGrid({ preserveDraft = false } = {}) {
       for (let d = 0; d < days; d++) {
         const slot = d * (sessions * pps) + s * pps + p,
           isBlocked = blocked.has(slot),
-          isGlobal = globalBlocked.has(slot), isGrade = gradeBlocked.has(slot),
-          isInherited = isGlobal || isGrade,
-          label = isGlobal ? "Khóa chung" : isGrade ? "Khóa khối" : (isBlocked ? "Tiết tránh" : "Có thể xếp"),
+          isInherited = gradeBlocked.has(slot),
+          label = isInherited ? "Khóa khối" : (isBlocked ? "Tiết tránh" : "Có thể xếp"),
           interactive = isInherited ? 'aria-disabled="true" tabindex="-1" title="Tiết đã khóa theo phạm vi; mở khóa ở bảng phía trên"' :
             `role="button" tabindex="0" aria-pressed="${isBlocked ? "true" : "false"}" onclick="toggleConstraintCell(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleConstraintCell(this)}"`;
-        // Keep the entity-specific .blocked flag even when a global lock
+        // Keep the entity-specific .blocked flag even when a grade lock
         // overlaps it, so saving does not erase existing teacher/class rules.
         h += `<div ${interactive} data-cslot="${slot}" class="cell available constraint-state-cell ${isBlocked ? "blocked" : ""} ${isInherited ? "global-locked" : ""}"><span class="constraint-state-stage"><span class="constraint-state-content ${isInherited || isBlocked ? "is-blocked" : "is-allowed"}">${constraintStateMarkup(isInherited || isBlocked, label)}</span></span></div>`;
       }

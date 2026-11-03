@@ -458,8 +458,8 @@ def ga_schedule(
     task_rows = [item[0] for item in task_candidate_pairs]
     task_candidates = [item[1] for item in task_candidate_pairs]
 
-    def cp_sat_primary():
-        """Run CP-SAT in two phases: complete hard solution, then soft optimize.
+    def cp_sat_primary(allow_partial: bool = False):
+        """Find a complete schedule, or maximize placed periods in partial mode.
 
         Phase 1 has no soft objective and requires every task to be placed. Phase
         2 reuses that complete timetable as a hint and spends only the remaining
@@ -513,11 +513,9 @@ def ga_schedule(
                 ].append((var, missing_size))
 
             option_sum = sum(row[6] for row in rows)
-            # Phase 1 is pure hard feasibility: every task must be placed.  We
-            # do not create optional/unscheduled variables here because they
-            # make CP-SAT spend time optimizing partial schedules before it has
-            # proved that a complete timetable exists.
-            if not rows:
+            # Pins remain mandatory. Only whole movable tasks may be omitted,
+            # so a required double block can never be split by the partial solve.
+            if not rows and (not allow_partial or forced is not None):
                 return {
                     "lessons": [],
                     "unscheduled": max(1, missing_size),
@@ -525,9 +523,14 @@ def ga_schedule(
                     "solver": "cp_sat_feasibility",
                     "proven_infeasible": True,
                 }
-            model.Add(option_sum == 1)
-            unscheduled = None
+            unscheduled = (
+                model.NewBoolVar(f"task_{index}_unscheduled")
+                if allow_partial and forced is None else None
+            )
+            model.Add(option_sum + (unscheduled if unscheduled is not None else 0) == 1)
             start_expr = sum(row[0] * row[6] for row in rows)
+            if unscheduled is not None:
+                start_expr += unscheduled_sentinel * unscheduled
 
             start_var = model.NewIntVar(
                 0, unscheduled_sentinel, f"task_{index}_start_value"
@@ -805,6 +808,23 @@ def ga_schedule(
         if total_budget <= 0.05:
             return None
 
+        if allow_partial:
+            # Optimize period count before cosmetic preferences. Retain a little
+            # budget for the existing fallback if no feasible incumbent is found.
+            model.Minimize(sum(
+                var * (task_rows[index][2] - len(task_rows[index][5]))
+                for index, var in enumerate(optional_unscheduled_by_task)
+                if var is not None
+            ))
+            solver = make_solver(total_budget * 0.75)
+            status = solver.Solve(model)
+            if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                result = extract_result(solver, status, "cp_sat_partial")
+                result["maximum_placed"] = status == cp_model.OPTIMAL
+                result["optimal"] = False
+                return result
+            return None
+
         # Phase 1: pure hard-feasibility search, no soft objective.  Reserve part
         # of the request-wide deadline for GA/backtracking only when CP-SAT fails
         # to find a complete schedule in time.
@@ -863,8 +883,12 @@ def ga_schedule(
     cp_result = cp_sat_primary()
     if cp_result is not None and cp_result["unscheduled"] == 0:
         return cp_result
-    if cp_result is not None and cp_result.get("proven_infeasible"):
-        return cp_result
+    partial_result = cp_sat_primary(allow_partial=True)
+    if partial_result is not None:
+        partial_result["proven_infeasible"] = bool(
+            cp_result and cp_result.get("proven_infeasible")
+        )
+        return partial_result
 
     candidate_by_start = [
         {row[0]: row for row in candidates} for candidates in task_candidates

@@ -252,12 +252,16 @@ def schedule_ui_validation_report(
 def schedule_integrity_report(
     db: Session,
     project: Project,
+    *,
+    allow_partial: bool = False,
 ) -> dict:
     """Return the authoritative timetable integrity diagnostic report.
 
     Generation/final solver validation may still use this as a hard gate. Sharing
     and Excel export intentionally do not: users can publish/export the timetable
     in its current state and use this report separately to see remaining issues.
+    With allow_partial, missing periods/capacity are diagnostic only; collisions,
+    invalid blocks, excess periods and missing fixed lessons remain hard errors.
     """
     assignments = db.scalars(
         select(Assignment).where(Assignment.project_id == project.id)
@@ -284,7 +288,7 @@ def schedule_integrity_report(
         rows = by_assignment.get(assignment.id, [])
         expected = int(assignment.periods_per_week or 0)
         actual = len(rows)
-        if actual != expected:
+        if actual != expected and (not allow_partial or actual > expected):
             count_errors.append(
                 {
                     "assignment_id": assignment.id,
@@ -295,7 +299,7 @@ def schedule_integrity_report(
             continue
         if assignment_requires_double(assignment):
             block_state = required_double_block_state(project, assignment, rows)
-            if not block_state["valid"] or block_state["missing_sizes"]:
+            if not block_state["valid"] or (block_state["missing_sizes"] and not allow_partial):
                 required_double_errors.append(assignment.id)
 
     fixed_coverage = fixed_coverage_slots(db, project)
@@ -318,7 +322,15 @@ def schedule_integrity_report(
         + len(required_double_errors)
         + len(fixed_errors)
     )
-    issue_count = input_report["issue_count"] + schedule_issue_count
+    input_issue_count = input_report["issue_count"]
+    if allow_partial:
+        # These explain missing periods; they do not invalidate placed lessons.
+        input_issue_count -= (
+            len(input_report["class_capacity_issues"])
+            + len(input_report["assignment_availability_issues"])
+            + sum(row["issue_type"] == "missing" for row in input_report["grade_requirement_issues"])
+        )
+    issue_count = input_issue_count + schedule_issue_count
     valid = issue_count == 0
 
     if valid:

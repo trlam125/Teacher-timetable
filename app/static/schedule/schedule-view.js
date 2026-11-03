@@ -89,22 +89,26 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     }
 
     if (r.ok) {
-      setProgress("complete", "Đã xếp xong. Đang đồng bộ thời khóa biểu...");
+      const partial = Boolean(j.partial);
+      setProgress("complete", partial
+        ? "Đã lưu các tiết xếp được. Đang cập nhật thời khóa biểu và phần còn thiếu..."
+        : "Đã xếp xong. Đang đồng bộ thời khóa biểu...");
       setTimeout(async () => {
         if (modal) modal.close();
         const refreshed = await refreshAfterSuccessfulMutation(
           ["lessons"],
           "Máy chủ đã xếp lịch thành công nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ thời khóa biểu.",
         );
+        if (partial) renderScheduleAttemptDetails(j);
         setScheduleActionState("success", refreshed ? 1400 : 2600);
         setScheduleFeedback(
           refreshed
             ? j.message || "Đã xếp thời khóa biểu thành công."
             : "Đã xếp thời khóa biểu trên máy chủ. Hãy tải lại trang để xem dữ liệu mới.",
-          refreshed ? "success" : "warning",
-          refreshed ? 2600 : 6500,
+          refreshed && !partial ? "success" : "warning",
+          partial ? 0 : refreshed ? 2600 : 6500,
         );
-        if (refreshed) {
+        if (refreshed && !partial) {
           launchConfetti();
         }
       }, 400);
@@ -166,7 +170,19 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     setScheduleFeedback(message, "error", 5200);
   }
 }
+let partialScheduleRebuildIds = null;
+async function confirmPartialScheduleRebuild() {
+  const ids = partialScheduleRebuildIds?.slice();
+  if (!ids?.length) return;
+  if (await confirmAction(
+    `Thử xếp lại ${ids.length} tiết không cố định để tìm thêm chỗ cho các tiết còn thiếu? Các tiết cố định sẽ được giữ nguyên.`,
+    { title: "Thử xếp lại thời khóa biểu", confirmText: "Xếp lại" },
+  )) await generateSchedule(ids);
+}
 function renderScheduleAttemptDetails(payload) {
+  partialScheduleRebuildIds = payload?.can_rebuild && Array.isArray(payload.affected_lesson_ids)
+    ? payload.affected_lesson_ids.map(Number).filter(id => Number.isInteger(id) && id > 0)
+    : null;
   const box = $("#scheduleAttemptDetails");
   if (!box) return;
   if (!payload) {
@@ -182,7 +198,7 @@ function renderScheduleAttemptDetails(payload) {
     rows.push({ ...assignment, ...issue, message });
   };
   for (const issue of payload.unscheduled_assignments || [])
-    add(issue, `Cần ${issue.required_periods} tiết; xếp được ${issue.scheduled_periods} tiết trong lần thử, còn thiếu ${issue.missing_periods} tiết.`);
+    add(issue, `Cần ${issue.required_periods} tiết; ${payload.saved ? "đã lưu" : "xếp được trong lần thử"} ${issue.scheduled_periods} tiết, còn thiếu ${issue.missing_periods} tiết.`);
   for (const issue of input.teacher_subject_issues || [])
     add(issue, "Giáo viên chưa được cấu hình dạy môn này. Hãy sửa chuyên môn hoặc đổi giáo viên.");
   for (const issue of input.grade_requirement_issues || [])
@@ -217,7 +233,7 @@ function renderScheduleAttemptDetails(payload) {
   }
   box.hidden = false;
   box.innerHTML = `<h2>Chi tiết phân công cần kiểm tra</h2><p>${esc(payload.message || "Chưa xếp được thời khóa biểu.")}</p>${rows.length
-    ? `<p>${rows.length} mục cần kiểm tra.${payload.unscheduled_assignments?.length ? " Số tiết xếp được dưới đây thuộc lần thử vừa rồi; lịch đang lưu vẫn được giữ nguyên. Các phân công có thể ảnh hưởng lẫn nhau." : ""}</p><div class="schedule-details-scroll" tabindex="0" aria-label="Chi tiết phân công chưa xếp được"><table class="data-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Chi tiết</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${esc(row.class_name || "—")}</td><td>${esc(row.subject_name || "—")}</td><td>${esc(row.teacher_name || row.assigned_teacher_name || "Chưa phân công")}</td><td>${esc(row.message || "Kiểm tra lại dữ liệu phân công.")}</td></tr>`).join("")}</tbody></table></div>` : ""}<button class="btn ghost" type="button" onclick="goToAssignments()">Đến mục Phân công</button>`;
+    ? `<p>${rows.length} mục cần kiểm tra.${payload.unscheduled_assignments?.length ? (payload.saved ? " Các tiết xếp được đã có trên thời khóa biểu; phần còn thiếu nằm trong khay để xếp tiếp." : " Số tiết xếp được dưới đây thuộc lần thử vừa rồi; lịch đang lưu vẫn được giữ nguyên. Các phân công có thể ảnh hưởng lẫn nhau.") : ""}</p><div class="schedule-details-scroll" tabindex="0" aria-label="Chi tiết phân công chưa xếp được"><table class="data-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Chi tiết</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${esc(row.class_name || "—")}</td><td>${esc(row.subject_name || "—")}</td><td>${esc(row.teacher_name || row.assigned_teacher_name || "Chưa phân công")}</td><td>${esc(row.message || "Kiểm tra lại dữ liệu phân công.")}</td></tr>`).join("")}</tbody></table></div>` : ""}<button class="btn ghost" type="button" onclick="goToAssignments()">Đến mục Phân công</button>${partialScheduleRebuildIds?.length ? ' <button class="btn" type="button" onclick="confirmPartialScheduleRebuild()">Thử xếp lại phần không cố định</button>' : ""}`;
 }
 function goToAssignments() {
   document.querySelector('.nav[data-tab="assignments"]')?.click();
