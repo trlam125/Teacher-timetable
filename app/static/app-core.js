@@ -46,7 +46,7 @@ function friendlyRequestError(status) {
     ? "Hệ thống gặp sự cố nên chưa thể hoàn tất. Hãy tải lại trang để kiểm tra dữ liệu rồi thử lại."
     : "Không thực hiện được thao tác. Hãy kiểm tra thông tin rồi thử lại.";
 }
-function friendlyServerDetail(value, status = 500, reference = "") {
+function friendlyServerDetail(value, status = 500) {
   const message = String(value || "").trim();
   // Không đưa lỗi lập trình hoặc thông tin máy chủ lên giao diện người dùng.
   const internalPattern = /(?:Traceback|SQLAlchemy|psycopg|ProgrammingError|IntegrityError|OperationalError|GEMINI_API_KEY|\bHTTP\s*\d{3}\b|\bJSON\b|\bUvicorn\b|<html|database_schema|database_integrity|database_unavailable)/i;
@@ -96,7 +96,7 @@ function apiErrorMessage(payload, fallback) {
     const detail = formatApiDetail(payload.detail);
     const error = formatApiDetail(payload.error);
     if (message || detail || error)
-      return friendlyServerDetail(message || detail || error, payload.status || 500, payload.error_id || "");
+      return friendlyServerDetail(message || detail || error, payload.status || 500);
   } else {
     const message = formatApiDetail(payload);
     if (message) return friendlyServerDetail(message);
@@ -126,6 +126,11 @@ const esc = (s) =>
       c
       ],
   );
+function opts(rows, label = "name") {
+  return rows
+    .map((row) => `<option value="${row.id}">${esc(row[label])}</option>`)
+    .join("");
+}
 function confirmAction(message, options = {}) {
   const customConfirm = window.OperationStatus?.confirm;
   if (typeof customConfirm === "function") {

@@ -1,4 +1,52 @@
 /* Schedule rendering, conflict display, generation and tray UI. */
+function renderScheduleSelectors() {
+  const type = $("#viewType"),
+    entity = $("#viewEntity");
+  if (!type || !entity) return;
+
+  const updateEntity = (preserveValue = true) => {
+    const previousValue = preserveValue ? entity.value : "";
+    const filterType = type.value;
+    let rows = [];
+    if (filterType === "grade") rows = data.grades || [];
+    else if (filterType === "class") rows = data.classes || [];
+    else if (filterType === "teacher") rows = data.teachers || [];
+    else if (filterType === "subject") rows = data.subjects || [];
+
+    const needsEntity = filterType !== "overview";
+    entity.hidden = !needsEntity;
+    entity.disabled = !needsEntity;
+    const entityLabel = entity.closest("label");
+    if (entityLabel) entityLabel.hidden = !needsEntity;
+
+    entity.innerHTML = needsEntity ? opts(rows) : "";
+    if (
+      needsEntity &&
+      previousValue &&
+      [...entity.options].some((option) => option.value === previousValue)
+    ) {
+      entity.value = previousValue;
+    }
+  };
+
+  const rerender = () => {
+    renderSchedule(true);
+    renderScheduleCoverage();
+  };
+
+  updateEntity(true);
+  type.onchange = () => {
+    if (typeof clearTapAssign === "function") clearTapAssign();
+    updateEntity(false);
+    rerender();
+  };
+  entity.onchange = () => {
+    if (typeof clearTapAssign === "function") clearTapAssign();
+    rerender();
+  };
+  rerender();
+}
+
 function computeScheduleConflicts() {
   const conflictsByLessonId = new Map();
   const validation = data?.schedule_validation || {};

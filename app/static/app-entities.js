@@ -68,61 +68,6 @@ function renderAll() {
   }
   restoreEntitySelections(selectedRows);
 }
-function opts(rows, label = "name") {
-  return rows
-    .map((x) => `<option value="${x.id}">${esc(x[label])}</option>`)
-    .join("");
-}
-
-function renderScheduleSelectors() {
-  const type = $("#viewType"),
-    entity = $("#viewEntity");
-  if (!type || !entity) return;
-
-  const updateEntity = (preserveValue = true) => {
-    const previousValue = preserveValue ? entity.value : "";
-    const filterType = type.value;
-    let rows = [];
-    if (filterType === "grade") rows = data.grades || [];
-    else if (filterType === "class") rows = data.classes || [];
-    else if (filterType === "teacher") rows = data.teachers || [];
-    else if (filterType === "subject") rows = data.subjects || [];
-
-    const needsEntity = filterType !== "overview";
-    entity.hidden = !needsEntity;
-    entity.disabled = !needsEntity;
-    const entityLabel = entity.closest("label");
-    if (entityLabel) entityLabel.hidden = !needsEntity;
-
-    entity.innerHTML = needsEntity ? opts(rows) : "";
-    if (
-      needsEntity &&
-      previousValue &&
-      [...entity.options].some((o) => o.value === previousValue)
-    ) {
-      entity.value = previousValue;
-    }
-  };
-
-  const rerender = () => {
-    renderSchedule(true);
-    renderScheduleCoverage();
-  };
-
-  updateEntity(true);
-
-  type.onchange = () => {
-    clearTapAssign();
-    updateEntity(false);
-    rerender();
-  };
-  entity.onchange = () => {
-    clearTapAssign();
-    rerender();
-  };
-
-  rerender();
-}
 function blockModeEditor(mode = "free") {
   const selected = (value) => (value === mode ? "selected" : "");
   return `<label>Chế độ xếp tiết<select name="block_mode" onchange="updateBlockModePreview(this.form)"><option value="free" ${selected("free")}>Tự do</option><option value="preferred_double" ${selected("preferred_double")}>Ưu tiên tiết đôi</option><option value="required_double" ${selected("required_double")}>Bắt buộc tiết đôi</option></select><small class="block-mode-help">Tự do: các tiết độc lập. Ưu tiên: cố gắng ghép đôi nhưng được tách. Bắt buộc: hệ thống chia thành các cặp 2 tiết; nếu tổng số tiết lẻ thì còn 1 tiết đơn.</small></label><div class="block-mode-preview" data-block-preview></div>`;

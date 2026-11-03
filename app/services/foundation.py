@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import io
-import base64
 import json
 import logging
-import random
 import secrets
-import smtplib
 import time
 import threading
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 from typing import Optional
 
 from app.config import (
@@ -20,7 +16,6 @@ from app.config import (
     DATABASE_DDL_LOCK_TIMEOUT_SECONDS,
     DATABASE_STATEMENT_TIMEOUT_SECONDS,
     DATABASE_URL,
-    SECRET_KEY,
 )
 from app.database import DATABASE_BOOTSTRAP_LOCK_KEY, SessionLocal, engine
 from app.models import (
@@ -28,7 +23,6 @@ from app.models import (
     User,
     RealtimeConnection,
     RealtimeEvent,
-    RegistrationVerification,
     EmailChangeVerification,
     School,
     UserSchool,
@@ -50,44 +44,29 @@ from app.models import (
 from app.scheduling.rules import (
     all_slots,
     assignment_groups,
-    assignment_prefers_double,
     assignment_requires_double,
-    assignment_run_groups,
     bounded_int,
     class_blocked_slots,
     class_grade_blocked_slots,
     ensure_assignment_hard_feasible,
-    ensure_required_double_hard_feasible,
     fixed_row_size,
     normalized_block_mode,
     parse_slots,
-    pattern_completion_plan,
-    preferred_double_pair_count,
-    remaining_pattern_groups,
-    required_double_hard_feasible,
     required_double_block_state,
     next_required_double_block_size,
-    required_double_structure_feasible,
     slot_meta,
-    timetable_pattern_feasible,
     valid_slots,
 )
-from app.scheduling.solver import ga_schedule, solve, solve_missing, solve_rebuild
+from app.scheduling.solver import ga_schedule
 
 from app.logic import (
     fixed_group_validation_error,
     normalize_slot_values,
-    parse_integer_set,
-    pop_matching_fixed_task,
-    remap_slot_for_session_expansion,
-    remap_slots_for_session_expansion,
-    schedule_validation_peers,
 )
 from urllib.parse import quote
 
 from fastapi import (
     Depends,
-    FastAPI,
     File,
     Form,
     HTTPException,
@@ -104,17 +83,14 @@ from fastapi.responses import (
 )
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from itsdangerous import BadSignature, SignatureExpired
 import hashlib
-import hmac
 import os
 import psycopg
-from PIL import Image, ImageDraw
 from pydantic import BaseModel, Field
 from sqlalchemy import (
     delete,
     func,
-    inspect,
     select,
     text,
 )

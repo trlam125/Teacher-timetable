@@ -465,10 +465,12 @@ renderSchedule = function (...args) {
   markGlobalBlockedSlots();
   markScheduleAvoidSlots();
 };
-renderAll();
-renderScheduleSelectors();
-renderConstraintSelectors();
-activateRequestedWorkspaceTab();
+if (window.READ_ONLY) {
+  renderScheduleSelectors();
+} else {
+  renderAll();
+  activateRequestedWorkspaceTab();
+}
 
 entityModal?.addEventListener("close", () => {
   setEntityActionMessage("");
