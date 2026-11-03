@@ -24,6 +24,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from typing import Optional
+import time
+from app.scheduling.solver.diagnostics import SCHEDULER_REVISION
 
 
 def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[GenerateScheduleIn]):
@@ -405,6 +407,27 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
         for assignment in assignments
     )
 
+    search_diagnostics = None
+
+    def run_solver(solver, mode, tries):
+        nonlocal search_diagnostics
+        started = time.monotonic()
+        result = solver(db, p, tries=tries)
+        search_diagnostics = {
+            "scheduler_revision": SCHEDULER_REVISION,
+            "mode": mode,
+            "initial_lessons": len(existing),
+            "solver": result.get("solver"),
+            "elapsed_seconds": round(time.monotonic() - started, 3),
+            "result_periods": len(result["lessons"]),
+            "unscheduled": result["unscheduled"],
+            "optimal": result.get("optimal", False),
+            "search_limited": result.get("search_limited", not result.get("optimal", False)),
+            "maximum_placed": result.get("maximum_placed", result["unscheduled"] == 0),
+        }
+        logger.info("Schedule generation diagnostic: %s", search_diagnostics)
+        return result
+
     def finalize_generated_schedule(
         response_payload, *, invalid_status_code: int = 500
     ):
@@ -453,6 +476,8 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             class_capacity_issues=input_validation["class_capacity_issues"],
             assignment_availability_issues=input_validation["assignment_availability_issues"],
         )
+        if search_diagnostics is not None:
+            response_payload["search_diagnostics"] = search_diagnostics
         if response_payload["partial"]:
             response_payload["message"] = (
                 f"Đã lưu {len(current_lessons)} tiết lên thời khóa biểu; "
@@ -513,7 +538,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                     409,
                 )
 
-            rebuild = solve_rebuild(db, p, tries=260)
+            rebuild = run_solver(solve_rebuild, "rebuild", 260)
             if rebuild["unscheduled"] > 0 and len(rebuild["lessons"]) < len(rebuild_lesson_ids):
                 return finalize_generated_schedule({
                     "ok": True, "score": rebuild["score"], "preserved_current": True,
@@ -537,7 +562,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 }
             )
 
-        result = solve_missing(db, p, tries=160)
+        result = run_solver(solve_missing, "missing", 160)
         add_generated_lessons(db, p, result["lessons"])
         return finalize_generated_schedule(
             {
@@ -552,7 +577,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
         )
 
     # Chỉ khi lịch hoàn toàn trống mới chạy bộ xếp toàn bộ.
-    result = solve(db, p, tries=120)
+    result = run_solver(solve, "full", 120)
     for l in existing:
         db.delete(l)
     add_generated_lessons(db, p, result["lessons"])

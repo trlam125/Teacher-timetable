@@ -35,6 +35,7 @@ from app.scheduling.rules import (
 logger = logging.getLogger("smart_tkb")
 
 from .scoring import *
+from .repair import repair_placements
 
 
 def ga_schedule(
@@ -458,7 +459,7 @@ def ga_schedule(
     task_rows = [item[0] for item in task_candidate_pairs]
     task_candidates = [item[1] for item in task_candidate_pairs]
 
-    def cp_sat_primary(allow_partial: bool = False):
+    def cp_sat_primary(allow_partial: bool = False, incumbent=None):
         """Find a complete schedule, or maximize placed periods in partial mode.
 
         Phase 1 has no soft objective and requires every task to be placed. Phase
@@ -467,8 +468,8 @@ def ga_schedule(
         """
         try:
             from ortools.sat.python import cp_model
-        except ImportError:
-            logger.warning("OR-Tools is not installed; falling back to GA scheduler")
+        except (ImportError, OSError) as exc:
+            logger.warning("CP-SAT unavailable (%s); using the fallback scheduler", type(exc).__name__)
             return None
 
         model = cp_model.CpModel()
@@ -616,6 +617,21 @@ def ga_schedule(
             group.sort()
             for (_left_group, left), (_right_group, right) in zip(group, group[1:]):
                 model.Add(task_start_vars[left] <= task_start_vars[right])
+
+        if incumbent is not None:
+            hint_starts = list(incumbent["genes"])
+            for group in symmetry_groups.values():
+                indices = [index for _group_index, index in sorted(group)]
+                starts = sorted((hint_starts[index] for index in indices),
+                                key=lambda start: unscheduled_sentinel if start is None else start)
+                for index, start in zip(indices, starts):
+                    hint_starts[index] = start
+            for index, rows in enumerate(task_options):
+                for start, *_rest, var in rows:
+                    model.AddHint(var, int(start == hint_starts[index]))
+                omitted = optional_unscheduled_by_task[index]
+                if omitted is not None:
+                    model.AddHint(omitted, int(hint_starts[index] is None))
 
         def add_soft_objective():
             """Build preference variables only after a valid placement exists."""
@@ -834,6 +850,7 @@ def ga_schedule(
                 # Count is now fixed at its best value. Improve preferences
                 # without ever exchanging a placed period for a prettier grid.
                 model.Add(omitted_periods == result["unscheduled"])
+                model.ClearHints()
                 for var in all_option_vars:
                     model.AddHint(var, solver.Value(var))
                 for var in optional_unscheduled_by_task:
@@ -888,6 +905,7 @@ def ga_schedule(
         # remaining global budget improving the canonical soft score.
         if time_left() <= 0.10:
             return hard_result
+        model.ClearHints()
         for var in all_option_vars:
             model.AddHint(var, solver.Value(var))
         add_soft_objective()
@@ -913,20 +931,6 @@ def ga_schedule(
             hard_result.get("wall_time", 0) + optimize_solver.WallTime(), 3
         )
         return hard_result
-
-    cp_result = cp_sat_primary()
-    if cp_result is not None and cp_result["unscheduled"] == 0:
-        return cp_result
-    partial_result = cp_sat_primary(allow_partial=True)
-    if partial_result is not None:
-        partial_result["proven_infeasible"] = bool(
-            cp_result and cp_result.get("proven_infeasible")
-        )
-        if partial_result["unscheduled"] == 0 or partial_result["maximum_placed"]:
-            return partial_result
-        # Keep the incumbent while the bounded GA/exact fallback continues to
-        # repair unsaved placements inside this very first generation request.
-        cp_result = partial_result
 
     candidate_by_start = [
         {row[0]: row for row in candidates} for candidates in task_candidates
@@ -1068,17 +1072,21 @@ def ga_schedule(
         # the chance that a flexible repair steals the last slot from a hard one.
         unresolved = []
         pending = set(pending)
+        options_by_task = {
+            index: [row for row in task_candidates[index] if feasible(index, row)]
+            for index in pending
+        }
+        pending_by_teacher = defaultdict(set)
+        pending_by_class = defaultdict(set)
+        for index in pending:
+            owner = task_rows[index][0]
+            pending_by_teacher[owner.teacher_id].add(index)
+            pending_by_class[owner.class_id].add(index)
         while pending:
             selected_index = None
             selected_options = None
             for index in tuple(pending):
-                forced = task_rows[index][4]
-                gene = forced if forced is not None else genes[index]
-                candidates = task_candidates[index]
-                if forced is not None:
-                    forced_row = candidate_by_start[index].get(forced)
-                    candidates = (forced_row,) if forced_row is not None else ()
-                options = [row for row in candidates if feasible(index, row)]
+                options = options_by_task[index]
                 if not options:
                     unresolved.append(index)
                     pending.remove(index)
@@ -1101,6 +1109,10 @@ def ga_schedule(
                 ),
             )
             place(selected_index, best_row)
+            owner = task_rows[selected_index][0]
+            affected = pending_by_teacher[owner.teacher_id] | pending_by_class[owner.class_id]
+            for index in affected & pending:
+                options_by_task[index] = [row for row in options_by_task[index] if feasible(index, row)]
 
         unscheduled = sum(
             max(1, task_rows[index][2] - len(task_rows[index][5]))
@@ -1358,13 +1370,48 @@ def ga_schedule(
         return (candidate["unscheduled"], candidate["score"])
 
     seed_candidate = evaluate([None] * len(task_rows))
+    seed_candidate["optimal"] = False
     best_candidate = seed_candidate
-    if cp_result is not None and candidate_key(cp_result) < candidate_key(
-        best_candidate
-    ):
-        best_candidate = cp_result
 
-    population = [genes_from_candidate(seed_candidate)]
+    # Secure a valid incumbent before CP-SAT consumes the remaining budget.
+    # This also supplies a complete placement hint on CPU-limited hosts.
+    if best_candidate["unscheduled"] > 0 and not deadline_hit(0.05):
+        repaired = repair_placements(
+            task_rows, task_candidates, genes_from_candidate(best_candidate),
+            existing, assignment_by_id,
+            deadline=min(deadline, time.monotonic() + max(0.1, min(3.0, time_left() * 0.25))),
+        )
+        final_slots = defaultdict(set)
+        for lesson in existing:
+            final_slots[lesson.assignment_id].add(lesson.slot)
+        for assignment_id, slot, *_ in repaired["lessons"]:
+            final_slots[assignment_id].add(slot)
+        repaired["score"] = repaired["unscheduled"] * 10000 + _schedule_soft_score(
+            p, assignments, assignment_by_id, final_slots
+        )
+        repaired["optimal"] = False
+        if candidate_key(repaired) < candidate_key(best_candidate):
+            best_candidate = repaired
+
+    cp_result = cp_sat_primary(incumbent=best_candidate)
+    if cp_result is not None:
+        if candidate_key(cp_result) <= candidate_key(best_candidate):
+            best_candidate = cp_result
+        if cp_result["unscheduled"] == 0:
+            return best_candidate
+    if best_candidate["unscheduled"] > 0:
+        partial_result = cp_sat_primary(allow_partial=True, incumbent=best_candidate)
+        if partial_result is not None:
+            partial_result["proven_infeasible"] = bool(
+                cp_result and cp_result.get("proven_infeasible")
+            )
+            if candidate_key(partial_result) <= candidate_key(best_candidate):
+                best_candidate = partial_result
+            if partial_result["unscheduled"] == 0 or partial_result["maximum_placed"]:
+                return best_candidate
+            cp_result = partial_result
+
+    population = [genes_from_candidate(best_candidate)]
     if cp_result is not None:
         cp_genes = genes_from_candidate(cp_result)
         if cp_genes != population[0]:

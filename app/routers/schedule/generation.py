@@ -3,7 +3,8 @@ from __future__ import annotations
 from app.models import User
 from app.services.authentication.sessions import current_user, db_session
 from app.services.entities.schemas import GenerateScheduleIn
-from app.services.projects import get_project_for_update
+from app.services.projects import get_project, get_project_for_update
+from app.scheduling.solver.diagnostics import scheduler_runtime_diagnostics
 from app.services.schedule_generation import generate_schedule
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -11,6 +12,16 @@ from typing import Optional
 
 
 router = APIRouter()
+
+
+@router.get("/api/projects/{pid}/scheduler-diagnostics")
+def scheduler_diagnostics(
+    pid: int,
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    get_project(pid, user, db)
+    return {"project_id": pid, **scheduler_runtime_diagnostics()}
 
 
 @router.post("/api/projects/{pid}/generate")
