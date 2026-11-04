@@ -219,12 +219,41 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
   }
 }
 let partialScheduleRebuildIds = null;
+function scheduleRebuildLessonIds() {
+  return [...new Set((data.lessons || [])
+    .filter((lesson) => !lesson.locked)
+    .map((lesson) => Number(lesson.id))
+    .filter((id) => Number.isInteger(id) && id > 0))];
+}
+function updateScheduleRebuildButton() {
+  const button = $("#scheduleRebuildBtn");
+  if (!button) return;
+  const scheduledCounts = new Map();
+  for (const lesson of data.lessons || []) {
+    const id = Number(lesson.assignment_id);
+    scheduledCounts.set(id, (scheduledCounts.get(id) || 0) + 1);
+  }
+  const hasMissing = (data.assignments || []).some((assignment) =>
+    Number(assignment.periods_per_week || 0) > (scheduledCounts.get(Number(assignment.id)) || 0));
+  const running = Boolean(document.querySelector('[data-schedule-action][data-schedule-state="loading"]'));
+  const movableCount = scheduleRebuildLessonIds().length;
+  button.disabled = running || !movableCount || !hasMissing;
+  button.setAttribute("aria-busy", running ? "true" : "false");
+  button.title = running ? "Đang xếp thời khóa biểu."
+    : !movableCount ? "Chưa có tiết không cố định trên lịch để xếp lại."
+    : !hasMissing ? "Lịch đã đủ tiết."
+    : `Dùng lịch hiện có để tìm chỗ cho phần còn thiếu; có thể dời tối đa ${movableCount} tiết không cố định.`;
+}
 async function confirmPartialScheduleRebuild() {
-  const ids = partialScheduleRebuildIds?.slice();
-  if (!ids?.length) return;
+  if (document.querySelector('[data-schedule-action][data-schedule-state="loading"]')) return;
+  const ids = scheduleRebuildLessonIds();
+  if (!ids.length) {
+    setScheduleFeedback("Chưa có tiết không cố định trên lịch để xếp lại.", "info", 4200);
+    return;
+  }
   if (await confirmAction(
-    `Lượt xếp trước vẫn còn thiếu tiết. Bước cuối này sẽ dành thêm thời gian để thử xếp lại ${ids.length} tiết không cố định và tìm chỗ cho phần còn thiếu. Các tiết cố định sẽ được giữ nguyên. Tiếp tục?`,
-    { title: "Phương án cuối: thử xếp lại", confirmText: "Thử xếp lại" },
+    `Hệ thống sẽ dùng lịch hiện có làm điểm xuất phát để tìm chỗ cho phần còn thiếu, có thể dời tối đa ${ids.length} tiết không cố định. Các tiết cố định sẽ được giữ nguyên. Tiếp tục?`,
+    { title: "Xếp lại phần không cố định", confirmText: "Xếp lại" },
   )) await generateSchedule(ids);
 }
 function renderScheduleAttemptDetails(payload) {
@@ -429,6 +458,7 @@ function clusteredLessonIds() {
 }
 
 function renderSchedule(preserveScroll = false) {
+  updateScheduleRebuildButton();
   const box = $("#scheduleGrid"),
     vt = $("#viewType"),
     ve = $("#viewEntity");

@@ -183,6 +183,7 @@ function setScheduleActionState(state, resetAfter = 0) {
     button.disabled = state === "loading";
     button.setAttribute("aria-busy", state === "loading" ? "true" : "false");
   });
+  if (typeof updateScheduleRebuildButton === "function") updateScheduleRebuildButton();
   if (resetAfter > 0)
     scheduleActionTimer = setTimeout(() => {
       if (version === scheduleActionVersion) setScheduleActionState("idle");

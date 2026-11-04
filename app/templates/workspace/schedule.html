@@ -29,7 +29,11 @@
     </div>
     <!-- Bulk schedule action stays visible even when the unscheduled-tray panel is removed.
          Do not move this into #scheduleGrid: renderSchedule() replaces that element. -->
-    <div class="schedule-bulk-actions" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:-8px 0 16px;max-width:100%;">
+    <div class="schedule-bulk-actions" style="display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;margin:-8px 0 16px;max-width:100%;">
+        <button type="button" id="scheduleRebuildBtn" class="btn ghost"
+            onclick="confirmPartialScheduleRebuild()" disabled>
+            Xếp lại phần không cố định
+        </button>
         <button type="button" id="returnAllToTrayBtn" class="btn ghost"
             style="display:inline-flex;align-items:center;justify-content:center;gap:8px;max-width:100%;min-height:40px;"
             title="Đưa toàn bộ tiết chưa cố định về khay, giữ nguyên tiết đã ghim/cố định"
