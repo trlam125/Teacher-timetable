@@ -442,6 +442,8 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             "optimal": result.get("optimal", False),
             "search_limited": result.get("search_limited", not result.get("optimal", False)),
             "maximum_placed": result.get("maximum_placed", result["unscheduled"] == 0),
+            "reused_periods": result.get("reused_periods"),
+            "search_phases": result.get("search_phases", []),
         })
         logger.info("Schedule generation diagnostic: %s", search_diagnostics)
         return result

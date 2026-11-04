@@ -36,6 +36,7 @@ logger = logging.getLogger("smart_tkb")
 
 from .scoring import *
 from .repair import repair_placements
+from .rebuild import conflict_neighborhood, saved_placement_genes
 
 
 def ga_schedule(
@@ -459,13 +460,23 @@ def ga_schedule(
     task_rows = [item[0] for item in task_candidate_pairs]
     task_candidates = [item[1] for item in task_candidate_pairs]
 
-    def cp_sat_primary(allow_partial: bool = False, incumbent=None):
+    search_phases = []
+
+    def cp_sat_primary(
+        allow_partial: bool = False, incumbent=None, *, neighborhood=None,
+        phase_deadline=None,
+    ):
         """Find a complete schedule, or maximize placed periods in partial mode.
 
         Phase 1 has no soft objective and requires every task to be placed. Phase
         2 reuses that complete timetable as a hint and spends only the remaining
         request-wide budget on the canonical soft objective.
         """
+        def cp_time_left():
+            return max(0.0, min(deadline, phase_deadline or deadline) - time.monotonic())
+
+        if cp_time_left() <= 0.05:
+            return None
         try:
             from ortools.sat.python import cp_model
         except (ImportError, OSError) as exc:
@@ -484,8 +495,14 @@ def ga_schedule(
         task_start_vars = []
         all_option_vars = []
         unscheduled_sentinel = max(slots, default=-1) + 1
+        incumbent_genes = genes_from_candidate(incumbent) if incumbent is not None else None
 
         for index, (task, candidates) in enumerate(zip(task_rows, task_candidates)):
+            if cp_time_left() <= 0.05:
+                return None
+            frozen = neighborhood is not None and index not in neighborhood
+            if frozen:
+                candidates = tuple(row for row in candidates if row[0] == incumbent_genes[index])
             (
                 assignment,
                 group_index,
@@ -517,6 +534,8 @@ def ga_schedule(
             # Pins remain mandatory. Only whole movable tasks may be omitted,
             # so a required double block can never be split by the partial solve.
             if not rows and (not allow_partial or forced is not None):
+                if neighborhood is not None:
+                    return None
                 missing = sum(task[2] - len(task[5]) for task in task_rows)
                 return {
                     "lessons": [],
@@ -531,6 +550,8 @@ def ga_schedule(
                 if allow_partial and forced is None else None
             )
             model.Add(option_sum + (unscheduled if unscheduled is not None else 0) == 1)
+            if frozen and unscheduled is not None:
+                model.Add(unscheduled == int(incumbent_genes[index] is None))
             start_expr = sum(row[0] * row[6] for row in rows)
             if unscheduled is not None:
                 start_expr += unscheduled_sentinel * unscheduled
@@ -606,6 +627,10 @@ def ga_schedule(
         # ensures any omitted copies are pushed to the end of the group.
         symmetry_groups = defaultdict(list)
         for index, (task, candidates) in enumerate(zip(task_rows, task_candidates)):
+            # Local repairs freeze individual task identities. Permuting equal
+            # tasks across that boundary would change the frozen placements.
+            if neighborhood is not None:
+                break
             assignment, group_index, size, explicit, forced, anchor_slots, _ = task
             if forced is not None or anchor_slots:
                 continue
@@ -764,7 +789,7 @@ def ga_schedule(
                             model.Add(gap >= before + after - occupancy[period] - 1)
                             objective_terms.append(2 * gap)
 
-        total_budget = time_left()
+        total_budget = cp_time_left()
 
         def make_solver(time_limit: float):
             solver = cp_model.CpSolver()
@@ -772,6 +797,17 @@ def ga_schedule(
             solver.parameters.num_search_workers = max(1, min(8, os.cpu_count() or 1))
             solver.parameters.random_seed = 42
             return solver
+
+        def solve_model(solver, phase):
+            started = time.monotonic()
+            status = solver.Solve(model)
+            search_phases.append({
+                "phase": phase,
+                "status": solver.StatusName(status),
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+                "movable_tasks": len(neighborhood) if neighborhood is not None else len(task_rows),
+            })
+            return status
 
         def extract_result(solver, status, solver_name: str):
             lessons = []
@@ -836,17 +872,27 @@ def ga_schedule(
                 for index, var in enumerate(optional_unscheduled_by_task)
                 if var is not None
             )
+            if neighborhood is not None:
+                # Require a real gain. A locally optimal partial timetable is
+                # never a proof of the maximum for the whole project.
+                model.Add(omitted_periods < incumbent["unscheduled"])
             model.Minimize(omitted_periods)
-            solver = make_solver(total_budget * 0.65)
-            status = solver.Solve(model)
+            solver = make_solver(total_budget * (1.0 if neighborhood is not None else 0.65))
+            partial_phase = "cp_sat_neighborhood" if neighborhood is not None else "cp_sat_partial"
+            status = solve_model(solver, partial_phase)
             if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                result = extract_result(solver, status, "cp_sat_partial")
+                result = extract_result(solver, status, partial_phase)
                 result["maximum_placed"] = (
-                    status == cp_model.OPTIMAL or result["unscheduled"] == 0
+                    (neighborhood is None and status == cp_model.OPTIMAL)
+                    or result["unscheduled"] == 0
                 )
                 result["optimal"] = False
                 result["search_limited"] = not result["maximum_placed"]
-                if not result["maximum_placed"] or time_left() <= 0.10:
+                if (
+                    neighborhood is not None
+                    or not result["maximum_placed"]
+                    or cp_time_left() <= 0.10
+                ):
                     return result
 
                 # Count is now fixed at its best value. Improve preferences
@@ -859,10 +905,10 @@ def ga_schedule(
                     if var is not None:
                         model.AddHint(var, solver.Value(var))
                 add_soft_objective()
-                if objective_terms and time_left() > 0.10:
+                if objective_terms and cp_time_left() > 0.10:
                     model.Minimize(sum(objective_terms))
-                    optimize_solver = make_solver(time_left())
-                    optimize_status = optimize_solver.Solve(model)
+                    optimize_solver = make_solver(cp_time_left())
+                    optimize_status = solve_model(optimize_solver, "cp_sat_partial_optimize")
                     if optimize_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                         optimized = extract_result(
                             optimize_solver, optimize_status, "cp_sat_partial_optimize"
@@ -879,7 +925,7 @@ def ga_schedule(
         # to find a complete schedule in time.
         hard_time = min(total_budget, max(0.2, total_budget * 0.75))
         solver = make_solver(hard_time)
-        status = solver.Solve(model)
+        status = solve_model(solver, "cp_sat_feasibility")
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             if status == cp_model.INFEASIBLE:
                 missing = sum(max(1, task[2] - len(task[5])) for task in task_rows)
@@ -905,18 +951,18 @@ def ga_schedule(
 
         # Phase 2: reuse the complete timetable as a hint and spend only the
         # remaining global budget improving the canonical soft score.
-        if time_left() <= 0.10:
+        if cp_time_left() <= 0.10:
             return hard_result
         model.ClearHints()
         for var in all_option_vars:
             model.AddHint(var, solver.Value(var))
         add_soft_objective()
-        if not objective_terms or time_left() <= 0.10:
+        if not objective_terms or cp_time_left() <= 0.10:
             return hard_result
         model.Minimize(sum(objective_terms))
 
-        optimize_solver = make_solver(time_left())
-        optimize_status = optimize_solver.Solve(model)
+        optimize_solver = make_solver(cp_time_left())
+        optimize_status = solve_model(optimize_solver, "cp_sat_optimize")
         if optimize_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             optimized = extract_result(
                 optimize_solver, optimize_status, "cp_sat_optimize"
@@ -1371,9 +1417,24 @@ def ga_schedule(
         # Hard feasibility is lexicographically dominant over every soft score.
         return (candidate["unscheduled"], candidate["score"])
 
-    seed_candidate = evaluate([None] * len(task_rows))
+    seed_genes = (
+        saved_placement_genes(p, task_rows, task_candidates, all_existing, existing)
+        if mode == "rebuild" else [None] * len(task_rows)
+    )
+    seed_candidate = evaluate(seed_genes)
     seed_candidate["optimal"] = False
     best_candidate = seed_candidate
+    saved_pairs = {(lesson.assignment_id, lesson.slot) for lesson in all_existing}
+    reused_periods = len(existing) + sum(
+        (assignment_id, slot) in saved_pairs
+        for assignment_id, slot, *_ in seed_candidate["lessons"]
+    )
+
+    def finish(result):
+        result["search_phases"] = search_phases
+        if mode == "rebuild":
+            result["reused_periods"] = reused_periods
+        return result
 
     # Secure a valid incumbent before CP-SAT consumes the remaining budget.
     # This also supplies a complete placement hint on CPU-limited hosts.
@@ -1395,6 +1456,37 @@ def ga_schedule(
         if candidate_key(repaired) < candidate_key(best_candidate):
             best_candidate = repaired
 
+    if mode == "rebuild" and best_candidate["unscheduled"] > 0 and not deadline_hit(0.25):
+        # Repair around the saved timetable before spending the rest of the
+        # request on a global rebuild. Freeze unrelated tasks, then progressively
+        # expand through teacher/class conflicts. Local failures prove nothing
+        # about the feasibility of the entire project.
+        local_deadline = time.monotonic() + min(20.0, time_left() * 0.4)
+        previous_neighborhood = None
+        limits = (32, 96, 192)
+        for attempt, limit in enumerate(limits):
+            if time.monotonic() >= local_deadline - 0.1:
+                break
+            active = conflict_neighborhood(
+                task_rows, task_candidates, genes_from_candidate(best_candidate), limit
+            )
+            neighborhood_key = (active, tuple(genes_from_candidate(best_candidate)))
+            if neighborhood_key == previous_neighborhood:
+                continue
+            previous_neighborhood = neighborhood_key
+            phase_budget = (local_deadline - time.monotonic()) / (len(limits) - attempt)
+            local_result = cp_sat_primary(
+                allow_partial=True, incumbent=best_candidate, neighborhood=active,
+                phase_deadline=time.monotonic() + phase_budget,
+            )
+            if (
+                local_result is not None
+                and candidate_key(local_result) < candidate_key(best_candidate)
+            ):
+                best_candidate = local_result
+                if best_candidate["unscheduled"] == 0:
+                    return finish(best_candidate)
+
     cp_result = cp_sat_primary(incumbent=best_candidate)
     if cp_result is not None:
         # An infeasibility report is not a timetable candidate. It has no
@@ -1406,7 +1498,7 @@ def ga_schedule(
         ):
             best_candidate = cp_result
         if cp_result["unscheduled"] == 0:
-            return best_candidate
+            return finish(best_candidate)
     if best_candidate["unscheduled"] > 0:
         partial_result = cp_sat_primary(allow_partial=True, incumbent=best_candidate)
         if partial_result is not None:
@@ -1420,7 +1512,9 @@ def ga_schedule(
                 or (cp_result and cp_result.get("proven_infeasible"))
             )
             if partial_result["unscheduled"] == 0 or partial_result.get("maximum_placed", False):
-                return best_candidate
+                if partial_result["unscheduled"] == best_candidate["unscheduled"]:
+                    best_candidate["maximum_placed"] = True
+                return finish(best_candidate)
             cp_result = partial_result
 
     population = [genes_from_candidate(best_candidate)]
@@ -1526,14 +1620,14 @@ def ga_schedule(
             node_limit = min(100000, max(20000, tries * 400))
             exact_result, exhausted, nodes = exact_fallback(node_limit)
             if exact_result is not None:
-                return exact_result
+                return finish(exact_result)
             best_candidate["proven_infeasible"] = exhausted
             best_candidate["search_limited"] = not exhausted
             best_candidate["exact_nodes"] = nodes
         else:
             best_candidate["proven_infeasible"] = False
             best_candidate["search_limited"] = True
-    return best_candidate
+    return finish(best_candidate)
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

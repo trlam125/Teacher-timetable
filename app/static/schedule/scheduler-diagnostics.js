@@ -51,6 +51,7 @@ function renderSchedulerDiagnostics(report) {
         ["Phiên bản lúc chạy", search.scheduler_revision], ["Chế độ", modes[search.mode] || search.mode],
         ["Bộ giải trả kết quả", search.solver], ["Thời gian chạy", search.elapsed_seconds == null ? "—" : `${search.elapsed_seconds} giây`],
         ["Số tiết trước lượt xếp", search.initial_lessons], ["Trạng thái", statuses[outcome.status] || outcome.status],
+        ["Tiết lịch cũ dùng làm điểm xuất phát", search.reused_periods],
         ["Tiết trên lịch sau lượt xếp", outcome.scheduled], ["Tiết còn thiếu sau lượt xếp", outcome.unscheduled],
         ["Đã chứng minh số tiết xếp là nhiều nhất", yesNo(search.maximum_placed)],
         ["Đã chứng minh điểm tối ưu", yesNo(search.optimal)],
