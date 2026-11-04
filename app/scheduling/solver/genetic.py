@@ -517,12 +517,14 @@ def ga_schedule(
             # Pins remain mandatory. Only whole movable tasks may be omitted,
             # so a required double block can never be split by the partial solve.
             if not rows and (not allow_partial or forced is not None):
+                missing = sum(task[2] - len(task[5]) for task in task_rows)
                 return {
                     "lessons": [],
-                    "unscheduled": max(1, missing_size),
-                    "score": max(1, missing_size) * 10000,
+                    "unscheduled": missing,
+                    "score": missing * 10000,
                     "solver": "cp_sat_feasibility",
                     "proven_infeasible": True,
+                    "maximum_placed": False,
                 }
             unscheduled = (
                 model.NewBoolVar(f"task_{index}_unscheduled")
@@ -619,7 +621,7 @@ def ga_schedule(
                 model.Add(task_start_vars[left] <= task_start_vars[right])
 
         if incumbent is not None:
-            hint_starts = list(incumbent["genes"])
+            hint_starts = genes_from_candidate(incumbent)
             for group in symmetry_groups.values():
                 indices = [index for _group_index, index in sorted(group)]
                 starts = sorted((hint_starts[index] for index in indices),
@@ -1395,19 +1397,29 @@ def ga_schedule(
 
     cp_result = cp_sat_primary(incumbent=best_candidate)
     if cp_result is not None:
-        if candidate_key(cp_result) <= candidate_key(best_candidate):
+        # An infeasibility report is not a timetable candidate. It has no
+        # placement genes and must never replace the valid incumbent used by
+        # the partial search, even when both have the same missing count.
+        if (
+            not cp_result.get("proven_infeasible")
+            and candidate_key(cp_result) <= candidate_key(best_candidate)
+        ):
             best_candidate = cp_result
         if cp_result["unscheduled"] == 0:
             return best_candidate
     if best_candidate["unscheduled"] > 0:
         partial_result = cp_sat_primary(allow_partial=True, incumbent=best_candidate)
         if partial_result is not None:
-            partial_result["proven_infeasible"] = bool(
-                cp_result and cp_result.get("proven_infeasible")
-            )
-            if candidate_key(partial_result) <= candidate_key(best_candidate):
+            if (
+                not partial_result.get("proven_infeasible")
+                and candidate_key(partial_result) <= candidate_key(best_candidate)
+            ):
                 best_candidate = partial_result
-            if partial_result["unscheduled"] == 0 or partial_result["maximum_placed"]:
+            partial_result["proven_infeasible"] = bool(
+                partial_result.get("proven_infeasible")
+                or (cp_result and cp_result.get("proven_infeasible"))
+            )
+            if partial_result["unscheduled"] == 0 or partial_result.get("maximum_placed", False):
                 return best_candidate
             cp_result = partial_result
 
