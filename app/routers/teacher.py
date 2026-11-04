@@ -1,9 +1,41 @@
 from __future__ import annotations
 
+from typing import Optional
+import json
+
+from fastapi import (
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi import APIRouter
-from app.services.runtime import *
-from app.services.profiles import normalize_profile_url
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Project, TeacherPreference, User
+from app.scheduling.rules import valid_slots
+from app.services.authentication.credentials import pwd
+from app.services.authentication.permissions import user_can_access_school, user_schools
+from app.services.authentication.sessions import current_user, db_session, set_session_cookie
 from app.services.avatars import prepare_avatar_change
+from app.services.entities.schemas import PreferenceReviewIn
+from app.services.preferences import preference_payload, teacher_own_preference_payload
+from app.services.profiles import normalize_profile_url
+from app.services.projects import (
+    chatbot_ui_context,
+    get_project,
+    get_project_for_update,
+    public_project_data,
+    teacher_view_project,
+    teacher_view_projects,
+)
+from app.services.realtime.utils import _utc_now_iso
+from app.services.web import bounded_text, templates
+from app.settings import DAYS, MIN_PASSWORD_LENGTH
 
 router = APIRouter()
 

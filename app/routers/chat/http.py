@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi import Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import ChatMessage, School, User
+from app.services.authentication.permissions import user_can_access_school, user_schools
+from app.services.authentication.sessions import current_user, db_session
 
 router = APIRouter()
 

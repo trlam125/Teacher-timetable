@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from app.services.foundation import *
+import json
+
+from fastapi import HTTPException, UploadFile
+
+from app.settings import MAX_SCHEDULE_AUDIT_FILE_BYTES
 
 
 def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:

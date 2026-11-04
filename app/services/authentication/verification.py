@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from typing import Optional
 import hashlib
 import hmac
+
+from fastapi import HTTPException, Request
+from itsdangerous import BadSignature, SignatureExpired
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.config import SECRET_KEY
 from app.models import EmailChangeVerification, RegistrationVerification, User
 from app.services.authentication.captcha import new_captcha
@@ -12,18 +20,12 @@ from app.services.authentication.credentials import (
     reset_signer,
 )
 from app.services.authentication.permissions import admin_can_manage_account
-from app.services.foundation import (
+from app.settings import (
     EMAIL_CHANGE_CONFIRM_TTL_SECONDS,
     EMAIL_CHANGE_OTP_TTL_SECONDS,
     REGISTRATION_OTP_TTL_SECONDS,
     RESET_TOKEN_TTL_SECONDS,
 )
-from datetime import datetime, timezone
-from fastapi import HTTPException, Request
-from itsdangerous import BadSignature, SignatureExpired
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from typing import Optional
 
 
 def registration_otp_hash(email: str, otp: str) -> str:

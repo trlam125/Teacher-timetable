@@ -1,4 +1,4 @@
-from app.services.runtime import (
+from app.models import (
     Assignment,
     Department,
     Grade,
@@ -16,4 +16,6 @@ ENTITY_MODELS = {
     "assignment": Assignment,
 }
 
-__all__ = ["ENTITY_MODELS"]
+__all__ = [
+    'ENTITY_MODELS',
+]

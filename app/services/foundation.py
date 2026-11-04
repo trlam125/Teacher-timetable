@@ -1,15 +1,48 @@
 from __future__ import annotations
 
-import asyncio
-import io
-import json
-import logging
-import secrets
-import time
-import threading
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from urllib.parse import quote
+import asyncio
+import hashlib
+import io
+import json
+import logging
+import os
+import secrets
+import threading
+import time
+
+from fastapi import (
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
+from fastapi.templating import Jinja2Templates
+from itsdangerous import BadSignature, SignatureExpired
+from pydantic import BaseModel, Field
+from sqlalchemy import (
+    delete,
+    func,
+    select,
+    text,
+)
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
+import psycopg
 
 from app.config import (
     DATABASE_BOOTSTRAP_LOCK_TIMEOUT_SECONDS,
@@ -18,6 +51,11 @@ from app.config import (
     DATABASE_URL,
 )
 from app.database import DATABASE_BOOTSTRAP_LOCK_KEY, SessionLocal, engine
+from app.logging_config import logger
+from app.logic import (
+    fixed_group_validation_error,
+    normalize_slot_values,
+)
 from app.models import (
     Base,
     User,
@@ -58,77 +96,29 @@ from app.scheduling.rules import (
     valid_slots,
 )
 from app.scheduling.solver import ga_schedule
-
-from app.logic import (
-    fixed_group_validation_error,
-    normalize_slot_values,
+from app.settings import (
+    ADMIN_ROLES,
+    APP_BASE_URL,
+    APP_ENV,
+    BOOTSTRAP_ADMIN_EMAIL,
+    BOOTSTRAP_ADMIN_PASSWORD,
+    DAYS,
+    EMAIL_CHANGE_CONFIRM_TTL_SECONDS,
+    EMAIL_CHANGE_OTP_MAX_ATTEMPTS,
+    EMAIL_CHANGE_OTP_TTL_SECONDS,
+    MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS,
+    MAX_CHATBOT_ERROR_LOGS,
+    MAX_SCHEDULE_AUDIT_FILE_BYTES,
+    MIN_PASSWORD_LENGTH,
+    REGISTRATION_OTP_MAX_ATTEMPTS,
+    REGISTRATION_OTP_RESEND_SECONDS,
+    REGISTRATION_OTP_TTL_SECONDS,
+    RESET_TOKEN_TTL_SECONDS,
+    SEED_DEMO_DATA,
+    SESSION_TTL_SECONDS,
+    SUPER_ADMIN_USER_ID,
+    VIETNAM_TZ,
 )
-from urllib.parse import quote
-
-from fastapi import (
-    Depends,
-    File,
-    Form,
-    HTTPException,
-    Request,
-    UploadFile,
-    WebSocket,
-    WebSocketDisconnect,
-)
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-    RedirectResponse,
-    StreamingResponse,
-)
-from fastapi.templating import Jinja2Templates
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from itsdangerous import BadSignature, SignatureExpired
-import hashlib
-import os
-import psycopg
-from pydantic import BaseModel, Field
-from sqlalchemy import (
-    delete,
-    func,
-    select,
-    text,
-)
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-
-logger = logging.getLogger("smart_tkb")
-logger.setLevel(logging.INFO)
-
-ADMIN_ROLES = frozenset({"admin", "super_admin"})
-MAX_CHATBOT_ERROR_LOGS = 500
-MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS = 350_000
-MAX_SCHEDULE_AUDIT_FILE_BYTES = 15 * 1024 * 1024
-VIETNAM_TZ = timezone(timedelta(hours=7), name="UTC+7")
-
-DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
-RESET_TOKEN_TTL_SECONDS = 30 * 60
-REGISTRATION_OTP_TTL_SECONDS = 10 * 60
-REGISTRATION_OTP_RESEND_SECONDS = 60
-REGISTRATION_OTP_MAX_ATTEMPTS = 5
-EMAIL_CHANGE_CONFIRM_TTL_SECONDS = 10 * 60
-EMAIL_CHANGE_OTP_TTL_SECONDS = 10 * 60
-EMAIL_CHANGE_OTP_MAX_ATTEMPTS = 5
-MIN_PASSWORD_LENGTH = 8
-SESSION_TTL_SECONDS = max(300, int(os.getenv("SESSION_TTL_SECONDS", str(12 * 60 * 60))))
-APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
-APP_BASE_URL = os.getenv("APP_BASE_URL", "").strip().rstrip("/")
-BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "").strip().lower()
-BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
-try:
-    SUPER_ADMIN_USER_ID = int(os.getenv("SUPER_ADMIN_USER_ID", "0") or 0)
-except ValueError:
-    SUPER_ADMIN_USER_ID = 0
-SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "false").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-}
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

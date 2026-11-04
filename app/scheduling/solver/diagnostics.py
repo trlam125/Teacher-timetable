@@ -6,7 +6,7 @@ import platform
 
 from .scoring import _solver_timeout_seconds
 
-SCHEDULER_REVISION = "2026-11-04-rebuild-repair-1"
+SCHEDULER_REVISION = "2026-11-04-solver-refactor-1"
 
 
 def scheduler_runtime_diagnostics() -> dict:

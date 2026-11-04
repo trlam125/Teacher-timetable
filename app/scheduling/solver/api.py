@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from typing import Optional
 import time
 
-from .genetic import *
+from sqlalchemy.orm import Session
+
+from .engine import ga_schedule
 from .scoring import _solver_timeout_seconds
+from app.models import Project
 
 
 def solve_missing(
@@ -35,4 +39,6 @@ def solve(db: Session, p: Project, tries=80, deadline: float | None = None):
     return ga_schedule(db, p, mode="full", tries=tries, deadline=deadline)
 
 
-__all__ = [name for name in globals() if not name.startswith("__")]
+__all__ = [
+    'solve', 'solve_missing', 'solve_rebuild',
+]

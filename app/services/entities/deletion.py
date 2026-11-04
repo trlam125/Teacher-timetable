@@ -1,11 +1,25 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.schedule_service import *
+import hashlib
+import json
 
-from .validation import *
-from .requirements import *
+from fastapi.responses import JSONResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Assignment,
+    FixedLesson,
+    GradeSubjectRequirement,
+    Lesson,
+    SchoolClass,
+    Teacher,
+    TeacherPreference,
+    TeacherSubject,
+)
+from app.services.entities.schemas import EntityDeleteIn
+from app.services.web import bounded_text
+
 
 
 def required_text(data: dict, key: str, label: str, max_length: int) -> str:

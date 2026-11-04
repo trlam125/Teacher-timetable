@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from app.services.foundation import *
+from datetime import datetime, timezone
+from urllib.parse import quote
+
+from fastapi import HTTPException
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from app.settings import VIETNAM_TZ
 
 templates = Jinja2Templates(directory="app/templates")
 

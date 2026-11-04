@@ -1,33 +1,40 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from app.errors import register_exception_handlers
-from app.services.runtime import initialize_database, run_database_bootstrap_step
-from app.routers.system import router as system_router
-from app.routers.auth import router as auth_router
-from app.routers.social_auth import router as social_auth_router
-from app.routers.chat import router as chat_router
-from app.routers.admin import router as admin_router
-from app.routers.projects import router as projects_router
-from app.routers.audit import router as audit_router
-from app.routers.chatbot import router as chatbot_router
-from app.routers.entities import router as entities_router
-from app.routers.constraints import router as constraints_router
-from app.routers.schedule import router as schedule_router
-from app.routers.teacher import router as teacher_router
-from app.routers.share_export import router as share_export_router
-from app.routers.notifications import router as notifications_router
-from app.services.schedule_notifications import register_schedule_notifications
-from app.services.schedule_live import register_schedule_live
 
-# Model thong bao phai duoc import TRUOC khi bootstrap DB tao bang.
-register_schedule_notifications()
-register_schedule_live()
+from app.errors import register_exception_handlers
+from app.routers.admin import router as admin_router
+from app.routers.audit import router as audit_router
+from app.routers.auth import router as auth_router
+from app.routers.chat import router as chat_router
+from app.routers.chatbot import router as chatbot_router
+from app.routers.constraints import router as constraints_router
+from app.routers.entities import router as entities_router
+from app.routers.notifications import router as notifications_router
+from app.routers.projects import router as projects_router
+from app.routers.schedule import router as schedule_router
+from app.routers.share_export import router as share_export_router
+from app.routers.social_auth import router as social_auth_router
+from app.routers.system import router as system_router
+from app.routers.teacher import router as teacher_router
+from app.services.bootstrap.runtime import initialize_database, run_database_bootstrap_step
+from app.services.schedule_live import register_schedule_live
+from app.services.schedule_notifications import register_schedule_notifications
+
+@asynccontextmanager
+async def application_lifespan(app: FastAPI):
+    """Initialize persistence only when the application actually starts serving."""
+    register_schedule_notifications()
+    register_schedule_live()
+    run_database_bootstrap_step(initialize_database)
+    yield
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Teacher Timetable")
+    app = FastAPI(title="Teacher Timetable", lifespan=application_lifespan)
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     register_exception_handlers(app)
     app.include_router(system_router)
@@ -47,5 +54,4 @@ def create_app() -> FastAPI:
     return app
 
 
-run_database_bootstrap_step(initialize_database)
 app = create_app()

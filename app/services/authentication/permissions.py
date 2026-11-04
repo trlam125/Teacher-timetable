@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from app.models import School, User, UserSchool
-from app.services.foundation import ADMIN_ROLES
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.models import School, User, UserSchool
+from app.settings import ADMIN_ROLES
 
 
 def is_admin(user: User) -> bool:

@@ -1,8 +1,20 @@
 from __future__ import annotations
 
-import re
 from typing import Any
-from .parsing import *
+import re
+
+from app.schedule_audit.parsing import (
+    RawLesson,
+    _cell_text,
+    _header_kind,
+    _identity_text,
+    _period_number,
+    _session_index,
+    _standalone_day_index,
+    _standalone_find_grid_header,
+    _trim_matrix,
+    normalize_text,
+)
 
 
 def infer_standalone_project(

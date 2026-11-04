@@ -1,8 +1,21 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.models import User
+from app.services.authentication.sessions import current_user, db_session
+from app.services.projects import (
+    get_project,
+    project_data,
+    project_lessons_data,
+    teacher_view_project,
+)
 from app.services.schedule_live_payload import live_schedule_response
+from app.services.schedule_operations.validation import schedule_ui_validation_report
 
 router = APIRouter()
 

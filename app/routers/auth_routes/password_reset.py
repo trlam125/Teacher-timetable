@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 import hashlib
 import secrets
 import time
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.logging_config import logger
 from app.models import User
 from app.services.authentication.captcha import captcha_is_valid, new_captcha
 from app.services.authentication.credentials import pwd, reset_signer
@@ -17,14 +26,8 @@ from app.services.authentication.sessions import (
     public_base_url,
 )
 from app.services.authentication.verification import reset_account_for_token
-from app.services.foundation import MIN_PASSWORD_LENGTH, RESET_TOKEN_TTL_SECONDS, logger
 from app.services.web import templates
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-from typing import Optional
+from app.settings import MIN_PASSWORD_LENGTH, RESET_TOKEN_TTL_SECONDS
 
 
 router = APIRouter()

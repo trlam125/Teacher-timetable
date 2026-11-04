@@ -1,14 +1,44 @@
 from __future__ import annotations
-import re
-from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_sort_key
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.auth import *
-from app.services.schedule_service import *
-from app.services.entities import *
-from app.services.schedule_live import schedule_revision
+from collections import defaultdict
+from typing import Optional
+import os
+import re
+
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Assignment,
+    Department,
+    FixedLesson,
+    Grade,
+    GradeSubjectRequirement,
+    Lesson,
+    Project,
+    School,
+    SchoolClass,
+    Subject,
+    Teacher,
+    TeacherSubject,
+    User,
+)
+from app.scheduling.rules import parse_slots, valid_slots
+from app.services.authentication.permissions import (
+    is_admin,
+    is_super_admin,
+    user_can_access_school,
+    user_school_ids,
+)
 from app.services.edit_conflicts import edit_token
+from app.services.entities.curriculum.capacity import schedule_class_capacity_issues
+from app.services.entities.validation import duplicate_assignment_issues
+from app.services.schedule_live import schedule_revision
+from app.services.schedule_operations.blocks import fixed_coverage_slots
+from app.services.schedule_operations.validation import schedule_ui_validation_report
+from app.services.web import bounded_text
+from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_sort_key
 
 
 def ensure_school_for_name(db: Session, school_name: str) -> School:

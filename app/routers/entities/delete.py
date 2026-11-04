@@ -1,9 +1,29 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from fastapi import Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy import delete
-from app.services.runtime import *
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from .common import ENTITY_MODELS
+from app.models import (
+    Assignment,
+    FixedLesson,
+    Lesson,
+    User,
+)
+from app.services.authentication.sessions import current_user, db_session
+from app.services.entities.deletion import (
+    assignment_delete_confirmation,
+    assignment_delete_impact,
+    delete_entity_related_rows,
+    entity_delete_dependency,
+    entity_delete_dependency_ids,
+)
+from app.services.entities.schemas import AssignmentResetIn, BulkEntityDeleteIn, EntityDeleteIn
+from app.services.projects import get_project_for_update
 
 router = APIRouter()
 

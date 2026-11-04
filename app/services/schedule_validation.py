@@ -1,6 +1,22 @@
 from __future__ import annotations
 
-from app.services.foundation import *
+from collections import defaultdict
+
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.logic import fixed_group_validation_error
+from app.models import (
+    Assignment,
+    FixedLesson,
+    Project,
+    SchoolClass,
+    Subject,
+    Teacher,
+    TeacherSubject,
+)
+from app.scheduling.rules import assignment_groups, ensure_assignment_hard_feasible
 
 
 def assignment_availability_issues(

@@ -1,8 +1,29 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.schedule_service import *
+from collections import defaultdict
+
+from fastapi import HTTPException
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Assignment,
+    Grade,
+    GradeSubjectRequirement,
+    Project,
+    SchoolClass,
+    Subject,
+    Teacher,
+    TeacherSubject,
+)
+from app.scheduling.rules import (
+    all_slots,
+    bounded_int,
+    class_blocked_slots,
+    normalized_block_mode,
+    parse_slots,
+    valid_slots,
+)
 
 
 def required_id(data: dict, key: str, label: str) -> int:

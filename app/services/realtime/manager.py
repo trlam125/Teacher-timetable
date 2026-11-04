@@ -1,9 +1,23 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.auth import *
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+import asyncio
+import json
+import secrets
+import threading
+import time
+
+from fastapi import WebSocket
+from sqlalchemy import delete, select, text
+from sqlalchemy.orm import Session
+import psycopg
+
 from .utils import _utc_now_iso
+from app.config import DATABASE_URL
+from app.database import SessionLocal, engine
+from app.logging_config import logger
+from app.models import RealtimeConnection, RealtimeEvent
 
 
 class RealtimeConnectionManager:

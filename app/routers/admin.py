@@ -1,9 +1,45 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from typing import Optional
+
+from fastapi import (
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi import APIRouter
-from app.services.runtime import *
-from app.services.profiles import normalize_profile_url
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    ChatbotErrorLog,
+    EmailChangeVerification,
+    Project,
+    School,
+    TeacherPreference,
+    User,
+    UserSchool,
+)
+from app.services.authentication.credentials import pwd
+from app.services.authentication.permissions import (
+    admin_can_manage_account,
+    is_admin,
+    is_super_admin,
+    user_greeting_name,
+    user_school_ids,
+)
+from app.services.authentication.sessions import current_user, db_session, set_session_cookie
 from app.services.avatars import prepare_avatar_change
+from app.services.profiles import normalize_profile_url
+from app.services.projects import chatbot_ui_context
+from app.services.realtime.manager import realtime_manager
+from app.services.web import bounded_text, redirect_with_notice, templates
+from app.settings import MIN_PASSWORD_LENGTH
 
 router = APIRouter()
 

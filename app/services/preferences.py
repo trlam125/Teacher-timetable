@@ -1,7 +1,12 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Project, Teacher, TeacherPreference
+from app.scheduling.rules import parse_slots, slot_meta, valid_slots
+from app.services.web import format_vietnam_datetime
+from app.settings import DAYS
 
 
 def teacher_own_preference_payload(

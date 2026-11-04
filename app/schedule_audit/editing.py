@@ -1,11 +1,24 @@
 from __future__ import annotations
-from app.subject_catalog import canonical_subject_name
 
 from collections import defaultdict
 from typing import Any
-from .parsing import *
 
-from .analysis_core import *
+from app.schedule_audit.analysis_core import (
+    _standalone_is_unknown_subject,
+    _standalone_is_unknown_teacher,
+    _standalone_short_name,
+    _standalone_statistics,
+)
+from app.schedule_audit.parsing import (
+    _cell_text,
+    _identity_text,
+    _issue,
+    _standalone_teacher_is_optional,
+    normalize_text,
+    slot_label,
+)
+from app.subject_catalog import canonical_subject_name
+
 
 
 def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, Any]:

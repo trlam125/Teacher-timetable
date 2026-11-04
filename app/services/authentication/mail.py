@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from email.message import EmailMessage
+from urllib import error as urllib_error, request as urllib_request
 import html
 import json
 import os
 import smtplib
-from app.services.foundation import logger
-from email.message import EmailMessage
-from urllib import error as urllib_error, request as urllib_request
+
+from app.logging_config import logger
 
 
 def _running_on_render() -> bool:

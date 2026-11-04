@@ -1,7 +1,31 @@
 from __future__ import annotations
 
+from collections import defaultdict
+
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi import Depends, HTTPException
+from fastapi.responses import JSONResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Assignment, Lesson, User
+from app.scheduling.rules import (
+    all_slots,
+    assignment_requires_double,
+    next_required_double_block_size,
+    required_double_block_state,
+)
+from app.services.authentication.sessions import current_user, db_session
+from app.services.entities.schemas import ManualLessonIn, MoveIn, PlacementOptionsIn
+from app.services.projects import get_project, get_project_for_update
+from app.services.schedule_operations.blocks import fixed_coverage_slots, lesson_block_members, new_schedule_block_id
+from app.services.schedule_operations.feasibility import (
+    assignment_completion_feasible,
+    assignment_feasibility_context,
+    assignment_pattern_label,
+)
+from app.services.schedule_operations.placement import lesson_slot_error
+from app.services.schedule_operations.validation import schedule_ui_validation_report
 
 router = APIRouter()
 

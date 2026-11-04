@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from app.models import User
-from app.services.authentication.credentials import signer
-from app.services.authentication.permissions import is_admin
-from app.services.authentication.sessions import db_session
-from app.services.foundation import SESSION_TTL_SECONDS
-from app.services.web import templates
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import BadSignature, SignatureExpired
 from sqlalchemy.orm import Session
+
+from app.models import User
+from app.services.authentication.credentials import signer
+from app.services.authentication.permissions import is_admin
+from app.services.authentication.sessions import db_session
+from app.services.web import templates
+from app.settings import SESSION_TTL_SECONDS
 
 
 router = APIRouter()

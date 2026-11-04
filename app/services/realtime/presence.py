@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.auth import *
+import asyncio
+
 from .manager import realtime_manager
-from .utils import *
+from app.database import SessionLocal
+from app.models import User
+from app.services.authentication.permissions import user_school_ids
+from app.services.realtime.utils import presence_recipients_for_user, school_chat_user_ids
 
 
 async def broadcast_school_presence(user: User, online: bool, last_seen: str) -> None:

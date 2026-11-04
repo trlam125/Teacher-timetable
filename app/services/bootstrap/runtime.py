@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.auth import *
-from app.services.projects import *
+import time
 
-from .schema import migrate_schema
 from .demo import ensure_demo
+from .schema import migrate_schema
+from app.config import (
+    DATABASE_BOOTSTRAP_LOCK_TIMEOUT_SECONDS,
+    DATABASE_DDL_LOCK_TIMEOUT_SECONDS,
+    DATABASE_STATEMENT_TIMEOUT_SECONDS,
+)
+from app.database import DATABASE_BOOTSTRAP_LOCK_KEY, engine
+from app.models import Base
 
 
 def acquire_database_bootstrap_lock(lock_connection):

@@ -1,8 +1,18 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.auth import *
+from datetime import datetime, timezone
+
+from fastapi import WebSocket
+from itsdangerous import BadSignature, SignatureExpired
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.database import SessionLocal
+from app.models import User, UserSchool
+from app.services.authentication.credentials import signer
+from app.services.authentication.permissions import is_super_admin, user_school_ids
+from app.services.web import _parse_iso_datetime
+from app.settings import SESSION_TTL_SECONDS
 
 
 def _utc_now_iso() -> str:

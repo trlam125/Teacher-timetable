@@ -4,17 +4,17 @@ No access/refresh tokens are persisted or exposed to the browser.
 """
 from __future__ import annotations
 
+from urllib.parse import urlencode, urlsplit
 import base64
 import hashlib
 import hmac
 import os
 import re
-from urllib.parse import urlencode, urlsplit
 
 import httpx
 import jwt
 
-from app.services.foundation import APP_BASE_URL, APP_ENV
+from app.settings import APP_BASE_URL, APP_ENV
 
 PROVIDER_NAMES = {"google": "Google"}
 GOOGLE_KEYS = jwt.PyJWKClient("https://www.googleapis.com/oauth2/v3/certs", timeout=10)

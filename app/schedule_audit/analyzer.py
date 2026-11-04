@@ -2,9 +2,30 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Any
-from .parsing import *
 
-from .analysis_core import *
+from app.schedule_audit.analysis_core import (
+    _standalone_is_unknown_subject,
+    _standalone_is_unknown_teacher,
+    _standalone_short_name,
+    _standalone_statistics,
+    infer_standalone_project,
+)
+from app.schedule_audit.parsing import (
+    ScheduleAuditParseError,
+    _cell_text,
+    _identity_text,
+    _issue,
+    _resolve_slot,
+    _standalone_class_token,
+    _standalone_clean_entity_heading,
+    _standalone_parse_cell,
+    _standalone_subject_from_text,
+    _standalone_teacher_is_optional,
+    normalize_text,
+    parse_tables_standalone,
+    read_tables,
+    slot_label,
+)
 from app.subject_catalog import canonical_subject_name
 
 

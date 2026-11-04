@@ -21,6 +21,18 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 - **Frontend:** HTML, CSS, JavaScript, Jinja2
 - **Server:** Uvicorn
 
+## Cấu trúc và kiểm thử
+
+Xem [hướng dẫn kiến trúc](docs/ARCHITECTURE.md) để tìm mô-đun phụ trách từng phần.
+
+Chạy kiểm thử sau khi cài dependencies và kích hoạt môi trường ảo:
+
+```text
+python -m unittest discover -s tests -t . -v
+```
+
+Bộ kiểm thử dùng DB trong bộ nhớ, không cần kết nối Neon. Khởi tạo DB của ứng dụng chạy khi FastAPI bắt đầu phục vụ, thay vì khi import mô-đun.
+
 ## Yêu cầu
 
 - Python 3.11+

@@ -1,7 +1,27 @@
 from __future__ import annotations
 
+import asyncio
+import secrets
+import time
+
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi import WebSocket, WebSocketDisconnect
+
+from app.database import SessionLocal
+from app.logging_config import logger
+from app.models import ChatMessage, School, User
+from app.services.authentication.permissions import user_can_access_school, user_school_ids
+from app.services.realtime.manager import realtime_manager
+from app.services.realtime.presence import _broadcast_delayed_offline, broadcast_school_presence
+from app.services.realtime.utils import (
+    _payload_school_id,
+    _utc_now_iso,
+    presence_recipients_for_user,
+    presence_visible_user_ids,
+    school_chat_user_ids,
+    touch_user_last_seen,
+    websocket_session_user,
+)
 
 router = APIRouter()
 

@@ -1,8 +1,50 @@
 from __future__ import annotations
 
-from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_key
+from collections import Counter, defaultdict
+import json
+
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi import Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Assignment,
+    Department,
+    Grade,
+    GradeSubjectRequirement,
+    SchoolClass,
+    Subject,
+    Teacher,
+    TeacherSubject,
+    User,
+)
+from app.scheduling.rules import (
+    bounded_int,
+    ensure_assignment_hard_feasible,
+    normalized_block_mode,
+    valid_slots,
+)
+from app.services.authentication.sessions import current_user, db_session
+from app.services.entities.curriculum.validation import (
+    block_mode_text,
+    ensure_assignment_matches_grade_requirement,
+    grade_requirement_for_assignment,
+)
+from app.services.entities.deletion import required_text
+from app.services.entities.schemas import BulkAssignmentIn, BulkAssignmentSubjectIn, EntityIn
+from app.services.entities.validation import (
+    class_assigned_periods,
+    ensure_class_load_fits,
+    ensure_unique_project_name,
+    ensure_unique_teacher_short_name,
+    replace_grade_requirements,
+    replace_teacher_subjects,
+    required_id,
+    validated_subject_ids,
+)
+from app.services.projects import get_project_for_update
+from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_key
 
 router = APIRouter()
 

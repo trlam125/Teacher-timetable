@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
+from typing import Optional
+import time
+
+from fastapi.responses import JSONResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.logging_config import logger
 from app.logic import fixed_group_validation_error
 from app.models import Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher
 from app.scheduling.rules import (
@@ -10,22 +19,15 @@ from app.scheduling.rules import (
     required_double_block_state,
 )
 from app.scheduling.solver.api import solve, solve_missing, solve_rebuild
+from app.scheduling.solver.diagnostics import SCHEDULER_REVISION
 from app.services.entities.schemas import GenerateScheduleIn
-from app.services.foundation import logger
+from app.services.schedule_diagnostics import unscheduled_assignment_details
 from app.services.schedule_operations.blocks import add_generated_lessons
 from app.services.schedule_operations.validation import (
     minimal_schedule_invalid_lessons,
     schedule_integrity_report,
 )
 from app.services.schedule_validation import schedule_input_validation_report
-from app.services.schedule_diagnostics import unscheduled_assignment_details
-from collections import Counter, defaultdict
-from fastapi.responses import JSONResponse
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from typing import Optional
-import time
-from app.scheduling.solver.diagnostics import SCHEDULER_REVISION
 from app.services.scheduler_diagnostics import record_scheduler_run
 
 

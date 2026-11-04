@@ -1,7 +1,55 @@
 from __future__ import annotations
 
+from typing import Optional
+
+from fastapi import (
+    Depends,
+    Form,
+    HTTPException,
+    Request,
+)
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Assignment,
+    ChatbotErrorLog,
+    Department,
+    FixedLesson,
+    Grade,
+    GradeSubjectRequirement,
+    Lesson,
+    Project,
+    School,
+    SchoolClass,
+    Subject,
+    Teacher,
+    TeacherPreference,
+    TeacherSubject,
+    User,
+)
+from app.scheduling.rules import bounded_int
+from app.services.authentication.permissions import (
+    is_admin,
+    is_super_admin,
+    user_can_access_school,
+    user_greeting_name,
+    user_schools,
+)
+from app.services.authentication.sessions import current_user, db_session, public_base_url
+from app.services.projects import (
+    chatbot_ui_context,
+    ensure_school_for_name,
+    get_project,
+    get_project_for_update,
+    project_data,
+    validate_clone_source,
+)
+from app.services.schedule_operations.blocks import new_schedule_block_id
+from app.services.web import bounded_text, redirect_with_notice, templates
+from app.settings import DAYS
 
 router = APIRouter()
 

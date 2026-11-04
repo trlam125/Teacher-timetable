@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from app.database import SessionLocal
-from app.models import User
-from app.services.authentication.credentials import signer
-from app.services.foundation import APP_BASE_URL, APP_ENV, SESSION_TTL_SECONDS
-from app.services.web import _parse_iso_datetime
 from datetime import datetime, timezone
+
 from fastapi import Depends, HTTPException, Request
 from itsdangerous import BadSignature, SignatureExpired
 from sqlalchemy.orm import Session
+
+from app.database import SessionLocal
+from app.models import User
+from app.services.authentication.credentials import signer
+from app.services.web import _parse_iso_datetime
+from app.settings import APP_BASE_URL, APP_ENV, SESSION_TTL_SECONDS
 
 
 def public_base_url(request: Request) -> str | None:

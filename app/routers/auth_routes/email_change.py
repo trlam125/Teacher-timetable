@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 import hashlib
 import hmac
 import secrets
 import smtplib
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.logging_config import logger
 from app.models import EmailChangeVerification, User
 from app.services.authentication.credentials import (
     email_change_otp_signer,
@@ -22,18 +31,8 @@ from app.services.authentication.verification import (
     email_change_verification_for_token,
     mask_email,
 )
-from app.services.foundation import (
-    EMAIL_CHANGE_OTP_MAX_ATTEMPTS,
-    EMAIL_CHANGE_OTP_TTL_SECONDS,
-    logger,
-)
 from app.services.web import bounded_text, templates
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-from typing import Optional
+from app.settings import EMAIL_CHANGE_OTP_MAX_ATTEMPTS, EMAIL_CHANGE_OTP_TTL_SECONDS
 
 
 router = APIRouter()

@@ -1,8 +1,37 @@
 from __future__ import annotations
 
+from collections import defaultdict
+import json
+
 from fastapi import APIRouter
-from app.services.runtime import *
+from fastapi import Depends, HTTPException
+from fastapi.responses import JSONResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.logic import normalize_slot_values
+from app.models import (
+    Assignment,
+    FixedLesson,
+    Grade,
+    Lesson,
+    SchoolClass,
+    Teacher,
+    User,
+)
+from app.scheduling.rules import (
+    assignment_requires_double,
+    class_grade_blocked_slots,
+    fixed_row_size,
+    parse_slots,
+    required_double_block_state,
+    valid_slots,
+)
+from app.services.authentication.sessions import current_user, db_session
 from app.services.edit_conflicts import edit_token, require_current_edit
+from app.services.entities.schemas import ConstraintIn, SessionLocksIn
+from app.services.projects import get_project_for_update
+from app.services.schedule_operations.blocks import fixed_coverage_slots, lesson_block_members
 from app.services.schedule_operations.feasibility import ensure_pinned_assignments_feasible
 
 router = APIRouter()

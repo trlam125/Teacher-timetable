@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import secrets
 import time
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -17,12 +17,12 @@ from app.services.auth import (
     rate_limit_blocked, rate_limit_exceeded,
     set_session_cookie,
 )
-from app.services.foundation import APP_BASE_URL, APP_ENV
 from app.services.social_auth import (
     PROVIDER_NAMES, SocialAuthError, authorization_url, digest, exchange_identity,
     provider_config,
 )
 from app.services.web import templates
+from app.settings import APP_BASE_URL, APP_ENV
 
 router = APIRouter()
 TTL = 600

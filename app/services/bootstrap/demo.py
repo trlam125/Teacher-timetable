@@ -1,8 +1,29 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.auth import *
-from app.services.projects import *
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.database import SessionLocal
+from app.logging_config import logger
+from app.models import (
+    Assignment,
+    Department,
+    Grade,
+    Project,
+    SchoolClass,
+    Subject,
+    Teacher,
+    TeacherSubject,
+    User,
+)
+from app.services.authentication.credentials import pwd
+from app.services.projects import ensure_school_for_name
+from app.settings import (
+    BOOTSTRAP_ADMIN_EMAIL,
+    BOOTSTRAP_ADMIN_PASSWORD,
+    SEED_DEMO_DATA,
+    SUPER_ADMIN_USER_ID,
+)
 
 
 def seed_project(db: Session, p: Project):

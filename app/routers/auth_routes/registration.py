@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 import hashlib
 import hmac
 import secrets
 import smtplib
+
+from fastapi import APIRouter, Depends, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.logging_config import logger
 from app.models import RegistrationVerification, User
 from app.services.authentication.captcha import captcha_is_valid, new_captcha
 from app.services.authentication.credentials import pwd, registration_signer
@@ -16,21 +26,13 @@ from app.services.authentication.verification import (
     registration_otp_hash,
     registration_verification_for_token,
 )
-from app.services.foundation import (
+from app.services.web import templates
+from app.settings import (
     MIN_PASSWORD_LENGTH,
     REGISTRATION_OTP_MAX_ATTEMPTS,
     REGISTRATION_OTP_RESEND_SECONDS,
     REGISTRATION_OTP_TTL_SECONDS,
-    logger,
 )
-from app.services.web import templates
-from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-from typing import Optional
 
 
 router = APIRouter()

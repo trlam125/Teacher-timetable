@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 from collections import Counter, defaultdict
+import os
 
 from app.models import Assignment, Project
 from app.scheduling.rules import assignment_prefers_double, preferred_double_pair_count
@@ -64,4 +64,6 @@ def _solver_timeout_seconds() -> float:
     return max(3.0, min(60.0, value))
 
 
-__all__ = ["_teacher_idle_gaps", "_schedule_soft_score", "_solver_timeout_seconds"]
+__all__ = [
+    '_teacher_idle_gaps', '_schedule_soft_score', '_solver_timeout_seconds',
+]

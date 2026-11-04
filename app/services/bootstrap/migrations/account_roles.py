@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from app.services.foundation import logger
+
+from app.logging_config import logger
 
 
 def migrate_account_roles(connection, inspector):

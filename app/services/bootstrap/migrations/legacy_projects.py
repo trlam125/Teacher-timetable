@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import os
+
+from app.logging_config import logger
 from app.logic import (
     parse_integer_set,
     remap_slot_for_session_expansion,
     remap_slots_for_session_expansion,
 )
-from app.services.foundation import logger
-from datetime import datetime, timezone
 
 
 def migrate_legacy_projects(connection, inspector):

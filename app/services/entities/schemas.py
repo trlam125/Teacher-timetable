@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from app.services.foundation import *
-from app.services.web import *
-from app.services.schedule_service import *
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class EntityIn(BaseModel):
