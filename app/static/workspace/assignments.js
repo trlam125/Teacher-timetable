@@ -463,7 +463,7 @@ function renderAutoAssignmentMatrix() {
   const classes = autoAssignmentClassNames().filter(c =>
     autoAssignmentGrade === "all" || String(c.grade_id) === String(autoAssignmentGrade));
   const search = String($("#autoAssignmentSubjectSearch")?.value || "").trim().toLocaleLowerCase("vi");
-  const subjects = [...(data.subjects || [])].map(s => ({...s, name:schoolSubjectCatalog.canonical(s.name)})).filter(s =>
+  const subjects = [...(data.subjects || [])].filter(s =>
     !search || String(s.name || "").toLocaleLowerCase("vi").includes(search))
     .sort((a,b) => autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
       || String(a.name).localeCompare(String(b.name), "vi", {numeric:true}));
@@ -617,7 +617,7 @@ function renderAutoGradeMatrix() {
   const previousTop = previousScroller?.scrollTop ?? 0;
   const previousLeft = previousScroller?.scrollLeft ?? 0;
   const grades = [...(data.grades || [])];
-  const subjects = [...(data.subjects || [])].map(s => ({...s, name:schoolSubjectCatalog.canonical(s.name)})).sort((a,b) =>
+  const subjects = [...(data.subjects || [])].sort((a,b) =>
     autoAssignmentSubjectRank(a.name) - autoAssignmentSubjectRank(b.name)
       || a.name.localeCompare(b.name,"vi",{numeric:true}));
   if (!grades.length || !subjects.length) {

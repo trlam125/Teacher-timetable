@@ -44,7 +44,7 @@ from app.services.entities.validation import (
     validated_subject_ids,
 )
 from app.services.projects import get_project_for_update
-from app.subject_catalog import canonical_subject_name, canonical_subject_short_name, subject_key
+from app.subject_catalog import subject_key
 
 router = APIRouter()
 
@@ -64,11 +64,11 @@ def add_entity(
         ensure_unique_project_name(db, Department, pid, name, "Tổ chuyên môn")
         obj = Department(project_id=pid, name=name)
     elif payload.type == "subject":
-        name = canonical_subject_name(required_text(d, "name", "Tên môn học", 120))
+        name = required_text(d, "name", "Tên môn học", 120)
         if any(subject_key(existing.name) == subject_key(name) for existing in db.scalars(select(Subject).where(Subject.project_id == pid)).all()):
             raise HTTPException(409, f"Môn {name} đã tồn tại dưới tên tương đương. Hãy sửa bản ghi cũ thay vì tạo trùng.")
         ensure_unique_project_name(db, Subject, pid, name, "Môn học")
-        short_name = canonical_subject_short_name(str(d.get("short_name") or "").strip() or name, name)[:20]
+        short_name = (str(d.get("short_name") or "").strip() or name)[:20]
         obj = Subject(
             project_id=pid,
             name=name,

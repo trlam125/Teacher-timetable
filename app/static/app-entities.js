@@ -651,6 +651,11 @@ async function submitEntity(e) {
         setEntityActionMessage("Đã hủy. Phân công và lịch hiện tại được giữ nguyên.", "info");
         return;
       }
+      if (result.unchanged) {
+        setInlineActionState(submitButton, "idle", { idle: "Lưu" });
+        setEntityActionMessage(result.message, "info");
+        return;
+      }
       if (!r.ok) {
         entityActionError(
           submitButton,
@@ -681,6 +686,11 @@ async function submitEntity(e) {
       if (cancelled) {
         setInlineActionState(submitButton, "idle", { idle: "Lưu" });
         setEntityActionMessage("Đã hủy. Dữ liệu và lịch hiện tại được giữ nguyên.", "info");
+        return;
+      }
+      if (result.unchanged) {
+        setInlineActionState(submitButton, "idle", { idle: "Lưu" });
+        setEntityActionMessage(result.message, "info");
         return;
       }
 

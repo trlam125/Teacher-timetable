@@ -92,7 +92,7 @@ async function runProjectChange(originalRequest) {
   try {
     preview = await projectChangeRequest("/preview", request);
     if (!preview.response.ok) return {...preview, cancelled: false};
-    if (preview.result.can_apply && !preview.result.changed) return {response: preview.response, result: {ok: true, message: "Không có thay đổi."}, cancelled: true};
+    if (preview.result.can_apply && !preview.result.changed) return {response: preview.response, result: {ok: true, unchanged: true, message: "Không có thay đổi cần lưu."}, cancelled: false};
     if (preview.result.can_apply && !preview.result.requires_edit_mode) {
       const outcome = await projectChangeRequest("/apply", {request, impact_token: preview.result.impact_token});
       return {...outcome, cancelled: false};
