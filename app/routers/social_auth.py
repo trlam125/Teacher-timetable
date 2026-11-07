@@ -22,6 +22,7 @@ from app.services.social_auth import (
     provider_config,
 )
 from app.services.web import templates
+from app.services.authentication.navigation import after_login_redirect
 from app.settings import APP_BASE_URL, APP_ENV
 
 router = APIRouter()
@@ -58,12 +59,12 @@ def failure(request, message):
     return clear_cookies(response)
 
 
-def finish(db, user):
+def finish(db, user, request):
     if user.role != "teacher" and not is_admin(user):
         raise SocialAuthError("Tài khoản không có quyền truy cập hệ thống.")
     user.last_seen = datetime.now(timezone.utc).isoformat(timespec="seconds")
     db.commit()
-    response = RedirectResponse("/teacher" if user.role == "teacher" else "/projects", 303)
+    response = after_login_redirect(request, "/teacher" if user.role == "teacher" else "/projects")
     set_session_cookie(response, user)
     return clear_cookies(response)
 
@@ -134,7 +135,7 @@ def social_callback(request: Request, db: Session = Depends(db_session)):
             user = db.get(User, linked.user_id)
             if not user:
                 raise SocialAuthError("Tài khoản không còn tồn tại.")
-            return finish(db, user)
+            return finish(db, user, request)
         if not identity["email"]:
             raise SocialAuthError("Cần email để tạo hoặc liên kết tài khoản. Hãy dùng Google với email đã xác minh hoặc đăng ký bằng email.")
         user = db.scalar(select(User).where(func.lower(User.email) == identity["email"]))
@@ -156,7 +157,7 @@ def social_callback(request: Request, db: Session = Depends(db_session)):
         db.flush()
         db.add(SocialIdentity(user_id=user.id, provider=provider, subject=identity["subject"]))
         db.execute(delete(RegistrationVerification).where(RegistrationVerification.email == identity["email"]))
-        return finish(db, user)
+        return finish(db, user, request)
     except IntegrityError:
         db.rollback()
         return failure(request, "Tài khoản vừa được cập nhật ở phiên khác. Vui lòng đăng nhập lại.")
@@ -223,7 +224,7 @@ def social_link(request: Request, password: str = Form(...), link_token: str = F
         db.add(SocialIdentity(user_id=user.id, provider=attempt.provider, subject=payload["subject"]))
         db.delete(attempt)
         clear_rate_limit_bucket("login_email", user.email)
-        return finish(db, user)
+        return finish(db, user, request)
     except IntegrityError:
         db.rollback()
         return failure(request, "Liên kết vừa thay đổi ở phiên khác. Vui lòng đăng nhập lại.")

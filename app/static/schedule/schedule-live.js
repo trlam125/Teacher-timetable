@@ -155,7 +155,9 @@
         }),
       ]);
       if (response.status === 403 || response.status === 404 || response.status === 401) {
-        revoke(shareUrl ? "Liên kết chia sẻ không còn khả dụng." : "Bạn không còn quyền xem thời khóa biểu này. Hãy đăng nhập hoặc kiểm tra lại quyền truy cập.");
+        revoke(shareUrl
+          ? (response.status === 401 ? "Phiên đăng nhập đã hết hạn. Hãy tải lại trang và đăng nhập để xem thời khóa biểu." : "Liên kết chia sẻ không còn khả dụng.")
+          : "Bạn không còn quyền xem thời khóa biểu này. Hãy đăng nhập hoặc kiểm tra lại quyền truy cập.");
         return;
       }
       if (typeof payload.revision !== "string" || typeof payload.changed !== "boolean") throw new Error("invalid_live_response");
@@ -194,7 +196,7 @@
   document.addEventListener("focusout", () => { if (pending) schedule(350); });
   document.addEventListener("close", () => { if (pending) schedule(350); }, true);
   document.addEventListener("change", () => { if (pending) schedule(350); });
-  // Public viewers have no socket. Authenticated viewers also poll as recovery
+  // Shared-link viewers have no socket. Other authenticated viewers also poll as recovery
   // for a missed NOTIFY, a disconnected socket or a server restart.
   window.setInterval(() => void check(), shareUrl ? 5000 : 15000);
   schedule(0);

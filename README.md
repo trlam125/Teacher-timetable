@@ -13,8 +13,8 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 - Xem lịch theo lớp hoặc giáo viên.
 - Quản lý tài khoản Admin và giáo viên.
 - Giáo viên có thể xem lịch và gửi nguyện vọng.
-- Chia sẻ và xuất thời khóa biểu.
-- Xuất Excel theo phôi mẫu: mỗi lớp có hai cột môn–giáo viên, tiêu đề gộp, Times New Roman và viền đen; danh sách GV nghỉ ở sheet riêng. File tải về dùng định dạng `.xlsx`.
+- Chia sẻ thời khóa biểu qua liên kết yêu cầu đăng nhập tài khoản; hỗ trợ xuất Excel.
+- Xuất Excel theo phôi mẫu: mỗi lớp có hai cột môn–giáo viên, tiêu đề gộp, Times New Roman; khung và hàng tiết dùng viền đen nét liền mảnh, đường ngăn môn–giáo viên dùng nét chấm. Danh sách GV nghỉ ở sheet riêng. File tải về dùng định dạng `.xlsx`.
 - Hỗ trợ kiểm tra dữ liệu và trợ lý AI.
 
 ## Chỉnh sửa sau khi đã xếp lịch

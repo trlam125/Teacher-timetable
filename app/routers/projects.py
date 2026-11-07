@@ -11,7 +11,8 @@ from fastapi import (
 )
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import delete, select
+from sqlalchemy import column, delete, inspect, select, table
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -31,6 +32,7 @@ from app.models import (
     TeacherSubject,
     User,
 )
+from app.logging_config import logger
 from app.scheduling.rules import bounded_int
 from app.services.authentication.permissions import (
     is_admin,
@@ -406,6 +408,15 @@ def _purge_project_rows(db: Session, projects: list[Project]):
     # Log chatbot không có khóa ngoại tới projects, nhưng vẫn dọn theo project
     # để không giữ lại dữ liệu mồ côi sau khi bộ TKB đã bị xóa.
     db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.project_id.in_(project_ids)))
+    # Existing databases may still contain these retired tables even though
+    # they no longer have ORM models. Their non-cascading foreign keys block
+    # deleting old projects. Clean only rows belonging to the confirmed IDs.
+    connection = db.connection()
+    inspector = inspect(connection)
+    for name in ("project_members", "schedule_versions"):
+        if inspector.has_table(name):
+            legacy_table = table(name, column("project_id"))
+            connection.execute(delete(legacy_table).where(legacy_table.c.project_id.in_(project_ids)))
     for project in projects:
         db.delete(project)
 
@@ -434,6 +445,12 @@ def empty_project_trash(
     try:
         _purge_project_rows(db, rows)
         db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.exception("Không thể làm rỗng thùng rác do dữ liệu liên quan")
+        return redirect_with_notice(
+            "/projects/trash", "Chưa thể xóa vì còn dữ liệu liên quan. Các mục vẫn được giữ nguyên trong thùng rác."
+        )
     except Exception:
         db.rollback()
         raise
@@ -450,6 +467,12 @@ def purge_project(
     try:
         _purge_project_rows(db, [project])
         db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.exception("Không thể xóa project trong thùng rác do dữ liệu liên quan")
+        return redirect_with_notice(
+            "/projects/trash", "Chưa thể xóa vì còn dữ liệu liên quan. Bộ thời khóa biểu vẫn được giữ nguyên trong thùng rác."
+        )
     except Exception:
         db.rollback()
         raise

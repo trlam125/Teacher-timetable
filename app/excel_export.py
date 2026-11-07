@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import textwrap
 from collections import defaultdict
+from collections.abc import Iterable
 
 from openpyxl import Workbook
 from openpyxl.cell.cell import MergedCell
@@ -41,12 +42,34 @@ def _session_label(session_index: int, session_count: int) -> str:
     return f"B{session_index + 1}"
 
 
-def _finish_table(sheet, header_row: int, last_row: int, last_col: int, border: Border):
+def _finish_table(
+    sheet, header_row: int, last_row: int, last_col: int, border: Border,
+    *, class_columns: Iterable[int] = (),
+):
+    subject_columns = set(class_columns)
+    teacher_columns = {col + 1 for col in subject_columns}
+    # The reference .xls uses thin solid black grid lines, with a dotted
+    # vertical divider inside each subject/teacher pair (BIFF line style 4).
+    # Write that shared edge on both cells for consistent spreadsheet readers.
+    dotted = Side(style="dotted", color="FF000000")
+    subject_border = Border(
+        left=border.left, right=dotted, top=border.top, bottom=border.bottom,
+    )
+    teacher_border = Border(
+        left=dotted, right=border.right, top=border.top, bottom=border.bottom,
+    )
     # Set borders after merging, including blank cells. Only merged-label
     # perimeters are drawn; no lines cross through the day/session labels.
     for row in sheet.iter_rows(min_row=header_row, max_row=last_row, max_col=last_col):
         for cell in row:
-            cell.border = Border() if isinstance(cell, MergedCell) else border
+            if isinstance(cell, MergedCell):
+                cell.border = Border()
+            elif cell.row > header_row and cell.column in subject_columns:
+                cell.border = subject_border
+            elif cell.row > header_row and cell.column in teacher_columns:
+                cell.border = teacher_border
+            else:
+                cell.border = border
     for merged_range in sheet.merged_cells.ranges:
         if merged_range.min_row >= header_row:
             merged_range.format()
@@ -290,7 +313,10 @@ def build_timetable_workbook(
         sheet.column_dimensions[get_column_letter(col)].width = 8.3
         sheet.column_dimensions[get_column_letter(col + 1)].width = 7.5
 
-    _finish_table(sheet, header_row, last_row, last_col, table_border)
+    _finish_table(
+        sheet, header_row, last_row, last_col, table_border,
+        class_columns=class_column.values(),
+    )
     sheet.page_setup.paperSize = (
         sheet.PAPERSIZE_A3 if len(classes) > 10 else sheet.PAPERSIZE_A4
     )

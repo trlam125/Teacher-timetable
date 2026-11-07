@@ -27,7 +27,8 @@ router = APIRouter()
 
 
 @router.get("/api/share/{token}/live")
-def shared_live(token: str, revision: Optional[str] = None, db: Session = Depends(db_session)):
+def shared_live(token: str, revision: Optional[str] = None,
+                user: User = Depends(current_user), db: Session = Depends(db_session)):
     project = db.scalar(select(Project).where(Project.share_token == token, Project.deleted_at.is_(None)))
     if project is None:
         raise HTTPException(404, "Liên kết chia sẻ không còn khả dụng")
@@ -35,7 +36,8 @@ def shared_live(token: str, revision: Optional[str] = None, db: Session = Depend
 
 
 @router.get("/share/{token}", response_class=HTMLResponse)
-def shared(token: str, request: Request, db: Session = Depends(db_session)):
+def shared(token: str, request: Request,
+           user: User = Depends(current_user), db: Session = Depends(db_session)):
     p = db.scalar(select(Project).where(Project.share_token == token, Project.deleted_at.is_(None)))
     if not p:
         raise HTTPException(404)
@@ -44,6 +46,7 @@ def shared(token: str, request: Request, db: Session = Depends(db_session)):
         "share.html",
         {
             "request": request,
+            "user": user,
             "p": p,
             "data": public_project_data(db, p),
             "days": DAYS,

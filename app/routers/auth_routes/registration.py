@@ -8,7 +8,7 @@ import secrets
 import smtplib
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ from app.logging_config import logger
 from app.models import RegistrationVerification, User
 from app.services.authentication.captcha import captcha_is_valid, new_captcha
 from app.services.authentication.credentials import pwd, registration_signer
+from app.services.authentication.navigation import after_login_redirect
 from app.services.authentication.mail import send_registration_otp_email
 from app.services.authentication.rate_limits import client_rate_limit_key, rate_limit_exceeded
 from app.services.authentication.sessions import db_session, set_session_cookie
@@ -292,7 +293,7 @@ def verify_registration_otp(
             ),
             status_code=409,
         )
-    response = RedirectResponse("/teacher", 303)
+    response = after_login_redirect(request, "/teacher")
     set_session_cookie(response, user)
     return response
 

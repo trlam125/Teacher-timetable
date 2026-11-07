@@ -30,7 +30,7 @@
                 sẻ</span></div>
         <div class="spacer"></div>
         {% include "_theme_switch.html" %}
-        <a class="btn ghost" href="/login">Đăng nhập giáo viên</a>
+        <a class="btn ghost" href="{{ '/teacher' if user.role == 'teacher' else '/projects' }}">Trang của tôi</a>
     </header>
     <main class="container">
         <div class="section-head">
@@ -61,7 +61,7 @@
     <script src="/static/schedule/schedule-view.js?v=13"></script>
     <script src="/static/schedule/schedule-placement.js?v=6"></script>
     <script src="/static/app-preferences.js?v=7"></script>
-    <script src="/static/schedule/schedule-live.js?v=2"></script>
+    <script src="/static/schedule/schedule-live.js?v=3"></script>
 </body>
 
 </html>

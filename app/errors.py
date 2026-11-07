@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.services.api_error_responses import unexpected_exception_handler
@@ -21,8 +21,10 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
                     "detail": "Phiên đăng nhập đã hết hạn.",
                 },
                 status_code=401,
+                headers={"Cache-Control": "no-store"},
             )
-        return RedirectResponse("/login", 303)
+        from app.services.authentication.navigation import login_redirect
+        return login_redirect(request)
     if request.url.path.startswith("/api/"):
         detail = (
             exc.detail
