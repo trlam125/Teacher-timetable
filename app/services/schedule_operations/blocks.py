@@ -184,6 +184,9 @@ def reconcile_assignment_lesson_blocks(
     # If a single is still required but all remaining material is a pair,
     # preserve the first period and return only the second period to the tray.
     while used[1] < desired[1] and spare_pairs:
+        if db.info.get("project_change_managed"):
+            # An approved edit removes a whole pair; the remaining single stays in the tray.
+            break
         group = spare_pairs.pop(0)
         keep = group["members"][0]
         drop = group["members"][1]

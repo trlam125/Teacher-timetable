@@ -24,6 +24,7 @@ from app.services.entities.deletion import (
 )
 from app.services.entities.schemas import AssignmentResetIn, BulkEntityDeleteIn, EntityDeleteIn
 from app.services.projects import get_project_for_update
+from app.services.change_impact.managed import require_preview
 
 router = APIRouter()
 
@@ -36,6 +37,7 @@ def reset_assignments(
     db: Session = Depends(db_session),
 ):
     get_project_for_update(pid, user, db)
+    require_preview(db)
     rows = db.scalars(
         select(Assignment).where(Assignment.project_id == pid).order_by(Assignment.id)
     ).all()
@@ -85,6 +87,7 @@ def delete_entity(
     db: Session = Depends(db_session),
 ):
     get_project_for_update(pid, user, db)
+    require_preview(db)
     model = ENTITY_MODELS.get(typ)
     if not model:
         raise HTTPException(400)
@@ -115,6 +118,7 @@ def delete_entities_bulk(
 ):
     """Xóa nhiều dòng cùng loại, nhưng không bỏ qua kiểm tra phụ thuộc."""
     get_project_for_update(pid, user, db)
+    require_preview(db)
     typ = (payload.type or "").strip().lower()
     model = ENTITY_MODELS.get(typ)
     if not model:

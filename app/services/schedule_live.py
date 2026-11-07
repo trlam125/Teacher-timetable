@@ -22,7 +22,7 @@ class ScheduleLiveRevision(Base):
 _REGISTERED = False
 _PENDING = "_schedule_live_pending"
 _WATCHED = {
-    "projects", "subjects", "teachers", "teacher_subjects", "grades",
+    "projects", "departments", "subjects", "teachers", "teacher_subjects", "grades",
     "grade_subject_requirements", "classes", "assignments", "lessons", "fixed_lessons",
 }
 

@@ -55,7 +55,10 @@ def get_project(pid: int, user: User, db: Session) -> Project:
     if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được thực hiện thao tác này")
     p = db.get(Project, pid)
-    if not p or not user_can_access_school(user, p.school_id, db):
+    if (
+        not p or p.deleted_at is not None
+        or not user_can_access_school(user, p.school_id, db)
+    ):
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     return p
 
@@ -78,12 +81,15 @@ def chatbot_project_for_user(
             return get_project(preferred_id, user, db)
         if user.role == "teacher":
             project = db.get(Project, preferred_id)
-            if project and user_can_access_school(user, project.school_id, db):
+            if (
+                project and project.deleted_at is None
+                and user_can_access_school(user, project.school_id, db)
+            ):
                 return project
             return None
         return None
     if is_admin(user) or user.role == "teacher":
-        query = select(Project)
+        query = select(Project).where(Project.deleted_at.is_(None))
         if not is_super_admin(user):
             school_ids = user_school_ids(user, db)
             if not school_ids:
@@ -101,7 +107,10 @@ def chatbot_project_data_for_user(
         return project, project_data(db, project)
     if user.role == "teacher":
         project = db.get(Project, pid)
-        if not project or not user_can_access_school(user, project.school_id, db):
+        if (
+            not project or project.deleted_at is not None
+            or not user_can_access_school(user, project.school_id, db)
+        ):
             raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
         return project, public_project_data(db, project)
     raise HTTPException(
@@ -109,17 +118,22 @@ def chatbot_project_data_for_user(
     )
 
 
-def get_project_for_update(pid: int, user: User, db: Session) -> Project:
+def get_project_for_update(
+    pid: int, user: User, db: Session, *, trashed: bool = False
+) -> Project:
     """Khóa project đến hết transaction để tuần tự hóa mọi thay đổi lịch."""
     if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được thực hiện thao tác này")
     query = select(Project).where(Project.id == pid)
+    query = query.where(
+        Project.deleted_at.is_not(None) if trashed else Project.deleted_at.is_(None)
+    )
     if not is_super_admin(user):
         school_ids = user_school_ids(user, db)
         if not school_ids:
             raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
         query = query.where(Project.school_id.in_(school_ids))
-    project = db.scalar(query.with_for_update())
+    project = db.scalar(query.with_for_update().execution_options(populate_existing=True))
     if not project:
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     return project
@@ -242,7 +256,7 @@ def teacher_view_projects(user: User, db: Session) -> list[Project]:
         return []
     return db.scalars(
         select(Project)
-        .where(Project.school_id.in_(school_ids))
+        .where(Project.school_id.in_(school_ids), Project.deleted_at.is_(None))
         .order_by(Project.id.desc())
     ).all()
 

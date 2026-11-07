@@ -445,6 +445,7 @@ function updateBulkAssignmentPreview(form) {
 function openEntityEdit(type, id) {
   const rows =
     {
+      department: data.departments,
       subject: data.subjects,
       teacher: data.teachers,
       grade: data.grades,
@@ -459,6 +460,7 @@ function openEntityEdit(type, id) {
     .querySelector(".modal-form")
     ?.classList.remove("assignment-bulk-form");
   const titles = {
+    department: "Sửa tổ bộ môn",
     subject: "Sửa môn học",
     teacher: "Sửa giáo viên",
     grade: "Sửa khối / nhóm",
@@ -466,6 +468,8 @@ function openEntityEdit(type, id) {
   };
   $("#modalTitle").textContent = titles[type];
   let h = "";
+  if (type === "department")
+    h = `<label>Tên tổ bộ môn<input name="name" value="${esc(item.name)}" required></label>`;
   if (type === "subject")
     h = `<label>Tên môn học<input name="name" value="${esc(item.name)}" required></label><label>Tên rút gọn<input name="short_name" value="${esc(item.short_name)}" required></label>`;
   if (type === "teacher")
@@ -487,42 +491,12 @@ function openAssignmentEdit(id) {
     ?.classList.remove("assignment-bulk-form");
   $("#modalTitle").textContent = "Sửa phân công";
   $("#entityFields").innerHTML =
-    `<div class="assignment-summary"><b>${esc(item.class_name)} · ${esc(item.subject_name)}</b><span>${esc(item.teacher_name)}</span></div><input type="hidden" name="assignment_id" value="${item.id}"><label>Số tiết/tuần<input type="number" name="periods_per_week" min="1" max="40" value="${item.periods_per_week}" required oninput="updateAssignmentEditPreview(this.form)" onchange="updateAssignmentEditPreview(this.form)"></label>${blockModeEditor(item.block_mode)}`;
+    `<div class="assignment-summary"><b>${esc(item.class_name)} · ${esc(item.subject_name)}</b></div><input type="hidden" name="assignment_id" value="${item.id}"><label>Giáo viên<select name="teacher_id" required>${autoAssignmentTeacherOptions(item.subject_id, item.teacher_id)}</select></label><label>Số tiết/tuần<input type="number" name="periods_per_week" min="1" max="40" value="${item.periods_per_week}" required oninput="updateAssignmentEditPreview(this.form)" onchange="updateAssignmentEditPreview(this.form)"></label>${blockModeEditor(item.block_mode)}<p class="auto-assignment-help">Nếu số tiết/chế độ do chương trình khối quản lý, hãy sửa trong bảng định mức khối. Đổi giáo viên có thể giữ các tiết hợp lệ và đưa tiết xung đột về kho.</p>`;
   updateAssignmentEditPreview(entityModal.querySelector("form"));
   entityModal.showModal();
 }
 async function updateWithScheduleConfirmation(url, payload) {
-  // Entity edits put their fields in data; assignment edits use the root body.
-  const fields = payload.data || payload;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: operationHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-    });
-    const result = await readApiResponse(response);
-    if (response.ok) return { response, result, cancelled: false };
-    const displacement = result?.reason === "schedule_displacement";
-    const extraAssignments = [
-      "class_grade_extra_assignments", "grade_program_extra_assignments",
-    ].includes(result?.reason);
-    if (!displacement && !extraAssignments)
-      return { response, result, cancelled: false };
-    const confirmed = await confirmAction(result.message, {
-      title: displacement ? "Xác nhận thay đổi lịch" : "Xác nhận xóa phân công",
-      confirmText: displacement ? "Lưu và gỡ tiết" : "Xóa phân công dư và lưu",
-    });
-    if (!confirmed) return { response, result, cancelled: true };
-    if (displacement) {
-      fields.confirm_displacement = true;
-      fields.confirmed_displaced_lesson_ids = result.affected_lesson_ids;
-    } else {
-      if (!result.removal_fingerprint) throw new Error("Chưa xác định được đầy đủ dữ liệu sẽ bị xóa. Hãy tải lại trang và thử lại.");
-      fields.remove_extra_assignments = true;
-      fields.confirmed_extra_assignments_fingerprint = result.removal_fingerprint;
-    }
-  }
-  throw new Error("Dữ liệu lịch đã thay đổi nhiều lần. Hãy tải lại dữ liệu và thử lại.");
+  return updateWithImpactPreview(url, payload);
 }
 
 async function submitEntity(e) {
@@ -670,7 +644,7 @@ async function submitEntity(e) {
     if (entityType === "assignment_edit") {
       const { response: r, result, cancelled } = await updateWithScheduleConfirmation(
         `/api/projects/${PROJECT_ID}/assignments/${o.assignment_id}`,
-        { periods_per_week: o.periods_per_week, block_mode: o.block_mode, expected_token: form.dataset.editToken },
+        { teacher_id: o.teacher_id, periods_per_week: o.periods_per_week, block_mode: o.block_mode, expected_token: form.dataset.editToken },
       );
       if (cancelled) {
         setInlineActionState(submitButton, "idle", { idle: "Lưu" });
@@ -688,9 +662,9 @@ async function submitEntity(e) {
         idle: "Lưu",
         success: "Đã cập nhật",
       });
-      const message = result.displaced_lessons
+      const message = result.message || (result.displaced_lessons
         ? `Đã cập nhật phân công và gỡ ${result.displaced_lessons} tiết khỏi lịch. Phần còn thiếu nằm trong khay để xếp lại.`
-        : "Đã cập nhật phân công.";
+        : "Đã cập nhật phân công.");
       setEntityActionMessage(message, "success");
       await wait(650);
       entityModal.close();
@@ -782,6 +756,20 @@ async function submitEntity(e) {
   }
 }
 async function delEntity(type, id, button) {
+  if (["assignment", "teacher", "class", "subject", "grade", "department"].includes(type)) {
+    if (button) button.disabled = true;
+    try {
+      const outcome = await runProjectChange({kind: "delete", entity_type: type, entity_id: Number(id), values: {}});
+      if (!outcome.cancelled) {
+        if (outcome.response.ok) {
+          showToast(outcome.result.message || "Đã xóa dữ liệu.", "success", 6000);
+          await refreshAfterSuccessfulMutation();
+        } else showToast(apiErrorMessage(outcome.result, "Không thể xóa."), "error", 6000);
+      }
+    } catch (error) {showToast(requestFailureMessage(error), "error", 6000);}
+    finally {if (button?.isConnected) button.disabled = false;}
+    return;
+  }
   if (type !== "assignment") {
     if (!(await confirmAction("Xóa mục này?", { confirmText: "Xóa" }))) return;
   }

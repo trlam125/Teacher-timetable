@@ -19,6 +19,7 @@ from app.models import (
 )
 from app.services.entities.schemas import EntityDeleteIn
 from app.services.web import bounded_text
+from app.services.change_impact.managed import managed_edit
 
 
 
@@ -35,6 +36,8 @@ def schedule_displacement_confirmation(
 ):
     """Require approval of the exact rows removed; rollback every preview write."""
     affected = sorted(set(displaced_lesson_ids))
+    if managed_edit(db):
+        return None
     if not affected or (confirmed is True and confirmed_ids == affected):
         return None
     db.rollback()
@@ -190,6 +193,13 @@ def extra_assignment_removal_confirmation(
 ):
     """Bind curriculum deletion consent to the exact current assignments and pins."""
     if not extras:
+        return None
+    if managed_edit(db):
+        from app.models import Project
+        from app.services.change_impact.reconcile import protect_assignment
+        for item in extras:
+            assignment = db.get(Assignment, item["assignment_id"])
+            protect_assignment(db, db.get(Project, assignment.project_id), assignment)
         return None
     ids = sorted(item["assignment_id"] for item in extras)
     snapshots = {}

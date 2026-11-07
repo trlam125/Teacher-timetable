@@ -12,15 +12,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/design-tokens.css?v=1">
-    <link rel="stylesheet" href="/static/style.css?v=9">
+    <link rel="stylesheet" href="/static/style.css?v=10">
     <link rel="stylesheet" href="/static/brand-motion.css?v=1">
     <script src="/static/brand-motion.js?v=1" defer></script>
     <script src="/static/operation-status.js?v=2" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/schedule/schedule-base.css?v=1">
     <link rel="stylesheet" href="/static/preferences.css?v=1">
-    <link rel="stylesheet" href="/static/schedule/schedule-editor.css?v=6">
+    <link rel="stylesheet" href="/static/schedule/schedule-editor.css?v=7">
     <link rel="stylesheet" href="/static/workspace-layout.css?v=3">
+    <link rel="stylesheet" href="/static/workspace/change-impact.css?v=1">
     <link rel="preload" href="/static/x.gif?v=1" as="image">
     <link rel="preload" href="/static/tick.gif?v=1" as="image">
     <link rel="stylesheet" href="/static/effects.css?v=2">
@@ -138,6 +139,7 @@
     </header>
     <div class="workspace">
         {% include "workspace/navigation.html" %} <main class="content">
+            {% include "workspace/change_impact.html" %}
             <div class="workspace-tabs-stage" id="workspaceTabsStage">
                 {% include "workspace/overview.html" %}{% include "workspace/entities.html" %}{% include
                 "workspace/assignments.html" %}{% include "workspace/constraints.html" %}{% include
@@ -182,18 +184,19 @@
     </script>
     <script src="/static/dialog-zoom.js?v=1"></script>
     <script src="/static/subject-catalog.js?v=1"></script>
-    <script src="/static/app-core.js?v=4"></script>
+    <script src="/static/app-core.js?v=5"></script>
+    <script src="/static/workspace/change-impact.js?v=1"></script>
     <script src="/static/workspace/feedback.js?v=2"></script>
     {% if user.role == "super_admin" %}
     <script src="/static/schedule/scheduler-diagnostics.js?v=1"></script>
     {% endif %}
     <script src="/static/workspace/refresh.js?v=6"></script>
     <script src="/static/workspace/navigation.js?v=3"></script>
-    <script src="/static/workspace/bulk-entities.js?v=3"></script>
-    <script src="/static/workspace/assignments.js?v=12"></script>
-    <script src="/static/app-entities.js?v=8"></script>
+    <script src="/static/workspace/bulk-entities.js?v=4"></script>
+    <script src="/static/workspace/assignments.js?v=13"></script>
+    <script src="/static/app-entities.js?v=9"></script>
     <script src="/static/schedule/schedule-view.js?v=13"></script>
-    <script src="/static/schedule/schedule-placement.js?v=6"></script>
+    <script src="/static/schedule/schedule-placement.js?v=7"></script>
     <script src="/static/schedule/schedule-constraints.js?v=10"></script>
     <script src="/static/app-preferences.js?v=7"></script>
     <script src="/static/schedule/schedule-live.js?v=2"></script>

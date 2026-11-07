@@ -142,6 +142,14 @@ function operationHeaders(headers = {}) {
   return { ...headers, "X-Skip-Operation-Status": "1" };
 }
 async function postJsonWithDisplacementConfirmation(url, payload, options = {}) {
+  if (url.endsWith("/constraints")) {
+    return runProjectChange({kind: "constraints", entity_type: payload.entity_type, entity_id: Number(payload.entity_id),
+      expected_token: payload.expected_token, values: {slots: payload.slots}});
+  }
+  if (url.endsWith("/session-locks")) {
+    return runProjectChange({kind: "grade_locks", entity_type: "grade", entity_id: Number(payload.grade_id),
+      expected_token: payload.expected_token, values: {slots: payload.slots, sessions: payload.sessions}});
+  }
   const send = async (
     confirmDisplacement = false,
     confirmedAffectedLessonIds = null,

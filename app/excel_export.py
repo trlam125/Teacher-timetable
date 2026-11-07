@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -56,10 +57,8 @@ def build_timetable_workbook(
     last_col = 4 + len(classes)
     last_col_letter = get_column_letter(last_col)
 
-    thin = Side(style="thin", color="000000")
-    medium = Side(style="medium", color="000000")
+    thin = Side(style="thin", color="FF000000")
     table_border = Border(left=thin, right=thin, top=thin, bottom=thin)
-    separator_border = Border(top=medium, bottom=medium)
     white_fill = PatternFill(fill_type="solid", fgColor="FFFFFF")
 
     # Title area follows the structure of the provided sample: school name, then timetable title.
@@ -234,14 +233,6 @@ def build_timetable_workbook(
                 )
                 session_cell.border = table_border
 
-            # The reference workbook leaves a thin blank separator row after each session.
-            for col in range(1, last_col + 1):
-                cell = sheet.cell(current_row, col)
-                cell.border = separator_border
-                cell.fill = white_fill
-            sheet.row_dimensions[current_row].height = 8
-            current_row += 1
-
         day_end = current_row - 1
         if day_end >= day_start:
             sheet.merge_cells(
@@ -254,6 +245,15 @@ def build_timetable_workbook(
 
     last_row = current_row - 1
 
+    # Apply the complete black grid after merging day/session labels. Merged
+    # placeholders carry only the perimeter, so their labels stay undivided.
+    for row in sheet.iter_rows(min_row=header_row, max_row=last_row, max_col=last_col):
+        for cell in row:
+            cell.border = Border() if isinstance(cell, MergedCell) else table_border
+    for merged_range in sheet.merged_cells.ranges:
+        if merged_range.min_row >= header_row:
+            merged_range.format()
+
     # Widths are based closely on the supplied .xls sample (BIFF column widths / 256).
     sheet.column_dimensions["A"].width = 3.6
     sheet.column_dimensions["B"].width = 6.2
@@ -262,7 +262,8 @@ def build_timetable_workbook(
         sheet.column_dimensions[get_column_letter(col)].width = 15.7
     sheet.column_dimensions[last_col_letter].width = 37.8
 
-    sheet.freeze_panes = f"D{header_row + 1}"
+    # Avoid Excel's frozen-pane dividers cutting across the timetable.
+    sheet.freeze_panes = None
     sheet.print_title_rows = f"1:{header_row}"
     sheet.print_area = f"A1:{last_col_letter}{last_row}"
     sheet.page_setup.orientation = "landscape"

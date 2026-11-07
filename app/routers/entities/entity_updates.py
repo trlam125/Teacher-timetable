@@ -15,6 +15,7 @@ from app.services.edit_conflicts import current_edit_token, require_current_edit
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from app.services.change_impact.managed import require_preview
 
 
 router = APIRouter()
@@ -30,6 +31,7 @@ def update_entity(
     db: Session = Depends(db_session),
 ):
     project = get_project_for_update(pid, user, db)
+    require_preview(db)
     if payload.type != typ or typ not in {
         "department",
         "subject",

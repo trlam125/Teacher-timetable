@@ -76,4 +76,10 @@ Phạm vi gồm:
 - Bộ dữ liệu sinh tự động gồm 17 lớp, 35 giáo viên, 272 phân công và 498 tiết.
 - Import ứng dụng không truy cập DB; bootstrap chỉ chạy khi bắt đầu phục vụ.
 
-Workflow `.github/workflows/python-tests.yml` chạy các kiểm tra này khi push hoặc mở pull request. Dữ liệu thử được sinh trong mã, không lấy tên giáo viên hoặc lịch vận hành thật.
+Workflow `.github/workflows/python-tests.yml` chỉ kiểm tra cú pháp thư mục `app` khi push hoặc mở pull request. Các kiểm thử được chạy thủ công; dữ liệu thử được sinh trong mã, không lấy tên giáo viên hoặc lịch vận hành thật.
+
+## Chỉnh sửa sau xếp lịch
+
+`services/change_impact/` chụp dữ liệu nghiệp vụ của project và mô phỏng thay đổi trong DB SQLite độc lập. Phần mô phỏng gọi lại các quy tắc và bộ kiểm tra hiện có; không ghi vào DB vận hành hoặc phát thông báo. API xem trước cấp token ký, gắn với người dùng, yêu cầu, trạng thái dữ liệu và báo cáo ảnh hưởng.
+
+Khi áp dụng, `routers/project_changes.py` lấy khóa ghi project, kiểm tra lại token/trạng thái và thực hiện cùng nghiệp vụ trong một transaction. `ProjectChange` lưu bản dự phòng, người thao tác, dấu trạng thái và biên nhận để chống áp dụng lặp. Hoàn tác kiểm tra trạng thái hiện tại trước khi phục hồi đúng project, giữ tài khoản và liên kết chia sẻ. Snapshot và biên nhận bị xóa theo project khi xóa vĩnh viễn. Dữ liệu nguyện vọng cũng được khóa theo project khi ghi để phối hợp với snapshot.

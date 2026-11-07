@@ -57,15 +57,14 @@
     </div>
     <div id="assignmentCoverage"></div>
     <section id="scheduleAttemptDetails" class="schedule-attempt-details" hidden aria-live="polite"></section>
-    <!-- Compact, expandable unscheduled lessons pool; it remains visible as a summary even when collapsed. -->
-    <details id="manualTrayDisclosure" class="manual-tray-panel compact-tray-panel">
-        <summary class="compact-tray-summary">
-            <span class="compact-tray-title">Kho tiết chưa xếp</span>
+    <!-- Keep unscheduled lessons visible for manual placement. -->
+    <section id="manualTrayPanel" class="manual-tray-panel compact-tray-panel" aria-labelledby="unscheduledTrayTitle">
+        <div class="compact-tray-head">
+            <span id="unscheduledTrayTitle" class="compact-tray-title">Kho tiết chưa xếp</span>
             <span id="unscheduledTrayCount" class="compact-tray-count" aria-live="polite">Đang tải số tiết...</span>
-            <span class="compact-tray-chevron" aria-hidden="true"></span>
-        </summary>
+        </div>
         <div id="unscheduledTray" class="unscheduled-tray" aria-label="Danh sách các tiết chưa xếp"></div>
-    </details>
+    </section>
     <div class="schedule-highlight-toolbar" role="search" aria-label="Tìm và tô sáng tiết học">
         <label for="scheduleHighlightQuery">Tìm &amp; tô sáng tiết học</label>
         <div class="schedule-highlight-input-wrap">

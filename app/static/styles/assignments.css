@@ -700,7 +700,7 @@
 }
 
 .auto-grade-program {padding:14px 16px;margin:14px 0;border:1px solid var(--line);border-radius:12px;background:var(--card-bg);}
-.auto-grade-program summary {font-weight:750;cursor:pointer;color:var(--ink);}
+.auto-grade-program-title {font-size:17px;font-weight:750;margin:0;color:var(--ink);}
 .auto-assignment-subheading {font-size:17px;margin:20px 0 8px;color:var(--ink);}
 .auto-grade-scroller {max-height:67vh;}
 .auto-grade-matrix {border-collapse:separate;border-spacing:0;width:100%;min-width:520px;font-size:13px;}

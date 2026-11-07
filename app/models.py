@@ -158,6 +158,7 @@ class Project(Base):
     sessions: Mapped[int] = mapped_column(Integer, default=2)
     periods_per_session: Mapped[int] = mapped_column(Integer, default=5)
     blocked_slots_json: Mapped[str] = mapped_column(Text, default="[]")
+    deleted_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True, index=True)
     share_token: Mapped[str] = mapped_column(
         String(64), unique=True, default=lambda: secrets.token_urlsafe(16)
     )
@@ -165,6 +166,25 @@ class Project(Base):
         String(40),
         default=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
+
+
+class ProjectChange(Base):
+    """Atomic edit receipts and project-scoped recovery snapshots."""
+    __tablename__ = "project_changes"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(200))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    before_hash: Mapped[str] = mapped_column(String(64))
+    after_hash: Mapped[str] = mapped_column(String(64))
+    snapshot_json: Mapped[str] = mapped_column(Text, deferred=True)
+    audit_json: Mapped[str] = mapped_column(Text, default="{}", server_default="{}", deferred=True)
+    result_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[str] = mapped_column(
+        String(40), default=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
+    )
+    undone_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
 
 class SchedulerRunDiagnostic(Base):

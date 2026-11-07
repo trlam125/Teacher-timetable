@@ -23,7 +23,7 @@ router = APIRouter()
 def _authorized_project_ids(db: Session, user: User, project_id: Optional[int]):
     if not (user.role == "teacher" or is_admin(user)):
         raise HTTPException(403, "Access denied")
-    query = select(Project.id)
+    query = select(Project.id).where(Project.deleted_at.is_(None))
     if not is_super_admin(user):
         schools = user_school_ids(user, db)
         if not schools:
@@ -45,6 +45,8 @@ def _unread_condition(user: User):
 
 
 def _summary(row: ScheduleNotification):
+    if row.summary_text:
+        return row.summary_text
     parts = []
     if row.added_count:
         parts.append(f"Th\u00eam {row.added_count} ti\u1ebft")
@@ -98,6 +100,8 @@ def _format_detail(row: ScheduleNotificationDetail, project: Project):
     to_slot = _format_slot(after.get("slot"), project) if after else None
     action = row.action
     labels = {
+        "updated": "Cập nhật phân công",
+        "restored": "Phục hồi dữ liệu",
         "added": "Th\u00eam ti\u1ebft",
         "removed": "G\u1ee1 ti\u1ebft",
         "moved": "Chuy\u1ec3n ti\u1ebft",

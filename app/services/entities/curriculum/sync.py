@@ -15,6 +15,8 @@ from collections import Counter
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.services.change_impact.managed import managed_edit
+from app.services.change_impact.reconcile import reconcile_edit
 
 
 def sync_assignments_to_grade_requirements(
@@ -103,7 +105,7 @@ def sync_assignments_to_grade_requirements(
             select(Lesson).where(Lesson.assignment_id == assignment.id)
         ).all()
         scheduled = len(lessons)
-        if periods < scheduled and not (
+        if not managed_edit(db) and periods < scheduled and not (
             old_mode == "required_double" and mode == "required_double"
         ):
             raise HTTPException(
@@ -156,6 +158,17 @@ def sync_assignments_to_grade_requirements(
         assignment.periods_per_week = periods
         assignment.block_mode = mode
         assignment.consecutive_pattern = ""
+
+        if managed_edit(db):
+            original_ids = {row.id for row in lessons}
+            db.flush()
+            rows = reconcile_edit(
+                db, project, assignment, old_mode=old_mode,
+                selected_ids=db.info.get("change_remove_lesson_ids", {}).get(str(assignment.id)),
+            )
+            if displaced_lesson_ids is not None:
+                displaced_lesson_ids.extend(sorted(original_ids - {row.id for row in rows}))
+            continue
 
         if mode_changed or (periods_changed and assignment_requires_double(assignment)):
             original_lesson_ids = {lesson.id for lesson in lessons}

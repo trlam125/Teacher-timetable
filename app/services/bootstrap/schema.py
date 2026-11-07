@@ -12,6 +12,8 @@ from app.services.bootstrap.migrations.legacy_projects import migrate_legacy_pro
 from app.services.bootstrap.migrations.lesson_blocks import migrate_lesson_blocks
 from app.services.bootstrap.migrations.lesson_integrity import migrate_lesson_integrity
 from app.services.bootstrap.migrations.schools_and_chat import migrate_schools_and_chat
+from app.services.bootstrap.migrations.project_trash import migrate_project_trash
+from app.services.bootstrap.migrations.change_notifications import migrate_change_notifications
 from sqlalchemy import inspect
 
 
@@ -29,6 +31,8 @@ def migrate_schema():
             return
 
         migrate_accounts(connection, inspector)
+        migrate_project_trash(connection, inspector)
+        migrate_change_notifications(connection, inspector)
         migrate_schools_and_chat(connection, inspector)
         migrate_account_roles(connection, inspector)
         migrate_curriculum(connection, inspector)

@@ -33,6 +33,7 @@ from app.services.entities.schemas import ConstraintIn, SessionLocksIn
 from app.services.projects import get_project_for_update
 from app.services.schedule_operations.blocks import fixed_coverage_slots, lesson_block_members
 from app.services.schedule_operations.feasibility import ensure_pinned_assignments_feasible
+from app.services.change_impact.managed import finish_edit, managed_edit, require_preview
 
 router = APIRouter()
 
@@ -75,6 +76,7 @@ def constraints(
     db: Session = Depends(db_session),
 ):
     p = get_project_for_update(pid, user, db)
+    require_preview(db)
     if payload.entity_type not in {"teacher", "class"}:
         raise HTTPException(400, "Loại ràng buộc không hợp lệ")
     model = Teacher if payload.entity_type == "teacher" else SchoolClass
@@ -194,7 +196,7 @@ def constraints(
         teacher_unavailable={obj.id: slots} if payload.entity_type == "teacher" else None,
         class_unavailable={obj.id: slots | class_grade_blocked_slots(obj)} if payload.entity_type == "class" else None,
     )
-    confirmation = displacement_confirmation(removed_ids, payload)
+    confirmation = None if managed_edit(db) else displacement_confirmation(removed_ids, payload)
     if confirmation is not None:
         return confirmation
 
@@ -204,7 +206,7 @@ def constraints(
     for lesson in lessons:
         if lesson.id in removed_ids:
             db.delete(lesson)
-    db.commit()
+    finish_edit(db)
     return {"ok": True, "removed": len(removed_ids)}
 
 
@@ -216,6 +218,7 @@ def save_session_locks(
     db: Session = Depends(db_session),
 ):
     project = get_project_for_update(pid, user, db)
+    require_preview(db)
     grade = db.get(Grade, payload.grade_id)
     if not grade or grade.project_id != pid:
         raise HTTPException(404, "Không tìm thấy khối lớp")
@@ -338,7 +341,7 @@ def save_session_locks(
         db, project, assignments,
         class_unavailable={row.id: blocked_set | parse_slots(row.unavailable_json) for row in classes},
     )
-    confirmation = displacement_confirmation(removed_ids, payload)
+    confirmation = None if managed_edit(db) else displacement_confirmation(removed_ids, payload)
     if confirmation is not None:
         return confirmation
 
@@ -346,7 +349,7 @@ def save_session_locks(
     for lesson in all_lessons:
         if lesson.id in removed_ids:
             db.delete(lesson)
-    db.commit()
+    finish_edit(db)
     return {
         "ok": True,
         "grade_id": payload.grade_id,

@@ -8,39 +8,21 @@ async function resetAssignments(button) {
   const idle = "Reset phân công";
   setInlineActionState(button, "loading", { idle, loading: "Đang kiểm tra..." });
   try {
-    let confirmation = {};
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const response = await fetch(`/api/projects/${PROJECT_ID}/assignments/reset`, {
-        method: "POST",
-        headers: operationHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(confirmation),
-      });
-      const result = await readApiResponse(response);
-      if (!response.ok && result?.requires_confirmation) {
-        if (!(await confirmAction(result.message, {
-          title: "Reset toàn bộ phân công",
-          confirmText: `Reset ${result.assignment_count} phân công`,
-        }))) {
-          setInlineActionState(button, "idle", { idle });
-          return;
-        }
-        confirmation = {
-          confirm_assignment_cascade: true,
-          confirmed_assignment_ids: result.assignment_ids,
-          confirmed_lesson_ids: result.lesson_ids,
-          confirmed_fixed_lesson_ids: result.fixed_lesson_ids,
-        };
-        setInlineActionState(button, "loading", { idle, loading: "Đang đặt lại..." });
-        continue;
-      }
-      if (!response.ok) throw new Error(apiErrorMessage(result, "Không thể reset phân công."));
-      autoAssignmentDrafts.clear();
-      setInlineActionState(button, "success", { idle, success: "Đã đặt lại" }, 1800);
-      showToast(result.message || "Đã đặt lại phân công.", "success");
-      await refreshAfterSuccessfulMutation();
+    const first = (data.assignments || [])[0];
+    if (!first) {
+      setInlineActionState(button, "idle", {idle});
+      showToast("Chưa có phân công để đặt lại.", "info");
       return;
     }
-    throw new Error("Phân công đã thay đổi trong lúc xác nhận. Hãy thử Reset lại.");
+    const {response, result, cancelled} = await runProjectChange({
+      kind: "reset", entity_type: "assignment", entity_id: first.id, values: {},
+    });
+    if (cancelled) {setInlineActionState(button, "idle", {idle});return;}
+    if (!response.ok) throw new Error(apiErrorMessage(result, "Không thể reset phân công."));
+    autoAssignmentDrafts.clear();
+    setInlineActionState(button, "success", {idle, success: "Đã đặt lại"}, 1800);
+    showToast(result.message || "Đã đặt lại phân công.", "success");
+    await refreshAfterSuccessfulMutation();
   } catch (error) {
     setInlineActionState(button, "error", { idle, error: "Chưa đặt lại được" }, 2200);
     showToast(error?.message || requestFailureMessage(error), "error", 5000);
@@ -600,11 +582,6 @@ async function deleteAutoAssignmentCell(id, button) {
   const assignmentId = Number(cell?.dataset.assignment || 0);
   const assignment = (data.assignments || []).find(item => Number(item.id) === assignmentId);
   if (!assignment || !button || button.disabled) return;
-  const confirmed = await confirmAction(
-    `Xóa phân công ${assignment.subject_name} của lớp ${assignment.class_name} (${assignment.teacher_name})? Thao tác này không thể hoàn tác.`,
-    {title: "Xác nhận xóa phân công", confirmText: "Xóa phân công"}
-  );
-  if (!confirmed) return;
   await delEntity("assignment", assignmentId, button);
   // Only discard an unsaved matrix draft after the API has actually removed
   // the assignment. Keep it intact if the user cancels or the request fails.

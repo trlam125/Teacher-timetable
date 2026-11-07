@@ -33,8 +33,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
                 else "Yêu cầu không hợp lệ."
             )
         )
+        structured = detail if isinstance(detail, dict) else {}
         return JSONResponse(
-            {"ok": False, "message": str(detail), "detail": str(detail)},
+            {"ok": False, **structured, "message": structured.get("message", str(detail)), "detail": detail},
             status_code=exc.status_code,
         )
     if exc.status_code == 404:

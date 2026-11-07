@@ -500,14 +500,10 @@ async function returnAllToTray(button) {
     });
     const j = await readApiResponse(r);
     if (r.ok) {
-      const refreshed = await refreshAfterSuccessfulMutation(
+      await refreshAfterSuccessfulMutation(
         ["lessons"],
         "Các tiết đã được đưa về khay trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
       );
-      if (refreshed) {
-        const compactTray = document.getElementById("manualTrayDisclosure");
-        if (compactTray) compactTray.open = true;
-      }
       setInlineActionState(
         button,
         "success",

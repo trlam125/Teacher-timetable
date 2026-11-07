@@ -15,6 +15,7 @@ from app.routers.constraints import router as constraints_router
 from app.routers.entities import router as entities_router
 from app.routers.notifications import router as notifications_router
 from app.routers.projects import router as projects_router
+from app.routers.project_changes import router as project_changes_router
 from app.routers.schedule import router as schedule_router
 from app.routers.share_export import router as share_export_router
 from app.routers.social_auth import router as social_auth_router
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(admin_router)
     app.include_router(projects_router)
+    app.include_router(project_changes_router)
     app.include_router(audit_router)
     app.include_router(chatbot_router)
     app.include_router(entities_router)

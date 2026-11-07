@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import (
@@ -55,6 +56,7 @@ router = APIRouter()
 
 
 @router.get("/projects", response_class=HTMLResponse)
+@router.get("/projects/trash", response_class=HTMLResponse)
 def projects(
     request: Request,
     user: User = Depends(current_user),
@@ -64,7 +66,10 @@ def projects(
         return RedirectResponse("/teacher", 303)
     if not is_admin(user):
         return RedirectResponse("/logout", 303)
-    project_query = select(Project)
+    in_trash = request.url.path == "/projects/trash"
+    project_query = select(Project).where(
+        Project.deleted_at.is_not(None) if in_trash else Project.deleted_at.is_(None)
+    )
     assigned_schools = user_schools(user, db)
     if not is_super_admin(user):
         school_ids = {school.id for school in assigned_schools}
@@ -72,7 +77,10 @@ def projects(
             project_query = project_query.where(Project.school_id.in_(school_ids))
         else:
             project_query = project_query.where(Project.id == -1)
-    rows = db.scalars(project_query.order_by(Project.id.desc())).all()
+    ordering = (
+        (Project.deleted_at.desc(), Project.id.desc()) if in_trash else (Project.id.desc(),)
+    )
+    rows = db.scalars(project_query.order_by(*ordering)).all()
     return templates.TemplateResponse(
         "projects.html",
         {
@@ -81,7 +89,8 @@ def projects(
             "greeting_name": user_greeting_name(user),
             "projects": rows,
             "assigned_schools": assigned_schools,
-            **chatbot_ui_context(rows[0] if rows else None),
+            "in_trash": in_trash,
+            **chatbot_ui_context(rows[0] if rows and not in_trash else None),
         },
     )
 
@@ -338,6 +347,30 @@ def delete_project(
     pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
 ):
     project = get_project_for_update(pid, user, db)
+    project.deleted_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    db.commit()
+    return redirect_with_notice(
+        "/projects",
+        "Đã chuyển bộ thời khóa biểu vào Thùng rác. Bạn có thể khôi phục bất cứ lúc nào.",
+        kind="success",
+    )
+
+
+@router.post("/projects/{pid}/restore")
+def restore_project(
+    pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
+):
+    project = get_project_for_update(pid, user, db, trashed=True)
+    project.deleted_at = None
+    db.commit()
+    return redirect_with_notice("/projects", "Đã khôi phục bộ thời khóa biểu", kind="success")
+
+
+@router.post("/projects/{pid}/purge")
+def purge_project(
+    pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
+):
+    project = get_project_for_update(pid, user, db, trashed=True)
 
     # Xóa theo thứ tự phụ thuộc khóa ngoại để toàn bộ dữ liệu của bộ TKB
     # được dọn sạch trong cùng một transaction.
@@ -361,7 +394,9 @@ def delete_project(
     db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.project_id == pid))
     db.delete(project)
     db.commit()
-    return RedirectResponse("/projects", 303)
+    return redirect_with_notice(
+        "/projects/trash", "Đã xóa vĩnh viễn bộ thời khóa biểu", kind="success"
+    )
 
 
 @router.get("/projects/{pid}", response_class=HTMLResponse)

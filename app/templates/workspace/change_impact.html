@@ -1,0 +1,25 @@
+<div class="project-edit-toolbar">
+    <label class="project-edit-toggle"><input id="postScheduleEditToggle" type="checkbox" onchange="setPostScheduleEditing(this.checked)"> Chỉnh sửa sau xếp lịch</label>
+    <span id="postScheduleEditHint">Xem trước ảnh hưởng trước khi áp dụng thay đổi.</span>
+    <button type="button" class="btn ghost" onclick="openProjectChangeHistory()">Bản dự phòng &amp; lịch sử</button>
+</div>
+<dialog id="changeImpactDialog" class="change-impact-dialog" aria-labelledby="changeImpactTitle">
+    <div class="change-impact-content">
+        <h2 id="changeImpactTitle">Xem trước ảnh hưởng</h2>
+        <div id="changeImpactBody" aria-live="polite"></div>
+        <p id="changeImpactStatus" role="status"></p>
+        <div class="row end change-impact-actions">
+            <button class="btn ghost" id="changeImpactCancel" type="button">Quay lại chỉnh sửa</button>
+            <button class="btn ghost" id="changeImpactRecalculate" type="button">Tính lại ảnh hưởng</button>
+            <button class="btn" id="changeImpactApply" type="button">Áp dụng thay đổi</button>
+        </div>
+    </div>
+</dialog>
+<dialog id="projectChangeHistoryDialog" class="change-impact-dialog" aria-labelledby="projectChangeHistoryTitle">
+    <div class="change-impact-content">
+        <h2 id="projectChangeHistoryTitle">Bản dự phòng &amp; lịch sử</h2>
+        <p>Bản dự phòng được giữ đến khi xóa vĩnh viễn project. Chỉ hoàn tác thay đổi gần nhất nếu dữ liệu chưa thay đổi tiếp.</p>
+        <div id="projectChangeHistoryBody" aria-live="polite"></div>
+        <div class="row end"><button class="btn ghost" type="button" onclick="this.closest('dialog').close()">Đóng</button></div>
+    </div>
+</dialog>

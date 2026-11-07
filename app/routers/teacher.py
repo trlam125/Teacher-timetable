@@ -103,7 +103,7 @@ def teacher_account_page(
         raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
     project = db.get(Project, project_id) if project_id is not None else None
     if project_id is not None and (
-        not project or not user_can_access_school(user, project.school_id, db)
+        not project or project.deleted_at is not None or not user_can_access_school(user, project.school_id, db)
     ):
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     return templates.TemplateResponse(
@@ -132,7 +132,7 @@ def update_teacher_avatar(
         raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
     project = db.get(Project, project_id) if project_id is not None else None
     if project_id is not None and (
-        not project or not user_can_access_school(user, project.school_id, db)
+        not project or project.deleted_at is not None or not user_can_access_school(user, project.school_id, db)
     ):
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     context = {
@@ -165,7 +165,7 @@ def update_teacher_profile(
         raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
     project = db.get(Project, project_id) if project_id is not None else None
     if project_id is not None and (
-        not project or not user_can_access_school(user, project.school_id, db)
+        not project or project.deleted_at is not None or not user_can_access_school(user, project.school_id, db)
     ):
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     context = {
@@ -200,7 +200,7 @@ def update_teacher_password(
         raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
     project = db.get(Project, project_id) if project_id is not None else None
     if project_id is not None and (
-        not project or not user_can_access_school(user, project.school_id, db)
+        not project or project.deleted_at is not None or not user_can_access_school(user, project.school_id, db)
     ):
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     context = {
@@ -255,6 +255,12 @@ def submit_teacher_preference(
         raise HTTPException(403, "Chỉ tài khoản giáo viên được gửi nguyện vọng")
     project = teacher_view_project(user, db, project_id)
     if not project:
+        raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
+    # Serialize preference writes with snapshot/apply/undo on the same project.
+    project = db.scalar(select(Project).where(
+        Project.id == project.id, Project.deleted_at.is_(None),
+    ).with_for_update())
+    if project is None:
         raise HTTPException(404, "Không tìm thấy bộ thời khóa biểu")
     try:
         preferred_raw = json.loads(preferred_slots)
@@ -373,7 +379,7 @@ def review_teacher_preference(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
-    get_project(pid, user, db)
+    get_project_for_update(pid, user, db)
     preference = db.scalar(
         select(TeacherPreference)
         .where(

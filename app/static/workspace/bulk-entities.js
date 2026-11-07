@@ -74,6 +74,20 @@ function toggleAllEntityRows(type, checked) {
 async function deleteSelectedEntities(type, button) {
   const ids = selectedEntityIds(type);
   if (!ids.length) return;
+  if (["assignment", "teacher", "class", "subject", "grade", "department"].includes(type)) {
+    button.disabled = true;
+    try {
+      const outcome = await runProjectChange({kind: "delete", entity_type: type, entity_id: ids[0], values: {entity_ids: ids}});
+      if (!outcome.cancelled) {
+        if (outcome.response.ok) {
+          showToast(outcome.result.message || "Đã xóa các mục đã chọn.", "success", 6000);
+          await refreshAfterSuccessfulMutation();
+        } else showToast(apiErrorMessage(outcome.result, "Không thể xóa."), "error", 6000);
+      }
+    } catch (error) {showToast(requestFailureMessage(error), "error", 6000);}
+    finally {if (button.isConnected) syncEntityBulkControls(type);}
+    return;
+  }
 
   if (type !== "assignment") {
     const confirmed = await confirmAction(

@@ -52,7 +52,7 @@ def admin_users(
 ):
     if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
-    projects_query = select(Project)
+    projects_query = select(Project).where(Project.deleted_at.is_(None))
     if not is_super_admin(user):
         school_ids = user_school_ids(user, db)
         if school_ids:

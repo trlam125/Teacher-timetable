@@ -133,7 +133,7 @@
         { target: '#schedule .section-head', title: 'Khu vực xếp thời khóa biểu', text: 'Đây là nơi tạo lịch tự động, lọc lịch và tinh chỉnh từng tiết bằng thao tác trực tiếp.' },
         { target: '#viewType', title: 'Chọn kiểu xem', text: 'Chuyển giữa xem tổng quát, theo khối, theo lớp, theo giáo viên hoặc theo môn học.' },
         { target: '#assignmentCoverage', title: 'Kiểm tra phân công', text: 'Khu vực này hiển thị các cảnh báo phân công trùng, quá tải hoặc chưa đủ dữ liệu.' },
-        { target: '#manualTrayDisclosure', title: 'Kho tiết thu gọn', text: 'Mở thanh này để xem số tiết chưa xếp và chọn một tiết để đưa vào thời khóa biểu.' },
+        { target: '#manualTrayPanel', title: 'Kho tiết chưa xếp', text: 'Các tiết chưa xếp luôn hiển thị tại đây. Chọn một thẻ tiết, sau đó chọn ô hợp lệ trên thời khóa biểu để xếp.' },
         { target: '#scheduleGrid', title: 'Lưới thời khóa biểu', text: 'Bấm tiết trên lịch để chọn, sau đó bấm ô hợp lệ để chuyển. Hệ thống sẽ kiểm tra các điều kiện trước khi lưu.' },
         { target: '#schedule [data-schedule-action]', title: 'Xếp tự động', text: 'Bấm nút này để hệ thống xếp thời khóa biểu theo phân công và các điều kiện bạn đã chọn.' }
       ]

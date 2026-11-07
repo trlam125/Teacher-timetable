@@ -25,6 +25,8 @@ from app.services.schedule_operations.feasibility import ensure_pinned_assignmen
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.services.change_impact.managed import managed_edit
+from app.services.change_impact.reconcile import remove_class_conflicts
 
 
 def update_class_fields(db: Session, project: Project, obj, d: dict, name: str, pid: int):
@@ -99,6 +101,9 @@ def update_class_fields(db: Session, project: Project, obj, d: dict, name: str, 
     obj.grade_id = grade_id
     if changing_grade:
         obj.grade = db.get(Grade, grade_id) if grade_id is not None else None
+        if managed_edit(db):
+            db.flush()
+            remove_class_conflicts(db, project, obj)
         ensure_class_load_fits(project, obj, class_assigned_periods(db, pid, obj.id))
         blocked = class_grade_blocked_slots(obj)
         assignments = db.scalars(

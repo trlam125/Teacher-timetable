@@ -23,6 +23,7 @@ class ScheduleNotification(Base):
     removed_count: Mapped[int] = mapped_column(Integer, default=0)
     moved_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_count: Mapped[int] = mapped_column(Integer, default=0)
+    summary_text: Mapped[str] = mapped_column(Text, default="", server_default="")
     created_at: Mapped[str] = mapped_column(
         String(40),
         default=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"),

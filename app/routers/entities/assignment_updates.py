@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.services.change_impact.managed import require_preview
 
 
 router = APIRouter()
@@ -42,6 +43,7 @@ def update_assignment(
     db: Session = Depends(db_session),
 ):
     project = get_project_for_update(pid, user, db)
+    require_preview(db)
     assignment = db.get(Assignment, assignment_id)
     if not assignment or assignment.project_id != pid:
         raise HTTPException(404)

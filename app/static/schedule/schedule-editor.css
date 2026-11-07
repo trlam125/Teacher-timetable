@@ -402,40 +402,25 @@
 }
 
 
-/* Expandable lesson tray: one compact header when collapsed, restore manual scheduling on demand. */
+/* Always-visible lesson tray with a compact header and horizontal scrolling. */
 #schedule .compact-tray-panel {
   padding: 0;
   margin: 0 0 12px;
   overflow: hidden;
 }
-#schedule .compact-tray-summary {
+#schedule .compact-tray-head {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 40px;
   padding: 7px 12px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
 }
-#schedule .compact-tray-summary::-webkit-details-marker { display: none; }
 #schedule .compact-tray-title { font-weight: 700; font-size: 14px; }
 #schedule .compact-tray-count {
   font-size: 12px;
   color: var(--muted);
   font-weight: 600;
 }
-#schedule .compact-tray-chevron {
-  margin-left: auto;
-  width: 8px;
-  height: 8px;
-  flex: 0 0 8px;
-  border-bottom: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  transform: rotate(45deg);
-  transition: transform .15s ease;
-}
-#schedule .compact-tray-panel[open] .compact-tray-chevron { transform: rotate(225deg); }
 #schedule .compact-tray-panel .unscheduled-tray {
   margin: 0 9px 9px;
   min-height: 54px;
@@ -443,12 +428,8 @@
   overflow-x: auto;
   overflow-y: auto;
 }
-#schedule .compact-tray-summary:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: -3px;
-}
 @media (max-width: 600px) {
-  #schedule .compact-tray-summary { flex-wrap: nowrap; }
+  #schedule .compact-tray-head { flex-wrap: nowrap; }
   #schedule .compact-tray-title { font-size: 13px; }
   #schedule .compact-tray-count { font-size: 11px; }
 }
