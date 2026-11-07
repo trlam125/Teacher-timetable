@@ -165,6 +165,7 @@ def rename_project(
     pid: int,
     name: str = Form(""),
     return_to: str = Form("projects"),
+    school_id: Optional[str] = Form(None),
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
@@ -172,6 +173,18 @@ def rename_project(
     destination = f"/projects/{pid}" if return_to == "workspace" else "/projects"
     try:
         clean_name = bounded_text(name, "Tên bộ thời khóa biểu", 200)
+        school = None
+        if school_id is not None:
+            try:
+                parsed_school_id = int(school_id)
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(400, "Hãy chọn trường hợp lệ") from exc
+            school = db.get(School, parsed_school_id)
+            if school is None or not user_can_access_school(user, school.id, db):
+                raise HTTPException(400, "Bạn không có quyền chọn trường này")
+        elif project.school_id is not None:
+            # Older clients only submit a name; retain their current school.
+            school = db.get(School, project.school_id)
     except HTTPException as exc:
         extra = {"open_rename": 1}
         if destination == "/projects":
@@ -182,18 +195,23 @@ def rename_project(
             **extra,
         )
 
-    if project.name == clean_name:
+    new_school_id = school.id if school is not None else project.school_id
+    new_school_name = school.name if school is not None else project.school_name
+    school_changed = project.school_id != new_school_id or project.school_name != new_school_name
+    if project.name == clean_name and not school_changed:
         return redirect_with_notice(
             destination,
-            "Tên bộ thời khóa biểu không thay đổi",
+            "Tên và trường của bộ thời khóa biểu không thay đổi",
             kind="info",
         )
 
     project.name = clean_name
+    project.school_id = new_school_id
+    project.school_name = new_school_name
     db.commit()
     return redirect_with_notice(
         destination,
-        "Đã đổi tên bộ thời khóa biểu",
+        "Đã cập nhật tên và trường của bộ thời khóa biểu" if school_changed else "Đã đổi tên bộ thời khóa biểu",
         kind="success",
     )
 
@@ -366,14 +384,10 @@ def restore_project(
     return redirect_with_notice("/projects", "Đã khôi phục bộ thời khóa biểu", kind="success")
 
 
-@router.post("/projects/{pid}/purge")
-def purge_project(
-    pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
-):
-    project = get_project_for_update(pid, user, db, trashed=True)
-
+def _purge_project_rows(db: Session, projects: list[Project]):
+    project_ids = [project.id for project in projects]
     # Xóa theo thứ tự phụ thuộc khóa ngoại để toàn bộ dữ liệu của bộ TKB
-    # được dọn sạch trong cùng một transaction.
+    # được dọn sạch trong cùng một transaction, kể cả khi làm rỗng thùng rác.
     for model in (
         Lesson,
         FixedLesson,
@@ -387,13 +401,58 @@ def purge_project(
         Grade,
         Department,
     ):
-        db.execute(delete(model).where(model.project_id == pid))
+        db.execute(delete(model).where(model.project_id.in_(project_ids)))
 
     # Log chatbot không có khóa ngoại tới projects, nhưng vẫn dọn theo project
     # để không giữ lại dữ liệu mồ côi sau khi bộ TKB đã bị xóa.
-    db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.project_id == pid))
-    db.delete(project)
-    db.commit()
+    db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.project_id.in_(project_ids)))
+    for project in projects:
+        db.delete(project)
+
+
+@router.post("/projects/trash/empty")
+def empty_project_trash(
+    project_ids: list[int] = Form(...),
+    user: User = Depends(current_user),
+    db: Session = Depends(db_session),
+):
+    if not is_admin(user):
+        raise HTTPException(403, "Chỉ quản trị viên được làm rỗng thùng rác")
+    ids = set(project_ids)
+    query = select(Project).where(Project.id.in_(ids), Project.deleted_at.is_not(None))
+    if not is_super_admin(user):
+        school_ids = {school.id for school in user_schools(user, db)}
+        query = query.where(Project.school_id.in_(school_ids))
+    # Delete only the entries shown when confirming. Restored projects and new
+    # arrivals must not be silently included in an irreversible bulk deletion.
+    rows = db.scalars(query.order_by(Project.id).with_for_update()
+                      .execution_options(populate_existing=True)).all()
+    if not rows or len(rows) != len(ids):
+        return redirect_with_notice(
+            "/projects/trash", "Thùng rác đã thay đổi hoặc có mục bạn không được phép xóa. Hãy kiểm tra lại danh sách."
+        )
+    try:
+        _purge_project_rows(db, rows)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return redirect_with_notice(
+        "/projects/trash", f"Đã xóa vĩnh viễn {len(rows)} bộ thời khóa biểu trong thùng rác", kind="success"
+    )
+
+
+@router.post("/projects/{pid}/purge")
+def purge_project(
+    pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
+):
+    project = get_project_for_update(pid, user, db, trashed=True)
+    try:
+        _purge_project_rows(db, [project])
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return redirect_with_notice(
         "/projects/trash", "Đã xóa vĩnh viễn bộ thời khóa biểu", kind="success"
     )
@@ -414,6 +473,7 @@ def project_page(
             "request": request,
             "user": user,
             "p": p,
+            "assigned_schools": user_schools(user, db),
             "data": data,
             "days": DAYS,
             "public_base_url": public_base_url(request)

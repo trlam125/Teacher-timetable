@@ -173,8 +173,9 @@ def rename_school_from_account_management(
         for project in projects:
             project.school_name = clean_name
         db.commit()
+        return redirect_with_notice("/admin/users", "Đã đổi tên trường và cập nhật các bộ thời khóa biểu liên quan", kind="success")
 
-    return RedirectResponse("/admin/users", 303)
+    return redirect_with_notice("/admin/users", "Tên trường không thay đổi", kind="info")
 
 
 @router.post("/admin/users/{account_id}/schools")

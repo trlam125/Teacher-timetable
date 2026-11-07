@@ -5,7 +5,7 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 ## Tính năng chính
 
 - Quản lý môn học, giáo viên, lớp và phân công giảng dạy.
-- Thùng rác cho bộ thời khóa biểu: giữ nguyên dữ liệu khi xóa, khôi phục hoặc xóa vĩnh viễn khi cần.
+- Thùng rác cho bộ thời khóa biểu: giữ nguyên dữ liệu vô thời hạn, không tự động dọn; có thể khôi phục, xóa từng mục hoặc làm rỗng thùng rác khi cần.
 - Chỉnh sửa sau xếp lịch: xem trước ảnh hưởng, giữ các tiết hợp lệ, đưa tiết xung đột về kho và lưu bản dự phòng để hoàn tác.
 - Xếp thời khóa biểu tự động theo các ràng buộc.
 - Lượt xếp đầu ưu tiên xếp đủ tiết, sau đó tối ưu phân bố môn theo ngày, tiết đôi ưu tiên và khoảng trống của giáo viên. Nếu chưa tìm được lịch đầy đủ, hệ thống giữ phương án xếp được nhiều tiết nhất đã tìm thấy; có thể thử xếp lại phần không cố định ở bước cuối.

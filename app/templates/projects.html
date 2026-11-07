@@ -50,12 +50,17 @@
             <div>
                 <h1>{{ 'Thùng rác' if in_trash else 'Bộ thời khóa biểu' }}</h1>
                 {% if in_trash %}
-                <p>Các bộ thời khóa biểu được giữ nguyên dữ liệu cho đến khi bạn xóa vĩnh viễn.</p>
+                <p>Các bộ thời khóa biểu được giữ vô thời hạn, không tự động xóa. Bạn có thể khôi phục hoặc xóa vĩnh viễn khi muốn.</p>
                 {% endif %}
             </div>
-            <div class="row">
+            <div class="row" style="flex-wrap:wrap">
                 {% if in_trash %}
                 <a class="btn ghost" href="/projects">Quay lại danh sách</a>
+                <form method="post" action="/projects/trash/empty"
+                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa vĩnh viễn toàn bộ {{ projects|length }} bộ thời khóa biểu trong thùng rác đang hiển thị? Toàn bộ dữ liệu, phân công và lịch đã xếp của các mục này sẽ bị xóa và không thể khôi phục.', {title: 'Làm rỗng thùng rác', confirmText: 'Xóa tất cả'}).then(ok => { if (ok) this.submit(); });">
+                    {% for project in projects %}<input type="hidden" name="project_ids" value="{{ project.id }}">{% endfor %}
+                    <button class="btn ghost project-delete-btn" type="submit" {% if not projects %}disabled{% endif %}>Làm rỗng thùng rác</button>
+                </form>
                 {% else %}
                 <a class="btn ghost" href="/projects/trash">Thùng rác</a>
                 <a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import &amp; kiểm
@@ -106,7 +111,8 @@
                     {% else %}
                     <a class="btn" href="/projects/{{ p.id }}">Mở</a>
                     <button class="btn ghost" type="button" data-project-id="{{ p.id }}"
-                        data-project-name="{{ p.name|e }}" onclick="openRenameDialog(this)">Đổi tên</button>
+                        data-project-name="{{ p.name|e }}" data-project-school-id="{{ p.school_id if p.school_id is not none else '' }}"
+                        onclick="openRenameDialog(this)">Đổi tên</button>
                     <button class="btn ghost" type="button" data-project-id="{{ p.id }}"
                         data-project-name="{{ p.name|e }}" onclick="openCloneDialog(this)">Nhân bản</button>
                     <form method="post" action="/projects/{{ p.id }}/delete"
@@ -155,10 +161,18 @@
                 Tên bộ TKB
                 <input id="renameProjectName" name="name" maxlength="200" required>
             </label>
+            <label>Trường học
+                <select id="renameProjectSchool" name="school_id" required>
+                    <option value="" disabled>Chọn trường</option>
+                    {% for school in assigned_schools %}
+                    <option value="{{ school.id }}">{{ school.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
             <input type="hidden" name="return_to" value="projects">
             <div class="row end">
                 <button type="button" class="btn ghost" onclick="this.closest('dialog').close()">Hủy</button>
-                <button class="btn" type="submit">Lưu tên</button>
+                <button class="btn" type="submit">Lưu thay đổi</button>
             </div>
         </form>
     </dialog>
@@ -181,11 +195,13 @@
             const dialog = document.getElementById('renameProject');
             const form = document.getElementById('renameProjectForm');
             const nameInput = document.getElementById('renameProjectName');
+            const schoolInput = document.getElementById('renameProjectSchool');
             const projectId = button.dataset.projectId;
             const projectName = button.dataset.projectName || '';
 
             form.action = `/projects/${encodeURIComponent(projectId)}/rename`;
             nameInput.value = projectName;
+            schoolInput.value = button.dataset.projectSchoolId || '';
             dialog.showModal();
             requestAnimationFrame(() => {
                 nameInput.focus();

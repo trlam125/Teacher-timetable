@@ -5,10 +5,18 @@
             Tên bộ TKB
             <input id="renameProjectName" name="name" value="{{ p.name|e }}" maxlength="200" required>
         </label>
+        <label>Trường học
+            <select id="renameProjectSchool" name="school_id" data-current-school="{{ p.school_id if p.school_id is not none else '' }}" required>
+                <option value="" disabled {% if p.school_id is none %}selected{% endif %}>Chọn trường</option>
+                {% for school in assigned_schools %}
+                <option value="{{ school.id }}" {% if school.id == p.school_id %}selected{% endif %}>{{ school.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
         <input type="hidden" name="return_to" value="workspace">
         <div class="row end">
             <button type="button" class="btn ghost" onclick="this.closest('dialog').close()">Hủy</button>
-            <button class="btn" type="submit">Lưu tên</button>
+            <button class="btn" type="submit">Lưu thay đổi</button>
         </div>
     </form>
 </dialog>
