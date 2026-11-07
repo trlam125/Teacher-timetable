@@ -10,8 +10,10 @@ import logging
 from uuid import uuid4
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DataError, IntegrityError, OperationalError, ProgrammingError
+
+from app.services.error_pages import render_error_page
 
 
 logger = logging.getLogger("uvicorn.error")
@@ -201,7 +203,4 @@ async def unexpected_exception_handler(request: Request, exc: Exception):
             status_code=status,
             headers={"X-Error-ID": reference},
         )
-    return HTMLResponse(
-        "<h1>Không mở được trang này. Hãy thử tải lại hoặc liên hệ người quản lý.</h1>",
-        status_code=status,
-    )
+    return render_error_page(request, status)

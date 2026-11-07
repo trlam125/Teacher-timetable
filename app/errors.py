@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.services.api_error_responses import unexpected_exception_handler
+from app.services.error_pages import render_error_page
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -40,11 +41,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             {"ok": False, **structured, "message": structured.get("message", str(detail)), "detail": detail},
             status_code=exc.status_code,
         )
-    if exc.status_code == 404:
-        return HTMLResponse("<h1>Không tìm thấy trang bạn cần mở.</h1>", status_code=404)
-    return HTMLResponse(
-        "<h1>Không thể mở trang này. Hãy thử lại hoặc liên hệ người quản lý.</h1>", status_code=exc.status_code
-    )
+    return render_error_page(request, exc.status_code, headers=exc.headers)
 
 
 def register_exception_handlers(app):
