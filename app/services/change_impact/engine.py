@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.models import Assignment, Department, Grade, Lesson, SchoolClass, Subject, Teacher
 from app.services.change_impact.assignments import edit_assignment
 from app.services.change_impact.reconcile import protect_assignment
+from app.services.change_impact.state import capture, schedule_unchanged
 from app.services.entities.deletion import delete_entity_related_rows, entity_delete_dependency
 from app.services.entities.updates.department import update_department_fields
 from app.services.entities.updates.grade import update_grade_fields
@@ -70,6 +71,23 @@ def resolve_assignments(db, project, assignments, resolutions, *, allow_transfer
 
 def execute(db, project, actor, request):
     """The same business operations are used by isolated preview and atomic apply."""
+    before = capture(db, project)
+    result = _execute(db, project, actor, request)
+    validate_change(db, project, before)
+    return result
+
+
+def validate_change(db, project, before):
+    db.flush()
+    if schedule_unchanged(before, capture(db, project)):
+        return
+    report = schedule_integrity_report(db, project, allow_partial=True)
+    if not report["valid"]:
+        raise HTTPException(409, {"reason": "invalid_schedule", "message": report["message"]})
+
+
+def _execute(db, project, actor, request):
+    """Validate the final state once, after every item of a bulk operation."""
     values = dict(request.values)
     if request.kind == "reset":
         rows = db.scalars(select(Assignment).where(Assignment.project_id == project.id).order_by(Assignment.id)).all()
@@ -79,16 +97,13 @@ def execute(db, project, actor, request):
             db.flush()
             db.delete(row)
             db.flush()
-        report = schedule_integrity_report(db, project, allow_partial=True)
-        if not report["valid"]:
-            raise HTTPException(409, report["message"])
         return {"ok": True, "deleted": len(rows)}
     if request.kind == "delete" and values.get("entity_ids"):
         ids = values.pop("entity_ids")
         if not isinstance(ids, list) or not 1 <= len(ids) <= 500 or any(type(eid) is not int or eid <= 0 for eid in ids):
             raise HTTPException(400, "Mỗi lần chỉ được xóa tối đa 500 mục hợp lệ.")
         for eid in dict.fromkeys(ids):
-            execute(db, project, actor, request.model_copy(update={"entity_id": eid, "values": values}))
+            _execute(db, project, actor, request.model_copy(update={"entity_id": eid, "values": values}))
         return {"ok": True, "deleted": len(set(ids))}
     db.info["change_remove_lesson_ids"] = request.remove_lesson_ids
     if request.kind in {"constraints", "grade_locks"}:
@@ -163,7 +178,4 @@ def execute(db, project, actor, request):
         content = json.loads(result.body)
         raise HTTPException(result.status_code, content)
     db.flush()
-    report = schedule_integrity_report(db, project, allow_partial=True)
-    if not report["valid"]:
-        raise HTTPException(409, {"reason": "invalid_schedule", "message": report["message"]})
     return result

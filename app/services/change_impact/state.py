@@ -40,6 +40,23 @@ def capture(db, project):
     }
 
 
+def schedule_unchanged(before, after):
+    """Display-only edits may proceed even when the existing timetable has errors."""
+    def scheduling_state(state):
+        named_tables = {"departments", "subjects", "teachers", "grades", "classes"}
+        return {
+            "project": {key: value for key, value in state["project"].items()
+                        if key not in {"name", "school_name"}},
+            "tables": {
+                table: [{key: value for key, value in row.items()
+                         if table not in named_tables or key not in {"name", "short_name"}}
+                        for row in rows]
+                for table, rows in state["tables"].items()
+            },
+        }
+    return scheduling_state(before) == scheduling_state(after)
+
+
 @contextmanager
 def simulation(state, project, actor):
     """Run real business rules in an isolated DB; production receives no preview writes."""

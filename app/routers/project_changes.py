@@ -14,12 +14,11 @@ from sqlalchemy.orm import Session
 from app.config import SECRET_KEY
 from app.models import Assignment, ProjectChange, User
 from app.services.authentication.sessions import current_user, db_session
-from app.services.change_impact.engine import execute
+from app.services.change_impact.engine import execute, validate_change
 from app.services.change_impact.report import build_report
 from app.services.change_impact.notifications import record_change_notice
 from app.services.change_impact.state import capture, encoded, fingerprint, restore, simulation
 from app.services.projects import get_project, get_project_for_update
-from app.services.schedule_operations.validation import schedule_integrity_report
 
 router = APIRouter()
 signer = URLSafeTimedSerializer(SECRET_KEY, salt="project-change-preview-v1")
@@ -215,12 +214,11 @@ def undo_change(pid: int, change_id: str, user: User = Depends(current_user), db
                        .order_by(ProjectChange.created_at.desc(), ProjectChange.id.desc()).limit(1))
     if latest.id != receipt.id or fingerprint(capture(db, project)) != receipt.after_hash:
         raise HTTPException(409, "Project đã có thay đổi mới. Không thể hoàn tác đè lên dữ liệu hiện tại.")
+    db.info["project_change_managed"] = True
     try:
         before = capture(db, project)
         restore(db, project, json.loads(receipt.snapshot_json))
-        report = schedule_integrity_report(db, project, allow_partial=True)
-        if not report["valid"]:
-            raise HTTPException(409, "Bản dự phòng không vượt qua kiểm tra toàn vẹn. Dữ liệu hiện tại được giữ nguyên.")
+        validate_change(db, project, before)
         receipt.undone_at = datetime.now(timezone.utc).isoformat(timespec="microseconds")
         record_change_notice(db, project, before, capture(db, project), "Đã phục hồi dữ liệu trước lần chỉnh sửa.", restored=True)
         from app.services.schedule_live import _mark_projects
@@ -229,4 +227,6 @@ def undo_change(pid: int, change_id: str, user: User = Depends(current_user), db
     except Exception:
         db.rollback()
         raise
+    finally:
+        db.info.pop("project_change_managed", None)
     return {"ok": True, "message": "Đã phục hồi dữ liệu trước thay đổi. Liên kết chia sẻ được giữ nguyên."}

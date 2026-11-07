@@ -87,9 +87,10 @@ Các điểm phải thống nhất:
 1. **Kho tiết chưa xếp được tính từ nhu cầu phân công trừ số tiết đã xếp.** Không thêm một bảng kho riêng nếu không có yêu cầu lưu từng tiết độc lập.
 2. Giảm 5 xuống 3 tiết khi đã xếp đủ 5 nghĩa là bỏ 2 tiết dư, không đưa 2 tiết ấy vào kho.
 3. Giữ nhu cầu 5 nhưng gỡ 2 tiết xung đột nghĩa là còn 3 tiết trên lịch và 2 tiết trong kho.
-4. Block tiết đôi là một đơn vị nguyên vẹn: khi một tiết trong block phải gỡ, xử lý cả block theo quy tắc hiện có, không để lại nửa block.
-5. “Tiết được bảo vệ” phải xét cả `Lesson.locked` và phạm vi bao phủ của `FixedLesson`, không chỉ một cờ.
-6. Nếu số tiết được điều khiển bởi chương trình khối, không cho sửa riêng một phân công thành cấu hình trái chương trình. Giao diện phải dẫn người dùng sửa chương trình và hiển thị phạm vi các lớp bị ảnh hưởng.
+4. Block tiết đôi là một đơn vị nguyên vẹn: khi một tiết trong block phải gỡ, xử lý cả block theo quy tắc hiện có, không để lại nửa block. Áp dụng cả khi đồng thời đổi sang tiết tự do/ưu tiên tiết đôi: bản xem trước đầu tiên phải gỡ nguyên block cũ, và tính lại với cùng lựa chọn không được gỡ thêm. Ví dụ đã xếp 4 tiết thành 2 cặp, giảm còn 3 tiết thì gỡ 1 cặp, giữ 2 tiết và còn 1 tiết trong kho.
+5. Chỉ yêu cầu bỏ ghim khi thay đổi thực sự tác động đến vị trí hoặc cấu trúc của block được bảo vệ. Một tiết đơn đang ghim vẫn được giữ nguyên khi ghép các tiết tự do khác thành cặp; không đổi ID block, kích thước, trạng thái ghim hay dữ liệu cố định của tiết đó.
+6. “Tiết được bảo vệ” phải xét cả `Lesson.locked` và phạm vi bao phủ của `FixedLesson`, không chỉ một cờ.
+7. Nếu số tiết được điều khiển bởi chương trình khối, không cho sửa riêng một phân công thành cấu hình trái chương trình. Giao diện phải dẫn người dùng sửa chương trình và hiển thị phạm vi các lớp bị ảnh hưởng.
 
 ## 5. Luồng giao diện đề xuất
 

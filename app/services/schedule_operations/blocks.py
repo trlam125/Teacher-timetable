@@ -52,7 +52,16 @@ def reconcile_assignment_lesson_blocks(
     rows = list(lessons)
     if not assignment_requires_double(assignment):
         # Free/preferred periods are independent scheduling units.
+        managed = bool(db.info.get("project_change_managed"))
+        protected = fixed_coverage_slots(db, project).get(assignment.id, set()) if managed else set()
         for row in rows:
+            if managed and (row.locked or row.slot in protected):
+                if row.block_size != 1:
+                    return rows, "Hãy bỏ cố định block tiết đôi liên quan trước khi tách thành tiết đơn."
+                # A pinned single already fits the target mode; preserve its identity.
+                continue
+            if managed and row.block_size == 1 and row.block_id:
+                continue
             row.block_id = new_schedule_block_id()
             row.block_size = 1
         return rows, None

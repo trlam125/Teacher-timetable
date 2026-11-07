@@ -42,7 +42,7 @@ function impactTable(headers, rows) {
   return `<div class="change-impact-table"><table><thead><tr>${headers.map(value => `<th>${esc(value)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(value => `<td>${esc(String(value ?? ""))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
-function renderChangeImpact(report, request) {
+function renderChangeImpact(report, request, syncApply) {
   const totals = report.totals || {};
   const actions = {to_tray: "Đưa về kho", surplus: "Bỏ tiết dư", deleted: "Xóa cùng phân công"};
   let html = "";
@@ -64,7 +64,7 @@ function renderChangeImpact(report, request) {
   if (report.assignments?.some(row => row.action === "delete")) html += "<h3>Phân công sẽ xóa</h3>" + impactTable(["Lớp", "Môn", "Giáo viên"], report.assignments.filter(row => row.action === "delete").map(row => [row.class_name, row.subject_name, row.teacher_name]));
   if (report.lesson_actions?.length) html += "<h3>Tiết bị ảnh hưởng</h3>" + impactTable(["Lớp", "Môn", "Giáo viên", "Vị trí", "Xử lý", "Lý do"], report.lesson_actions.map(row => [row.class_name, row.subject_name, row.teacher_name, changeSlotLabel(row.slot), actions[row.action], row.reason]));
   if (report.removal_candidates?.length) {
-    html += '<h3>Chọn cụm tiết bỏ khi giảm tiết</h3><p>Bỏ chọn để giữ cụm tiết, chọn để bỏ. Sau khi đổi lựa chọn, bấm “Tính lại ảnh hưởng”.</p>';
+    html += '<h3>Chọn cụm tiết bỏ khi giảm tiết</h3><p>Bỏ chọn để giữ cụm tiết, chọn để bỏ. Tiết đôi được gỡ cả cụm; phần còn cần dạy sẽ trở về kho tiết chưa xếp. Sau khi đổi lựa chọn, bấm “Tính lại ảnh hưởng”.</p>';
     html += report.removal_candidates.map(row => `<label class="change-impact-block"><input type="checkbox" data-change-remove="${Number(row.assignment_id)}" data-lesson-ids="${row.lesson_ids.map(Number).join(",")}" ${row.selected ? "checked" : ""} ${row.protected ? "disabled" : ""}><span>${esc(row.class_name)} · ${esc(row.subject_name)} · ${esc(row.slots.map(changeSlotLabel).join("; "))}${row.protected ? " (Đã cố định)" : ""}</span></label>`).join("");
   }
   for (const warning of report.warnings || []) html += `<p>${esc(warning)}</p>`;
@@ -73,7 +73,7 @@ function renderChangeImpact(report, request) {
   document.getElementById("changeImpactBody").innerHTML = html;
   document.getElementById("changeEnableEditing")?.addEventListener("change", event => {
     setPostScheduleEditing(event.target.checked);
-    document.getElementById("changeImpactApply").disabled = !report.can_apply || !report.changed || !postScheduleEditing;
+    syncApply();
   });
 }
 
@@ -98,9 +98,9 @@ async function runProjectChange(originalRequest) {
       return {...outcome, cancelled: false};
     }
     const dialog = document.getElementById("changeImpactDialog"), apply = document.getElementById("changeImpactApply"), recalculate = document.getElementById("changeImpactRecalculate"), cancel = document.getElementById("changeImpactCancel"), status = document.getElementById("changeImpactStatus");
-    let report = preview.result, busy = false;
-    const syncApply = () => { apply.disabled = busy || !report.can_apply || !report.changed || (report.requires_edit_mode && (data.lessons || []).length > 0 && !postScheduleEditing); };
-    const render = () => {renderChangeImpact(report, request);syncApply();};
+    let report = preview.result, busy = false, previewDirty = false, selectionRevision = 0;
+    const syncApply = () => { apply.disabled = busy || previewDirty || !report.can_apply || !report.changed || (report.requires_edit_mode && (data.lessons || []).length > 0 && !postScheduleEditing); };
+    const render = () => {renderChangeImpact(report, request, syncApply);syncApply();};
     render();
     status.textContent = "";
     dialog.showModal();
@@ -113,15 +113,28 @@ async function runProjectChange(originalRequest) {
       dialog.onclose = () => {cleanup();resolve({...preview, cancelled: true});};
       dialog.onchange = event => {
         if (event.target.matches("[data-change-resolution], [data-change-remove]")) {
-          apply.disabled = true;
+          previewDirty = true;
+          selectionRevision += 1;
+          syncApply();
           status.textContent = "Lựa chọn đã đổi. Hãy tính lại ảnh hưởng trước khi áp dụng.";
         }
       };
-      const setBusy = value => {busy = value;cancel.disabled = value;recalculate.disabled = value;syncApply();};
+      let busyControls = [];
+      const setBusy = value => {
+        if (value && !busy) {
+          busyControls = [...dialog.querySelectorAll("[data-change-resolution], [data-change-remove], #changeEnableEditing")].map(control => [control, control.disabled]);
+          busyControls.forEach(([control]) => {control.disabled = true;});
+        } else if (!value) {
+          busyControls.forEach(([control, disabled]) => {control.disabled = disabled;});
+          busyControls = [];
+        }
+        busy = value;cancel.disabled = value;recalculate.disabled = value;syncApply();
+      };
       recalculate.onclick = async () => {
         if (busy) return;
         for (const select of dialog.querySelectorAll("[data-change-resolution]")) {
           if (select.value) (request.resolutions ||= {})[select.dataset.changeResolution] = select.value;
+          else if (request.resolutions) delete request.resolutions[select.dataset.changeResolution];
         }
         const checks = [...dialog.querySelectorAll("[data-change-remove]")];
         if (checks.length) {
@@ -130,15 +143,21 @@ async function runProjectChange(originalRequest) {
             (request.remove_lesson_ids[check.dataset.changeRemove] ||= []).push(...check.dataset.lessonIds.split(",").map(Number));
           }
         }
+        const revision = selectionRevision;
+        previewDirty = true;
         setBusy(true);status.textContent = "Đang tính lại ảnh hưởng...";
         try {
           const outcome = await projectChangeRequest("/preview", request);
           if (!outcome.response.ok) {status.textContent = apiErrorMessage(outcome.result, "Không thể xem trước.");return;}
-          report = outcome.result;render();status.textContent = "Đã tính lại ảnh hưởng theo lựa chọn hiện tại.";
+          if (revision !== selectionRevision) {
+            status.textContent = "Lựa chọn đã đổi trong lúc tính. Hãy tính lại ảnh hưởng trước khi áp dụng.";
+            return;
+          }
+          report = outcome.result;previewDirty = false;render();status.textContent = "Đã tính lại ảnh hưởng theo lựa chọn hiện tại.";
         } catch (error) {status.textContent = requestFailureMessage(error);} finally {setBusy(false);}
       };
       apply.onclick = async () => {
-        if (busy || apply.disabled) return;
+        if (busy || previewDirty || apply.disabled) return;
         setBusy(true);status.textContent = "Đang áp dụng thay đổi...";
         try {
           const outcome = await projectChangeRequest("/apply", {request, impact_token: report.impact_token});

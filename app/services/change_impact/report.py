@@ -61,8 +61,24 @@ def build_report(before, after, request, reasons=None):
                                     "field": LABELS[field],
                                     "before": label(table, previous[field]) if table else previous[field],
                                     "after": label(table, current[field]) if table else current[field]})
-    removed = {aid: max(0, row["periods_per_week"] - new["assignments"].get(aid, row)["periods_per_week"])
-               for aid, row in old["assignments"].items()}
+    old_count = Counter(row["assignment_id"] for row in old["lessons"].values())
+    # A reduction first consumes periods already missing from the timetable.
+    # Only scheduled periods above the new demand can be counted as surplus.
+    surplus_ids = set()
+    removed_by_assignment = {}
+    for lid, row in old["lessons"].items():
+        if lid not in new["lessons"]:
+            removed_by_assignment.setdefault(row["assignment_id"], []).append(row)
+    for aid, removed in removed_by_assignment.items():
+        previous = old["assignments"][aid]
+        current = new["assignments"].get(aid)
+        if current is None:
+            continue
+        surplus = min(max(0, previous["periods_per_week"] - current["periods_per_week"]),
+                      max(0, old_count[aid] - current["periods_per_week"]))
+        # Prefer rows explicitly removed as excess over rows removed for conflicts.
+        removed.sort(key=lambda row: (not reasons.get(row["id"], "").startswith("Bỏ tiết dư"), row["id"]))
+        surplus_ids.update(row["id"] for row in removed[:surplus])
     counts = Counter()
     block_sets = {key: set() for key in ("to_tray", "surplus", "deleted")}
     for lid, row in old["lessons"].items():
@@ -72,9 +88,8 @@ def build_report(before, after, request, reasons=None):
         touched.add(aid)
         if aid not in new["assignments"]:
             action = "deleted"
-        elif removed.get(aid, 0) > 0:
+        elif lid in surplus_ids:
             action = "surplus"
-            removed[aid] -= 1
         else:
             action = "to_tray"
         counts[action] += 1
@@ -108,7 +123,6 @@ def build_report(before, after, request, reasons=None):
                                 av, bv = label("grades", av), label("grades", bv)
                             changes.append({"object": f'{title}: {a.get("name", eid)}', "field": title_field,
                                             "before": av, "after": bv})
-    old_count = Counter(row["assignment_id"] for row in old["lessons"].values())
     new_count = Counter(row["assignment_id"] for row in new["lessons"].values())
     tray_before = sum(max(0, row["periods_per_week"] - old_count[aid]) for aid, row in old["assignments"].items())
     tray_after = sum(max(0, row["periods_per_week"] - new_count[aid]) for aid, row in new["assignments"].items())

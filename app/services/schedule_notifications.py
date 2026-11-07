@@ -63,6 +63,10 @@ def _snapshot(assignment_id, slot, locked, names):
 
 
 def _before_flush(session: Session, flush_context, instances):
+    # Confirmed project edits use their complete before/after snapshots, including
+    # Core-based restoration and metadata changes invisible to Lesson ORM hooks.
+    if session.info.get("project_change_managed"):
+        return
     changes = defaultdict(_empty_counts)
     candidates = []
     assignment_ids = set()
