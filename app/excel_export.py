@@ -4,11 +4,21 @@ import re
 import textwrap
 from collections import defaultdict
 from collections.abc import Iterable
+from io import BytesIO
 
 from openpyxl import Workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+
+from app.services.excel_compat import ensure_excel_borders_applied
+
+
+def serialize_timetable_workbook(workbook: Workbook) -> bytes:
+    """Save all sheets, then explicitly apply their existing border styles."""
+    output = BytesIO()
+    workbook.save(output)
+    return ensure_excel_borders_applied(output.getvalue())
 
 
 def _natural_key(value: str):

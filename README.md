@@ -44,7 +44,23 @@ Chạy kiểm thử sau khi cài dependencies và kích hoạt môi trường �
 python -m unittest discover -s tests -t . -v
 ```
 
-Bộ kiểm thử dùng DB trong bộ nhớ, không cần kết nối Neon. Khởi tạo DB của ứng dụng chạy khi FastAPI bắt đầu phục vụ, thay vì khi import mô-đun.
+Bộ kiểm thử không cần kết nối Neon. Khởi tạo DB của ứng dụng chạy khi FastAPI bắt đầu phục vụ, thay vì khi import mô-đun.
+
+### Kiểm tra tương thích viền Excel
+
+Hai nút xuất Excel trong workspace cùng tải từ `/projects/{id}/export.xlsx`; đường dẫn `.csv` cũ chuyển hướng về đây. Backend tạo hai sheet **Thời khóa biểu** và **GV nghỉ** bằng openpyxl.
+
+openpyxl 3.1.5 ghi các định nghĩa viền nhưng không xuất `applyBorder` trong `cellXfs` của `xl/styles.xml`. Theo file đã được đối chiếu trên máy gặp lỗi, thêm `applyBorder="1"` giúp Excel hiển thị lại viền. `serialize_timetable_workbook()` áp dụng bước tương thích này sau khi lưu workbook, qua helper `services/excel_compat.py`. Helper chỉ bật cờ cho style tham chiếu viền thực sự có cạnh được định dạng; giữ nguyên ID, nét liền/chấm và các thành phần khác của file. ZIP/XML lỗi sẽ làm xuất file thất bại, thay vì tải xuống file không hợp lệ.
+
+Chạy riêng kiểm thử xuất Excel bằng dữ liệu giả, không kết nối Neon:
+
+```text
+python -m unittest tests.test_excel_export -v
+```
+
+Kiểm thử đối chiếu XML trước/sau, nội dung, công thức, ô gộp, định dạng, thiết lập in, cả hai sheet và phản hồi tải file. GitHub Actions vẫn chỉ kiểm tra cú pháp Python.
+
+Sau khi triển khai, xuất **file mới** rồi mở cùng file trên máy đang hiển thị đúng và máy từng mất viền. Tắt Gridlines, kiểm tra ở Normal/Zoom 100%, Format Cells → Border, Print Preview và Save As rồi mở lại. Kiểm thử tự động không thay thế bước xác nhận thực tế trên hai máy này.
 
 ## Yêu cầu
 

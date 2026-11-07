@@ -57,13 +57,13 @@
   display: block;
 }
 
-.app-toast.is-error .app-toast-img,
-.app-toast.is-delete .app-toast-img {
+.app-toast.is-error .app-toast-img {
   width: 22px;
   height: 22px;
 }
 
-.app-toast.is-success .app-toast-img {
+.app-toast.is-success .app-toast-img,
+.app-toast.is-delete .app-toast-img {
   width: 20px;
   height: 20px;
 }
@@ -72,12 +72,12 @@
   color: #fbbf24;
 }
 
-.app-toast.is-error .app-toast-icon,
-.app-toast.is-delete .app-toast-icon {
+.app-toast.is-error .app-toast-icon {
   color: #f87171;
 }
 
-.app-toast.is-success .app-toast-icon {
+.app-toast.is-success .app-toast-icon,
+.app-toast.is-delete .app-toast-icon {
   color: #34d399;
 }
 

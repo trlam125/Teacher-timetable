@@ -138,7 +138,7 @@
   const STATUS_GIFS = {
     success: "/static/tick.gif",
     error: "/static/x-popup.gif",
-    delete: "/static/x-popup.gif",
+    delete: "/static/tick.gif",
   };
 
   function statusGifMarkup(kind) {
@@ -147,8 +147,9 @@
     // Mỗi toast dùng URL riêng để GIF luôn phát lại từ frame đầu, kể cả khi
     // cùng một loại thông báo xuất hiện liên tiếp hoặc trình duyệt đã cache file.
     const replayToken = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const size = kind === "success" ? 24 : 28;
-    const alt = kind === "success" ? "✓" : "✕";
+    const completed = kind === "success" || kind === "delete";
+    const size = completed ? 24 : 28;
+    const alt = completed ? "✓" : "✕";
     return `<img class="operation-toast-img" src="${path}?v=${STATUS_GIF_VERSION}&play=${replayToken}" width="${size}" height="${size}" alt="${alt}" loading="eager">`;
   }
 
@@ -169,9 +170,7 @@
     toast.className = `operation-toast is-${kind}`;
 
     let iconHtml = "";
-    if (kind === "success") {
-      iconHtml = statusGifMarkup("success");
-    } else if (kind === "error" || kind === "delete") {
+    if (kind === "success" || kind === "delete" || kind === "error") {
       iconHtml = statusGifMarkup(kind);
     } else if (kind === "warning") {
       iconHtml = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
@@ -216,19 +215,19 @@
   }
 
   function notificationKind(message, requestedKind) {
-    if (requestedKind === "delete" || requestedKind === "error") return requestedKind;
-    const normalized = String(message || "").toLowerCase();
-    if (
-      ["xóa", "hủy", "loại bỏ", "gỡ bỏ", "đã xóa"].some((word) => normalized.includes(word))
-    )
-      return "delete";
+    // Explicit outcomes take precedence over action words in the message.
     if (requestedKind) return requestedKind;
+    const normalized = String(message || "").toLowerCase();
     if (
       ["lỗi", "thất bại", "không thể", "không được", "chưa hoàn tất"].some(
         (word) => normalized.includes(word),
       )
     )
       return "error";
+    if (
+      ["xóa", "hủy", "loại bỏ", "gỡ bỏ", "đã xóa"].some((word) => normalized.includes(word))
+    )
+      return "delete";
     if (
       ["cảnh báo", "chú ý", "trùng", "xung đột"].some((word) =>
         normalized.includes(word),

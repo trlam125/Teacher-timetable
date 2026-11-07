@@ -83,16 +83,14 @@ def export_csv_legacy(
 def export_excel(
     pid: int, user: User = Depends(current_user), db: Session = Depends(db_session)
 ):
-    from app.excel_export import build_timetable_workbook
+    from app.excel_export import build_timetable_workbook, serialize_timetable_workbook
 
     p = get_project(pid, user, db)
     integrity = schedule_integrity_report(db, p)
     data = project_data(db, p)
     workbook = build_timetable_workbook(p, data, integrity=integrity)
 
-    output = io.BytesIO()
-    workbook.save(output)
-    output.seek(0)
+    output = io.BytesIO(serialize_timetable_workbook(workbook))
     encoded_filename = quote(f"{p.name}.xlsx", safe="")
     disposition = (
         f"attachment; filename=thoi-khoa-bieu.xlsx; filename*=UTF-8''{encoded_filename}"

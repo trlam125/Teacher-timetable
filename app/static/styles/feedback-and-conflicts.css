@@ -93,32 +93,30 @@
   display: block;
 }
 
-.operation-toast.is-success .operation-toast-img {
+.operation-toast.is-success .operation-toast-img,
+.operation-toast.is-delete .operation-toast-img {
   width: 22px;
   height: 22px;
 }
 
-.operation-toast.is-error .operation-toast-img,
-.operation-toast.is-delete .operation-toast-img {
+.operation-toast.is-error .operation-toast-img {
   width: 28px;
   height: 28px;
 }
 
-.operation-toast.is-success .operation-toast-icon {
+.operation-toast.is-success .operation-toast-icon,
+.operation-toast.is-delete .operation-toast-icon {
   background: var(--success-bg, #ecfdf5);
   color: var(--success, #10b981);
 }
 
-.operation-toast.is-error .operation-toast-icon,
-.operation-toast.is-delete .operation-toast-icon {
+.operation-toast.is-error .operation-toast-icon {
   background: var(--danger-bg, #fef2f2);
   color: var(--danger, #ef4444);
 }
 
 :root.dark-mode .operation-toast.is-error .operation-toast-icon,
-:root.dark-mode .operation-toast.is-delete .operation-toast-icon,
-body.dark-mode .operation-toast.is-error .operation-toast-icon,
-body.dark-mode .operation-toast.is-delete .operation-toast-icon {
+body.dark-mode .operation-toast.is-error .operation-toast-icon {
   background: rgba(239, 68, 68, 0.15);
   color: #f87171;
 }
@@ -196,12 +194,12 @@ body.dark-mode .operation-toast.is-delete .operation-toast-icon {
   animation: toast-countdown linear forwards;
 }
 
-.operation-toast.is-success .operation-toast-countdown {
+.operation-toast.is-success .operation-toast-countdown,
+.operation-toast.is-delete .operation-toast-countdown {
   background: var(--success, #10b981);
 }
 
-.operation-toast.is-error .operation-toast-countdown,
-.operation-toast.is-delete .operation-toast-countdown {
+.operation-toast.is-error .operation-toast-countdown {
   background: var(--danger, #ef4444);
 }
 
