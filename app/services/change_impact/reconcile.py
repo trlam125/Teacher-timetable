@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from functools import lru_cache
 
 from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models import Assignment, FixedLesson, Lesson
-from app.scheduling.rules import assignment_requires_double, parse_slots, class_grade_blocked_slots
+from app.scheduling.rules import (
+    assignment_consecutive_limit, assignment_requires_double, assignment_run_groups,
+    parse_slots, class_grade_blocked_slots,
+)
 from app.services.schedule_operations.blocks import (
     fixed_coverage_slots, reconcile_assignment_lesson_blocks,
 )
@@ -73,6 +77,52 @@ def remove_surplus_groups(db, project, assignment, rows):
     return [row for row in rows if row.id not in removed_ids]
 
 
+def remove_consecutive_conflicts(db, project, assignment, rows):
+    """Return the fewest movable singles to the tray, preserving every pin."""
+    if assignment.block_mode != "max_two_consecutive":
+        return rows
+    limit = assignment_consecutive_limit(project, assignment)
+    coverage = fixed_coverage_slots(db, project).get(assignment.id, set())
+    by_slot = {row.slot: row for row in rows}
+    removed = []
+    for run in assignment_run_groups(project, list(by_slot)):
+        if run["size"] <= limit:
+            continue
+        members = [by_slot[slot] for slot in run["slots"]]
+        protected = {i for i, row in enumerate(members) if row.locked or row.slot in coverage}
+
+        @lru_cache(None)
+        def choose(index, streak):
+            if index == len(members):
+                return ()
+            candidates = []
+            if streak < limit:
+                kept = choose(index + 1, streak + 1)
+                if kept is not None:
+                    candidates.append(kept)
+            if index not in protected:
+                dropped = choose(index + 1, 0)
+                if dropped is not None:
+                    candidates.append((index,) + dropped)
+            # Prefer keeping earlier periods when equally few removals suffice.
+            return min(candidates, key=len) if candidates else None
+
+        chosen = choose(0, 0)
+        if chosen is None:
+            pins = [members[i] for i in sorted(protected)]
+            raise HTTPException(409, {
+                "reason": "protected_lessons", "assignment_id": assignment.id,
+                "lesson_ids": [row.id for row in pins], "slots": [row.slot for row in pins],
+                "message": f"Các tiết ghim/cố định vượt giới hạn {limit} tiết liên tiếp trong cùng một buổi. "
+                           "Hãy bỏ cố định các tiết liên quan trước khi đổi chế độ.",
+            })
+        removed.extend(members[i] for i in chosen)
+    remove_groups(db, project, assignment, groups_for(removed),
+                  f"Đưa về khay do vượt giới hạn {limit} tiết liên tiếp trong cùng một buổi")
+    removed_ids = {row.id for row in removed}
+    return [row for row in rows if row.id not in removed_ids]
+
+
 def reconcile_edit(db, project, assignment, *, old_mode, selected_ids=None, teacher_changed=False):
     """Keep valid blocks, remove only approved surplus/conflicts, never touch pins."""
     rows = db.scalars(select(Lesson).where(Lesson.assignment_id == assignment.id).order_by(Lesson.slot, Lesson.id)).all()
@@ -129,6 +179,7 @@ def reconcile_edit(db, project, assignment, *, old_mode, selected_ids=None, teac
             reasons[row_id] = "Điều chỉnh cấu trúc block hoặc số tiết theo chương trình mới"
 
     rows = remove_surplus_groups(db, project, assignment, rows)
+    remove_consecutive_conflicts(db, project, assignment, rows)
     return db.scalars(select(Lesson).where(Lesson.assignment_id == assignment.id).order_by(Lesson.slot, Lesson.id)).all()
 
 
