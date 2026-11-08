@@ -137,7 +137,7 @@ def register(
         and datetime.fromisoformat(email_verification.resend_available_at) > now
     ):
         context["error"] = (
-            "Mã OTP vừa được gửi tới email này. Vui lòng chờ 60 giây trước khi gửi lại."
+            "Mã xác nhận vừa được gửi tới email này. Vui lòng chờ 60 giây trước khi gửi lại."
         )
         return templates.TemplateResponse("auth.html", context, status_code=429)
 
@@ -149,7 +149,7 @@ def register(
     except (OSError, smtplib.SMTPException, RuntimeError, ValueError) as exc:
         logger.exception("Could not send registration OTP to %s: %s", email, exc)
         context["error"] = (
-            "Chưa thể gửi mã OTP. Vui lòng kiểm tra email hoặc thử lại sau."
+            "Chưa thể gửi mã xác nhận. Vui lòng kiểm tra email hoặc thử lại sau."
         )
         return templates.TemplateResponse("auth.html", context, status_code=503)
 
@@ -215,7 +215,7 @@ def verify_registration_otp(
                 request,
                 verification,
                 verification_token,
-                "Mã OTP không hợp lệ hoặc đã hết hạn. Hãy đăng ký lại.",
+                "Mã xác nhận không hợp lệ hoặc đã hết hạn. Hãy đăng ký lại.",
             ),
             status_code=400,
         )
@@ -226,7 +226,7 @@ def verify_registration_otp(
                 request,
                 verification,
                 verification_token,
-                "Bạn đã nhập sai quá số lần cho phép. Hãy gửi lại mã OTP mới.",
+                "Bạn đã nhập sai quá số lần cho phép. Hãy gửi lại mã xác nhận mới.",
             ),
             status_code=429,
         )
@@ -248,7 +248,7 @@ def verify_registration_otp(
                 request,
                 verification,
                 verification_token,
-                f"Mã OTP không đúng. Bạn còn {remaining} lần thử.",
+                f"Mã xác nhận không đúng. Bạn còn {remaining} lần thử.",
             ),
             status_code=400,
         )
@@ -386,7 +386,7 @@ def resend_registration_otp(
                 request,
                 verification,
                 verification_token,
-                "Chưa thể gửi lại mã OTP. Vui lòng thử lại sau.",
+                "Chưa thể gửi lại mã xác nhận. Vui lòng thử lại sau.",
             ),
             status_code=503,
         )

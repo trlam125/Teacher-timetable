@@ -31,7 +31,7 @@ def target(db, project, typ, eid):
     model = MODELS.get(typ)
     obj = db.get(model, eid) if model else None
     if not obj or obj.project_id != project.id:
-        raise HTTPException(404, "Không tìm thấy dữ liệu trong project này.")
+        raise HTTPException(404, "Không tìm thấy dữ liệu trong bộ thời khóa biểu này.")
     return obj
 
 

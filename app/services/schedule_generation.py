@@ -61,7 +61,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 "assignment_reference_issues": reference_issues,
                 "message": (
                     "Không thể xếp lịch vì có phân công tham chiếu giáo viên, lớp hoặc môn "
-                    "không còn tồn tại hoặc thuộc project khác: "
+                    "không còn tồn tại hoặc thuộc bộ thời khóa biểu khác: "
                     + "; ".join(details)
                     + suffix
                     + ". Hãy sửa/xóa phân công lỗi trước khi xếp lại."

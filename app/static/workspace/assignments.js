@@ -5,23 +5,23 @@ async function resetAssignments(button) {
     return;
   }
   assignmentResetInFlight = true;
-  const idle = "Reset phân công";
+  const idle = "Xóa toàn bộ phân công";
   setInlineActionState(button, "loading", { idle, loading: "Đang kiểm tra..." });
   try {
     const first = (data.assignments || [])[0];
     if (!first) {
       setInlineActionState(button, "idle", {idle});
-      showToast("Chưa có phân công để đặt lại.", "info");
+      showToast("Chưa có phân công để xóa.", "info");
       return;
     }
     const {response, result, cancelled} = await runProjectChange({
       kind: "reset", entity_type: "assignment", entity_id: first.id, values: {},
     });
     if (cancelled) {setInlineActionState(button, "idle", {idle});return;}
-    if (!response.ok) throw new Error(apiErrorMessage(result, "Không thể reset phân công."));
+    if (!response.ok) throw new Error(apiErrorMessage(result, "Không thể xóa phân công."));
     autoAssignmentDrafts.clear();
-    setInlineActionState(button, "success", {idle, success: "Đã đặt lại"}, 1800);
-    showToast(result.message || "Đã đặt lại phân công.", "success");
+    setInlineActionState(button, "success", {idle, success: "Đã xóa"}, 1800);
+    showToast(result.message || "Đã xóa phân công.", "success");
     await refreshAfterSuccessfulMutation();
   } catch (error) {
     setInlineActionState(button, "error", { idle, error: "Chưa đặt lại được" }, 2200);

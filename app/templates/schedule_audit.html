@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Import &amp; kiểm tra thời khóa biểu</title>
+    <title>Kiểm tra thời khóa biểu từ tệp</title>
     <script>(function () { const t = localStorage.getItem('theme'); if (t === 'dark') { document.documentElement.classList.add('dark-mode'); } })(); function toggleTheme() { const isDark = document.documentElement.classList.toggle('dark-mode'); localStorage.setItem('theme', isDark ? 'dark' : 'light'); document.querySelectorAll('.theme-switch__checkbox').forEach(cb => cb.checked = isDark); }</script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/static/style.css?v=11">
     <link rel="stylesheet" href="/static/brand-motion.css?v=1">
     <script src="/static/brand-motion.js?v=1" defer></script>
-    <link rel="stylesheet" href="/static/schedule-audit.css?v=7">
+    <link rel="stylesheet" href="/static/schedule-audit.css?v=8">
     <script src="/static/operation-status.js?v=3" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="preload" href="/static/x.gif?v=1" as="image">
@@ -37,7 +37,7 @@
     <header class="appbar">
         <a class="brand brand-with-logo" href="/projects"><img src="/static/brand-logo.svg?v=1" alt=""><span>Smart
                 TKB</span></a>
-        <div><b>Import &amp; kiểm tra TKB</b><small>Công cụ độc lập</small></div>
+        <div><b>Kiểm tra TKB từ tệp</b></div>
         <div class="spacer"></div>
         <a class="btn ghost appbar-home-btn" href="/projects" title="Trang chủ" aria-label="Trang chủ">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
@@ -54,9 +54,9 @@
         <section id="audit">
             <div class="section-head">
                 <div>
-                    <h1>Import &amp; kiểm tra thời khóa biểu</h1>
+                    <h1>Kiểm tra thời khóa biểu từ tệp</h1>
                     <p>
-                        Kiểm tra trùng lịch khi import; đối chiếu thừa, thiếu tiết theo ngưỡng bạn nhập và lưu lại.
+                        Kiểm tra trùng lịch và thừa, thiếu tiết theo định mức.
                     </p>
                 </div>
             </div>
@@ -68,7 +68,6 @@
                             <h2>Chọn file cần kiểm tra</h2>
                             <p>
                                 Excel <b>.xlsx, .xlsm, .xls</b>, Word <b>.docx</b>, CSV hoặc TSV.
-                                Nhận bảng mỗi lớp có hai cột Môn – Giáo viên, kể cả tiêu đề gộp ô.
                             </p>
                         </div>
                     </div>
@@ -115,6 +114,7 @@
                         <small class="schedule-audit-note">Tối đa 15 MB</small>
                     </div>
                 </div>
+                {% include "_schedule_audit_formats.html" %}
                 <div id="scheduleAuditAiResult" class="schedule-audit-ai-result" hidden></div>
                 <div id="scheduleAuditResult" class="schedule-audit-result schedule-audit-viewer-result">
                     <div class="empty-state">Chọn một file thời khóa biểu để hiển thị và kiểm tra.</div>
@@ -125,11 +125,11 @@
     <script src="/static/subject-catalog.js?v=1"></script>
     <script src="/static/schedule-audit.js?v=3"></script>
     <script src="/static/audit/viewport.js?v=2"></script>
-    <script src="/static/audit/upload.js?v=5"></script>
+    <script src="/static/audit/upload.js?v=6"></script>
     <script src="/static/audit/data.js?v=2"></script>
     <script src="/static/audit/editing.js?v=5"></script>
-    <script src="/static/audit/workload.js?v=9"></script>
-    <script src="/static/audit/saved-limits.js?v=5"></script>
+    <script src="/static/audit/workload.js?v=10"></script>
+    <script src="/static/audit/saved-limits.js?v=6"></script>
     <script src="/static/audit/rendering.js?v=5"></script>
     <script src="/static/audit/requests.js?v=5"></script>
     <script src="/static/audit/events.js?v=2"></script>

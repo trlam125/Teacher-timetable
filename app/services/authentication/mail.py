@@ -260,7 +260,7 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
     text_body = (
         f"Xin chào {safe_name},\n\n"
         "Bạn vừa thực hiện đăng ký tài khoản trên hệ thống Smart TKB.\n\n"
-        "Mã OTP xác nhận của bạn là:\n\n"
+        "Mã xác nhận xác nhận của bạn là:\n\n"
         f"    {otp}\n\n"
         "Mã có hiệu lực trong vòng 10 phút và chỉ dùng được một lần.\n\n"
         "Nếu bạn không thực hiện đăng ký này, vui lòng bỏ qua email."
@@ -272,7 +272,7 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
         Xin chào <strong>{safe_name_html}</strong>,
     </p>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#334155;">
-        Bạn vừa thực hiện đăng ký tài khoản trên hệ thống <strong>Smart TKB</strong>. Vui lòng nhập mã OTP dưới đây để hoàn tất xác thực tài khoản:
+        Bạn vừa thực hiện đăng ký tài khoản trên hệ thống <strong>Smart TKB</strong>. Vui lòng nhập mã xác nhận dưới đây để hoàn tất xác thực tài khoản:
     </p>
     <div style="margin:28px 0;text-align:center;">
         <div style="display:inline-block;background-color:#f8fafc;border:2px dashed #94a3b8;border-radius:12px;padding:14px 28px;font-size:32px;font-weight:800;letter-spacing:8px;color:#0f172a;font-family:'Consolas','Courier New',monospace;">
@@ -287,7 +287,7 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
     </p>
     """
     html_body = _render_email_html(
-        subject, f"Mã OTP đăng ký Smart TKB: {otp}", content_html
+        subject, f"Mã xác nhận đăng ký Smart TKB: {otp}", content_html
     )
     return send_email_message(recipient, subject, text_body, html_body=html_body)
 
@@ -297,7 +297,7 @@ def send_email_change_otp_email(recipient: str, otp: str) -> bool:
     text_body = (
         "Xin chào,\n\n"
         "Bạn vừa yêu cầu thay đổi địa chỉ email trên hệ thống Smart TKB.\n\n"
-        "Mã OTP xác nhận email mới của bạn là:\n\n"
+        "Mã xác nhận xác nhận email mới của bạn là:\n\n"
         f"    {otp}\n\n"
         "Mã có hiệu lực trong vòng 10 phút và chỉ dùng được một lần.\n\n"
         "Nếu bạn không yêu cầu thay đổi email, vui lòng bỏ qua thư này."
@@ -308,7 +308,7 @@ def send_email_change_otp_email(recipient: str, otp: str) -> bool:
         Xin chào,
     </p>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#334155;">
-        Bạn vừa yêu cầu thay đổi địa chỉ email cho tài khoản <strong>Smart TKB</strong>. Vui lòng nhập mã OTP dưới đây để xác nhận địa chỉ email mới:
+        Bạn vừa yêu cầu thay đổi địa chỉ email cho tài khoản <strong>Smart TKB</strong>. Vui lòng nhập mã xác nhận dưới đây để xác nhận địa chỉ email mới:
     </p>
     <div style="margin:28px 0;text-align:center;">
         <div style="display:inline-block;background-color:#f8fafc;border:2px dashed #94a3b8;border-radius:12px;padding:14px 28px;font-size:32px;font-weight:800;letter-spacing:8px;color:#0f172a;font-family:'Consolas','Courier New',monospace;">
@@ -323,6 +323,6 @@ def send_email_change_otp_email(recipient: str, otp: str) -> bool:
     </p>
     """
     html_body = _render_email_html(
-        subject, f"Mã OTP đổi email Smart TKB: {otp}", content_html
+        subject, f"Mã xác nhận đổi email Smart TKB: {otp}", content_html
     )
     return send_email_message(recipient, subject, text_body, html_body=html_body)

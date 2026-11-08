@@ -211,7 +211,7 @@ def required_double_block_state(
         if len(declared_sizes) != 1:
             return {
                 "valid": False,
-                "reason": f"Block {block_id} có metadata kích thước không thống nhất.",
+                "reason": "Thông tin số tiết trong cụm không thống nhất.",
                 "groups": [],
                 "missing_sizes": [],
             }
@@ -219,7 +219,7 @@ def required_double_block_state(
         if size not in expected or len(members) != size:
             return {
                 "valid": False,
-                "reason": f"Block {block_id} cần {size} tiết nhưng hiện có {len(members)} tiết.",
+                "reason": f"Cụm tiết cần {size} tiết nhưng hiện có {len(members)} tiết.",
                 "groups": [],
                 "missing_sizes": [],
             }
@@ -230,7 +230,7 @@ def required_double_block_state(
             if first_meta[:2] != second_meta[:2] or second.slot != first.slot + 1:
                 return {
                     "valid": False,
-                    "reason": "Một block tiết đôi không nằm cùng ngày/buổi và liên tiếp.",
+                    "reason": "Hai tiết trong cặp phải liên tiếp trong cùng một buổi.",
                     "groups": [],
                     "missing_sizes": [],
                 }
@@ -238,7 +238,7 @@ def required_double_block_state(
         if used[size] > expected[size]:
             return {
                 "valid": False,
-                "reason": "Số block đã xếp vượt cấu trúc required_double của phân công.",
+                "reason": "Số cụm tiết đã xếp vượt yêu cầu của chế độ bắt buộc tiết đôi.",
                 "groups": [],
                 "missing_sizes": [],
             }

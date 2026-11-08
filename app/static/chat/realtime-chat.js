@@ -92,7 +92,7 @@ import {
     if (state === "online") {
       socketState.classList.add("is-online");
       socketState.setAttribute("aria-label", "Đã kết nối");
-      socketState.title = "Đã kết nối realtime";
+      socketState.title = "Đã kết nối";
       sendButton.disabled = !activeSchoolId;
     } else if (state === "offline") {
       socketState.classList.add("is-offline");
@@ -101,7 +101,7 @@ import {
       sendButton.disabled = true;
     } else {
       socketState.setAttribute("aria-label", "Đang kết nối");
-      socketState.title = "Đang kết nối realtime";
+      socketState.title = "Đang kết nối";
       sendButton.disabled = true;
     }
   }

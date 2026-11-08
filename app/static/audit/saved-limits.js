@@ -244,7 +244,7 @@ async function saveScheduleAuditWorkloadLimits() {
     if (current !== scheduleAuditLastReport) return;
     scheduleAuditSavedProfile = saved;
     scheduleAuditLimitsDirty = editId !== scheduleAuditWorkloadCheckId;
-    scheduleAuditLimitsNotice = scheduleAuditLimitsDirty ? "Đã lưu phiên bản trước; bạn còn thay đổi chưa được lưu." : "Đã lưu số tiết. Khi kiểm tra TKB khác, bạn có thể dùng lại những số tiết này.";
+    scheduleAuditLimitsNotice = scheduleAuditLimitsDirty ? "Còn thay đổi mới chưa được lưu." : "Đã lưu định mức để dùng cho các lần kiểm tra sau.";
   } catch (error) {
     scheduleAuditWorkloadError = error.message || "Không thể lưu số tiết. Hãy thử lại.";
   } finally {

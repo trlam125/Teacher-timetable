@@ -59,7 +59,7 @@ def reset_assignments(
                 "assignment_count": len(ids),
                 **impact,
                 "message": (
-                    f"Reset sẽ xóa toàn bộ {len(ids)} phân công trong bộ thời khóa biểu này, "
+                    f"Thao tác này sẽ xóa toàn bộ {len(ids)} phân công trong bộ thời khóa biểu này, "
                     f"kèm {len(impact['lesson_ids'])} tiết đã xếp và "
                     f"{len(impact['fixed_lesson_ids'])} tiết ghim liên quan. "
                     "Danh sách giáo viên, lớp, môn và chương trình khối được giữ nguyên. "

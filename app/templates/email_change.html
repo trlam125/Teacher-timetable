@@ -53,7 +53,7 @@
                 <div class="muted" style="margin-top:12px">Email mới</div>
                 <b>{{ new_email }}</b>
             </div>
-            <p>Hãy kiểm tra kỹ địa chỉ trên. Chỉ sau khi bạn bấm xác nhận, hệ thống mới gửi OTP tới email mới.</p>
+            <p>Kiểm tra địa chỉ rồi xác nhận để nhận mã qua email mới.</p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/confirm">
                 <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}">
@@ -64,12 +64,12 @@
             </form>
             {% elif mode == "otp" %}
             <h1>Xác minh email mới</h1>
-            <p>Mã OTP 6 số đã được gửi tới <b>{{ masked_email }}</b>. Email chỉ được thay đổi sau khi mã này hợp lệ.</p>
+            <p>Mã xác nhận 6 số đã được gửi tới <b>{{ masked_email }}</b>. Email chỉ được thay đổi sau khi mã này hợp lệ.</p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/verify" class="account-edit-form">
                 <input type="hidden" name="verification_token" value="{{ verification_token }}">
                 <label>
-                    Mã OTP<input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus
+                    Mã xác nhận<input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus
                         autocomplete="one-time-code" placeholder="000000">
                 </label>
                 <div class="row" style="justify-content:space-between;margin-top:18px">

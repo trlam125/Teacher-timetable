@@ -275,7 +275,7 @@ def verify_email_change(
                 "mode": "expired",
                 "user": user,
                 "back_path": email_change_back_path(user),
-                "error": "Mã OTP đã hết hạn. Hãy bắt đầu lại thao tác đổi email.",
+                "error": "Mã xác nhận đã hết hạn. Hãy bắt đầu lại thao tác đổi email.",
             },
             status_code=400,
         )
@@ -313,7 +313,7 @@ def verify_email_change(
                 "masked_email": mask_email(verification.new_email),
                 "verification_token": verification_token,
                 "back_path": email_change_back_path(user),
-                "error": f"Mã OTP không đúng. Bạn còn {remaining} lần thử.",
+                "error": f"Mã xác nhận không đúng. Bạn còn {remaining} lần thử.",
             },
             status_code=400,
         )

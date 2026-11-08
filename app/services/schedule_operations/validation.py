@@ -230,8 +230,8 @@ def schedule_ui_validation_report(
                 "vượt số tiết/tuần đã cấu hình."
             )
         else:
-            message = "Cấu trúc block bắt buộc tiết đôi hiện không hợp lệ. " + (
-                block_state.get("reason") or "Hãy tạo lại hoặc xếp lại block."
+            message = "Cấu trúc cặp tiết bắt buộc hiện không hợp lệ. " + (
+                block_state.get("reason") or "Hãy tạo lại hoặc xếp lại cụm tiết."
             )
         required_double_conflicts.append(
             {

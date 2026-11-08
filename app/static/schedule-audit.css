@@ -1,5 +1,55 @@
 /* Standalone schedule audit/import page. */
 
+.audit-format-guide {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card-bg);
+  color: var(--ink);
+}
+.audit-format-guide > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  list-style: none;
+  cursor: pointer;
+}
+.audit-format-guide > summary::-webkit-details-marker { display: none; }
+.audit-format-guide > summary:focus-visible,
+.audit-format-preview:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; border-radius: 12px; }
+.audit-format-guide-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.audit-format-guide-heading strong { display: block; font-size: 15px; }
+.audit-format-guide-heading small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.audit-format-guide-icon { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 11px; background: var(--primary-subtle); color: var(--primary); font-size: 25px; }
+.audit-format-guide-toggle { display: flex; align-items: center; gap: 8px; flex: none; color: var(--muted); font-size: 12px; }
+.audit-format-guide[open] .audit-format-expand,
+.audit-format-guide:not([open]) .audit-format-collapse { display: none; }
+.audit-format-guide[open] .audit-format-guide-toggle > span:last-child { transform: rotate(180deg); }
+.audit-format-guide-body { padding: 0 22px 20px; }
+.audit-format-intro,
+.audit-format-tip { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.audit-format-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.audit-format-card { min-width: 0; margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+.audit-format-preview { display: block; position: relative; background: #f1f5f9; }
+.audit-format-preview img { display: block; width: 100%; height: auto; border-radius: 0; }
+.audit-format-zoom { position: absolute; right: 9px; bottom: 9px; display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #334155; font-size: 17px; }
+.audit-format-preview:hover .audit-format-zoom { color: #1d4ed8; border-color: #2563eb; }
+.audit-format-card figcaption { padding: 13px 14px 15px; }
+.audit-format-card h3 { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 7px; color: var(--ink); font-size: 13px; line-height: 1.6; }
+.audit-format-number { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 6px; background: var(--primary-subtle); color: var(--primary); font-size: 11px; }
+.audit-format-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+.audit-format-tip { margin: 16px 0 0; padding: 12px 14px; border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0; background: var(--primary-subtle); color: var(--ink-secondary); }
+@media (max-width: 1050px) { .audit-format-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .audit-format-grid { grid-template-columns: minmax(0, 1fr); }
+  .audit-format-guide > summary { padding: 16px 14px; gap: 8px; }
+  .audit-format-guide-body { padding: 0 14px 16px; }
+  .audit-format-guide-icon { display: none; }
+  .audit-format-guide-heading strong { font-size: 14px; }
+}
+
 /* ===== Kiểm tra thời khóa biểu từ file ===== */
 
 .schedule-audit-upload-card,

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" role="img" aria-labelledby="title desc">
+<title id="title">MỖI LỚP HAI CỘT MÔN – GIÁO VIÊN</title><desc id="desc">Hai cột riêng cho mỗi lớp · Tiêu đề lớp có thể gộp ô</desc>
+<rect width="720" height="300" rx="12" fill="#f1f5f9"/>
+<rect x="14" y="14" width="692" height="272" rx="9" fill="#fff" stroke="#cbd5e1"/>
+<g font-family="Arial, sans-serif" fill="#334155">
+<rect x="28" y="29" width="5" height="22" rx="2" fill="#2563eb"/>
+<text x="44" y="47" font-size="20" font-weight="700" fill="#0f172a">MỖI LỚP HAI CỘT MÔN – GIÁO VIÊN</text>
+<rect x="28" y="67" width="64" height="28" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="60.0" y="86.0" text-anchor="middle" font-size="16" font-weight="700"></text>
+<rect x="92" y="67" width="64" height="28" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="124.0" y="86.0" text-anchor="middle" font-size="16" font-weight="700"></text>
+<rect x="156" y="67" width="44" height="28" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="178.0" y="86.0" text-anchor="middle" font-size="16" font-weight="700"></text>
+<rect x="200" y="67" width="246" height="28" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="323.0" y="86.0" text-anchor="middle" font-size="16" font-weight="700">6A1</text>
+<rect x="446" y="67" width="246" height="28" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="569.0" y="86.0" text-anchor="middle" font-size="16" font-weight="700">6A2</text>
+<rect x="28" y="95" width="64" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="60.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Thứ</text>
+<rect x="92" y="95" width="64" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="124.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Buổi</text>
+<rect x="156" y="95" width="44" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="178.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Tiết</text>
+<rect x="200" y="95" width="110" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="255.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Môn</text>
+<rect x="310" y="95" width="136" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="378.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Giáo viên</text>
+<rect x="446" y="95" width="110" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="501.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Môn</text>
+<rect x="556" y="95" width="136" height="34" fill="#eaf1fc" stroke="#cbd5e1"/>
+<text x="624.0" y="117.0" text-anchor="middle" font-size="16" font-weight="700">Giáo viên</text>
+<rect x="28" y="129" width="64" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="60.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">Thứ 2</text>
+<rect x="92" y="129" width="64" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="124.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">Sáng</text>
+<rect x="156" y="129" width="44" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="178.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">1</text>
+<rect x="200" y="129" width="110" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="255.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">Toán</text>
+<rect x="310" y="129" width="136" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="378.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">An</text>
+<rect x="446" y="129" width="110" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="501.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">Ngữ văn</text>
+<rect x="556" y="129" width="136" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="624.0" y="151.0" text-anchor="middle" font-size="16" font-weight="400">Mai</text>
+<rect x="28" y="163" width="64" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="60.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">Thứ 2</text>
+<rect x="92" y="163" width="64" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="124.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">Sáng</text>
+<rect x="156" y="163" width="44" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="178.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">2</text>
+<rect x="200" y="163" width="110" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="255.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">Ngữ văn</text>
+<rect x="310" y="163" width="136" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="378.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">Mai</text>
+<rect x="446" y="163" width="110" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="501.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">Toán</text>
+<rect x="556" y="163" width="136" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="624.0" y="185.0" text-anchor="middle" font-size="16" font-weight="400">An</text>
+<rect x="28" y="197" width="64" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="60.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">Thứ 3</text>
+<rect x="92" y="197" width="64" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="124.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">Chiều</text>
+<rect x="156" y="197" width="44" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="178.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">1</text>
+<rect x="200" y="197" width="110" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="255.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">Toán</text>
+<rect x="310" y="197" width="136" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="378.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">An</text>
+<rect x="446" y="197" width="110" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="501.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">Ngữ văn</text>
+<rect x="556" y="197" width="136" height="34" fill="#fff" stroke="#cbd5e1"/>
+<text x="624.0" y="219.0" text-anchor="middle" font-size="16" font-weight="400">Mai</text>
+<text x="29" y="267" font-size="14" fill="#64748b">Hai cột riêng cho mỗi lớp · Tiêu đề lớp có thể gộp ô</text>
+</g></svg>

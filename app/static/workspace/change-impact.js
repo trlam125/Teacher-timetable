@@ -58,18 +58,18 @@ function renderChangeImpact(report, request, syncApply) {
       html += `<label class="change-impact-resolution"><span>${esc(assignment.class_name)} · ${esc(assignment.subject_name)}</span><select data-change-resolution="${Number(assignment.id)}"><option value="">Chọn cách xử lý</option>${teachers.map(row => `<option value="${Number(row.id)}">Chuyển sang ${esc(row.name)}</option>`).join("")}<option value="delete">Xóa phân công và các tiết liên quan</option></select></label>`;
     }
     if (blocker.reason === "protected_lessons" || /cố định|ghim/i.test(blocker.message || "")) html += "<p>Quay lại lịch để bỏ cố định các tiết liên quan, rồi mở lại mục sửa.</p>";
-    if (/chương trình/i.test(blocker.message || "") && request.kind === "assignment") html += '<p>Số tiết/chế độ được quản lý theo chương trình khối. Hãy sửa ở bảng “Số tiết bắt buộc theo khối – môn” và xem ảnh hưởng tới toàn khối.</p>';
+    if (/chương trình/i.test(blocker.message || "") && request.kind === "assignment") html += '<p>Đổi số tiết và chế độ xếp tại bảng “Số tiết bắt buộc theo khối – môn”.</p>';
   }
   if (report.changes?.length) html += "<h3>Nội dung thay đổi</h3>" + impactTable(["Đối tượng", "Nội dung", "Trước", "Sau"], report.changes.map(row => [row.object, row.field, changeDisplayValue(row.before, row.field), changeDisplayValue(row.after, row.field)]));
   if (report.assignments?.some(row => row.action === "delete")) html += "<h3>Phân công sẽ xóa</h3>" + impactTable(["Lớp", "Môn", "Giáo viên"], report.assignments.filter(row => row.action === "delete").map(row => [row.class_name, row.subject_name, row.teacher_name]));
   if (report.lesson_actions?.length) html += "<h3>Tiết bị ảnh hưởng</h3>" + impactTable(["Lớp", "Môn", "Giáo viên", "Vị trí", "Xử lý", "Lý do"], report.lesson_actions.map(row => [row.class_name, row.subject_name, row.teacher_name, changeSlotLabel(row.slot), actions[row.action], row.reason]));
   if (report.removal_candidates?.length) {
-    html += '<h3>Chọn cụm tiết bỏ khi giảm tiết</h3><p>Bỏ chọn để giữ cụm tiết, chọn để bỏ. Tiết đôi được gỡ cả cụm; phần còn cần dạy sẽ trở về kho tiết chưa xếp. Sau khi đổi lựa chọn, bấm “Tính lại ảnh hưởng”.</p>';
+    html += '<h3>Chọn cụm tiết bỏ khi giảm tiết</h3><p>Chọn cụm cần gỡ rồi bấm “Tính lại ảnh hưởng”. Tiết đôi được gỡ cả cặp; tiết còn cần dạy được đưa về khay.</p>';
     html += report.removal_candidates.map(row => `<label class="change-impact-block"><input type="checkbox" data-change-remove="${Number(row.assignment_id)}" data-lesson-ids="${row.lesson_ids.map(Number).join(",")}" ${row.selected ? "checked" : ""} ${row.protected ? "disabled" : ""}><span>${esc(row.class_name)} · ${esc(row.subject_name)} · ${esc(row.slots.map(changeSlotLabel).join("; "))}${row.protected ? " (Đã cố định)" : ""}</span></label>`).join("");
   }
   for (const warning of report.warnings || []) html += `<p>${esc(warning)}</p>`;
   if (report.changed && report.can_apply) html += "<p>Bản dự phòng sẽ được lưu trước khi áp dụng. Các tiết cố định được bảo vệ.</p>";
-  if ((data.lessons || []).length && report.requires_edit_mode && report.changed && !postScheduleEditing) html += '<label class="change-impact-block"><input id="changeEnableEditing" type="checkbox"> Cho phép chỉnh sửa sau xếp lịch cho lần làm việc này</label>';
+  if ((data.lessons || []).length && report.requires_edit_mode && report.changed && !postScheduleEditing) html += '<label class="change-impact-block"><input id="changeEnableEditing" type="checkbox"> Cho phép chỉnh sửa sau xếp lịch</label>';
   document.getElementById("changeImpactBody").innerHTML = html;
   document.getElementById("changeEnableEditing")?.addEventListener("change", event => {
     setPostScheduleEditing(event.target.checked);
@@ -186,7 +186,7 @@ async function openProjectChangeHistory() {
     const response = await fetch(`/api/projects/${PROJECT_ID}/changes`, {headers: operationHeaders()});
     const result = await readApiResponse(response);
     if (!response.ok) {body.textContent = apiErrorMessage(result, "Không thể tải bản dự phòng.");return;}
-    body.innerHTML = result.items.length ? result.items.map(row => `<article class="project-change-entry"><b>${esc(row.title)}</b> · <time>${esc(new Date(row.created_at).toLocaleString("vi-VN", {timeZone: "Asia/Ho_Chi_Minh"}))}</time> · ${esc(row.actor_name || "")}<p>${esc(row.message)}</p>${row.undone_at ? "<span>Đã hoàn tác</span>" : row.can_undo ? `<button type="button" class="btn ghost" data-undo-change="${esc(row.id)}">Hoàn tác thay đổi này</button>` : "<span>Đã có thay đổi tiếp theo; không thể phục hồi đè lên dữ liệu hiện tại.</span>"}</article>`).join("") : "<p>Chưa có bản dự phòng từ các lần chỉnh sửa.</p>";
+    body.innerHTML = result.items.length ? result.items.map(row => `<article class="project-change-entry"><b>${esc(row.title)}</b> · <time>${esc(new Date(row.created_at).toLocaleString("vi-VN", {timeZone: "Asia/Ho_Chi_Minh"}))}</time> · ${esc(row.actor_name || "")}<p>${esc(row.message)}</p>${row.undone_at ? "<span>Đã hoàn tác</span>" : row.can_undo ? `<button type="button" class="btn ghost" data-undo-change="${esc(row.id)}">Hoàn tác thay đổi này</button>` : "<span>Đã có chỉnh sửa mới; không thể hoàn tác.</span>"}</article>`).join("") : "<p>Chưa có bản dự phòng từ các lần chỉnh sửa.</p>";
     body.querySelectorAll(".project-change-entry").forEach((entry, index) => {
       const button = document.createElement("button"), detail = document.createElement("div");
       button.type = "button";button.className = "btn ghost";button.textContent = "Xem chi tiết";

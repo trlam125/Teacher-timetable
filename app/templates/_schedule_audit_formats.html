@@ -1,0 +1,31 @@
+<details class="audit-format-guide" open>
+    <summary>
+        <span class="audit-format-guide-heading">
+            <span class="audit-format-guide-icon" aria-hidden="true">▦</span>
+            <span><strong>Các mẫu thời khóa biểu được hỗ trợ</strong><small>6 bố cục minh họa · Nhấn vào ảnh để xem rõ</small></span>
+        </span>
+        <span class="audit-format-guide-toggle"><span class="audit-format-collapse">Thu gọn</span><span class="audit-format-expand">Xem mẫu</span><span aria-hidden="true">⌄</span></span>
+    </summary>
+    <div class="audit-format-guide-body">
+        <div class="audit-format-grid">
+            {% set formats = [
+                ('lesson-list', 'Danh sách từng tiết', 'Mỗi dòng một tiết, gồm Thứ, Buổi, Tiết, Lớp, Môn và Giáo viên.', 'Bảng ví dụ mỗi dòng một tiết, lớp 6A1 và 6A2 học Toán, Ngữ văn với giáo viên tương ứng.'),
+                ('class-columns', 'Bảng tổng hợp theo lớp', 'Mỗi cột một lớp; trong ô ghi môn và giáo viên.', 'Bảng ví dụ các cột lớp 6A1, 6A2; mỗi ô có môn học và tên giáo viên.'),
+                ('paired-columns', 'Mỗi lớp hai cột Môn – Giáo viên', 'Tách riêng cột Môn và Giáo viên. Tiêu đề lớp có thể gộp ô.', 'Bảng ví dụ tiêu đề lớp 6A1 và 6A2 gộp trên hai cột Môn, Giáo viên.'),
+                ('class-grid', 'Bảng riêng từng lớp', 'Tên lớp ở tiêu đề hoặc tên trang tính; trong ô ghi môn và giáo viên.', 'Thời khóa biểu lớp 6A1, các cột Thứ 2, Thứ 3, Thứ 4 và các hàng tiết học.'),
+                ('teacher-grid', 'Bảng riêng từng giáo viên', 'Tên giáo viên ở tiêu đề hoặc tên trang tính; trong ô ghi lớp và môn.', 'Thời khóa biểu giáo viên Nguyễn Văn An, mỗi ô ghi lớp 6A1 hoặc 6A2 và môn Toán.'),
+                ('teacher-columns', 'Bảng tổng hợp theo giáo viên', 'Mỗi cột một giáo viên; trong ô ghi lớp và môn.', 'Bảng ví dụ các cột giáo viên Nguyễn Văn An và Trần Thị Mai, mỗi ô ghi lớp và môn học.')
+            ] %}
+            {% for slug, title, description, alternative in formats %}
+            <figure class="audit-format-card">
+                <a class="audit-format-preview" href="/static/audit/formats/{{ slug }}.svg?v=2" target="_blank" rel="noopener" aria-label="Xem ảnh lớn: {{ title }} (mở thẻ mới)">
+                    <img src="/static/audit/formats/{{ slug }}.svg?v=2" alt="{{ alternative }}" width="720" height="300" loading="lazy" decoding="async">
+                    <span class="audit-format-zoom" aria-hidden="true">↗</span>
+                </a>
+                <figcaption><h3><span class="audit-format-number">{{ loop.index }}</span>{{ title }}</h3><p>{{ description }}</p></figcaption>
+            </figure>
+            {% endfor %}
+        </div>
+        <p class="audit-format-tip">Ghi rõ buổi sáng/chiều và dùng thống nhất tên lớp, môn, giáo viên.</p>
+    </div>
+</details>

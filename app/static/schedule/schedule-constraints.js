@@ -35,15 +35,15 @@ async function resetConstraintSection(section, button) {
     : (data.grades || []).find(row => row.id === gradeId)?.name;
   const confirmed = await confirmAction(
     isEntity
-      ? `Xóa toàn bộ ngày nghỉ / tiết tránh của ${entityType === "teacher" ? "giáo viên" : "lớp"} ${name}? Khóa khối vẫn có hiệu lực. Thay đổi sẽ được lưu ngay.`
-      : `Xóa toàn bộ khóa buổi / tiết trong phạm vi ${name}? Khóa ở các phạm vi khác được giữ nguyên. Thay đổi sẽ được lưu ngay.`,
-    { title: isEntity ? "Reset tiết tránh" : "Reset khóa lịch", confirmText: "Reset" },
+      ? `Xóa toàn bộ ngày nghỉ / tiết tránh của ${entityType === "teacher" ? "giáo viên" : "lớp"} ${name}? Khóa khối vẫn có hiệu lực.`
+      : `Xóa toàn bộ khóa buổi / tiết trong phạm vi ${name}? Khóa ở các phạm vi khác được giữ nguyên.`,
+    { title: isEntity ? "Xóa tiết tránh" : "Xóa khóa lịch", confirmText: "Xóa" },
   );
   if (!confirmed) return;
   // Never apply consent to a different selector or scope after the dialog closes.
   if ((isEntity && (entityType !== $("#constraintType")?.value || entityId !== $("#constraintEntity")?.value))
       || (!isEntity && gradeId !== globalLockGradeId)) {
-    showToast("Phạm vi đã thay đổi. Hãy chọn lại và bấm Reset.", "info");
+    showToast("Phạm vi đã thay đổi. Hãy chọn lại trước khi xóa.", "info");
     return;
   }
   if (isEntity) await saveConstraints(button, { reset: true });
@@ -213,7 +213,7 @@ function ensureGlobalSessionLockPanel() {
   panel.id = "globalSessionLocks";
   panel.className = "global-session-locks";
   panel.innerHTML =
-    '<h2>Khóa lịch theo khối</h2><p>Chọn khối để khóa nguyên buổi hoặc từng tiết. Khóa áp dụng cho mọi lớp thuộc khối đã chọn, kể cả lớp thêm sau này.</p><div class="constraint-toolbar"><label for="lockScope">Khối lớp</label><select id="lockScope" onchange="changeLockScope(this)"></select></div><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button id="gradeLockResetButton" class="btn btn-danger" type="button" onclick="resetConstraintSection(\'locks\',this)">Reset khóa lịch</button><button id="gradeLockSaveButton" class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
+    '<h2>Khóa lịch theo khối</h2><p>Chọn khối để khóa nguyên buổi hoặc từng tiết. Khóa áp dụng cho mọi lớp thuộc khối đã chọn, kể cả lớp thêm sau này.</p><div class="constraint-toolbar"><label for="lockScope">Khối lớp</label><select id="lockScope" onchange="changeLockScope(this)"></select></div><div id="sessionLockGrid" class="session-lock-grid"></div><div class="global-slot-lock-title"><h3>Khóa từng tiết</h3></div><div id="globalSlotLockGrid" class="global-slot-lock-grid"></div><div class="row end"><button id="gradeLockResetButton" class="btn btn-danger" type="button" onclick="resetConstraintSection(\'locks\',this)">Xóa khóa lịch</button><button id="gradeLockSaveButton" class="btn" type="button" onclick="saveGlobalSessionLocks(this)">Lưu khóa lịch</button></div>';
   const toolbar = section.querySelector(".constraint-toolbar");
   section.insertBefore(panel, toolbar);
   return panel;
@@ -324,7 +324,7 @@ async function saveGlobalSessionLocks(button, { reset = false } = {}) {
     showInlineActionFeedback(button, "Hãy thêm và chọn khối lớp trước.", "warning", 3000);
     return;
   }
-  const idleLabel = reset ? "Reset khóa lịch" : "Lưu khóa lịch";
+  const idleLabel = reset ? "Xóa khóa lịch" : "Lưu khóa lịch";
   const sessions = reset ? [] : [
     ...document.querySelectorAll('[data-session-lock][data-own-locked="true"]'),
   ].map((button) => Number(button.dataset.sessionLock)),
@@ -367,7 +367,7 @@ async function saveGlobalSessionLocks(button, { reset = false } = {}) {
         );
         showInlineActionFeedback(
           button,
-          "Khóa lịch đã được lưu trên máy chủ nhưng chưa tải lại được dữ liệu mới. Hãy tải lại trang nếu lịch chưa cập nhật đầy đủ.",
+          "Đã lưu khóa lịch. Hãy tải lại trang để xem.",
           "warning",
           6500,
         );
@@ -383,7 +383,7 @@ async function saveGlobalSessionLocks(button, { reset = false } = {}) {
         button,
         result.removed
           ? `Đã đưa ${result.removed} tiết bị ảnh hưởng về khay.`
-          : reset ? "Đã reset khóa lịch trong phạm vi đang chọn." : "Khóa lịch đã được lưu.",
+          : reset ? "Đã xóa khóa lịch trong phạm vi đang chọn." : "Khóa lịch đã được lưu.",
         "success",
         2800,
       );
@@ -526,7 +526,7 @@ function renderConstraintGrid({ preserveDraft = false } = {}) {
   box.innerHTML = h;
 }
 async function saveConstraints(button, { reset = false } = {}) {
-  const idleLabel = reset ? "Reset tiết tránh" : "Lưu ràng buộc";
+  const idleLabel = reset ? "Xóa tiết tránh" : "Lưu ràng buộc";
   if (constraintSaveInFlight || globalSaveInFlight) {
     showInlineActionFeedback(button, "Đang lưu thay đổi. Vui lòng chờ một chút.", "info", 2400);
     return;
@@ -591,7 +591,7 @@ async function saveConstraints(button, { reset = false } = {}) {
         );
         showInlineActionFeedback(
           button,
-          "Tiết tránh đã được lưu trên máy chủ nhưng chưa tải lại được dữ liệu mới. Hãy tải lại trang nếu lịch chưa cập nhật đầy đủ.",
+          "Đã lưu tiết tránh. Hãy tải lại trang để xem.",
           "warning",
           6500,
         );
@@ -607,7 +607,7 @@ async function saveConstraints(button, { reset = false } = {}) {
         button,
         result.removed
           ? `Đã đưa ${result.removed} tiết bị ảnh hưởng về khay.`
-          : reset ? "Đã reset tiết tránh của đối tượng đang chọn." : "Đã lưu tiết tránh.",
+          : reset ? "Đã xóa tiết tránh của giáo viên/lớp đang chọn." : "Đã lưu tiết tránh.",
         "success",
         2800,
       );

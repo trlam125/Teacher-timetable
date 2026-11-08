@@ -50,7 +50,7 @@
             <div>
                 <h1>{{ 'Thùng rác' if in_trash else 'Bộ thời khóa biểu' }}</h1>
                 {% if in_trash %}
-                <p>Các bộ thời khóa biểu được giữ vô thời hạn, không tự động xóa. Bạn có thể khôi phục hoặc xóa vĩnh viễn khi muốn.</p>
+                <p>Các bộ thời khóa biểu trong thùng rác có thể khôi phục cho đến khi bạn xóa vĩnh viễn.</p>
                 {% endif %}
             </div>
             <div class="row" style="flex-wrap:wrap">
@@ -63,8 +63,7 @@
                 </form>
                 {% else %}
                 <a class="btn ghost" href="/projects/trash">Thùng rác</a>
-                <a class="btn ghost" href="/schedule-audit" title="Import và kiểm tra thời khóa biểu">Import &amp; kiểm
-                    tra TKB</a>
+                <a class="btn ghost" href="/schedule-audit" title="Kiểm tra thời khóa biểu từ tệp">Kiểm tra TKB từ tệp</a>
                 {% if assigned_schools %}
                 <button class="btn btn-tame-ape project-create-btn"
                     onclick="document.querySelector('#newProject').showModal()"><span class="btn__text">Tạo
@@ -183,7 +182,7 @@
                 Tên bộ TKB mới
                 <input id="cloneProjectName" name="name" maxlength="200" required>
             </label>
-            <p>Bản sao sẽ độc lập với bộ thời khóa biểu gốc và giữ lại dữ liệu cấu hình, phân công và lịch hiện tại.</p>
+            <p>Sao chép dữ liệu, phân công và lịch hiện tại sang bộ mới.</p>
             <div class="row end">
                 <button type="button" class="btn ghost" onclick="this.closest('dialog').close()">Hủy</button>
                 <button class="btn" type="submit">Nhân bản</button>

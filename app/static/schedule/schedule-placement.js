@@ -213,7 +213,7 @@ async function loadPlacementOptionsForTap(payload, moveScope = null) {
     activeTapAssign.placementLoading = false;
     const message = requestFailureMessage(
       error,
-      "Mất kết nối tới máy chủ. Chưa thể kiểm tra ô xếp hợp lệ.",
+      "Mất kết nối. Chưa thể kiểm tra vị trí xếp.",
     );
     activeTapAssign.validSlots = new Set();
     activeTapAssign.placementMessage = message;
@@ -355,7 +355,7 @@ async function removeLesson(id) {
     if (r.ok) {
       await refreshAfterSuccessfulMutation(
         ["lessons"],
-        "Tiết đã được đưa về khay trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
+        "Đã đưa tiết về khay. Hãy tải lại trang để xem.",
       );
       setTrayActionStatus("success", j.message || "Đã đưa tiết về khay", 1800);
       return true;
@@ -367,7 +367,7 @@ async function removeLesson(id) {
       "error",
       requestFailureMessage(
         error,
-        "Mất kết nối tới máy chủ. Không thể đưa tiết về khay.",
+        "Mất kết nối. Chưa thể đưa tiết về khay.",
       ),
       3600,
     );
@@ -390,11 +390,11 @@ async function setFixed(assignmentId, slot, button) {
     if (r.ok) {
       const refreshed = await refreshAfterSuccessfulMutation(
         ["lessons"],
-        "Tiết đã được cố định trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
+        "Đã cố định tiết. Hãy tải lại trang để xem.",
       );
       if (!refreshed && button?.isConnected) {
         button.textContent = "✓";
-        button.title = "Đã cố định trên máy chủ. Hãy tải lại trang để đồng bộ.";
+        button.title = "Đã cố định. Hãy tải lại trang để xem.";
         button.disabled = true;
       }
     } else {
@@ -423,11 +423,11 @@ async function unfixGroup(assignmentId, slot, button) {
     if (r.ok) {
       const refreshed = await refreshAfterSuccessfulMutation(
         ["lessons"],
-        "Đã bỏ cố định trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
+        "Đã bỏ cố định. Hãy tải lại trang để xem.",
       );
       if (!refreshed && button?.isConnected) {
         button.textContent = "✓";
-        button.title = "Đã bỏ cố định trên máy chủ. Hãy tải lại trang để đồng bộ.";
+        button.title = "Đã bỏ cố định. Hãy tải lại trang để xem.";
         button.disabled = true;
       }
     } else {
@@ -460,7 +460,7 @@ async function returnAssignmentToTray(id) {
 
     await refreshAfterSuccessfulMutation(
       ["lessons"],
-      "Các tiết chưa cố định đã được đưa về khay trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
+      "Đã đưa các tiết chưa cố định về khay. Hãy tải lại trang để xem.",
     );
     setTrayActionStatus(
       "success",
@@ -473,7 +473,7 @@ async function returnAssignmentToTray(id) {
       "error",
       requestFailureMessage(
         error,
-        "Mất kết nối tới máy chủ. Không thể đưa phân công về khay.",
+        "Mất kết nối. Chưa thể đưa phân công về khay.",
       ),
       3600,
     );
@@ -502,7 +502,7 @@ async function returnAllToTray(button) {
     if (r.ok) {
       await refreshAfterSuccessfulMutation(
         ["lessons"],
-        "Các tiết đã được đưa về khay trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
+        "Đã đưa các tiết về khay. Hãy tải lại trang để xem.",
       );
       setInlineActionState(
         button,

@@ -141,8 +141,8 @@ def apply_change(pid: int, payload: ApplyChange, user: User = Depends(current_us
             raise HTTPException(409, "Kết quả áp dụng khác bản xem trước. Dữ liệu chưa được lưu; hãy xem lại.")
         totals = report["totals"]
         title = {"assignment": "Sửa phân công", "entity": "Sửa dữ liệu", "constraints": "Sửa tiết tránh",
-                 "grade_locks": "Sửa khóa khối", "delete": "Xóa dữ liệu", "reset": "Reset phân công"}[payload.request.kind]
-        messages = ["Đã xóa dữ liệu" if payload.request.kind == "delete" else "Đã đặt lại phân công" if payload.request.kind == "reset" else "Đã cập nhật dữ liệu"]
+                 "grade_locks": "Sửa khóa khối", "delete": "Xóa dữ liệu", "reset": "Xóa toàn bộ phân công"}[payload.request.kind]
+        messages = ["Đã xóa dữ liệu" if payload.request.kind == "delete" else "Đã xóa toàn bộ phân công" if payload.request.kind == "reset" else "Đã cập nhật dữ liệu"]
         for key, label in (("kept", "giữ"), ("to_tray", "đưa về kho"), ("surplus", "bỏ tiết dư"), ("deleted", "xóa cùng phân công")):
             if totals[key]:
                 messages.append(f"{label}: {totals[key]} tiết")
@@ -182,7 +182,7 @@ def list_changes(pid: int, user: User = Depends(current_user), db: Session = Dep
     latest = next((row for row in rows if row.undone_at is None), None)
     names = dict(db.execute(select(User.id, User.name).where(User.id.in_({row.user_id for row in rows}))).all())
     from fastapi.responses import JSONResponse
-    return JSONResponse({"retention": "Bản dự phòng được giữ cho đến khi xóa vĩnh viễn project.", "items": [
+    return JSONResponse({"retention": "Bản dự phòng được giữ đến khi xóa vĩnh viễn bộ thời khóa biểu.", "items": [
         {"id": row.id, "title": row.title, "created_at": row.created_at, "undone_at": row.undone_at,
          "actor_name": names.get(row.user_id) or "Tài khoản không còn tồn tại",
          "can_undo": row is latest and row.after_hash == current and row.undone_at is None,
@@ -213,7 +213,7 @@ def undo_change(pid: int, change_id: str, user: User = Depends(current_user), db
     latest = db.scalar(select(ProjectChange).where(ProjectChange.project_id == pid, ProjectChange.undone_at.is_(None))
                        .order_by(ProjectChange.created_at.desc(), ProjectChange.id.desc()).limit(1))
     if latest.id != receipt.id or fingerprint(capture(db, project)) != receipt.after_hash:
-        raise HTTPException(409, "Project đã có thay đổi mới. Không thể hoàn tác đè lên dữ liệu hiện tại.")
+        raise HTTPException(409, "Đã có chỉnh sửa mới. Không thể hoàn tác thay đổi này.")
     db.info["project_change_managed"] = True
     try:
         before = capture(db, project)

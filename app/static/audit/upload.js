@@ -76,7 +76,7 @@ function clearScheduleAuditFile(resetResult = true) {
   hideScheduleAuditBottomScroller();
 }
 function selectScheduleAuditFile(file, { autoRun = true } = {}) {
-  if (scheduleAuditLimitsDirty && !window.confirm("Bảng ngưỡng đang có thay đổi chưa lưu. Tiếp tục import sẽ bỏ các thay đổi này. Bạn muốn tiếp tục?")) {
+  if (scheduleAuditLimitsDirty && !window.confirm("Nhập tệp mới sẽ bỏ các thay đổi định mức chưa lưu. Tiếp tục?")) {
     const input = document.getElementById("scheduleAuditFile");
     if (input) input.value = "";
     return false;

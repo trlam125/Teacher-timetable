@@ -97,17 +97,14 @@ def classify_unexpected_error(exc: Exception) -> tuple[int, str, str]:
             original = str(getattr(exc, "orig", "")).lower()
             if "no such table" in original:
                 return 500, "database_table_missing", (
-                    "Thiếu bảng dữ liệu cần thiết để lưu cấu hình khối. "
-                    "Người quản lý cần cập nhật cấu trúc dữ liệu của hệ thống."
+                    "Chưa thể lưu cấu hình khối. Hãy liên hệ quản trị viên."
                 )
             if "no such column" in original:
                 return 500, "database_column_missing", (
-                    "Thiếu cột dữ liệu cần thiết để lưu cấu hình khối. "
-                    "Người quản lý cần cập nhật cấu trúc dữ liệu của hệ thống."
+                    "Chưa thể lưu cấu hình khối. Hãy liên hệ quản trị viên."
                 )
             return 500, "database_query_error", (
-                "Chương trình không xử lý được thao tác ghi dữ liệu. "
-                "Người quản lý cần kiểm tra phần lưu cấu hình khối."
+                "Chưa thể lưu cấu hình khối. Hãy liên hệ quản trị viên."
             )
         if code in {"55P03", "40P01", "SQLITE_BUSY", "SQLITE_LOCKED"}:
             return 503, "database_locked", (
@@ -125,23 +122,19 @@ def classify_unexpected_error(exc: Exception) -> tuple[int, str, str]:
                 "Thử lại sau ít phút."
             )
         return 503, "database_unavailable", (
-            "Không kết nối được tới nơi lưu dữ liệu hoặc kết nối bị ngắt. "
-            "Kiểm tra dịch vụ dữ liệu rồi thử lưu lại."
+            "Hệ thống tạm thời chưa thể lưu dữ liệu. Hãy thử lại sau ít phút."
         )
     if isinstance(exc, ProgrammingError):
         if code in {"42P01", "SQLITE_ERROR_NO_SUCH_TABLE"}:
             return 500, "database_table_missing", (
-                "Thiếu bảng dữ liệu cần thiết để lưu cấu hình khối. "
-                "Người quản lý cần cập nhật cấu trúc dữ liệu của hệ thống."
+                "Chưa thể lưu cấu hình khối. Hãy liên hệ quản trị viên."
             )
         if code == "42703":
             return 500, "database_column_missing", (
-                "Thiếu cột dữ liệu cần thiết để lưu cấu hình khối. "
-                "Người quản lý cần cập nhật cấu trúc dữ liệu của hệ thống."
+                "Chưa thể lưu cấu hình khối. Hãy liên hệ quản trị viên."
             )
         return 500, "database_query_error", (
-            "Chương trình không xử lý được thao tác lưu trong cơ sở dữ liệu. "
-            "Người quản lý cần kiểm tra phần lưu cấu hình khối trên máy chủ."
+            "Chưa thể lưu dữ liệu. Hãy thử lại hoặc liên hệ quản trị viên."
         )
     if isinstance(exc, DataError):
         if code in {"22001", "22003"}:
@@ -150,7 +143,7 @@ def classify_unexpected_error(exc: Exception) -> tuple[int, str, str]:
                 "Kiểm tra tên và số tiết rồi thử lại."
             )
         return 400, "invalid_data_type", (
-            "Có giá trị không đúng định dạng lưu trữ. "
+            "Có thông tin chưa hợp lệ. "
             "Kiểm tra lại số tiết và các lựa chọn trước khi lưu."
         )
     if isinstance(exc, (TimeoutError, ConnectionError)):
@@ -160,22 +153,18 @@ def classify_unexpected_error(exc: Exception) -> tuple[int, str, str]:
         )
     if isinstance(exc, PermissionError):
         return 403, "permission_denied", (
-            "Hệ thống không có quyền ghi dữ liệu tại vị trí cần thiết. "
-            "Người quản lý cần kiểm tra quyền truy cập."
+            "Chưa thể lưu dữ liệu. Hãy liên hệ quản trị viên."
         )
     if isinstance(exc, KeyError):
         return 500, "missing_program_field", (
-            "Chương trình thiếu một thông tin cần dùng khi xử lý cấu hình khối. "
-            "Người quản lý cần kiểm tra chức năng lưu dữ liệu."
+            "Chưa thể lưu cấu hình khối. Hãy liên hệ quản trị viên."
         )
     if isinstance(exc, (ValueError, TypeError)):
         return 500, "invalid_program_value", (
-            "Chương trình gặp giá trị không phù hợp trong quá trình xử lý cấu hình. "
-            "Người quản lý cần kiểm tra phần dữ liệu đang được đồng bộ."
+            "Chưa thể lưu cấu hình. Hãy thử lại hoặc liên hệ quản trị viên."
         )
     return 500, "unexpected_program_error", (
-        "Chương trình gặp lỗi chưa được nhận diện khi xử lý yêu cầu. "
-        "Thao tác chưa hoàn tất; người quản lý cần kiểm tra nhật ký máy chủ để xác định nguyên nhân."
+        "Chưa thể hoàn tất thao tác. Hãy thử lại hoặc liên hệ quản trị viên."
     )
 
 

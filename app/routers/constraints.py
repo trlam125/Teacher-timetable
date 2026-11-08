@@ -153,7 +153,7 @@ def constraints(
                 return JSONResponse(
                     {
                         "ok": False,
-                        "message": "Cấu trúc block tiết đôi hiện tại không toàn vẹn. Hãy sửa hoặc tạo lại lịch trước khi đổi ràng buộc.",
+                        "message": "Cấu trúc cặp tiết đôi hiện tại không toàn vẹn. Hãy sửa hoặc tạo lại lịch trước khi đổi ràng buộc.",
                     },
                     409,
                 )
@@ -185,7 +185,7 @@ def constraints(
                 return JSONResponse(
                     {
                         "ok": False,
-                        "message": "Ràng buộc mới xung đột với block có tiết cố định. Hãy bỏ cố định trước.",
+                        "message": "Ràng buộc mới xung đột với cụm có tiết cố định. Hãy bỏ cố định trước.",
                     },
                     409,
                 )
@@ -312,7 +312,7 @@ def save_session_locks(
             return JSONResponse(
                 {
                     "ok": False,
-                    "message": "Cấu trúc block tiết đôi hiện tại không toàn vẹn. Hãy sửa hoặc tạo lại lịch trước khi khóa buổi/tiết.",
+                    "message": "Cấu trúc cặp tiết đôi hiện tại không toàn vẹn. Hãy sửa hoặc tạo lại lịch trước khi khóa buổi/tiết.",
                 },
                 409,
             )
@@ -332,7 +332,7 @@ def save_session_locks(
                 return JSONResponse(
                     {
                         "ok": False,
-                        "message": "Buổi hoặc tiết mới khóa làm ảnh hưởng block có tiết cố định. Hãy bỏ cố định trước.",
+                        "message": "Buổi hoặc tiết mới khóa làm ảnh hưởng cụm có tiết cố định. Hãy bỏ cố định trước.",
                     },
                     409,
                 )

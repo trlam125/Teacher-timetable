@@ -99,7 +99,7 @@ def restore(db, project, state):
     for model in MODELS:
         ids = [row["id"] for row in state["tables"][model.__tablename__]]
         if ids and db.scalar(select(model.id).where(model.id.in_(ids), model.project_id != project.id).limit(1)):
-            raise HTTPException(409, "Không thể phục hồi vì mã dữ liệu đã được sử dụng ở project khác.")
+            raise HTTPException(409, "Không thể phục hồi vì mã dữ liệu đã được sử dụng ở bộ thời khóa biểu khác.")
     for model in reversed(MODELS):
         db.execute(delete(model).where(model.project_id == project.id))
     db.flush()

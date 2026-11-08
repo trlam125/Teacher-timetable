@@ -67,7 +67,7 @@ async function loadPreferenceInboxContent() {
     box.innerHTML = `<div class="empty-state">${esc(
       requestFailureMessage(
         error,
-        "Mất kết nối tới máy chủ. Không thể tải nguyện vọng giáo viên.",
+        "Mất kết nối. Chưa tải được nguyện vọng giáo viên.",
       ),
     )}</div>`;
   }
@@ -180,7 +180,7 @@ async function reviewPreference(id, action, button) {
       await wait(600);
       const refreshed = await refreshAfterSuccessfulMutation(
         null,
-        "Nguyện vọng đã được cập nhật trên máy chủ nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ.",
+        "Đã cập nhật nguyện vọng. Hãy tải lại trang để xem.",
       );
       if (refreshed) {
         try {
@@ -597,13 +597,13 @@ function tapAssignInstruction(payload) {
   if (capabilities.schedule && capabilities.tray) {
     const clusterSize = tapAssignClusterSize(payload);
     if (clusterSize > 1 && activeTapAssign?.moveScope === "group")
-      return `Bắt buộc tiết đôi: bấm ô bắt đầu để chuyển cả block ${clusterSize} tiết`;
+      return `Bắt buộc tiết đôi: bấm ô bắt đầu để chuyển cả cụm ${clusterSize} tiết`;
     return "Bấm ô trên lịch để chuyển, hoặc bấm khay để thu hồi";
   }
   if (capabilities.tray) return "Bấm vào khay để thu hồi";
   const pendingBlockSize = Number(activeTapAssign?.groupSize || 0);
   if (pendingBlockSize > 1)
-    return `Bấm ô bắt đầu để xếp block ${pendingBlockSize} tiết liên tiếp`;
+    return `Bấm ô bắt đầu để xếp cụm ${pendingBlockSize} tiết liên tiếp`;
   return "Bấm một ô được đánh dấu để xếp";
 }
 
@@ -645,7 +645,7 @@ function renderTapAssignBar() {
   const scopeControls =
     !isBusy && clusterSize > 1 && activeTapAssign.moveScope === "group"
       ? `<div class="tap-assign-scope" aria-label="Phạm vi di chuyển">
-          <span class="is-active">Cả block (${clusterSize})</span>
+          <span class="is-active">Cả cụm (${clusterSize})</span>
         </div>`
       : "";
 

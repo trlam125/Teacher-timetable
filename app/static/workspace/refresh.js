@@ -170,14 +170,14 @@ async function refresh(skipOperationStatus = false, parts = null) {
   if (!r.ok) {
     if (responseAlreadySuperseded()) return data;
     const error = new Error(
-      apiErrorMessage(result, "Không thể tải lại dữ liệu từ máy chủ."),
+      apiErrorMessage(result, "Chưa tải được dữ liệu. Hãy thử lại."),
     );
     error.isRefreshError = true;
     throw error;
   }
   if (!result || typeof result !== "object" || Array.isArray(result)) {
     if (responseAlreadySuperseded()) return data;
-    const error = new Error("Dữ liệu trả về từ máy chủ không hợp lệ.");
+    const error = new Error("Chưa đọc được dữ liệu. Hãy tải lại trang.");
     error.isRefreshError = true;
     throw error;
   }

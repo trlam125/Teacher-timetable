@@ -15,7 +15,7 @@ def edit_assignment(db, project, assignment, values, *, check_curriculum=True):
     subject = db.get(Subject, assignment.subject_id)
     school_class = db.get(SchoolClass, assignment.class_id)
     if not all(row and row.project_id == project.id for row in (teacher, subject, school_class)):
-        raise HTTPException(400, "Giáo viên, môn hoặc lớp không thuộc project này.")
+        raise HTTPException(400, "Giáo viên, môn hoặc lớp không thuộc bộ thời khóa biểu này.")
     if db.scalar(select(TeacherSubject.id).where(
         TeacherSubject.project_id == project.id, TeacherSubject.teacher_id == teacher.id,
         TeacherSubject.subject_id == subject.id,

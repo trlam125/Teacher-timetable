@@ -71,7 +71,7 @@ def remove_surplus_groups(db, project, assignment, rows):
             chosen.append(larger)
             excess = 0
     if excess:
-        raise HTTPException(409, "Số tiết mới không đủ để giữ các block ghim/cố định. Hãy bỏ cố định trước.")
+        raise HTTPException(409, "Số tiết mới không đủ để giữ các cụm ghim/cố định. Hãy bỏ cố định trước.")
     remove_groups(db, project, assignment, chosen, "Bỏ tiết dư do giảm số tiết/tuần")
     removed_ids = {row.id for group in chosen for row in group}
     return [row for row in rows if row.id not in removed_ids]
@@ -135,7 +135,7 @@ def reconcile_edit(db, project, assignment, *, old_mode, selected_ids=None, teac
             raise HTTPException(400, "Danh sách tiết chọn bỏ không thuộc phân công hoặc không còn trên lịch.")
         chosen = [group for group in groups if selected.intersection(row.id for row in group)]
         if selected != {row.id for group in chosen for row in group}:
-            raise HTTPException(400, "Hãy chọn toàn bộ block tiết đôi.")
+            raise HTTPException(400, "Hãy chọn toàn bộ cặp tiết đôi.")
 
     if teacher_changed:
         bad = [group for group in groups_for(rows) if any(
@@ -172,11 +172,11 @@ def reconcile_edit(db, project, assignment, *, old_mode, selected_ids=None, teac
         if changed_pins:
             raise HTTPException(409, {
                 "reason": "protected_lessons", "lesson_ids": changed_pins,
-                "message": "Hãy bỏ cố định các block liên quan trước khi đổi cấu trúc tiết đơn/đôi.",
+                "message": "Hãy bỏ cố định các cụm tiết liên quan trước khi đổi cấu trúc tiết đơn/đôi.",
             })
         reasons = db.info.setdefault("change_lesson_reasons", {})
         for row_id in before - {row.id for row in rows}:
-            reasons[row_id] = "Điều chỉnh cấu trúc block hoặc số tiết theo chương trình mới"
+            reasons[row_id] = "Điều chỉnh cấu trúc cụm tiết hoặc số tiết theo chương trình mới"
 
     rows = remove_surplus_groups(db, project, assignment, rows)
     remove_consecutive_conflicts(db, project, assignment, rows)

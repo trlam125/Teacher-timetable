@@ -242,7 +242,7 @@ def validate_clone_source(db: Session, pid: int) -> dict[str, list]:
     if errors:
         raise HTTPException(
             409,
-            "Không thể nhân bản vì project nguồn có dữ liệu không hợp lệ: "
+            "Không thể nhân bản vì bộ thời khóa biểu gốc có dữ liệu không hợp lệ: "
             + " | ".join(errors),
         )
     return rows

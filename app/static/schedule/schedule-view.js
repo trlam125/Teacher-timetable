@@ -145,14 +145,14 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
         if (modal) modal.close();
         const refreshed = await refreshAfterSuccessfulMutation(
           ["lessons"],
-          "Máy chủ đã xếp lịch thành công nhưng giao diện chưa thể tải lại dữ liệu mới. Hãy tải lại trang để đồng bộ thời khóa biểu.",
+          "Đã xếp lịch thành công. Hãy tải lại trang để xem.",
         );
         if (partial) renderScheduleAttemptDetails(j);
         setScheduleActionState("success", refreshed ? 1400 : 2600);
         setScheduleFeedback(
           refreshed
             ? j.message || "Đã xếp thời khóa biểu thành công."
-            : "Đã xếp thời khóa biểu trên máy chủ. Hãy tải lại trang để xem dữ liệu mới.",
+            : "Đã xếp thời khóa biểu. Hãy tải lại trang để xem.",
           refreshed && !partial ? "success" : "warning",
           partial ? 0 : refreshed ? 2600 : 6500,
         );
@@ -172,7 +172,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
       if (movedCount > 0 && affectedLessonIds.length !== movedCount) {
         setScheduleActionState("error", 1800);
         setScheduleFeedback(
-          "Máy chủ không trả về đầy đủ danh sách tiết cần xác nhận. Hãy tải lại trang và thử lại.",
+          "Chưa tải đủ danh sách tiết cần xác nhận. Hãy tải lại trang.",
           "error",
           5200,
         );
@@ -213,7 +213,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     setScheduleActionState("error", 1800);
     const message = requestFailureMessage(
       error,
-      "Mất kết nối tới máy chủ. Không thể xếp thời khóa biểu.",
+      "Mất kết nối. Chưa thể xếp thời khóa biểu.",
     );
     setScheduleFeedback(message, "error", 5200);
   }
@@ -293,7 +293,7 @@ function renderScheduleAttemptDetails(payload) {
   for (const issue of payload.integrity?.count_errors || [])
     add(issue, `Lịch hiện có ${issue.actual}/${issue.expected} tiết.`);
   for (const assignmentId of payload.integrity?.required_double_errors || [])
-    add({assignment_id: assignmentId}, "Cấu trúc tiết đôi không khớp các block bắt buộc của phân công.");
+    add({assignment_id: assignmentId}, "Các cặp tiết chưa đúng chế độ bắt buộc tiết đôi.");
   for (const issue of payload.integrity?.fixed_errors || [])
     add(issue, `Cụm cố định đang thiếu ${issue.missing_slots?.length || 0} tiết. Hãy xếp bổ sung hoặc bỏ ghim liên quan.`);
   const lessonById = new Map((data.lessons || []).map(row => [Number(row.id), row]));
@@ -476,7 +476,7 @@ function renderSchedule(preserveScroll = false) {
   const clustered = clusteredLessonIds();
   const conflicts = computeScheduleConflicts();
   const legend =
-    '<div class="schedule-color-legend"><b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Block tiết đôi / cặp ưu tiên</span><span><i class="schedule-color-swatch conflict"></i>Ô vi phạm ràng buộc</span></div>';
+    '<div class="schedule-color-legend"><b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Tiết đôi / cặp ưu tiên</span><span><i class="schedule-color-swatch conflict"></i>Ô vi phạm ràng buộc</span></div>';
 
   // Lập chỉ mục một lần cho mỗi lần render để tránh quét toàn bộ assignments/lessons
   // ở từng ô thời khóa biểu.
@@ -709,17 +709,17 @@ function lessonHtml(
   const searchText = `${className} ${subjectName} ${a.subject_name || ""} ${teacherName} ${a.teacher_name || ""}`;
   const fixesWholeBlock = a.block_mode === "required_double" && inCluster;
   const fixTitle = fixesWholeBlock
-    ? "Cố định cả block tiết đôi"
+    ? "Cố định cả cặp tiết"
     : "Cố định tiết này";
   const unfixTitle = fixesWholeBlock
-    ? "Bỏ cố định cả block tiết đôi"
+    ? "Bỏ cố định cả cặp tiết"
     : "Bỏ cố định tiết này";
   const actions =
     window.READ_ONLY
       ? ""
       : l.locked
         ? `<button class="lesson-remove" title="${unfixTitle}" aria-label="${unfixTitle}" onclick="event.stopPropagation();unfixGroup(${a.id},${l.slot},this)">${lessonActionIcon("unlock")}</button>`
-        : `<button class="lesson-pin" title="${fixTitle}" aria-label="${fixTitle}" onclick="event.stopPropagation();setFixed(${a.id},${l.slot},this)">${lessonActionIcon("pin")}</button><button class="lesson-remove" title="${fixesWholeBlock ? "Gỡ cả block tiết đôi" : "Gỡ tiết"}" aria-label="${fixesWholeBlock ? "Gỡ cả block tiết đôi khỏi thời khóa biểu" : "Gỡ tiết khỏi thời khóa biểu"}" onclick="event.stopPropagation();removeLesson(${l.id})">${lessonActionIcon("close")}</button>`;
+        : `<button class="lesson-pin" title="${fixTitle}" aria-label="${fixTitle}" onclick="event.stopPropagation();setFixed(${a.id},${l.slot},this)">${lessonActionIcon("pin")}</button><button class="lesson-remove" title="${fixesWholeBlock ? "Gỡ cả cặp tiết" : "Gỡ tiết"}" aria-label="${fixesWholeBlock ? "Gỡ cả cặp tiết khỏi thời khóa biểu" : "Gỡ tiết khỏi thời khóa biểu"}" onclick="event.stopPropagation();removeLesson(${l.id})">${lessonActionIcon("close")}</button>`;
   const tapPayload =
     !window.READ_ONLY && !l.locked
       ? ` data-tap-payload="${l.id}"`

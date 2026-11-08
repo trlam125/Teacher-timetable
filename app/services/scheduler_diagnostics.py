@@ -86,7 +86,7 @@ def build_scheduler_diagnostics(db: Session, project: Project) -> dict:
             continue
         size = next_required_double_block_size(project, assignment, current) if assignment_requires_double(assignment) else 1
         if size is None or size == 0:
-            detail["message"] = "Cấu trúc block tiết đôi cần được kiểm tra trước khi xếp tiếp."
+            detail["message"] = "Cấu trúc cặp tiết đôi cần được kiểm tra trước khi xếp tiếp."
             continue
         context = assignment_feasibility_context(db, project, assignment, snapshot=snapshot)
         current_slots = [row.slot for row in current]
@@ -111,7 +111,7 @@ def build_scheduler_diagnostics(db: Session, project: Project) -> dict:
                 other_subject = subjects.get(owner.subject_id)
                 reasons.append(f"Giáo viên đang dạy {other_subject.name if other_subject else '?'} lớp {other_class.name if other_class else '?'} ({_slot_label(project, candidate)}).")
             if not valid and not reasons:
-                reasons.append("Vị trí này chưa thỏa cấu trúc block hoặc các tiết cố định của phân công.")
+                reasons.append("Vị trí này chưa thỏa cấu trúc cụm tiết hoặc các tiết cố định của phân công.")
             candidates.append({"slot": slot, "label": _slot_label(project, slot), "group_size": size, "valid": valid, "reasons": reasons})
         # Show useful valid positions first and bound report size for empty schedules.
         candidates.sort(key=lambda item: (not item["valid"], item["slot"]))
@@ -122,7 +122,7 @@ def build_scheduler_diagnostics(db: Session, project: Project) -> dict:
             if detail["valid_slot_count"] else
             "Các ô trống của lớp đều bị chặn bởi lịch hoặc ràng buộc hiện tại; có thể cần xếp lại phần không cố định."
             if candidates else
-            "Lớp không còn ô trống phù hợp sau khi áp dụng khóa lịch, tiết tránh và kích thước block."
+            "Lớp không còn ô trống phù hợp sau khi áp dụng khóa lịch, tiết tránh và số tiết liên tiếp."
         )
     missing.sort(key=lambda row: (row["class_name"], row["subject_name"], row["teacher_name"]))
     integrity = schedule_integrity_report(db, project)

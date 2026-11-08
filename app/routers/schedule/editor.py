@@ -64,7 +64,7 @@ def placement_options(
                     "valid_slots": [],
                     "move_scope": "new",
                     "group_size": 0,
-                    "message": "Cấu trúc block hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu.",
+                    "message": "Cấu trúc cụm tiết hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu.",
                 }
         if len(current_slots) >= int(assignment.periods_per_week) or group_size == 0:
             return {
@@ -94,7 +94,7 @@ def placement_options(
             "move_scope": "new",
             "group_size": group_size,
             "message": (
-                f"Block {group_size} tiết sẽ được đặt cùng nhau; chỉ các vị trí hợp lệ được đánh dấu."
+                f"Cụm {group_size} tiết sẽ được đặt cùng nhau; chỉ các vị trí hợp lệ được đánh dấu."
                 if group_size > 1
                 else "Các ô được đánh dấu cho phép đặt tiết mà vẫn thỏa các ràng buộc hiện tại."
             ),
@@ -130,7 +130,7 @@ def placement_options(
                 "valid_slots": [],
                 "move_scope": "group",
                 "group_size": int(getattr(lesson, "block_size", 1) or 1),
-                "message": "Block đang chọn không toàn vẹn. Hãy gỡ block hoặc tạo lại thời khóa biểu.",
+                "message": "Cụm tiết đang chọn bị thiếu. Hãy gỡ cụm tiết hoặc tạo lại thời khóa biểu.",
             }
     if scope == "group":
         moving = lesson_block_members(lessons, lesson)
@@ -216,7 +216,7 @@ def move(
         if not block_state["valid"]:
             raise HTTPException(
                 409,
-                "Cấu trúc block bắt buộc tiết đôi không toàn vẹn. Hãy gỡ block lỗi hoặc tạo lại thời khóa biểu.",
+                "Cấu trúc cặp tiết bắt buộc không toàn vẹn. Hãy gỡ cặp tiết lỗi hoặc tạo lại thời khóa biểu.",
             )
 
     scope = str(payload.move_scope or "group").strip().lower()
@@ -346,7 +346,7 @@ def add_manual_lesson(
             return JSONResponse(
                 {
                     "ok": False,
-                    "message": "Cấu trúc block hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu.",
+                    "message": "Cấu trúc cụm tiết hiện tại không hợp lệ. Hãy tạo lại thời khóa biểu.",
                 },
                 409,
             )
@@ -355,7 +355,7 @@ def add_manual_lesson(
         > project.periods_per_session
     ):
         return JSONResponse(
-            {"ok": False, "message": "Block tiết vượt quá cuối buổi học."}, 409
+            {"ok": False, "message": "Cụm tiết vượt quá cuối buổi học."}, 409
         )
     target_slots = list(range(payload.slot, payload.slot + group_size))
     for slot in target_slots:
@@ -435,7 +435,7 @@ def remove_manual_lesson(
     )
     if any(item.locked or item.slot in fixed_slots for item in group):
         return JSONResponse(
-            {"ok": False, "message": "Block có tiết cố định nên không thể gỡ."}, 409
+            {"ok": False, "message": "Cụm tiết có tiết cố định nên không thể gỡ."}, 409
         )
     remove_ids = {item.id for item in group}
 

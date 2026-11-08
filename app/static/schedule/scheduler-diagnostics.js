@@ -65,7 +65,7 @@ function renderSchedulerDiagnostics(report) {
           <h3>${esc(item.class_name)} · ${esc(item.subject_name)} · ${esc(item.teacher_name)}</h3>
           <p>Đã xếp ${esc(item.scheduled_periods)}/${esc(item.required_periods)} tiết; còn thiếu ${esc(item.missing_periods)} tiết.</p>
           <p>${esc(item.message)}</p>
-          ${(item.candidate_slots || []).length ? `<ul class="scheduler-diagnostic-slots">${item.candidate_slots.map((candidate) => `<li><b>${esc(candidate.label)}${candidate.group_size > 1 ? ` · block ${esc(candidate.group_size)} tiết` : ""}</b>: ${esc(candidate.valid ? "Có thể xếp." : (candidate.reasons || []).join(" "))}</li>`).join("")}</ul>` : ""}
+          ${(item.candidate_slots || []).length ? `<ul class="scheduler-diagnostic-slots">${item.candidate_slots.map((candidate) => `<li><b>${esc(candidate.label)}${candidate.group_size > 1 ? ` · cụm ${esc(candidate.group_size)} tiết` : ""}</b>: ${esc(candidate.valid ? "Có thể xếp." : (candidate.reasons || []).join(" "))}</li>`).join("")}</ul>` : ""}
           ${item.omitted_candidate_count ? `<p>Còn ${esc(item.omitted_candidate_count)} vị trí khác; báo cáo hiển thị tối đa 8 vị trí cho mỗi phân công.</p>` : ""}
         </div>`).join("") : "<p>Không có tiết phân công còn thiếu.</p>"}
     </article>`;

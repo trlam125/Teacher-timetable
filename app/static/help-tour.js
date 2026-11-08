@@ -32,7 +32,7 @@
         { target: '.project-create-btn', title: 'Tạo bộ thời khóa biểu mới', text: 'Bấm “Tạo mới” để khai báo tên bộ, trường, số ngày học, số buổi và số tiết mỗi buổi.' },
         { target: '.project-grid', title: 'Danh sách các bộ hiện có', text: 'Mỗi thẻ là một bộ thời khóa biểu độc lập. Bạn có thể mở, đổi tên, nhân bản hoặc xóa bộ tại đây.' },
         { target: '.project-card .row', title: 'Thao tác nhanh với một bộ', text: 'Mở bộ để cấu hình dữ liệu và xếp lịch; nhân bản khi muốn tạo một phương án mới từ dữ liệu hiện có.' },
-        { target: 'a[href="/schedule-audit"]', title: 'Import và kiểm tra TKB', text: 'Dùng chức năng này khi bạn có file thời khóa biểu bên ngoài và muốn kiểm tra lỗi hoặc xung đột.' }
+        { target: 'a[href="/schedule-audit"]', title: 'Kiểm tra TKB từ tệp', text: 'Dùng chức năng này khi bạn có file thời khóa biểu bên ngoài và muốn kiểm tra lỗi hoặc xung đột.' }
       ]
     },
     users: {
@@ -46,13 +46,13 @@
       ]
     },
     audit: {
-      label: 'Import & kiểm tra TKB',
+      label: 'Kiểm tra TKB từ tệp',
       steps: [
-        { target: '#audit .section-head', title: 'Kiểm tra thời khóa biểu từ file', text: 'Trang này dùng để đưa một thời khóa biểu bên ngoài vào hệ thống và kiểm tra các vấn đề có thể xảy ra.' },
+        { target: '#audit .section-head', title: 'Kiểm tra thời khóa biểu từ file', text: 'Kiểm tra trùng lịch và số tiết từ tệp thời khóa biểu.' },
         { target: '#scheduleAuditDropzone', title: 'Chọn file cần kiểm tra', text: 'Kéo thả hoặc bấm vào vùng này để chọn file Excel, Word, CSV hoặc TSV.' },
-        { target: '.schedule-audit-upload-card', title: 'Chạy kiểm tra', text: 'Sau khi chọn file, các nút kiểm tra sẽ xuất hiện để bạn bắt đầu phân tích dữ liệu.' },
-        { target: '#scheduleAuditAiResult', title: 'Phân tích bằng AI', text: 'Nếu sử dụng phân tích AI, phần giải thích và gợi ý sẽ được hiển thị tại khu vực này.' },
-        { target: '#scheduleAuditResult', title: 'Kết quả kiểm tra', text: 'Các lỗi, cảnh báo và thông tin chi tiết của thời khóa biểu sẽ được tổng hợp ở đây.' }
+        { target: '.schedule-audit-upload-card', title: 'Chạy kiểm tra', text: 'Chọn “Kiểm tra” để xem các lỗi trong thời khóa biểu.' },
+        { target: '#scheduleAuditAiResult', title: 'Phân tích bằng AI', text: 'Xem giải thích và gợi ý của trợ lý tại đây.' },
+        { target: '#scheduleAuditResult', title: 'Kết quả kiểm tra', text: 'Xem thời khóa biểu và các lỗi cần sửa tại đây.' }
       ]
     },
     teacherPortal: {

@@ -57,7 +57,7 @@ def reconcile_assignment_lesson_blocks(
         for row in rows:
             if managed and (row.locked or row.slot in protected):
                 if row.block_size != 1:
-                    return rows, "Hãy bỏ cố định block tiết đôi liên quan trước khi tách thành tiết đơn."
+                    return rows, "Hãy bỏ cố định cặp tiết đôi liên quan trước khi tách thành tiết đơn."
                 # A pinned single already fits the target mode; preserve its identity.
                 continue
             if managed and row.block_size == 1 and row.block_id:
@@ -76,17 +76,17 @@ def reconcile_assignment_lesson_blocks(
         members.sort(key=lambda item: item.slot)
         declared = {int(getattr(item, "block_size", 1) or 1) for item in members}
         if len(declared) != 1:
-            return rows, "Có block cũ có metadata kích thước không thống nhất."
+            return rows, "Có cụm tiết cũ có thông tin kích thước không thống nhất."
         declared_size = declared.pop()
         if old_mode == "required_double" and declared_size != len(members):
             return (
                 rows,
-                "Có block bắt buộc tiết đôi bị thiếu tiết; hãy tạo lại lịch trước khi đổi chế độ.",
+                "Có cặp tiết bắt buộc bị thiếu tiết; hãy tạo lại lịch trước khi đổi chế độ.",
             )
         if len(members) > 2:
             return (
                 rows,
-                "Có block cũ lớn hơn 2 tiết; hãy tạo lại lịch trước khi đổi chế độ.",
+                "Có cụm tiết cũ lớn hơn 2 tiết; hãy tạo lại lịch trước khi đổi chế độ.",
             )
         if len(members) == 2:
             left, right = members
@@ -94,12 +94,12 @@ def reconcile_assignment_lesson_blocks(
                 slot_meta(project, left.slot)[:2] != slot_meta(project, right.slot)[:2]
                 or right.slot != left.slot + 1
             ):
-                return rows, "Có block đôi cũ không liên tiếp trong cùng buổi."
+                return rows, "Có cặp tiết cũ không liên tiếp trong cùng buổi."
         locked_count = sum(1 for row in members if row.locked)
         if locked_count not in {0, len(members)}:
             return (
                 rows,
-                "Có block chỉ cố định một phần; hãy bỏ cố định trước khi đổi cấu trúc.",
+                "Có cụm tiết chỉ cố định một phần; hãy bỏ cố định trước khi đổi cấu trúc.",
             )
         groups.append(
             {
@@ -128,7 +128,7 @@ def reconcile_assignment_lesson_blocks(
         if used[size] >= desired[size]:
             return (
                 rows,
-                "Thay đổi mới không còn chỗ cho một block đang cố định. Hãy bỏ cố định block đó trước.",
+                "Thay đổi mới không còn chỗ cho một cụm tiết đang cố định. Hãy bỏ cố định cụm tiết đó trước.",
             )
         used[size] += 1
         kept.append(group)
@@ -236,13 +236,13 @@ def normalize_assignment_fixed_rows(
     if assignment_requires_double(assignment):
         state = required_double_block_state(project, assignment, lessons)
         if not state["valid"]:
-            return state["reason"] or "Cấu trúc block bắt buộc tiết đôi không hợp lệ."
+            return state["reason"] or "Cấu trúc cặp tiết bắt buộc không hợp lệ."
         for group in state["groups"]:
             members = group["lessons"]
             locked_count = sum(1 for lesson in members if lesson.locked)
             if locked_count not in {0, len(members)}:
                 return (
-                    "Một block chỉ được cố định toàn bộ. Hãy bỏ cố định block bị thiếu "
+                    "Một cụm tiết phải được cố định toàn bộ. Hãy bỏ cố định cụm tiết bị thiếu "
                     "hoặc xếp lại trước khi tiếp tục."
                 )
             if locked_count:

@@ -415,7 +415,7 @@ function renderWeeklyMatrix() {
     ` <button type="button" class="weekly-matrix-remove" title="Xóa khối ${grade}" aria-label="Xóa khối ${grade}" onclick="weeklyMatrixRemoveGrade('${grade}')">×</button>`}</th>`).join('');
   return `<section class="weekly-matrix-panel">
     <h3>1. Số tiết bắt buộc của từng môn theo khối</h3>
-    <p>Giữ tên môn đúng như bảng TKB; <b>KHTN</b> và <b>KHTN(S)</b> là hai môn độc lập. Môn/khối mới được thêm ngay vào bảng này, không tạo bảng phụ.</p>
+    <p>Nhập tên môn đúng như TKB. <b>KHTN</b> và <b>KHTN(S)</b> được tính riêng.</p>
     <div class="weekly-matrix-wrap"><table class="weekly-matrix-table"><thead>
     <tr><th rowspan="2">TT</th><th rowspan="2">CÁC MÔN + HĐGD</th><th colspan="${grades.length}">Số tiết/tuần</th></tr>
     <tr>${headers}</tr>

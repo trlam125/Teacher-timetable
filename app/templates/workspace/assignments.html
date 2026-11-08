@@ -4,7 +4,7 @@
             <h1>Phân công giảng dạy</h1>
         </div>
         <div class="row">
-            <button class="btn btn-danger" type="button" onclick="resetAssignments(this)">Reset phân công</button>
+            <button class="btn btn-danger" type="button" onclick="resetAssignments(this)">Xóa toàn bộ phân công</button>
             <button class="btn btn-tame-ape" onclick="openEntity('assignment')"><span class="btn__text">Thêm
                     phân công</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                         viewBox="0 0 24 24" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
@@ -20,30 +20,20 @@
             <div>
                 <b>Buổi học mỗi ngày</b>
                 <p>
-                    Được cấu hình chung cho toàn bộ thời khóa biểu, thường là 1 hoặc 2 buổi (sáng và
-                    chiều).
-                    Không nhập lại trong từng phân công.
+                    Số buổi học trong ngày, áp dụng chung cho toàn bộ thời khóa biểu.
                 </p>
             </div>
             <div>
                 <b>Tiết mỗi tuần</b>
                 <p>
-                    Là tổng số tiết của một môn mà giáo viên dạy cho một lớp trong cả tuần. Nhập 3 nghĩa
-                    là
-                    xếp đủ 3 tiết cho cặp lớp–môn–giáo viên đó.
+                    Tổng số tiết của một môn tại một lớp trong tuần, không phải mỗi ngày.
                 </p>
             </div>
         </div>
-        <p class="assignment-example">
-            <b>Ví dụ:</b> Web có 2 buổi/ngày và 5 ngày/tuần. Phân công Toán
-            8A1 là 3 tiết/tuần nghĩa là phân bố tổng cộng 3 tiết vào các ngày/buổi còn trống, không phải
-            3
-            tiết mỗi ngày.
-        </p>
     </div>
     <section class="auto-grade-program" id="autoGradeProgram" aria-labelledby="autoGradeProgramTitle">
         <h2 id="autoGradeProgramTitle" class="auto-grade-program-title">1. Số tiết bắt buộc theo khối – môn</h2>
-        <p class="auto-assignment-help">Mỗi ô là số tiết/tuần bắt buộc của môn đó tại <b>mỗi lớp trong khối</b>. Để trống nếu không áp dụng. Lưu riêng từng khối; khi chỉnh sửa chương trình có ảnh hưởng lịch đang xếp, hệ thống sẽ yêu cầu xác nhận.</p>
+        <p class="auto-assignment-help">Nhập số tiết/tuần cho <b>mỗi lớp trong khối</b>; để trống nếu không áp dụng. Bấm <b>Lưu</b> cho từng khối.</p>
         <div id="autoGradeProgramTable"></div>
     </section>
     <h2 class="auto-assignment-subheading">2. Phân công giáo viên theo lớp – môn</h2>
@@ -61,7 +51,7 @@
             </label>
         </div>
     </div>
-    <div id="autoAssignmentMatrixHelp" class="auto-assignment-help">Cột <b>Tiết/tuần</b> là số tiết của môn tại mỗi lớp theo cấu hình <b>Khối / nhóm</b>. Khi xem tất cả khối, cột hiển thị dạng <b>Khối 6: 4</b>; khi chọn một khối, chỉ hiển thị số tiết. Mỗi lớp có hai cột <b>Giáo viên</b> và <b>Số tiết/tuần</b>. Chọn giáo viên và số tiết rồi bấm <b>Lưu</b> trong ô. Có thể chọn <b>Chi tiết</b> để đổi chế độ xếp tiết đôi, hoặc <b>Xóa</b> để bỏ phân công đã lưu (có xác nhận).</div>
+    <div id="autoAssignmentMatrixHelp" class="auto-assignment-help">Chọn giáo viên, nhập số tiết/tuần rồi bấm <b>Lưu</b>. Chọn <b>Chi tiết</b> để đổi chế độ xếp tiết.</div>
     <div class="assignment-filter-panel" id="autoAssignmentLegacyFilters" hidden aria-label="Bộ lọc phân công">
         <label>
             Lớp
