@@ -8,6 +8,7 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 - Thùng rác cho bộ thời khóa biểu: giữ nguyên dữ liệu vô thời hạn, không tự động dọn; có thể khôi phục, xóa từng mục hoặc làm rỗng thùng rác khi cần.
 - Chỉnh sửa sau xếp lịch: xem trước ảnh hưởng, giữ các tiết hợp lệ, đưa tiết xung đột về kho và lưu bản dự phòng để hoàn tác.
 - Xếp thời khóa biểu tự động theo các ràng buộc.
+- Chế độ môn **Tối đa 2 tiết liên tiếp/buổi**: chọn trong chương trình khối hoặc phân công để chặn chuỗi 3 tiết cùng môn trong cùng lớp và cùng buổi. Sáng/chiều và các ngày tính riêng; mẫu 2 tiết – ngắt 1 tiết – 2 tiết vẫn hợp lệ. Chế độ này cho phép tiết đơn, không bắt buộc ghép đôi; áp dụng cho xếp tự động, ghim và chỉnh lịch thủ công.
 - Lượt xếp đầu ưu tiên xếp đủ tiết, sau đó tối ưu phân bố môn theo ngày, tiết đôi ưu tiên và khoảng trống của giáo viên. Nếu chưa tìm được lịch đầy đủ, hệ thống giữ phương án xếp được nhiều tiết nhất đã tìm thấy; có thể thử xếp lại phần không cố định ở bước cuối.
 - Điều chỉnh thời khóa biểu thủ công bằng cách bấm/chạm chọn tiết rồi chọn ô đích hoặc khay.
 - Xem lịch theo lớp hoặc giáo viên.
@@ -16,6 +17,7 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 - Chia sẻ thời khóa biểu qua liên kết yêu cầu đăng nhập tài khoản; hỗ trợ xuất Excel.
 - Xuất Excel theo phôi mẫu: mỗi lớp có hai cột môn–giáo viên, tiêu đề gộp, Times New Roman; khung và hàng tiết dùng viền đen nét liền mảnh, đường ngăn môn–giáo viên dùng nét chấm. Danh sách GV nghỉ ở sheet riêng. File tải về dùng định dạng `.xlsx`.
 - Hỗ trợ kiểm tra dữ liệu và trợ lý AI.
+- Import kiểm tra TKB nhận bảng Excel mỗi lớp có cặp cột môn–giáo viên và tiêu đề lớp gộp ô; bỏ qua sheet thống kê “GV không có tiết dạy”. Có thể import lại file Excel do ứng dụng xuất ra.
 
 ## Chỉnh sửa sau khi đã xếp lịch
 

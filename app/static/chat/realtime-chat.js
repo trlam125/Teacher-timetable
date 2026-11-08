@@ -40,6 +40,11 @@ import {
   let reconnectAttempt = 0;
   let historyLoaded = false;
   let historyLoading = false;
+  let historyRequestSerial = 0;
+  let historyController = null;
+  let historyCursor = 0;
+  let historyInitialized = false;
+  let hasBeenReady = false;
   let unread = 0;
   let typingTimer = null;
   let sentTyping = false;
@@ -53,6 +58,7 @@ import {
   const renderedMessageIds = new Set();
   const messageStore = new Map();
   const pendingMessages = new Map();
+  const realtimePatches = new Map();
 
   const isOpen = () => popup.classList.contains("is-open");
   const isSuperAdmin = () => String(currentUser.role || "") === "super_admin";
@@ -121,11 +127,14 @@ import {
   }
 
   function resetRoomView() {
+    cancelHistory();
     historyLoaded = false;
-    historyLoading = false;
+    historyCursor = 0;
+    historyInitialized = false;
     renderedMessageIds.clear();
     messageStore.clear();
     pendingMessages.clear();
+    realtimePatches.clear();
     typingUsers.clear();
     roomOnlineUsers.clear();
     clearComposerContext();
@@ -489,7 +498,7 @@ import {
   }
 
   function buildActions(message, own) {
-    if (message.deleted_at || message.pending || message.failed) return null;
+    if (message.deleted_at || message.pending || message.failed || message.uncertain) return null;
     const wrapper = document.createElement("div");
     wrapper.className = "general-chat-message-actions";
 
@@ -544,6 +553,7 @@ import {
     if (time) parts.push(time);
     if (message.failed) parts.push("Gửi thất bại");
     else if (message.pending) parts.push("Đang gửi…");
+    else if (message.uncertain) parts.push("Chưa xác nhận đã gửi · kiểm tra lịch sử trước khi gửi lại");
     else if (own && !message.deleted_at) parts.push("✓ Đã gửi");
     if (message.edited_at && !message.deleted_at) parts.push("Đã chỉnh sửa");
     if (message.deleted_at) parts.push("Đã xóa");
@@ -636,6 +646,18 @@ import {
     article.classList.add("is-failed");
     const footer = article.querySelector(".general-chat-message-footer");
     if (footer) footer.textContent = `${formatClock(pending.created_at)} · Gửi thất bại`;
+  }
+
+  function markPendingUncertain() {
+    for (const [clientId, message] of pendingMessages) {
+      if (!message.pending) continue;
+      message.pending = false;
+      message.uncertain = true;
+      const article = messages.querySelector(`[data-client-id="${CSS.escape(clientId)}"]`);
+      article?.classList.remove("is-pending");
+      const footer = article?.querySelector(".general-chat-message-footer");
+      if (footer) footer.textContent = `${formatClock(message.created_at)} · Chưa xác nhận đã gửi · kiểm tra lịch sử trước khi gửi lại`;
+    }
   }
 
   function rerenderMessage(messageId) {
@@ -762,42 +784,105 @@ import {
     }
   });
 
-  async function loadHistory() {
-    if (!activeSchoolId || historyLoaded || historyLoading) return;
+  function cancelHistory() {
+    ++historyRequestSerial;
+    historyController?.abort();
+    historyController = null;
+    historyLoading = false;
+  }
+
+  function mergeHistoryMessage(raw) {
+    const id = Number(raw.id);
+    const version = row => Math.max(...[row.created_at, row.edited_at, row.deleted_at].map(value => Date.parse(value) || 0));
+    const patch = realtimePatches.get(id);
+    const message = normalizeMessage(patch && version(patch) >= version(raw) ? { ...raw, ...patch } : raw);
+    const current = messageStore.get(id);
+    if (current && version(current) > version(message)) return;
+    if (current) {
+      messageStore.set(id, message);
+      rerenderMessage(id);
+      updateReplyReferences(id, message.content, Boolean(message.deleted_at));
+    } else {
+      appendMessage(message, { noScroll: true });
+    }
+  }
+
+  async function loadHistory({ force = false } = {}) {
+    if (!activeSchoolId || (!force && (historyLoaded || historyLoading))) return;
+    cancelHistory();
+    realtimePatches.clear();
+    const serial = historyRequestSerial;
     const requestedSchoolId = Number(activeSchoolId);
+    const controller = new AbortController();
+    historyController = controller;
     historyLoading = true;
-    try {
-      const response = await fetch(`/api/chat/general/messages?school_id=${encodeURIComponent(requestedSchoolId)}&limit=50`, {
-        credentials: "same-origin",
+    const current = () => serial === historyRequestSerial && requestedSchoolId === Number(activeSchoolId);
+    async function fetchPage(afterId = null) {
+      const cursor = afterId == null ? "" : `&after_id=${afterId}`;
+      const response = await fetch(`/api/chat/general/messages?school_id=${encodeURIComponent(requestedSchoolId)}&limit=100${cursor}`, {
+        credentials: "same-origin", cache: "no-store", signal: controller.signal,
         headers: { "Accept": "application/json" }
       });
       const data = await readJsonResponse(response);
-      if (!response.ok) {
-        throw new Error(
-          data.message || data.detail || `Không tải được nội dung trò chuyện. Hãy kiểm tra kết nối rồi thử lại.`,
-        );
+      if (!current()) return null;
+      if (!response.ok) throw new Error(data.message || data.detail || "Không tải được lịch sử trò chuyện.");
+      return data;
+    }
+    try {
+      const incremental = historyInitialized;
+      if (incremental) {
+        // Re-read the visible history as well: missed edits/deletions must not
+        // leave an older message stale after a long disconnection.
+        let cursor = historyCursor;
+        let more = true;
+        while (more && current()) {
+          const data = await fetchPage(cursor);
+          if (!data) return;
+          const rows = Array.isArray(data.messages) ? data.messages : [];
+          rows.forEach(mergeHistoryMessage);
+          const next = Math.max(cursor, ...rows.map(row => Number(row.id) || 0));
+          more = data.has_more === true;
+          if (more && next <= cursor) throw new Error("Lịch sử trò chuyện chưa đồng bộ được.");
+          cursor = next;
+        }
+      } else {
+        const data = await fetchPage();
+        if (!data) return;
+        const rows = Array.isArray(data.messages) ? data.messages : [];
+        rows.forEach(mergeHistoryMessage);
+        historyCursor = rows.length ? Math.max(0, Math.min(...rows.map(row => Number(row.id))) - 1) : 0;
       }
-      if (requestedSchoolId !== Number(activeSchoolId)) return;
+      if (!current()) return;
       document.getElementById("generalChatLoading")?.remove();
-      const rows = Array.isArray(data.messages) ? data.messages : [];
-      if (!rows.length) {
+      if (!messageStore.size && !pendingMessages.size) {
+        document.getElementById("generalChatNoMessages")?.remove();
         const empty = document.createElement("div");
         empty.className = "general-chat-empty";
         empty.textContent = activeSchoolName ? `Chưa có tin nhắn trong ${activeSchoolName}.` : "Chưa có tin nhắn trong trường này.";
         empty.id = "generalChatNoMessages";
         messages.appendChild(empty);
       } else {
-        rows.forEach(row => appendMessage(row, { noScroll: true }));
-        messages.scrollTop = messages.scrollHeight;
+        removeEmptyState();
       }
+      const confirmed = [...messages.querySelectorAll("[data-message-id]")]
+        .sort((a, b) => Number(a.dataset.messageId) - Number(b.dataset.messageId));
+      confirmed.forEach(node => messages.appendChild(node));
+      messages.querySelectorAll("[data-client-id]:not([data-message-id])").forEach(node => messages.appendChild(node));
+      messages.scrollTop = messages.scrollHeight;
       historyLoaded = true;
+      historyInitialized = true;
     } catch (error) {
+      if (!current() || controller.signal.aborted) return;
       const loadingNode = document.getElementById("generalChatLoading");
       if (loadingNode)
         loadingNode.textContent =
           error?.message || "Chưa tải được lịch sử chat. Hệ thống sẽ thử lại khi bạn mở chat.";
+      else notifyChat(error?.message || "Chưa tải bù được lịch sử chat. Hãy mở lại chat để thử lại.", "error");
     } finally {
-      historyLoading = false;
+      if (current()) {
+        historyLoading = false;
+        historyController = null;
+      }
     }
   }
 
@@ -914,6 +999,11 @@ import {
         (data.online_user_ids || []).forEach(id => globalOnlineUsers.add(Number(id)));
         refreshAllPresenceRows();
         joinActiveSchool();
+        if (hasBeenReady) {
+          historyLoaded = false;
+          if (isOpen() || messageStore.size) loadHistory({ force: true });
+        }
+        hasBeenReady = true;
         return;
       }
 
@@ -973,12 +1063,17 @@ import {
 
       if (data.type === "chat_message_updated" && data.message) {
         if (Number(data.school_id) !== Number(activeSchoolId)) return;
+        realtimePatches.set(Number(data.message.id), { ...realtimePatches.get(Number(data.message.id)), ...data.message });
         applyMessageUpdate(data.message);
         return;
       }
 
       if (data.type === "chat_message_deleted") {
         if (Number(data.school_id) !== Number(activeSchoolId)) return;
+        realtimePatches.set(Number(data.message_id), {
+          ...realtimePatches.get(Number(data.message_id)),
+          content: "Tin nhắn đã bị xóa", deleted_at: data.deleted_at || new Date().toISOString(),
+        });
         applyMessageDelete(data);
         return;
       }
@@ -990,6 +1085,9 @@ import {
     });
 
     socket.addEventListener("close", (event) => {
+      cancelHistory();
+      historyLoaded = false;
+      markPendingUncertain();
       setSocketState("offline");
       globalOnlineUsers.delete(Number(currentUser.id));
       roomOnlineUsers.delete(Number(currentUser.id));

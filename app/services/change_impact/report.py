@@ -35,7 +35,7 @@ def build_report(before, after, request, reasons=None):
                     parts.append(tables[table].get(row[field], {}).get("name", "Đã xóa"))
             if "periods_per_week" in row:
                 parts.append(f"{row['periods_per_week']} tiết/tuần")
-                parts.append({"required_double": "Tiết đôi bắt buộc", "preferred_double": "Ưu tiên tiết đôi"}.get(row["block_mode"], "Tiết đơn"))
+                parts.append({"required_double": "Tiết đôi bắt buộc", "preferred_double": "Ưu tiên tiết đôi", "max_two_consecutive": "Tối đa 2 tiết liên tiếp/buổi"}.get(row["block_mode"], "Tiết đơn"))
             labels.append(" · ".join(parts))
         return labels
 

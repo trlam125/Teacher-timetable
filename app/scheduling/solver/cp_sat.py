@@ -10,7 +10,7 @@ import time
 from .context import SearchBudget, genes_from_candidate as _candidate_genes
 from .problem import SchedulingProblem
 from .scoring import _schedule_soft_score
-from app.scheduling.rules import assignment_prefers_double
+from app.scheduling.rules import assignment_consecutive_limit, assignment_prefers_double
 
 logger = logging.getLogger("smart_tkb")
 
@@ -159,14 +159,12 @@ def solve_cp_sat(
                 occupancy_by_class_subject_slot[
                     (assignment.class_id, assignment.subject_id, candidate)
                 ].append(var)
-    class_subject_pairs = {
-        (assignment.class_id, assignment.subject_id)
-        for assignment in assignments
-        if assignment.subject_id in subjects
-    }
-    for class_id, subject_id in class_subject_pairs:
-        subject = subjects[subject_id]
-        max_run = max(1, int(p.periods_per_session))
+    class_subject_limits = {}
+    for assignment in assignments:
+        key = (assignment.class_id, assignment.subject_id)
+        limit = assignment_consecutive_limit(p, assignment)
+        class_subject_limits[key] = min(class_subject_limits.get(key, limit), limit)
+    for (class_id, subject_id), max_run in class_subject_limits.items():
         window = max_run + 1
         if window > p.periods_per_session:
             continue

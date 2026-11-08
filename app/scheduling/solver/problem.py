@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.scheduling.rules import (
     all_slots,
+    assignment_consecutive_limit,
     assignment_groups,
     assignment_requires_double,
     class_blocked_slots,
@@ -380,7 +381,7 @@ def build_problem(
             | frozenset(global_blocked)
         )
         subject = subjects[assignment.subject_id]
-        max_run = max(1, int(p.periods_per_session))
+        max_run = assignment_consecutive_limit(p, assignment)
         static_subject_slots = existing_class_subject_slots[
             (assignment.class_id, assignment.subject_id)
         ]

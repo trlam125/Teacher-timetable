@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from .context import SearchBudget
 from .problem import SchedulingProblem
 from .scoring import _schedule_soft_score
-from app.scheduling.rules import assignment_prefers_double
+from app.scheduling.rules import assignment_consecutive_limit, assignment_prefers_double
 
 
 def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: int):
@@ -83,9 +83,7 @@ def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: i
             for left, right in zip(run, run[1:]):
                 current = current + 1 if right == left + 1 else 1
                 longest = max(longest, current)
-            if longest > max(
-                1, int(p.periods_per_session)
-            ):
+            if longest > assignment_consecutive_limit(p, assignment):
                 continue
             adjacent_same = 0
             if assignment_prefers_double(assignment):

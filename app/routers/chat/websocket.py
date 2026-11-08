@@ -54,48 +54,48 @@ async def realtime_socket(websocket: WebSocket):
 
     await websocket.accept()
     connection_id = secrets.token_urlsafe(12)
-    # Register on the event-loop thread so the PostgreSQL listener captures
-    # the correct loop; registration itself only happens once per socket.
-    first_connection = realtime_manager.add(account.id, connection_id, websocket)
-    last_seen = touch_user_last_seen(account.id)
-    last_session_check_at = time.monotonic()
-
-    db = SessionLocal()
     try:
-        visible_user_ids = presence_visible_user_ids(db, account)
-        presence_recipients = presence_recipients_for_user(db, account)
-    finally:
-        db.close()
+        # Register on the event-loop thread so the PostgreSQL listener captures
+        # the correct loop; registration itself only happens once per socket.
+        first_connection = realtime_manager.add(account.id, connection_id, websocket)
+        last_seen = touch_user_last_seen(account.id)
+        last_session_check_at = time.monotonic()
 
-    visible_online_ids = await asyncio.to_thread(
-        realtime_manager.online_user_ids_for, visible_user_ids
-    )
-    await websocket.send_json(
-        {
-            "type": "ready",
-            "user_id": account.id,
-            "user_name": account.name,
-            "online_user_ids": visible_online_ids,
-            "online_count": len(visible_online_ids),
-        }
-    )
-    if first_connection:
-        presence_online_ids = await asyncio.to_thread(
-            realtime_manager.online_user_ids_for, presence_recipients
+        db = SessionLocal()
+        try:
+            visible_user_ids = presence_visible_user_ids(db, account)
+            presence_recipients = presence_recipients_for_user(db, account)
+        finally:
+            db.close()
+
+        visible_online_ids = await asyncio.to_thread(
+            realtime_manager.online_user_ids_for, visible_user_ids
         )
-        await realtime_manager.broadcast(
+        await websocket.send_json(
             {
-                "type": "presence",
+                "type": "ready",
                 "user_id": account.id,
-                "online": True,
-                "last_seen": last_seen,
-                "online_count": len(presence_online_ids),
-            },
-            only_user_ids=presence_recipients,
+                "user_name": account.name,
+                "online_user_ids": visible_online_ids,
+                "online_count": len(visible_online_ids),
+            }
         )
-        await broadcast_school_presence(account, True, last_seen)
+        if first_connection:
+            presence_online_ids = await asyncio.to_thread(
+                realtime_manager.online_user_ids_for, presence_recipients
+            )
+            await realtime_manager.broadcast(
+                {
+                    "type": "presence",
+                    "user_id": account.id,
+                    "online": True,
+                    "last_seen": last_seen,
+                    "online_count": len(presence_online_ids),
+                },
+                only_user_ids=presence_recipients,
+            )
+            await broadcast_school_presence(account, True, last_seen)
 
-    try:
         while True:
             # Idle sockets still expire on a short interval. Active events are
             # validated once below with the same DB row used by the event.
@@ -412,30 +412,39 @@ async def realtime_socket(websocket: WebSocket):
         pass
     except Exception:
         logger.exception("Realtime WebSocket error for user_id=%s", account.id)
-    finally:
-        # Remove this socket before broadcasting cleanup events, so a revoked
-        # connection is not selected again while its close handler is running.
-        became_offline = await asyncio.to_thread(
-            realtime_manager.remove, account.id, connection_id
-        )
-        # Clear typing state in every school the account can access.
-        db = SessionLocal()
         try:
-            for school_id in user_school_ids(account, db):
-                recipients = school_chat_user_ids(db, school_id)
-                await realtime_manager.broadcast(
-                    {
-                        "type": "typing",
-                        "school_id": school_id,
-                        "user_id": account.id,
-                        "user_name": account.name,
-                        "typing": False,
-                    },
-                    exclude_user_id=account.id,
-                    only_user_ids=recipients,
-                )
-        finally:
-            db.close()
-        if became_offline:
-            last_seen = touch_user_last_seen(account.id)
-            asyncio.create_task(_broadcast_delayed_offline(account.id, last_seen))
+            await websocket.close(code=1011)
+        except Exception:
+            pass
+    finally:
+        # Local cleanup must run before any await or database operation.
+        realtime_manager.discard_local(account.id, connection_id)
+        try:
+            # Remove this socket before broadcasting cleanup events, so a revoked
+            # connection is not selected again while its close handler is running.
+            became_offline = await asyncio.to_thread(
+                realtime_manager.remove, account.id, connection_id
+            )
+            # Clear typing state in every school the account can access.
+            db = SessionLocal()
+            try:
+                for school_id in user_school_ids(account, db):
+                    recipients = school_chat_user_ids(db, school_id)
+                    await realtime_manager.broadcast(
+                        {
+                            "type": "typing",
+                            "school_id": school_id,
+                            "user_id": account.id,
+                            "user_name": account.name,
+                            "typing": False,
+                        },
+                        exclude_user_id=account.id,
+                        only_user_ids=recipients,
+                    )
+            finally:
+                db.close()
+            if became_offline:
+                last_seen = touch_user_last_seen(account.id)
+                asyncio.create_task(_broadcast_delayed_offline(account.id, last_seen))
+        except Exception:
+            logger.exception("Realtime cleanup failed for user_id=%s", account.id)

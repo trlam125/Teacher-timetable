@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.models import Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher
 from app.scheduling.rules import (
+    assignment_consecutive_limit,
     assignment_requires_double,
     class_blocked_slots,
     parse_slots,
@@ -143,7 +144,7 @@ def _minimal_schedule_invalid_lesson_analysis(
             )
             continue
 
-        consecutive_limit = project.periods_per_session
+        consecutive_limit = assignment_consecutive_limit(project, assignment)
         if exceeds_subject_run(
             class_subject_session_periods[subject_run_key],
             period,
@@ -151,7 +152,8 @@ def _minimal_schedule_invalid_lesson_analysis(
         ):
             reject(
                 lesson,
-                f"Môn {subject.name} vượt giới hạn {consecutive_limit} tiết liên tiếp.",
+                f"Môn {subject.name} của lớp {school_class.name} vượt giới hạn "
+                f"{consecutive_limit} tiết liên tiếp trong cùng một buổi.",
             )
             continue
 

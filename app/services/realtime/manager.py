@@ -257,7 +257,8 @@ class RealtimeConnectionManager:
         finally:
             db.close()
 
-    def remove(self, user_id: int, connection_id: str) -> bool:
+    def discard_local(self, user_id: int, connection_id: str) -> None:
+        """Always release local socket state, even when DB cleanup fails."""
         with self._lock:
             sockets = self._connections.get(user_id)
             if sockets:
@@ -266,6 +267,8 @@ class RealtimeConnectionManager:
                     self._connections.pop(user_id, None)
             self._send_locks.pop(connection_id, None)
 
+    def remove(self, user_id: int, connection_id: str) -> bool:
+        self.discard_local(user_id, connection_id)
         db = SessionLocal()
         try:
             self._lock_user_presence(db, user_id)

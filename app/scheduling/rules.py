@@ -19,7 +19,15 @@ from app.models import (
     Teacher,
 )
 
-BLOCK_MODES = {"free", "preferred_double", "required_double"}
+BLOCK_MODES = {"free", "preferred_double", "required_double", "max_two_consecutive"}
+
+
+def assignment_consecutive_limit(project: Project, assignment: Assignment) -> int:
+    """Limit a class/subject run within one morning or afternoon session."""
+    session_length = max(1, int(project.periods_per_session))
+    if getattr(assignment, "block_mode", "free") == "max_two_consecutive":
+        return min(2, session_length)
+    return session_length
 
 
 def slot_meta(project: Project, slot: int):
@@ -134,6 +142,14 @@ def normalized_block_mode(
         raise ValueError(
             f"Số tiết/tuần không được vượt quá {total_slots} ô của thời khóa biểu."
         )
+    if mode == "max_two_consecutive":
+        pps = int(project.periods_per_session)
+        capacity = project.days * project.sessions * (pps - pps // 3)
+        if total_periods > capacity:
+            raise ValueError(
+                f"Chế độ tối đa 2 tiết liên tiếp/buổi chỉ cho phép {capacity} tiết/tuần "
+                "trong số ngày, buổi và tiết hiện có. Hãy giảm số tiết hoặc đổi chế độ."
+            )
     if mode in {"preferred_double", "required_double"} and total_periods >= 2:
         if project.periods_per_session < 2:
             raise ValueError("Mỗi buổi phải có ít nhất 2 tiết để dùng chế độ tiết đôi.")
@@ -443,12 +459,28 @@ def ensure_assignment_hard_feasible(
     ):
         blocked.update(parse_slots(stored) if override is None else override)
     capacity = len(set(all_slots(project)) - blocked)
+    if mode == "max_two_consecutive":
+        capacity = 0
+        pps = project.periods_per_session
+        for base in range(0, len(all_slots(project)), pps):
+            run = 0
+            for offset in range(pps):
+                if base + offset in blocked:
+                    run = 0
+                else:
+                    run += 1
+                    # Leave every third available period to break a subject run.
+                    capacity += int(run % 3 != 0)
     if total_periods > capacity:
+        run_note = (
+            " và giới hạn tối đa 2 tiết cùng môn liên tiếp trong một buổi"
+            if mode == "max_two_consecutive" else ""
+        )
         raise HTTPException(
             409,
             f"Không thể phân công {school_class.name} – {subject.name} cho {teacher.name}: "
             f"cần {total_periods} tiết/tuần nhưng các ô cùng khả dụng chỉ cho phép "
-            f"tối đa {capacity} tiết theo tiết tránh và khóa lịch. "
+            f"tối đa {capacity} tiết theo tiết tránh và khóa lịch{run_note}. "
             "Hãy điều chỉnh ràng buộc hoặc giảm số tiết.",
         )
 

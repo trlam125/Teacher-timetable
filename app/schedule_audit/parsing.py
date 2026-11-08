@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import posixpath
 import re
 import unicodedata
 import zipfile
@@ -11,6 +12,7 @@ from typing import Any, Iterable
 from xml.etree import ElementTree as ET
 
 from openpyxl import load_workbook
+from openpyxl.utils.cell import range_boundaries
 
 
 MAX_ARCHIVE_UNCOMPRESSED_BYTES = 80 * 1024 * 1024
@@ -71,12 +73,47 @@ def _archive_size_guard(content: bytes) -> None:
         )
 
 
+def _excel_paired_class_headers(content: bytes) -> dict[str, list[tuple[int, int]]]:
+    """Read only merged-header coordinates while keeping Excel reads streaming."""
+    namespace = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    relationship_id = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+    result: dict[str, list[tuple[int, int]]] = {}
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        if not {"xl/workbook.xml", "xl/_rels/workbook.xml.rels"}.issubset(archive.namelist()):
+            return result
+        workbook = ET.fromstring(archive.read("xl/workbook.xml"))
+        relationships = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+        paths = {}
+        for item in relationships:
+            if item.get("TargetMode") == "External":
+                continue
+            target = item.get("Target", "")
+            paths[item.get("Id")] = (
+                target.lstrip("/") if target.startswith("/") else posixpath.normpath(posixpath.join("xl", target))
+            )
+        for sheet in workbook.findall("s:sheets/s:sheet", namespace):
+            path = paths.get(sheet.get(relationship_id))
+            if not path:
+                continue
+            pairs = []
+            with archive.open(path) as stream:
+                for _event, element in ET.iterparse(stream, events=("end",)):
+                    if element.tag == "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}mergeCell":
+                        left, top, right, bottom = range_boundaries(element.get("ref", ""))
+                        if top == bottom and right == left + 1:
+                            pairs.append((top - 1, left - 1))
+                    element.clear()
+            result[sheet.get("name", "")] = pairs
+    return result
+
+
 def _read_excel_tables(
     content: bytes, suffix: str
 ) -> list[tuple[str, list[list[str]]]]:
     if suffix in {".xlsx", ".xlsm"}:
         _archive_size_guard(content)
         try:
+            paired_headers = _excel_paired_class_headers(content)
             workbook = load_workbook(
                 io.BytesIO(content), read_only=True, data_only=True
             )
@@ -91,6 +128,21 @@ def _read_excel_tables(
                     [_cell_text(value) for value in row]
                     for row in sheet.iter_rows(values_only=True)
                 ]
+                for row_index, column in paired_headers.get(sheet.title, []):
+                    if row_index >= len(rows):
+                        continue
+                    header = rows[row_index]
+                    kinds = {_header_kind(value) for value in header}
+                    if not {"day", "period"}.issubset(kinds):
+                        continue
+                    if column >= len(header) or not _standalone_looks_like_class(header[column]):
+                        continue
+                    # A merged class heading explicitly owns both columns.
+                    # Mark the right-hand role without filling merged lesson cells.
+                    if len(header) <= column + 1:
+                        header.extend([""] * (column + 2 - len(header)))
+                    if not header[column + 1]:
+                        header[column + 1] = "Giáo viên"
                 tables.append((sheet.title, rows))
         finally:
             workbook.close()
@@ -489,6 +541,10 @@ _WIDE_TABLE_AUXILIARY_HEADERS = {
     "giao vien nghi",
     "gv vang",
     "giao vien vang",
+    "gv khong co tiet day",
+    "giao vien khong co tiet day",
+    "gv khong day",
+    "giao vien khong day",
     "ghi chu",
     "chu thich",
     "note",
@@ -1153,6 +1209,16 @@ def _standalone_parse_wide(
         if sampled
         else False
     )
+    teacher_columns = {}
+    if not teacher_wide:
+        header = rows[header_index]
+        for col, label in entity_cols:
+            if (
+                _standalone_looks_like_class(label)
+                and col + 1 < len(header)
+                and _header_kind(header[col + 1]) == "teacher"
+            ):
+                teacher_columns[col] = col + 1
 
     parsed: list[RawLesson] = []
     last_day = ""
@@ -1239,16 +1305,18 @@ def _standalone_parse_wide(
                     )
                 )
             else:
-                class_name, subject_name, teacher_name = _standalone_parse_cell(
-                    lesson, fixed_class=header
-                )
+                separate_teacher = _cell_text(get(teacher_columns[col])) if col in teacher_columns else ""
+                if col in teacher_columns:
+                    class_name, subject_name, teacher_name = header, lesson, separate_teacher
+                else:
+                    class_name, subject_name, teacher_name = _standalone_parse_cell(lesson, fixed_class=header)
                 parsed.append(
                     RawLesson(
                         day,
                         session,
                         period,
                         class_name or header,
-                        lesson_text=lesson,
+                        lesson_text=" · ".join(part for part in (lesson, separate_teacher) if part),
                         subject_text=subject_name,
                         teacher_text=teacher_name,
                         source=f"{title} · dòng {row_no}",
@@ -1259,7 +1327,9 @@ def _standalone_parse_wide(
         return [], ""
     return (
         parsed,
-        "Bảng tổng hợp theo giáo viên" if teacher_wide else "Bảng tổng hợp theo lớp",
+        "Bảng tổng hợp theo giáo viên" if teacher_wide else (
+            "Bảng tổng hợp theo lớp · cột môn/giáo viên" if teacher_columns else "Bảng tổng hợp theo lớp"
+        ),
     )
 
 
@@ -1295,7 +1365,12 @@ def parse_tables_standalone(
         if parsed:
             all_rows.extend(parsed)
             layouts.add(layout)
-        elif any(
+        elif not any(
+            normalize_text(value) in {
+                "gv khong co tiet day", "giao vien khong co tiet day", "gv khong day", "giao vien khong day",
+            }
+            for row in rows[:30] for value in row
+        ) and any(
             _header_kind(value) in {"day", "period"}
             for row in rows[:30]
             for value in row

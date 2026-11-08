@@ -14,6 +14,9 @@
   let loading = false;
   let disposed = false;
   let lastId = null;
+  let timer = null;
+  let requestSerial = 0;
+  let requestController = null;
 
   const messages = {
     empty: 'Ch\u01b0a c\u00f3 th\u00f4ng b\u00e1o n\u00e0o.',
@@ -193,20 +196,28 @@
   async function refresh() {
     if (loading || disposed || document.hidden) return;
     loading = true;
+    const serial = ++requestSerial;
+    const controller = new AbortController();
+    requestController = controller;
     try {
       const response = await fetch('/api/notifications' + suffix, {
-        credentials: 'same-origin', cache: 'no-store'
+        credentials: 'same-origin', cache: 'no-store', signal: controller.signal
       });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const result = await response.json();
+      if (disposed || serial !== requestSerial) return;
       const newest = result.items.length ? Number(result.items[0].id) : 0;
       if (lastId !== null && newest > lastId) announce(messages.updated);
       lastId = Math.max(lastId || 0, newest);
       render(result.items, Number(result.unread_count || 0));
     } catch (_) {
+      if (disposed || serial !== requestSerial || controller.signal.aborted) return;
       if (lastId === null) list.replaceChildren(el('p', 'tkb-notification-empty', messages.error));
     } finally {
-      loading = false;
+      if (serial === requestSerial) {
+        loading = false;
+        requestController = null;
+      }
     }
   }
   bell.addEventListener('click', () => {
@@ -242,7 +253,22 @@
     finally { markAll.disabled = false; }
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  const timer = setInterval(refresh, 12000);
-  window.addEventListener('pagehide', () => { disposed = true; clearInterval(timer); }, { once: true });
-  refresh();
+  function resume() {
+    disposed = false;
+    if (timer === null) timer = setInterval(refresh, 12000);
+    refresh();
+  }
+  window.addEventListener('pagehide', () => {
+    disposed = true;
+    ++requestSerial;
+    requestController?.abort();
+    requestController = null;
+    loading = false;
+    clearInterval(timer);
+    timer = null;
+  });
+  window.addEventListener('pageshow', event => {
+    if (event.persisted || disposed) resume();
+  });
+  resume();
 })();

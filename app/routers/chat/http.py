@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -30,19 +30,24 @@ def general_chat_messages(
     limit: int = 50,
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
+    after_id: int | None = Query(None, ge=0),
 ):
     school = db.get(School, school_id)
     if not school or not user_can_access_school(user, school_id, db):
         raise HTTPException(403, "Bạn không có quyền truy cập chat của trường này")
 
     safe_limit = max(1, min(int(limit or 50), 100))
-    rows = db.scalars(
-        select(ChatMessage)
-        .where(ChatMessage.school_id == school_id)
-        .order_by(ChatMessage.id.desc())
-        .limit(safe_limit)
-    ).all()
-    ordered_rows = list(reversed(rows))
+    query = select(ChatMessage).where(ChatMessage.school_id == school_id)
+    if after_id is not None:
+        rows = db.scalars(
+            query.where(ChatMessage.id > after_id).order_by(ChatMessage.id.asc()).limit(safe_limit + 1)
+        ).all()
+        has_more = len(rows) > safe_limit
+        ordered_rows = rows[:safe_limit]
+    else:
+        rows = db.scalars(query.order_by(ChatMessage.id.desc()).limit(safe_limit)).all()
+        has_more = False
+        ordered_rows = list(reversed(rows))
     reply_ids = {
         int(row.reply_to_id) for row in ordered_rows if row.reply_to_id is not None
     }
@@ -92,4 +97,8 @@ def general_chat_messages(
         }
         for row in ordered_rows
     ]
-    return {"school": {"id": school.id, "name": school.name}, "messages": messages}
+    return {
+        "school": {"id": school.id, "name": school.name}, "messages": messages,
+        "has_more": has_more,
+        "next_after_id": ordered_rows[-1].id if ordered_rows else after_id,
+    }

@@ -28,13 +28,13 @@ function changeDisplayValue(value, field) {
     if (row.teacher_id) labels.push(name("teachers", row.teacher_id));
     if (row.subject_id) labels.push(name("subjects", row.subject_id));
     if (row.periods_per_week) labels.push(`${row.periods_per_week} tiết/tuần`);
-    if (row.block_mode) labels.push(row.block_mode === "required_double" ? "Tiết đôi bắt buộc" : row.block_mode === "preferred_double" ? "Ưu tiên tiết đôi" : "Tiết đơn");
+    if (row.block_mode) labels.push(changeDisplayValue(row.block_mode, "Chế độ tiết"));
     return labels.join(" · ");
   }).join("; ") || "Trống";
   if (field === "Tiết tránh" || field === "Khóa lịch") {
     try { return JSON.parse(value).map(changeSlotLabel).join(", ") || "Không có"; } catch { return String(value); }
   }
-  if (field === "Chế độ tiết") return value === "required_double" ? "Tiết đôi bắt buộc" : value === "preferred_double" ? "Ưu tiên tiết đôi" : "Tiết đơn";
+  if (field === "Chế độ tiết") return ({required_double: "Tiết đôi bắt buộc", preferred_double: "Ưu tiên tiết đôi", max_two_consecutive: "Tối đa 2 tiết liên tiếp/buổi"})[value] || "Tiết đơn";
   return String(value ?? "—");
 }
 

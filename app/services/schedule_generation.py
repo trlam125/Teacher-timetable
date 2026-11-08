@@ -138,6 +138,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                     "free": "Tự do",
                     "preferred_double": "Ưu tiên tiết đôi",
                     "required_double": "Bắt buộc tiết đôi",
+                    "max_two_consecutive": "Tối đa 2 tiết liên tiếp/buổi",
                 }
                 current_mode = mode_labels.get(
                     item["assigned_mode"], item["assigned_mode"]

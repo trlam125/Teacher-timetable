@@ -69,6 +69,7 @@ def ga_schedule(
         repaired = repair_placements(
             task_rows, task_candidates, genes_from_candidate(best_candidate),
             existing, assignment_by_id,
+            project=p,
             deadline=min(deadline, time.monotonic() + max(0.1, min(3.0, time_left() * 0.25))),
         )
         final_slots = defaultdict(set)

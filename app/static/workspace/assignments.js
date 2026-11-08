@@ -38,6 +38,8 @@ function describeBlockMode(mode, total) {
   }
   if (mode === "preferred_double")
     return "Ưu tiên tiết đôi · có thể tách khi cần";
+  if (mode === "max_two_consecutive")
+    return "Tối đa 2 tiết liên tiếp/buổi · sáng và chiều tính riêng";
   return "Tự do · xếp riêng hoặc liền nhau";
 }
 function updateAssignmentEditPreview(form) {

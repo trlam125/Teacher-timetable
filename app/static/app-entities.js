@@ -68,9 +68,12 @@ function renderAll() {
   }
   restoreEntitySelections(selectedRows);
 }
-function blockModeEditor(mode = "free") {
+function blockModeOptions(mode = "free") {
   const selected = (value) => (value === mode ? "selected" : "");
-  return `<label>Chế độ xếp tiết<select name="block_mode" onchange="updateBlockModePreview(this.form)"><option value="free" ${selected("free")}>Tự do</option><option value="preferred_double" ${selected("preferred_double")}>Ưu tiên tiết đôi</option><option value="required_double" ${selected("required_double")}>Bắt buộc tiết đôi</option></select><small class="block-mode-help">Tự do: các tiết độc lập. Ưu tiên: cố gắng ghép đôi nhưng được tách. Bắt buộc: hệ thống chia thành các cặp 2 tiết; nếu tổng số tiết lẻ thì còn 1 tiết đơn.</small></label><div class="block-mode-preview" data-block-preview></div>`;
+  return `<option value="free" ${selected("free")}>Tự do</option><option value="preferred_double" ${selected("preferred_double")}>Ưu tiên tiết đôi</option><option value="required_double" ${selected("required_double")}>Bắt buộc tiết đôi</option><option value="max_two_consecutive" ${selected("max_two_consecutive")}>Tối đa 2 tiết liên tiếp/buổi</option>`;
+}
+function blockModeEditor(mode = "free") {
+  return `<label>Chế độ xếp tiết<select name="block_mode" onchange="updateBlockModePreview(this.form)">${blockModeOptions(mode)}</select><small class="block-mode-help">Tự do: các tiết độc lập. Ưu tiên: cố gắng ghép đôi nhưng được tách. Bắt buộc: chia thành cặp 2 tiết và 1 tiết đơn nếu lẻ. Tối đa 2: không xếp 3 tiết cùng môn liên tiếp trong một buổi của lớp; sáng và chiều tính riêng, không bắt buộc ghép đôi.</small></label><div class="block-mode-preview" data-block-preview></div>`;
 }
 function updateBlockModePreview(form) {
   if (!form) return;
@@ -99,8 +102,7 @@ function gradeRequirementPicker(selectedRows = []) {
   const selected = new Map(
     (selectedRows || []).map((item) => [Number(item.subject_id), item]),
   );
-  const modeOptions = (mode) =>
-    `<option value="free" ${mode === "free" ? "selected" : ""}>Tự do</option><option value="preferred_double" ${mode === "preferred_double" ? "selected" : ""}>Ưu tiên tiết đôi</option><option value="required_double" ${mode === "required_double" ? "selected" : ""}>Bắt buộc tiết đôi</option>`;
+  const modeOptions = blockModeOptions;
   return `<div class="teacher-subject-picker"><div class="assignment-pick-head"><b>Chương trình môn chuẩn của khối</b><div class="assignment-pick-actions"><button type="button" onclick="selectGradeRequirements(this.form,true)">Chọn tất cả</button><button type="button" onclick="selectGradeRequirements(this.form,false)">Bỏ chọn</button></div></div><div class="assignment-pick-list">${data.subjects.length
     ? data.subjects
       .map((item) => {
@@ -291,7 +293,7 @@ function renderBulkAssignmentChoices(value) {
       '<div class="assignment-bulk-empty">Giáo viên này chưa được cấu hình môn có thể dạy. Hãy vào mục Giáo viên → Sửa và tick môn trước.</div>';
     return;
   }
-  const modeOptions = `<option value="free">Tự do</option><option value="preferred_double">Ưu tiên tiết đôi</option><option value="required_double">Bắt buộc tiết đôi</option>`;
+  const modeOptions = blockModeOptions();
   const subjectRows = subjects
     .map(
       (item) =>
