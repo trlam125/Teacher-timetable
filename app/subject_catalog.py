@@ -69,9 +69,3 @@ def canonical_subject_name(value: Any) -> str:
 def subject_sort_key(value: Any) -> tuple[int, str]:
     key = subject_key(value)
     return SUBJECT_RANK.get(key, len(STANDARD_SUBJECTS)), canonical_subject_name(value).casefold()
-
-
-def canonical_subject_short_name(short_name: Any, full_name: Any) -> str:
-    """Normalize a short alias only if it identifies the same school subject."""
-    short = unicodedata.normalize('NFC', str(short_name or '')).strip()
-    return canonical_subject_name(short) if short and subject_key(short) == subject_key(full_name) else short

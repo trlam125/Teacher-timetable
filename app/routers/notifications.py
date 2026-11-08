@@ -15,7 +15,7 @@ from app.services.notification_models import (
     ScheduleNotification, ScheduleNotificationDetail, ScheduleNotificationRead
 )
 from app.services.authentication.sessions import current_user, db_session
-from app.services.auth import is_admin, is_super_admin, user_school_ids
+from app.services.authentication.permissions import is_admin, is_super_admin, user_school_ids
 
 router = APIRouter()
 

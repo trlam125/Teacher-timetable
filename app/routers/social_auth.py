@@ -12,11 +12,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import OAuthAttempt, RegistrationVerification, SocialIdentity, User
-from app.services.auth import (
-    clear_rate_limit_bucket, client_rate_limit_key, db_session, is_admin, pwd,
-    rate_limit_blocked, rate_limit_exceeded,
-    set_session_cookie,
+from app.services.authentication.credentials import pwd
+from app.services.authentication.permissions import is_admin
+from app.services.authentication.rate_limits import (
+    clear_rate_limit_bucket, client_rate_limit_key, rate_limit_blocked, rate_limit_exceeded,
 )
+from app.services.authentication.sessions import db_session, set_session_cookie
 from app.services.social_auth import (
     PROVIDER_NAMES, SocialAuthError, authorization_url, digest, exchange_identity,
     provider_config,
@@ -52,7 +53,7 @@ def clear_cookies(response):
 def failure(request, message):
     # Render at /login after redirect so the password form posts to /login.
     # Only fixed application messages are signed into the short-lived notice cookie.
-    from app.services.auth import signer
+    from app.services.authentication.credentials import signer
     response = RedirectResponse("/login", 303)
     response.set_cookie("oauth_notice", signer.dumps({"message": message}), max_age=60,
                         httponly=True, secure=APP_ENV == "production" or APP_BASE_URL.startswith("https://"), samesite="lax")

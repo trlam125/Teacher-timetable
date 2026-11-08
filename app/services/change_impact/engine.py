@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
-from app.models import Assignment, Department, Grade, Lesson, SchoolClass, Subject, Teacher
+from app.models import Assignment, Department, Grade, SchoolClass, Subject, Teacher
 from app.services.change_impact.assignments import edit_assignment
 from app.services.change_impact.reconcile import protect_assignment
 from app.services.change_impact.state import capture, schedule_unchanged

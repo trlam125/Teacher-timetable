@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy import select
 
-from app.models import Assignment, SchoolClass, Subject, Teacher, TeacherSubject
+from app.models import SchoolClass, Subject, Teacher, TeacherSubject
 from app.scheduling.rules import bounded_int, ensure_assignment_hard_feasible, normalized_block_mode
 from app.services.entities.curriculum.validation import ensure_assignment_matches_grade_requirement
 from app.services.entities.validation import class_assigned_periods, ensure_class_load_fits

@@ -96,6 +96,8 @@ function selectScheduleAuditFile(file, { autoRun = true } = {}) {
   scheduleAuditTableExpanded = false;
   resetScheduleAuditAiResult();
   setScheduleAuditFile(file);
+  const formatGuide = $("#scheduleAuditFormatGuide");
+  if (formatGuide) formatGuide.open = false;
   if (autoRun) runScheduleAudit();
   return true;
 }

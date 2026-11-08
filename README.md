@@ -36,17 +36,21 @@ Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng l
 - **Frontend:** HTML, CSS, JavaScript, Jinja2
 - **Server:** Uvicorn
 
-## Cấu trúc và kiểm thử
+## Cấu trúc và kiểm tra mã
 
-Xem [hướng dẫn kiến trúc](docs/ARCHITECTURE.md) để tìm mô-đun phụ trách từng phần.
+- `app/routers/`: xử lý các trang và yêu cầu từ giao diện.
+- `app/services/`: nghiệp vụ tài khoản, dữ liệu và chỉnh sửa lịch.
+- `app/scheduling/`: ràng buộc và bộ xếp thời khóa biểu.
+- `app/schedule_audit/`: đọc tệp và kiểm tra thời khóa biểu.
+- `app/templates/`, `app/static/`: giao diện, JavaScript và CSS.
 
-Chạy kiểm thử sau khi cài dependencies và kích hoạt môi trường ảo:
+Kiểm tra cú pháp Python bằng lệnh đang dùng trên GitHub Actions:
 
 ```text
-python -m unittest discover -s tests -t . -v
+python -m compileall -q app
 ```
 
-Bộ kiểm thử không cần kết nối Neon. Khởi tạo DB của ứng dụng chạy khi FastAPI bắt đầu phục vụ, thay vì khi import mô-đun.
+Khởi tạo DB chạy khi ứng dụng bắt đầu phục vụ, thay vì khi import mô-đun.
 
 ### Kiểm tra tương thích viền Excel
 
@@ -54,15 +58,7 @@ Hai nút xuất Excel trong workspace cùng tải từ `/projects/{id}/export.xl
 
 openpyxl 3.1.5 ghi các định nghĩa viền nhưng không xuất `applyBorder` trong `cellXfs` của `xl/styles.xml`. Theo file đã được đối chiếu trên máy gặp lỗi, thêm `applyBorder="1"` giúp Excel hiển thị lại viền. `serialize_timetable_workbook()` áp dụng bước tương thích này sau khi lưu workbook, qua helper `services/excel_compat.py`. Helper chỉ bật cờ cho style tham chiếu viền thực sự có cạnh được định dạng; giữ nguyên ID, nét liền/chấm và các thành phần khác của file. ZIP/XML lỗi sẽ làm xuất file thất bại, thay vì tải xuống file không hợp lệ.
 
-Chạy riêng kiểm thử xuất Excel bằng dữ liệu giả, không kết nối Neon:
-
-```text
-python -m unittest tests.test_excel_export -v
-```
-
-Kiểm thử đối chiếu XML trước/sau, nội dung, công thức, ô gộp, định dạng, thiết lập in, cả hai sheet và phản hồi tải file. GitHub Actions vẫn chỉ kiểm tra cú pháp Python.
-
-Sau khi triển khai, xuất **file mới** rồi mở cùng file trên máy đang hiển thị đúng và máy từng mất viền. Tắt Gridlines, kiểm tra ở Normal/Zoom 100%, Format Cells → Border, Print Preview và Save As rồi mở lại. Kiểm thử tự động không thay thế bước xác nhận thực tế trên hai máy này.
+Sau khi triển khai, xuất **file mới** rồi mở cùng file trên máy đang hiển thị đúng và máy từng mất viền. Tắt Gridlines, kiểm tra ở Normal/Zoom 100%, Format Cells → Border, Print Preview và Save As rồi mở lại.
 
 ## Yêu cầu
 
