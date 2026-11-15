@@ -87,8 +87,7 @@
 
 /* Khóa thao tác xếp trong lúc đang kiểm tra ô hợp lệ hoặc đang ghi thay đổi. */
 body.tap-assign-busy #scheduleGrid,
-body.tap-assign-busy .unscheduled-tray,
-body.tap-assign-busy .scheduled-cards {
+body.tap-assign-busy .unscheduled-tray {
   pointer-events: none;
   user-select: none;
 }

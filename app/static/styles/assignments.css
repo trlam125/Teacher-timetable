@@ -447,98 +447,6 @@
   font-weight: 700;
 }
 
-.assignment-ok {
-  display: block;
-  margin-top: 6px;
-  color: #15803d;
-  font-weight: 700;
-}
-
-.assignment-load-card {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(150px, 1fr));
-  gap: 8px;
-  margin: 10px 0 12px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg);
-}
-
-.assignment-load-metric {
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: 9px;
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-}
-
-.assignment-load-metric small {
-  display: block;
-  margin-bottom: 3px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.assignment-load-metric b {
-  display: block;
-  color: var(--ink);
-  font-size: 15px;
-  white-space: nowrap;
-}
-
-.assignment-load-metric.over {
-  border-color: #fca5a5;
-  background: #fef2f2;
-}
-
-.assignment-load-metric.over b {
-  color: #b91c1c;
-}
-
-:root.dark-mode .assignment-load-metric.over {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.15);
-}
-
-:root.dark-mode .assignment-load-metric.over b {
-  color: #fca5a5;
-}
-
-.assignment-load-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 125px;
-}
-
-.assignment-load-cell b {
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-.assignment-load-cell small {
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.assignment-load-cell.over b,
-.assignment-load-cell.over small {
-  color: #b91c1c;
-}
-
-:root.dark-mode .assignment-load-cell.over b,
-:root.dark-mode .assignment-load-cell.over small {
-  color: #fca5a5;
-}
-
-@media (max-width: 720px) {
-  .assignment-load-card {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .assignment-filter-panel {
   display: grid;
   grid-template-columns:
@@ -661,8 +569,6 @@
     width: 100%;
   }
 }
-
-
 
 /* Compact grade/subject assignment matrix (automatic scheduler). */
 /* Four class groups should remain visible on a typical desktop without horizontal scrolling. */

@@ -28,7 +28,6 @@
 .audit-format-guide:not([open]) .audit-format-collapse { display: none; }
 .audit-format-guide[open] .audit-format-guide-toggle > span:last-child { transform: rotate(180deg); }
 .audit-format-guide-body { padding: 0 22px 20px; }
-.audit-format-intro,
 .audit-format-tip { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.7; }
 .audit-format-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .audit-format-card { min-width: 0; margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
@@ -711,59 +710,6 @@
   .schedule-audit-standalone {
     padding-right: max(clamp(10px, 2vw, 30px), env(safe-area-inset-right));
   }
-}
-
-.schedule-audit-context {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--card-bg);
-}
-
-.schedule-audit-context>div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.schedule-audit-context b {
-  color: var(--ink);
-}
-
-.schedule-audit-context small {
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-@media (max-width: 720px) {
-  .schedule-audit-context {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .schedule-audit-context>div {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 5px;
-  }
-}
-
-.schedule-audit-context.standalone>div {
-  flex-wrap: wrap;
-}
-
-.schedule-audit-context.standalone small {
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
 }
 
 /* Standalone schedule audit viewer: imported file is shown as a timetable, not an editor. */
@@ -2362,8 +2308,7 @@
 .weekly-load-state.unverified { color: #996306; }
 .weekly-load-teacher > summary { cursor: pointer; font-weight: 650; }
 .weekly-load-detail { min-width: 320px; padding: 13px 0 8px; }
-.weekly-load-assignment { line-height: 1.65; margin: 7px 0 14px; }
-.weekly-load-caution { color: #a76308; }
+
 .weekly-load-disclosure { padding: 12px 2px 4px; }
 .weekly-load-disclosure > summary { cursor: pointer; font-weight: 600; }
 .weekly-load-notes { font-size: 0.82rem; color: var(--muted, #64748b); line-height: 1.6; }
@@ -2371,7 +2316,7 @@
 :root.dark-mode .weekly-load-state.extra { color: #ffb588; }
 :root.dark-mode .weekly-load-state.missing { color: #ff9b9b; }
 :root.dark-mode .weekly-load-state.ok { color: #8ee1b0; }
-:root.dark-mode .weekly-load-state.unverified, :root.dark-mode .weekly-load-caution { color: #f7d081; }
+:root.dark-mode .weekly-load-state.unverified { color: #f7d081; }
 @media (max-width: 760px) { .weekly-load-cards { grid-template-columns: repeat(2,minmax(0,1fr)); } .weekly-load-section { padding: 9px; } }
 
 /* User-defined workload thresholds: separate from collision checks. */
@@ -2386,11 +2331,7 @@
 .weekly-load-limits-section summary { cursor: pointer; font-weight: 650; }
 .weekly-load-limits-section summary small { color: var(--muted); }
 .weekly-load-limits-section > p { color: var(--muted); font-size: .84rem; line-height: 1.55; }
-.weekly-load-input-table input { width: 100%; min-width: 100px; max-width: 280px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--card-bg); color: var(--ink); font: inherit; }
-.weekly-load-input-table input[type="number"] { width: 95px; min-width: 75px; }
-.weekly-load-input-table th, .weekly-load-input-table td { padding: 6px; }
-.weekly-load-remove { border: 0; background: transparent; color: var(--ink); font-size: 24px; cursor: pointer; padding: 2px 8px; }
-.weekly-load-add { margin-top: 10px; }
+
 .weekly-load-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .weekly-load-actions small { color: var(--muted); }
 .weekly-load-error { color: #bd3434 !important; font-weight: 650; }
@@ -2471,8 +2412,7 @@ html.dark-mode .weekly-catalog-dialog {
 .weekly-load-limits-content { gap: 12px; }
 .weekly-load-limits-section { padding: 10px 12px; }
 .weekly-load-limits-section > p { margin: 6px 0 10px; }
-.weekly-load-input-table input { min-width: 95px; padding: 6px 8px; }
-.weekly-load-input-table input[type="number"] { width: 86px; min-width: 70px; }
+
 @media (max-width: 640px) {
   .weekly-load-limits-content { padding: 2px 8px 14px; }
   .weekly-matrix-table { font-size: .82rem; }

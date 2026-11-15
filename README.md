@@ -32,7 +32,7 @@ Tiết ghim/cố định được bảo vệ; cần bỏ cố định trước n
 
 Mở **Lịch sử & sao lưu** để hoàn tác lần thay đổi gần nhất khi project chưa có thay đổi tiếp. Bản dự phòng được giữ đến khi xóa vĩnh viễn project. Bản xem trước có hiệu lực 15 phút và phải tính lại nếu dữ liệu thay đổi. Chức năng này chưa thay đổi số ngày/buổi/tiết của toàn project.
 
-Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng lưu trạng thái công tắc, bảng lưu bản dự phòng và nâng cấp cột thông báo. GitHub Actions kiểm tra cú pháp Python, chạy bộ kiểm thử xếp lịch và kiểm tra từ tệp trên mỗi lần push hoặc pull request. Các kiểm thử dùng dữ liệu riêng, không cần kết nối hay ghi vào DB thật.
+Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng lưu trạng thái công tắc, bảng lưu bản dự phòng và nâng cấp cột thông báo. GitHub Actions kiểm tra cú pháp Python và JavaScript trên mỗi lần push hoặc pull request.
 
 ## Công nghệ
 
@@ -55,16 +55,10 @@ Kiểm tra cú pháp Python bằng lệnh đang dùng trên GitHub Actions:
 python -m compileall -q app
 ```
 
-Kiểm thử bộ xếp lịch:
+Kiểm tra cú pháp một tệp JavaScript (Node.js 22+):
 
 ```text
-python -m unittest discover -s tests -v
-```
-
-Kiểm thử giao diện tính định mức từ tệp (Node.js 22+):
-
-```text
-node tests/test_schedule_audit_frontend.js
+node --check app/static/app-entities.js
 ```
 
 Bộ giải gộp các tiết đơn có cùng tập vị trí hợp lệ theo phân công để giảm số

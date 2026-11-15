@@ -61,10 +61,12 @@
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
+    <link rel="stylesheet" href="/static/admin-users.css?v=1">
+    <script src="/static/admin-users.js?v=1" defer></script>
     <script src="/static/profile-avatar.js?v=2" defer></script>
 </head>
 
-<body>
+<body class="admin-users-page">
     <header class="appbar">
         <a class="appbar-brand" href="/projects" aria-label="Smart TKB"><img src="/static/brand-logo.svg?v=1"
                 alt=""><span>Smart TKB</span></a>
@@ -129,10 +131,11 @@
             {% endif %}
         </section>
         {% endif %}
-        <div class="project-grid">
+        <div class="project-grid account-grid">
             {% for account in users %}
             <article class="project-card account-card">
-                <div>
+                {% set assigned_ids = school_assignments.get(account.id, []) %}
+                <div class="account-identity">
                     <div class="avatar-interactive-wrap">
                         <form method="post" action="/admin/users/{{ account.id }}/avatar" enctype="multipart/form-data"
                             class="avatar-upload-form">
@@ -169,15 +172,15 @@
                         </form>
                         {% endif %}
                     </div>
+                    <div class="account-identity-copy">
+                        <h3>{{ account.name }}</h3>
+                        <p class="account-email">{{ account.email }}</p>
+                    </div>
+                </div>
+                <div class="account-meta">
                     {% if account.role == "teacher" %}<span class="pill">Giáo viên</span>
                     {% elif account.role == "super_admin" %}<span class="pill approved-pill">Super admin</span>
                     {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
-                    <h3>{{ account.name }}</h3>
-                    <p>{{ account.email }}</p>
-                    {% if account.profile_url %}
-                    <a class="account-facebook-link" href="{{ account.profile_url }}" target="_blank"
-                        rel="noopener noreferrer">Facebook</a>
-                    {% endif %}
                     <div class="account-presence {{ 'is-online' if account.id in online_user_ids else '' }}"
                         data-presence-user-id="{{ account.id }}" data-last-seen="{{ account.last_seen or '' }}">
                         <span class="account-presence-dot" aria-hidden="true"></span>
@@ -188,138 +191,151 @@
                                 (account.last_seen | timeago) }}</span>
                         </span>
                     </div>
-                    {% set assigned_ids = school_assignments.get(account.id, []) %}
-                    <p class="muted" style="margin-top:10px">
-                        <b>Trường:</b>
-                        {% if assigned_ids %}{{ school_names_by_account.get(account.id, []) | join(' · ') }}{% else
-                        %}Chưa được gán trường{% endif %}
-                    </p>
-                    {% if account.role == "teacher" %}<p class="muted">Quyền: chỉ xem các thời khóa biểu thuộc trường đã
-                        được gán.</p>{% endif %}
                 </div>
-                {% set can_assign_school = (user.role == "super_admin" and account.role in ["admin", "teacher"]) or
-                (user.role == "admin" and account.role == "teacher") %}
-                {% if can_assign_school %}
-                <details class="account-edit school-assignment-edit">
-                    <summary><span>Chọn trường</span><span class="school-assignment-summary-meta">{{ assigned_ids |
-                            length }} đã chọn</span></summary>
-                    <form method="post" action="/admin/users/{{ account.id }}/schools"
-                        class="account-edit-form school-assignment-form">
-                        <div class="school-assignment-intro">
-                            <div class="school-assignment-intro-icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24">
-                                    <path
-                                        d="M4 21V7.6L12 3l8 4.6V21h-6v-5h-4v5H4Zm2-2h2v-5h8v5h2V8.8l-6-3.4-6 3.4V19Zm3-8h2V9H9v2Zm4 0h2V9h-2v2Z" />
-                                </svg>
+                <p class="account-schools">
+                    {{ school_names_by_account.get(account.id, []) | join(' · ') if assigned_ids else 'Chưa được gán trường' }}
+                </p>
+                <div class="account-card-footer">
+                    <button type="button" class="admin-detail-link" data-admin-dialog="account-detail-{{ account.id }}"
+                        aria-haspopup="dialog" aria-controls="account-detail-{{ account.id }}"
+                        aria-label="Xem chi tiết tài khoản {{ account.name }}">Xem chi tiết</button>
+                </div>
+                <dialog id="account-detail-{{ account.id }}" class="admin-detail-dialog" aria-labelledby="account-detail-title-{{ account.id }}">
+                    <div class="admin-dialog-content">
+                        <header class="admin-dialog-header">
+                            <div>
+                                <h2 id="account-detail-title-{{ account.id }}">{{ account.name }}</h2>
+                                <p class="account-email">{{ account.email }}</p>
                             </div>
-                            <p>
-                                {% if user.role == "super_admin" %}Chọn các trường tài khoản này được phép truy cập.
-                                {% else %}Bạn chỉ có thể thay đổi các trường thuộc phạm vi quản lý của mình.{% endif %}
-                            </p>
-                        </div>
-                        <div class="school-assignment-list" role="group" aria-label="Danh sách trường">
-                            {% set ns = namespace(has_school=false) %}
-                            {% for school in schools %}
-                            {% if school.id in assignable_school_ids %}
-                            {% set ns.has_school = true %}
-                            <label class="school-assignment-option">
-                                <input type="checkbox" name="school_ids" value="{{ school.id }}" {% if school.id in
-                                    school_assignments.get(account.id, []) %}checked{% endif %}>
-                                <span class="school-assignment-check" aria-hidden="true">
-                                    <svg viewBox="0 0 20 20">
-                                        <path d="m5 10.2 3.1 3.1L15.5 6" />
-                                    </svg>
-                                </span>
-                                <span class="school-assignment-name">{{ school.name }}</span>
-                            </label>
-                            {% endif %}
-                            {% endfor %}
-                            {% if not ns.has_school %}<p class="muted">Tài khoản quản trị hiện chưa có trường nào để
-                                gán.</p>{% endif %}
-                        </div>
-                        <div class="row end school-assignment-actions"><button class="btn ghost" type="submit" {% if not
-                                ns.has_school %}disabled{% endif %}>Lưu lựa chọn</button></div>
-                    </form>
-                </details>
-                {% endif %}
-                <details class="account-edit">
-                    <summary>Chỉnh sửa thông tin</summary>
-                    <form method="post" action="/admin/users/{{ account.id }}/update" class="account-edit-form">
-                        <label>
-                            Họ tên<input name="name" value="{{ account.name }}" required>
-                        </label>
-                        <label>
-                            Link Facebook cá nhân
-                            <input type="url" name="profile_url" value="{{ account.profile_url or '' }}"
-                                maxlength="2048" placeholder="https://facebook.com/...">
-                        </label>
-                        <label>
-                            Mật khẩu mới<input type="password" name="password" minlength="8"
-                                placeholder="Để trống nếu không đổi">
-                        </label>
-                        <div class="row end">
-                            <button class="btn">Lưu thông tin</button>
-                        </div>
-                    </form>
-                    <form method="post" action="/account/email-change/prepare" class="account-edit-form"
-                        style="margin-top:16px">
-                        <input type="hidden" name="account_id" value="{{ account.id }}">
-                        <label>
-                            Email hiện tại<input type="email" value="{{ account.email }}" disabled>
-                        </label>
-                        <label>
-                            Email mới<input type="email" name="email" required placeholder="Nhập email mới">
-                        </label>
-                        {% if account.id == user.id %}
-                        <label>
-                            Mật khẩu hiện tại<input type="password" name="current_password" required
-                                autocomplete="current-password">
-                        </label>
+                            <button type="button" class="admin-dialog-close" data-close-admin-dialog aria-label="Đóng chi tiết tài khoản" autofocus>×</button>
+                        </header>
+                        {% if account.role == "teacher" %}<p class="muted">Quyền: chỉ xem các thời khóa biểu thuộc trường đã được gán.</p>{% endif %}
+                        {% if account.profile_url %}
+                        <a class="account-facebook-link" href="{{ account.profile_url }}" target="_blank"
+                            rel="noopener noreferrer">Facebook</a>
                         {% endif %}
-                        <p class="muted">Sau bước này hệ thống sẽ hỏi xác nhận, rồi mới gửi OTP tới email mới.</p>
-                        <div class="row end">
-                            <button class="btn ghost" type="submit">Tiếp tục đổi email</button>
-                        </div>
-                    </form>
-                </details>
-                {% if user.role == "super_admin" and account.role == "teacher" %}
-                <form method="post" action="/admin/users/{{ account.id }}/promote-admin">
-                    <button class="btn ghost wide">
-                        Nâng lên
-                        quản trị viên
-                    </button>
-                </form>
-                {% elif account.role != "teacher" %}<p class="muted">Tài khoản quản trị.</p>{% endif %}
-                {% if account.id != user.id %}
-                <form method="post" action="/admin/users/{{ account.id }}/delete"
-                    onsubmit="event.preventDefault();window.OperationStatus.confirm('Xóa tài khoản này? Hành động này không thể hoàn tác.',{title:'Xóa tài khoản',confirmText:'Xóa'}).then(ok=>{if(ok)this.submit();});">
-                    <button class="btn btn-tame-ape btn-tame-ape-danger wide" type="submit"><span class="btn__text">Xóa
-                            tài khoản</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
-                                height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round" class="svg">
-                                <polyline points="3 6 5 6 21 6"></polyline>
-                                <path
-                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-                                </path>
-                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                            </svg></span></button>
-                </form>
-                {% else %}<p class="muted">Tài khoản này không thể xóa từ giao diện.</p>{% endif %}
+                        {% set can_assign_school = (user.role == "super_admin" and account.role in ["admin", "teacher"]) or
+                        (user.role == "admin" and account.role == "teacher") %}
+                        {% if can_assign_school %}
+                        <section class="admin-dialog-section">
+                            <h3>Trường được truy cập <span class="school-assignment-summary-meta">{{ assigned_ids | length }} đã chọn</span></h3>
+                            <form method="post" action="/admin/users/{{ account.id }}/schools"
+                                class="account-edit-form school-assignment-form">
+                                <div class="school-assignment-intro">
+                                    <div class="school-assignment-intro-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24">
+                                            <path
+                                                d="M4 21V7.6L12 3l8 4.6V21h-6v-5h-4v5H4Zm2-2h2v-5h8v5h2V8.8l-6-3.4-6 3.4V19Zm3-8h2V9H9v2Zm4 0h2V9h-2v2Z" />
+                                        </svg>
+                                    </div>
+                                    <p>
+                                        {% if user.role == "super_admin" %}Chọn các trường tài khoản này được phép truy cập.
+                                        {% else %}Bạn chỉ có thể thay đổi các trường thuộc phạm vi quản lý của mình.{% endif %}
+                                    </p>
+                                </div>
+                                <div class="school-assignment-list" role="group" aria-label="Danh sách trường">
+                                    {% set ns = namespace(has_school=false) %}
+                                    {% for school in schools %}
+                                    {% if school.id in assignable_school_ids %}
+                                    {% set ns.has_school = true %}
+                                    <label class="school-assignment-option">
+                                        <input type="checkbox" name="school_ids" value="{{ school.id }}" {% if school.id in
+                                            school_assignments.get(account.id, []) %}checked{% endif %}>
+                                        <span class="school-assignment-check" aria-hidden="true">
+                                            <svg viewBox="0 0 20 20">
+                                                <path d="m5 10.2 3.1 3.1L15.5 6" />
+                                            </svg>
+                                        </span>
+                                        <span class="school-assignment-name">{{ school.name }}</span>
+                                    </label>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% if not ns.has_school %}<p class="muted">Tài khoản quản trị hiện chưa có trường nào để
+                                        gán.</p>{% endif %}
+                                </div>
+                                <div class="row end school-assignment-actions"><button class="btn ghost" type="submit" {% if not
+                                        ns.has_school %}disabled{% endif %}>Lưu lựa chọn</button></div>
+                            </form>
+                        </section>
+                        {% endif %}
+                        <section class="admin-dialog-section">
+                            <h3>Thông tin tài khoản</h3>
+                            <form method="post" action="/admin/users/{{ account.id }}/update" class="account-edit-form">
+                                <label>
+                                    Họ tên<input name="name" value="{{ account.name }}" required>
+                                </label>
+                                <label>
+                                    Link Facebook cá nhân
+                                    <input type="url" name="profile_url" value="{{ account.profile_url or '' }}"
+                                        maxlength="2048" placeholder="https://facebook.com/...">
+                                </label>
+                                <label>
+                                    Mật khẩu mới<input type="password" name="password" minlength="8"
+                                        placeholder="Để trống nếu không đổi">
+                                </label>
+                                <div class="row end">
+                                    <button class="btn">Lưu thông tin</button>
+                                </div>
+                            </form>
+                            <form method="post" action="/account/email-change/prepare" class="account-edit-form"
+                                style="margin-top:16px">
+                                <input type="hidden" name="account_id" value="{{ account.id }}">
+                                <label>
+                                    Email hiện tại<input type="email" value="{{ account.email }}" disabled>
+                                </label>
+                                <label>
+                                    Email mới<input type="email" name="email" required placeholder="Nhập email mới">
+                                </label>
+                                {% if account.id == user.id %}
+                                <label>
+                                    Mật khẩu hiện tại<input type="password" name="current_password" required
+                                        autocomplete="current-password">
+                                </label>
+                                {% endif %}
+                                <p class="muted">Sau bước này hệ thống sẽ hỏi xác nhận, rồi mới gửi OTP tới email mới.</p>
+                                <div class="row end">
+                                    <button class="btn ghost" type="submit">Tiếp tục đổi email</button>
+                                </div>
+                            </form>
+                        </section>
+                        <section class="admin-dialog-section account-management-actions">
+                            {% if user.role == "super_admin" and account.role == "teacher" %}
+                            <form method="post" action="/admin/users/{{ account.id }}/promote-admin">
+                                <button class="btn ghost wide">
+                                    Nâng lên
+                                    quản trị viên
+                                </button>
+                            </form>
+                            {% elif account.role != "teacher" %}<p class="muted">Tài khoản quản trị.</p>{% endif %}
+                            {% if account.id != user.id %}
+                            <form method="post" action="/admin/users/{{ account.id }}/delete"
+                                data-confirm-account-delete>
+                                <button class="btn btn-tame-ape btn-tame-ape-danger wide" type="submit"><span class="btn__text">Xóa
+                                        tài khoản</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                                            height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" stroke-linejoin="round" class="svg">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path
+                                                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                            </path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg></span></button>
+                            </form>
+                            {% else %}<p class="muted">Tài khoản này không thể xóa từ giao diện.</p>{% endif %}
+                        </section>
+                    </div>
+                </dialog>
             </article>
             {% else %}<div class="empty-state">Không có tài khoản nào trong phạm vi quản lý.</div>{% endfor %}
         </div>
         {% if user.role == "super_admin" %}
-        <section id="system-logs" class="panel" style="margin-top:28px">
-            <div class="section-head" style="margin-bottom:16px">
+        <section id="system-logs" class="panel system-logs-panel">
+            <div class="section-head system-logs-heading">
                 <div>
                     <h2 style="margin:0 0 6px">Nhật ký sự cố hệ thống</h2>
-                    <p>
-                        Ghi nhận sự cố trợ lý AI và các lần xếp lịch bị lỗi, bị từ chối hoặc chưa đủ tiết. Hệ thống giữ tối đa {{ system_incident_log_limit }} sự cố gần nhất.
-                        {% if system_incident_log_count %}Đang có {{ system_incident_log_count }} sự cố; bảng hiển thị tối đa
-                        100 lần gần
-                        nhất.{% endif %}
-                    </p>
+                    <p>Sự cố trợ lý AI và bộ xếp lịch · Giờ Việt Nam (UTC+7)</p>
+                    <p class="system-logs-count">{{ system_incident_log_count }} sự cố · Hiển thị tối đa 100 lần gần nhất · Lưu tối đa {{ system_incident_log_limit }} sự cố</p>
                 </div>
                 {% if system_incident_logs %}
                 <form method="post" action="/admin/system-logs/clear"
@@ -339,56 +355,90 @@
                 {% endif %}
             </div>
             {% if system_incident_logs %}
-            <div style="overflow-x:auto">
-                <table class="data-table">
+            <div class="system-logs-table-wrap">
+                <table class="data-table system-logs-table" aria-label="Nhật ký sự cố hệ thống">
+                    <colgroup>
+                        <col class="log-time-col"><col class="log-project-col"><col class="log-account-col">
+                        <col class="log-summary-col"><col class="log-action-col">
+                    </colgroup>
                     <thead>
                         <tr>
-                            <th>Giờ Việt Nam (UTC+7)</th>
-                            <th>Khu vực</th>
-                            <th>Thời khóa biểu</th>
-                            <th>Tài khoản</th>
-                            <th>Loại sự cố</th>
-                            <th>Thông tin sự cố</th>
+                            <th scope="col">Thời gian</th>
+                            <th scope="col">Thời khóa biểu</th>
+                            <th scope="col">Tài khoản</th>
+                            <th scope="col">Sự cố</th>
+                            <th scope="col"><span class="admin-visually-hidden">Chi tiết</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for log in system_incident_logs %}
                         <tr>
-                            <td style="white-space:nowrap">{{ log.created_at | vietnam_datetime }}</td>
-                            <td style="white-space:nowrap">{{ log.source_label }}</td>
-                            <td>
-                                <b>{{ log.project_name or ('Project #' ~ log.project_id if log.project_id else '—') }}</b>
-                                {% if log.project_id %}<div class="muted">ID {{ log.project_id }}</div>{% endif %}
+                            <td data-label="Thời gian">
+                                <time>{{ log.created_at | vietnam_datetime }}</time>
+                                <span class="log-secondary">{{ log.source_label }}</span>
                             </td>
-                            <td>
-                                <b>{{ log.user_name or 'Không xác định' }}</b>
-                                {% if log.user_email %}<div class="muted">{{ log.user_email }}</div>{% endif %}
+                            <td data-label="Thời khóa biểu">
+                                <span class="log-project-name">{{ log.project_name or ('Project #' ~ log.project_id if log.project_id else '—') }}</span>
+                                {% if log.project_id %}<span class="log-secondary">ID {{ log.project_id }}</span>{% endif %}
                             </td>
-                            <td style="white-space:nowrap">
-                                <span class="pill">{{ log.error_code }}</span>
-                                {% if log.provider_status %}
-                                <div class="muted" style="margin-top:6px">Mã phản hồi: {{ log.provider_status }}</div>
-                                {% endif %}
+                            <td data-label="Tài khoản">
+                                <span class="log-account-name">{{ log.user_name or 'Không xác định' }}</span>
+                                {% if log.user_email %}<span class="log-secondary">{{ log.user_email }}</span>{% endif %}
                             </td>
-                            <td style="min-width:320px; max-width:520px; white-space:normal; word-break:break-word">
-                                {{ log.summary }}
-                                {% if log.details %}
-                                <details style="margin-top:8px"><summary>Chi tiết sự cố</summary>
-                                    <pre style="white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px">{{ log.details }}</pre>
-                                </details>
-                                {% endif %}
+                            <td data-label="Sự cố">
+                                <span class="log-code">{{ log.error_code }}</span>
+                                <p class="log-summary">{{ log.summary }}</p>
+                            </td>
+                            <td class="log-action">
+                                <button type="button" class="admin-detail-link" data-admin-dialog="incident-detail-{{ loop.index }}"
+                                    aria-haspopup="dialog" aria-controls="incident-detail-{{ loop.index }}"
+                                    aria-label="Xem chi tiết sự cố {{ log.error_code }} lúc {{ log.created_at | vietnam_datetime }}">Xem chi tiết</button>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% for log in system_incident_logs %}
+            <dialog id="incident-detail-{{ loop.index }}" class="admin-detail-dialog incident-detail-dialog" aria-labelledby="incident-detail-title-{{ loop.index }}">
+                <div class="admin-dialog-content">
+                    <header class="admin-dialog-header">
+                        <div>
+                            <h2 id="incident-detail-title-{{ loop.index }}">Chi tiết sự cố</h2>
+                            <p>{{ log.created_at | vietnam_datetime }} · {{ log.source_label }}</p>
+                        </div>
+                        <button type="button" class="admin-dialog-close" data-close-admin-dialog aria-label="Đóng chi tiết sự cố" autofocus>×</button>
+                    </header>
+                    <dl class="incident-metadata">
+                        <div><dt>Thời khóa biểu</dt><dd>{{ log.project_name or ('Project #' ~ log.project_id if log.project_id else '—') }}{% if log.project_id %}<span class="log-secondary">ID {{ log.project_id }}</span>{% endif %}</dd></div>
+                        <div><dt>Tài khoản</dt><dd>{{ log.user_name or 'Không xác định' }}{% if log.user_email %}<span class="log-secondary">{{ log.user_email }}</span>{% endif %}</dd></div>
+                        <div><dt>Loại sự cố</dt><dd><span class="log-code">{{ log.error_code }}</span></dd></div>
+                        {% if log.provider_status %}<div><dt>Mã phản hồi</dt><dd>{{ log.provider_status }}</dd></div>{% endif %}
+                    </dl>
+                    <p class="incident-summary">{{ log.summary }}</p>
+                    {% if log.details %}<pre class="incident-details">{{ log.details }}</pre>{% endif %}
+                </div>
+            </dialog>
+            {% endfor %}
             {% else %}
             <p class="muted" style="margin:0">Chưa ghi nhận sự cố hệ thống.</p>
             {% endif %}
         </section>
         {% endif %}
     </main>
+    <dialog id="accountDeleteConfirmation" class="admin-detail-dialog" aria-labelledby="accountDeleteTitle"
+        aria-describedby="accountDeleteDescription">
+        <div class="admin-dialog-content">
+            <header class="admin-dialog-header">
+                <h2 id="accountDeleteTitle">Xóa tài khoản</h2>
+            </header>
+            <p id="accountDeleteDescription">Xóa tài khoản này? Hành động này không thể hoàn tác.</p>
+            <div class="row end">
+                <button type="button" class="btn ghost" data-close-admin-dialog autofocus>Hủy</button>
+                <button type="button" class="btn danger-btn" data-delete-account>Xóa tài khoản</button>
+            </div>
+        </div>
+    </dialog>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const params = new URLSearchParams(window.location.search);

@@ -356,15 +356,10 @@
   background: var(--bg);
 }
 
-.assignment-explanation-grid p,
-.assignment-example {
+.assignment-explanation-grid p {
   margin: 6px 0 0;
   color: var(--muted);
   line-height: 1.55;
-}
-
-.assignment-example {
-  margin-top: 12px;
 }
 
 @media (max-width: 720px) {

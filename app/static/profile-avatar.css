@@ -163,18 +163,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-label.avatar-remove {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.avatar-remove input[type="checkbox"] {
-  width: auto;
-  min-height: 0;
-  margin: 0;
-}
-
 .account-facebook-link {
   display: inline-block;
   margin-bottom: 10px;

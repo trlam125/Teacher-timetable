@@ -55,17 +55,6 @@
   margin-bottom: 4px;
 }
 
-.account-edit {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-}
-
-.account-edit summary {
-  cursor: pointer;
-  font-weight: 700;
-  color: var(--primary);
-}
-
 .account-edit-form {
   display: grid;
   gap: 12px;
@@ -363,45 +352,6 @@
   .visual-captcha {
     padding: 12px;
   }
-}
-
-.school-assignment-edit {
-  padding-top: 14px;
-}
-
-.school-assignment-edit summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  list-style: none;
-  padding: 2px 0;
-}
-
-.school-assignment-edit summary::-webkit-details-marker {
-  display: none;
-}
-
-.school-assignment-edit summary::before {
-  content: "›";
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  color: var(--muted, #64748b);
-  font-size: 24px;
-  line-height: 1;
-  transform: rotate(0deg);
-  transition: transform .18s ease;
-}
-
-.school-assignment-edit[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.school-assignment-edit summary>span:first-child {
-  margin-right: auto;
 }
 
 .school-assignment-summary-meta {
