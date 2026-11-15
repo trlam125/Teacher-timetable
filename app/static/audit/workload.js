@@ -489,7 +489,7 @@ function weeklyMatrixRemoveGrade(grade) {
   weeklyAssignmentChanged();
   redrawScheduleAuditWorkload();
 }
-function renderWeeklyLoadForm(report) {
+function renderWeeklyLoadForm() {
   if (!scheduleAuditWorkloadLimits) return '<button class="btn weekly-load-action" type="button" onclick="openScheduleAuditWorkload()">Kiểm tra thừa/thiếu tiết</button>';
   return `<details id="weeklyLoadLimits" class="weekly-load-limits" ${scheduleAuditWorkloadOpen ? "open" : ""} ontoggle="scheduleAuditWorkloadOpen=this.open">
       <summary>Thiết lập số tiết bắt buộc <span>(Nhấn để mở / thu gọn)</span></summary>
@@ -498,7 +498,10 @@ function renderWeeklyLoadForm(report) {
         ${renderWeeklyTeacherSection()}
         <p class="weekly-load-save-status" role="status">${esc(scheduleAuditLimitsNotice || "Nhập số tiết rồi bấm Lưu để dùng lại vào lần sau.")}${scheduleAuditLimitsDirty ? " · Có thay đổi chưa lưu." : ""}</p>
         <div class="weekly-load-actions">
-          <button type="button" class="btn ghost" ${scheduleAuditSavedBusy ? "disabled" : ""} onclick="saveScheduleAuditWorkloadLimits()">${scheduleAuditSavedBusy ? "Đang lưu…" : "Lưu số tiết"}</button>
+          <button type="button" class="btn weekly-load-save" ${scheduleAuditSavedBusy ? 'disabled aria-busy="true"' : ""} onclick="saveScheduleAuditWorkloadLimits()">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z"/><path d="M7 3v6h10V3M7 21v-8h10v8"/></svg>
+            <span>${scheduleAuditSavedBusy ? "Đang lưu…" : "Lưu số tiết"}</span>
+          </button>
           <button type="button" class="btn" ${scheduleAuditWorkloadBusy ? "disabled" : ""} onclick="runScheduleAuditWorkloadCheck()">${scheduleAuditWorkloadBusy ? "Đang đối chiếu…" : "Kiểm tra thừa/thiếu tiết"}</button>
           <button type="button" class="btn ghost weekly-load-reset" ${scheduleAuditSavedBusy ? "disabled" : ""} onclick="clearAllScheduleAuditWorkloadLimits()">Xóa toàn bộ định mức</button>
           <small>Nhập một số tiết bắt buộc ở mỗi ô; thừa hoặc thiếu đều bị báo.</small>
@@ -507,8 +510,8 @@ function renderWeeklyLoadForm(report) {
       </div>
     </details>`;
 }
-function renderScheduleAuditWorkload(workload, report) {
-  const form = `<div class="weekly-load-intro"><h2>Kiểm tra thừa/thiếu số tiết</h2><p>TKB đã được kiểm tra trùng tiết khi tải lên. Để kiểm tra thừa/thiếu, hãy nhập số tiết quy định rồi bấm Kiểm tra.</p></div>${renderWeeklyLoadForm(report)}`;
+function renderScheduleAuditWorkload(workload) {
+  const form = `<div class="weekly-load-intro"><h2>Kiểm tra thừa/thiếu số tiết</h2><p>TKB đã được kiểm tra trùng tiết khi tải lên. Để kiểm tra thừa/thiếu, hãy nhập số tiết quy định rồi bấm Kiểm tra.</p></div>${renderWeeklyLoadForm()}`;
   if (!workload) return `<div class="weekly-load-results">${form}<p class="weekly-load-notes">Chưa có kết quả đối chiếu theo số tiết bắt buộc.</p></div>`;
   const totalRules = (workload.summary?.class_rules || 0) + (workload.summary?.assignment_rules || 0);
   if (!totalRules) return `<div class="weekly-load-results">${form}<p class="weekly-load-notes">Chưa nhập số tiết nào. Hãy nhập ít nhất một ô rồi kiểm tra.</p></div>`;
@@ -561,7 +564,7 @@ function redrawScheduleAuditWorkload() {
   const top = oldScroller?.scrollTop ?? 0;
   const pageTop = window.scrollY;
   const pageLeft = window.scrollX;
-  container.innerHTML = renderScheduleAuditWorkload(scheduleAuditLastReport.workload, scheduleAuditLastReport);
+  container.innerHTML = renderScheduleAuditWorkload(scheduleAuditLastReport.workload);
   const apply = () => {
     const scroller = container.querySelector(".weekly-assignment-scroll");
     if (scroller) {

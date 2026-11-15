@@ -269,7 +269,6 @@ function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis, preserveScrol
       <div class="schedule-audit-view-legend"><span class="legend-conflict"></span><b>Đỏ = lỗi rule</b>${hasConflict ? `<small>${affected} ô</small>` : ""}${ai ? `<span class="legend-ai-warning"></span><b>Cam/vàng = AI</b><small>${aiMarked} ô</small>` : ""}</div>
     </div>
     ${renderScheduleAuditDataIssues(nonCellIssues)}
-    <div class="weekly-load-shortcut"><button class="btn" type="button" onclick="openScheduleAuditWorkload()">Kiểm tra thừa/thiếu tiết</button><small>Nhập ngưỡng theo nhu cầu sau khi xem kết quả kiểm tra trùng lịch.</small></div>
     <div class="schedule-audit-tabs" role="tablist" aria-label="Chế độ xem thời khóa biểu">
       <button type="button" data-audit-view="timetable" onclick="switchScheduleAuditView('timetable')">Thời khóa biểu</button>
       <button type="button" data-audit-view="overview" onclick="switchScheduleAuditView('overview')">Tổng quan</button>
@@ -280,7 +279,7 @@ function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis, preserveScrol
     </div>
     <section id="scheduleAuditView-timetable" class="schedule-audit-view-panel" data-audit-panel="timetable">${renderScheduleAuditTable(report, ai)}</section>
     ${renderScheduleAuditStatistics(report)}
-    <section id="scheduleAuditView-workload" class="schedule-audit-view-panel" data-audit-panel="workload" hidden>${renderScheduleAuditWorkload(report.workload, report)}</section>`;
+    <section id="scheduleAuditView-workload" class="schedule-audit-view-panel" data-audit-panel="workload" hidden>${renderScheduleAuditWorkload(report.workload)}</section>`;
   switchScheduleAuditView(scheduleAuditActiveView);
   restoreScheduleAuditRenderScroll(box, scrollSnapshot);
 }
