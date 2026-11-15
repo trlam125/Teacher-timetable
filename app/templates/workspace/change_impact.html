@@ -1,7 +1,12 @@
 <div class="project-edit-toolbar">
-    <label class="project-edit-toggle"><input id="postScheduleEditToggle" type="checkbox" onchange="setPostScheduleEditing(this.checked)"> Chỉnh sửa sau xếp lịch</label>
-    <span id="postScheduleEditHint">Xem trước ảnh hưởng trước khi áp dụng thay đổi.</span>
-    <button type="button" class="btn ghost" onclick="openProjectChangeHistory()">Bản dự phòng &amp; lịch sử</button>
+    <label class="project-edit-toggle">
+        <input id="postScheduleEditToggle" type="checkbox" role="switch" onchange="savePostScheduleEditing(this.checked)"{% if post_schedule_editing %} checked{% endif %}>
+        <span class="project-edit-toggle-track" aria-hidden="true"></span>
+        <span>Chỉnh sửa sau xếp lịch</span>
+        <span id="postScheduleEditState" aria-hidden="true">{{ 'Bật' if post_schedule_editing else 'Tắt' }}</span>
+    </label>
+    <button id="resumeEntityEditAction" type="button" class="btn ghost" onclick="resumeEntityEdit()" hidden>Quay lại bản nháp</button>
+    <button type="button" class="btn ghost" onclick="openProjectChangeHistory()">Lịch sử &amp; sao lưu</button>
 </div>
 <dialog id="changeImpactDialog" class="change-impact-dialog" aria-labelledby="changeImpactTitle">
     <div class="change-impact-content">
@@ -17,7 +22,7 @@
 </dialog>
 <dialog id="projectChangeHistoryDialog" class="change-impact-dialog" aria-labelledby="projectChangeHistoryTitle">
     <div class="change-impact-content">
-        <h2 id="projectChangeHistoryTitle">Bản dự phòng &amp; lịch sử</h2>
+        <h2 id="projectChangeHistoryTitle">Lịch sử &amp; sao lưu</h2>
         <p>Chỉ có thể hoàn tác thay đổi gần nhất khi chưa có chỉnh sửa mới.</p>
         <div id="projectChangeHistoryBody" aria-live="polite"></div>
         <div class="row end"><button class="btn ghost" type="button" onclick="this.closest('dialog').close()">Đóng</button></div>

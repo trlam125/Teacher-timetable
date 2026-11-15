@@ -26,11 +26,13 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 
 Trong workspace, bật **Chỉnh sửa sau xếp lịch**, sửa phân công/dữ liệu/ràng buộc rồi xem danh sách ảnh hưởng trước khi **Áp dụng thay đổi**. Có thể đổi giáo viên, chỉnh số tiết theo chương trình khối, đổi khối của lớp và xử lý phân công liên quan khi bỏ môn dạy hoặc xóa dữ liệu.
 
+Công tắc được lưu theo từng bộ thời khóa biểu, mặc định tắt. Khi tắt, các thay đổi tác động đến tiết đã xếp hoặc đã ghim sẽ bị chặn. Đổi tên, thêm tiết tránh ở ô trống và điều chỉnh phần chưa xếp vẫn lưu được nếu hợp lệ. Nếu gặp khóa trong hộp thoại, chọn **Đến công tắc chỉnh sửa** để giữ bản nháp trong lúc bật chế độ. Các thao tác chỉnh tiết trực tiếp, xếp lịch và hoàn tác có luồng riêng.
+
 Tiết ghim/cố định được bảo vệ; cần bỏ cố định trước nếu thay đổi xung đột với các tiết đó. Tiết còn cần dạy được đưa về Kho tiết chưa xếp; tiết dư do giảm nhu cầu hoặc xóa phân công được tính riêng. Không tự chạy lại bộ xếp lịch.
 
-Mở **Bản dự phòng & lịch sử** để hoàn tác lần thay đổi gần nhất khi project chưa có thay đổi tiếp. Bản dự phòng được giữ đến khi xóa vĩnh viễn project. Bản xem trước có hiệu lực 15 phút và phải tính lại nếu dữ liệu thay đổi. Chức năng này chưa thay đổi số ngày/buổi/tiết của toàn project.
+Mở **Lịch sử & sao lưu** để hoàn tác lần thay đổi gần nhất khi project chưa có thay đổi tiếp. Bản dự phòng được giữ đến khi xóa vĩnh viễn project. Bản xem trước có hiệu lực 15 phút và phải tính lại nếu dữ liệu thay đổi. Chức năng này chưa thay đổi số ngày/buổi/tiết của toàn project.
 
-Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng lưu bản dự phòng và nâng cấp cột thông báo. GitHub Actions kiểm tra cú pháp Python, chạy bộ kiểm thử xếp lịch và kiểm tra từ tệp trên mỗi lần push hoặc pull request. Các kiểm thử dùng dữ liệu riêng, không cần kết nối hay ghi vào DB thật.
+Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng lưu trạng thái công tắc, bảng lưu bản dự phòng và nâng cấp cột thông báo. GitHub Actions kiểm tra cú pháp Python, chạy bộ kiểm thử xếp lịch và kiểm tra từ tệp trên mỗi lần push hoặc pull request. Các kiểm thử dùng dữ liệu riêng, không cần kết nối hay ghi vào DB thật.
 
 ## Công nghệ
 

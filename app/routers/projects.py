@@ -42,6 +42,7 @@ from app.services.authentication.permissions import (
     user_schools,
 )
 from app.services.authentication.sessions import current_user, db_session, public_base_url
+from app.services.change_impact.managed import post_schedule_editing_enabled
 from app.services.projects import (
     chatbot_ui_context,
     ensure_school_for_name,
@@ -498,6 +499,7 @@ def project_page(
             "p": p,
             "assigned_schools": user_schools(user, db),
             "data": data,
+            "post_schedule_editing": post_schedule_editing_enabled(db, pid),
             "days": DAYS,
             "public_base_url": public_base_url(request)
             or str(request.base_url).rstrip("/"),

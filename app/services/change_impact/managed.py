@@ -1,5 +1,12 @@
 from fastapi import HTTPException
 
+from app.models import ProjectChangeSettings
+
+
+def post_schedule_editing_enabled(db, project_id):
+    settings = db.get(ProjectChangeSettings, project_id)
+    return settings is not None and settings.post_schedule_editing
+
 
 def managed_edit(db):
     return db.info.get("project_change_managed") is True

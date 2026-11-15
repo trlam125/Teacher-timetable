@@ -168,6 +168,12 @@ class Project(Base):
     )
 
 
+class ProjectChangeSettings(Base):
+    __tablename__ = "project_change_settings"
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    post_schedule_editing: Mapped[bool] = mapped_column(Boolean)
+
+
 class ProjectChange(Base):
     """Atomic edit receipts and project-scoped recovery snapshots."""
     __tablename__ = "project_changes"

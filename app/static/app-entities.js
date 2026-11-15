@@ -1,3 +1,27 @@
+const resumeEntityEditAction = document.getElementById("resumeEntityEditAction");
+
+function resumeEntityEdit() {
+  if (resumeEntityEditAction.hidden) return;
+  resumeEntityEditAction.hidden = true;
+  entityModal.showModal();
+}
+
+function entityChangeError(submitButton, result, fallback) {
+  entityActionError(submitButton, apiErrorMessage(result, fallback));
+  if (!isEditModeLocked(result)) return;
+
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "btn ghost";
+  action.textContent = "Đến công tắc chỉnh sửa";
+  action.onclick = () => {
+    resumeEntityEditAction.hidden = false;
+    entityModal.close();
+    postScheduleEditToggle.focus();
+  };
+  $("#entityActionMessage").append(" ", action);
+}
+
 function renderAll() {
   const selectedRows = captureEntitySelections();
   if ($("#subjectTable")) {
@@ -130,6 +154,7 @@ function selectGradeRequirements(form, checked) {
   });
 }
 function openEntity(type, preset = null) {
+  resumeEntityEditAction.hidden = true;
   entityType = type;
   pendingAssignmentGap = type === "assignment" && preset ? preset : null;
   const titles = {
@@ -455,6 +480,7 @@ function openEntityEdit(type, id) {
     }[type] || [];
   const item = rows.find((x) => x.id === Number(id));
   if (!item) return;
+  resumeEntityEditAction.hidden = true;
   entityType = `${type}_edit`;
   entityId = item.id;
   entityModal.querySelector("form").dataset.editToken = item.edit_token || "";
@@ -486,6 +512,7 @@ function openEntityEdit(type, id) {
 function openAssignmentEdit(id) {
   const item = data.assignments.find((x) => x.id === id);
   if (!item) return;
+  resumeEntityEditAction.hidden = true;
   entityType = "assignment_edit";
   entityModal.querySelector("form").dataset.editToken = item.edit_token || "";
   entityModal
@@ -659,10 +686,7 @@ async function submitEntity(e) {
         return;
       }
       if (!r.ok) {
-        entityActionError(
-          submitButton,
-          apiErrorMessage(result, "Không thể cập nhật phân công."),
-        );
+        entityChangeError(submitButton, result, "Không thể cập nhật phân công.");
         return;
       }
       setInlineActionState(submitButton, "success", {
@@ -697,10 +721,7 @@ async function submitEntity(e) {
       }
 
       if (!r.ok) {
-        entityActionError(
-          submitButton,
-          apiErrorMessage(result, "Không thể cập nhật dữ liệu."),
-        );
+        entityChangeError(submitButton, result, "Không thể cập nhật dữ liệu.");
         return;
       }
       setInlineActionState(submitButton, "success", {

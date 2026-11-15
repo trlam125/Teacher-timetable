@@ -12,17 +12,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import SECRET_KEY
-from app.models import Assignment, ProjectChange, User
+from app.models import Assignment, ProjectChange, ProjectChangeSettings, User
 from app.services.authentication.sessions import current_user, db_session
 from app.services.change_impact.engine import execute, validate_change
+from app.services.change_impact.managed import post_schedule_editing_enabled
 from app.services.change_impact.report import build_report
 from app.services.change_impact.notifications import record_change_notice
-from app.services.change_impact.state import capture, encoded, fingerprint, restore, simulation
+from app.services.change_impact.state import (
+    capture, encoded, fingerprint, placed_assignment_ids, placed_schedule_changed, restore, simulation,
+)
 from app.services.projects import get_project, get_project_for_update
 
 router = APIRouter()
 signer = URLSafeTimedSerializer(SECRET_KEY, salt="project-change-preview-v1")
 PREVIEW_MAX_AGE = 15 * 60
+EDITING_LOCKED = {
+    "reason": "post_schedule_editing_disabled",
+    "message": "Bật Chỉnh sửa sau xếp lịch để áp dụng thay đổi này.",
+}
 
 
 class ChangeRequest(BaseModel):
@@ -50,6 +57,27 @@ class ApplyChange(BaseModel):
     impact_token: str = Field(max_length=12000)
 
 
+class EditMode(BaseModel):
+    enabled: bool
+
+
+@router.put("/api/projects/{pid}/changes/editing")
+def set_edit_mode(pid: int, payload: EditMode, user: User = Depends(current_user), db: Session = Depends(db_session)):
+    get_project_for_update(pid, user, db)
+    settings = db.get(ProjectChangeSettings, pid)
+    if settings is None:
+        settings = ProjectChangeSettings(project_id=pid)
+        db.add(settings)
+    settings.post_schedule_editing = payload.enabled
+    db.commit()
+    return {"post_schedule_editing": payload.enabled}
+
+
+def require_edit_mode(enabled, affects_schedule):
+    if affects_schedule and not enabled:
+        raise HTTPException(409, EDITING_LOCKED)
+
+
 def preview_state(db, project, user, request, before):
     with simulation(before, project, user) as (sandbox, sandbox_project, actor):
         result = execute(sandbox, sandbox_project, actor, request)
@@ -58,7 +86,7 @@ def preview_state(db, project, user, request, before):
         missing = result.get("missing_grade_assignments", [])
         if missing:
             report["warnings"].append(f"Còn {len(missing)} phân công lớp–môn cần bổ sung giáo viên.")
-        return report
+        return report, placed_schedule_changed(before, after)
 
 
 def error_report(exc, before):
@@ -86,20 +114,26 @@ def error_report(exc, before):
 def preview_change(pid: int, request: ChangeRequest, user: User = Depends(current_user), db: Session = Depends(db_session)):
     # Acquire only while reading a consistent snapshot, never during user confirmation.
     project = get_project_for_update(pid, user, db)
+    enabled = post_schedule_editing_enabled(db, pid)
     before = capture(db, project)
     try:
-        report = preview_state(db, project, user, request, before)
+        report, affects_schedule = preview_state(db, project, user, request, before)
     except HTTPException as exc:
         if exc.status_code not in {400, 409, 428}:
             raise
-        return error_report(exc, before)
+        report = error_report(exc, before)
+        blocker = report["blockers"][0]
+        affects_schedule = blocker.get("reason") == "assignment_resolution_required" and bool(
+            placed_assignment_ids(before).intersection(row["id"] for row in blocker["assignments"])
+        )
+    require_edit_mode(enabled, affects_schedule)
     if report["changed"]:
         report["impact_token"] = signer.dumps({
             "operation": str(uuid.uuid4()), "project": pid, "user": user.id,
             "state": fingerprint(before), "request": fingerprint(request.model_dump()),
             "report": fingerprint(report),
         })
-    return report
+    return {**report, "post_schedule_editing": enabled}
 
 
 def receipt_result(receipt):
@@ -128,13 +162,16 @@ def apply_change(pid: int, payload: ApplyChange, user: User = Depends(current_us
     before = capture(db, project)
     if token.get("state") != fingerprint(before):
         raise HTTPException(409, {"reason": "impact_stale", "message": "Dữ liệu đã thay đổi từ lúc xem trước. Hãy xem lại ảnh hưởng trước khi áp dụng."})
-    report = preview_state(db, project, user, payload.request, before)
+    enabled = post_schedule_editing_enabled(db, pid)
+    report, affects_schedule = preview_state(db, project, user, payload.request, before)
+    require_edit_mode(enabled, affects_schedule)
     if token.get("report") != fingerprint(report):
         raise HTTPException(409, {"reason": "impact_stale", "message": "Phạm vi ảnh hưởng đã thay đổi. Hãy xem lại."})
     db.info["project_change_managed"] = True
     try:
         result = execute(db, project, user, payload.request)
         after = capture(db, project)
+        require_edit_mode(enabled, placed_schedule_changed(before, after))
         actual = build_report(before, after, payload.request, db.info.get("change_lesson_reasons"))
         actual["warnings"] = report["warnings"]
         if fingerprint(actual) != token["report"]:

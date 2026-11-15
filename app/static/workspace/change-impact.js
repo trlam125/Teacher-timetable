@@ -1,15 +1,33 @@
 /* Project-scoped previews, confirmed edits and recovery. No preview writes to live data. */
-let postScheduleEditing = false;
+const postScheduleEditToggle = document.getElementById("postScheduleEditToggle");
+const postScheduleEditState = document.getElementById("postScheduleEditState");
+let postScheduleEditing = postScheduleEditToggle.checked;
+let postScheduleEditRequest = null;
 let projectChangeInFlight = false;
 
-function setPostScheduleEditing(enabled) {
-  postScheduleEditing = Boolean(enabled);
-  const toggle = document.getElementById("postScheduleEditToggle");
-  if (toggle) toggle.checked = postScheduleEditing;
-  const hint = document.getElementById("postScheduleEditHint");
-  if (hint) hint.textContent = postScheduleEditing
-    ? "Đã bật chỉnh sửa. Bạn sẽ xem ảnh hưởng và xác nhận trước khi lưu."
-    : "Xem trước ảnh hưởng trước khi áp dụng thay đổi.";
+function syncPostScheduleEditing(enabled) {
+  postScheduleEditing = enabled;
+  postScheduleEditToggle.checked = enabled;
+  postScheduleEditState.textContent = enabled ? "Bật" : "Tắt";
+}
+
+function isEditModeLocked(result) {
+  return result.detail?.reason === "post_schedule_editing_disabled";
+}
+
+function savePostScheduleEditing(enabled) {
+  postScheduleEditToggle.checked = postScheduleEditing;
+  postScheduleEditToggle.disabled = true;
+  postScheduleEditRequest = projectChangeRequest("/editing", {enabled}, "PUT")
+    .then(({response, result}) => {
+      if (!response.ok) showToast(apiErrorMessage(result, "Chưa thể đổi chế độ chỉnh sửa."), "error");
+      else if (enabled && result.post_schedule_editing === true && !document.querySelector("dialog[open]")) resumeEntityEdit();
+    })
+    .catch(error => showToast(requestFailureMessage(error), "error"))
+    .finally(() => {
+      postScheduleEditRequest = null;
+      postScheduleEditToggle.disabled = projectChangeInFlight;
+    });
 }
 
 function changeSlotLabel(slot) {
@@ -42,7 +60,7 @@ function impactTable(headers, rows) {
   return `<div class="change-impact-table"><table><thead><tr>${headers.map(value => `<th>${esc(value)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(value => `<td>${esc(String(value ?? ""))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
-function renderChangeImpact(report, request, syncApply) {
+function renderChangeImpact(report, request) {
   const totals = report.totals || {};
   const actions = {to_tray: "Đưa về kho", surplus: "Bỏ tiết dư", deleted: "Xóa cùng phân công"};
   let html = "";
@@ -69,28 +87,27 @@ function renderChangeImpact(report, request, syncApply) {
   }
   for (const warning of report.warnings || []) html += `<p>${esc(warning)}</p>`;
   if (report.changed && report.can_apply) html += "<p>Bản dự phòng sẽ được lưu trước khi áp dụng. Các tiết cố định được bảo vệ.</p>";
-  if ((data.lessons || []).length && report.requires_edit_mode && report.changed && !postScheduleEditing) html += '<label class="change-impact-block"><input id="changeEnableEditing" type="checkbox"> Cho phép chỉnh sửa sau xếp lịch</label>';
   document.getElementById("changeImpactBody").innerHTML = html;
-  document.getElementById("changeEnableEditing")?.addEventListener("change", event => {
-    setPostScheduleEditing(event.target.checked);
-    syncApply();
-  });
 }
 
-async function projectChangeRequest(path, payload) {
+async function projectChangeRequest(path, payload, method = "POST") {
   const response = await fetch(`/api/projects/${PROJECT_ID}/changes${path}`, {
-    method: "POST", headers: operationHeaders({"Content-Type": "application/json"}), body: JSON.stringify(payload),
+    method, headers: operationHeaders({"Content-Type": "application/json"}), body: JSON.stringify(payload),
   });
-  return {response, result: await readApiResponse(response)};
+  const result = await readApiResponse(response);
+  if (typeof result.post_schedule_editing === "boolean") syncPostScheduleEditing(result.post_schedule_editing);
+  else if (isEditModeLocked(result)) syncPostScheduleEditing(false);
+  return {response, result};
 }
 
 async function runProjectChange(originalRequest) {
   if (projectChangeInFlight) throw new Error("Đang có thay đổi chờ xác nhận. Hãy hoàn tất hoặc hủy trước.");
   projectChangeInFlight = true;
-  const request = JSON.parse(JSON.stringify(originalRequest));
-  let preview;
+  postScheduleEditToggle.disabled = true;
   try {
-    preview = await projectChangeRequest("/preview", request);
+    await postScheduleEditRequest;
+    const request = JSON.parse(JSON.stringify(originalRequest));
+    const preview = await projectChangeRequest("/preview", request);
     if (!preview.response.ok) return {...preview, cancelled: false};
     if (preview.result.can_apply && !preview.result.changed) return {response: preview.response, result: {ok: true, unchanged: true, message: "Không có thay đổi cần lưu."}, cancelled: false};
     if (preview.result.can_apply && !preview.result.requires_edit_mode) {
@@ -99,8 +116,8 @@ async function runProjectChange(originalRequest) {
     }
     const dialog = document.getElementById("changeImpactDialog"), apply = document.getElementById("changeImpactApply"), recalculate = document.getElementById("changeImpactRecalculate"), cancel = document.getElementById("changeImpactCancel"), status = document.getElementById("changeImpactStatus");
     let report = preview.result, busy = false, previewDirty = false, selectionRevision = 0;
-    const syncApply = () => { apply.disabled = busy || previewDirty || !report.can_apply || !report.changed || (report.requires_edit_mode && (data.lessons || []).length > 0 && !postScheduleEditing); };
-    const render = () => {renderChangeImpact(report, request, syncApply);syncApply();};
+    const syncApply = () => { apply.disabled = busy || previewDirty || !report.can_apply || !report.changed; };
+    const render = () => {renderChangeImpact(report, request);syncApply();};
     render();
     status.textContent = "";
     dialog.showModal();
@@ -122,7 +139,7 @@ async function runProjectChange(originalRequest) {
       let busyControls = [];
       const setBusy = value => {
         if (value && !busy) {
-          busyControls = [...dialog.querySelectorAll("[data-change-resolution], [data-change-remove], #changeEnableEditing")].map(control => [control, control.disabled]);
+          busyControls = [...dialog.querySelectorAll("[data-change-resolution], [data-change-remove]")].map(control => [control, control.disabled]);
           busyControls.forEach(([control]) => {control.disabled = true;});
         } else if (!value) {
           busyControls.forEach(([control, disabled]) => {control.disabled = disabled;});
@@ -148,6 +165,7 @@ async function runProjectChange(originalRequest) {
         setBusy(true);status.textContent = "Đang tính lại ảnh hưởng...";
         try {
           const outcome = await projectChangeRequest("/preview", request);
+          if (isEditModeLocked(outcome.result)) {finish({...outcome, cancelled: false});return;}
           if (!outcome.response.ok) {status.textContent = apiErrorMessage(outcome.result, "Không thể xem trước.");return;}
           if (revision !== selectionRevision) {
             status.textContent = "Lựa chọn đã đổi trong lúc tính. Hãy tính lại ảnh hưởng trước khi áp dụng.";
@@ -161,12 +179,13 @@ async function runProjectChange(originalRequest) {
         setBusy(true);status.textContent = "Đang áp dụng thay đổi...";
         try {
           const outcome = await projectChangeRequest("/apply", {request, impact_token: report.impact_token});
+          if (isEditModeLocked(outcome.result)) {finish({...outcome, cancelled: false});return;}
           if (outcome.response.ok) {
             if (outcome.result.undone) outcome.result.message = "Thay đổi này đã được áp dụng và hoàn tác trước đó. Dữ liệu hiện tại được giữ nguyên.";
             finish({...outcome, cancelled: false});return;
           }
           status.textContent = apiErrorMessage(outcome.result, "Không thể áp dụng.");
-          if (outcome.result.reason === "impact_stale") {
+          if ((outcome.result.detail?.reason || outcome.result.reason) === "impact_stale") {
             report.can_apply = false;
             status.textContent += " Quay lại chỉnh sửa và tải dữ liệu mới, hoặc tính lại ảnh hưởng nếu mục đang sửa chưa thay đổi.";
           }
@@ -175,7 +194,10 @@ async function runProjectChange(originalRequest) {
         } finally {setBusy(false);}
       };
     });
-  } finally {projectChangeInFlight = false;}
+  } finally {
+    projectChangeInFlight = false;
+    postScheduleEditToggle.disabled = false;
+  }
 }
 
 async function openProjectChangeHistory() {

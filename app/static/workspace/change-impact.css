@@ -1,11 +1,26 @@
-.project-edit-toolbar {display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--card-bg);font-size:12px;}
 body.workspace-viewport .content {display:flex;flex-direction:column;}
 body.workspace-viewport .workspace-tabs-stage {flex:1;min-height:0;height:auto;}
-.project-edit-toolbar {flex:0 0 auto;margin:10px 12px 0;}
-.project-edit-toggle {display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;}
-.project-edit-toggle input {width:auto;margin:0;}
-.project-edit-toolbar>span {flex:1;color:var(--muted);}
-.project-edit-toolbar .btn {font-size:12px;min-height:32px;padding:6px 10px;}
+.project-edit-toolbar {
+  display:flex;flex:0 0 auto;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:4px 12px;margin:8px 12px 0;padding:2px 8px 2px 12px;
+  border:1px solid var(--line);border-radius:var(--radius-md);background:var(--card-bg);font-size:12px;
+}
+.project-edit-toggle {display:flex;align-items:center;gap:8px;min-height:36px;font-weight:600;cursor:pointer;}
+.project-edit-toggle input {position:absolute;width:1px;height:1px;margin:0;opacity:0;}
+.project-edit-toggle-track {
+  display:inline-flex;flex:0 0 32px;align-items:center;height:18px;padding:2px;
+  border:1px solid var(--muted);border-radius:var(--radius-full);background:var(--bg);color:var(--muted);
+  box-sizing:border-box;
+}
+.project-edit-toggle-track::before {content:"";width:12px;height:12px;border-radius:50%;background:currentColor;}
+.project-edit-toggle input:checked + .project-edit-toggle-track {
+  justify-content:flex-end;border-color:var(--primary);background:var(--primary);color:white;
+}
+.project-edit-toggle input:focus-visible + .project-edit-toggle-track {outline:2px solid var(--primary-hover);outline-offset:3px;}
+.project-edit-toggle:has(input:disabled) {cursor:wait;}
+#postScheduleEditState {color:var(--muted);}
+.project-edit-toolbar .btn {min-height:34px;padding:4px 10px;font-size:12px;}
+#resumeEntityEditAction[hidden] {display:none;}
 .change-impact-dialog {width:min(1000px,calc(100vw - 28px));max-width:calc(100vw - 28px);min-width:0;box-sizing:border-box;}
 .change-impact-content {width:100%;min-width:0;padding:24px;max-height:88dvh;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;overflow-wrap:break-word;}
 .change-impact-content h2 {margin:0 0 14px;font-size:20px;}
@@ -26,4 +41,4 @@ body.workspace-viewport .workspace-tabs-stage {flex:1;min-height:0;height:auto;}
 #changeImpactStatus {color:var(--muted);}
 .project-change-entry {padding:14px 0;border-bottom:1px solid var(--line);}
 .project-change-entry time {color:var(--muted);font-size:12px;}
-@media(max-width:600px) {.change-impact-content {padding:16px;}.change-impact-resolution {grid-template-columns:1fr;gap:5px;}.change-impact-actions {bottom:-16px;}.change-impact-actions .btn {flex:1 1 160px;white-space:normal;}.project-edit-toolbar {gap:8px;}.project-edit-toolbar>span {flex-basis:100%;}}
+@media(max-width:600px) {.change-impact-content {padding:16px;}.change-impact-resolution {grid-template-columns:1fr;gap:5px;}.change-impact-actions {bottom:-16px;}.change-impact-actions .btn {flex:1 1 160px;white-space:normal;}}

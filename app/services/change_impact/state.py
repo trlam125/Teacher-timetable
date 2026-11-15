@@ -40,6 +40,30 @@ def capture(db, project):
     }
 
 
+def placed_assignment_ids(state):
+    return {
+        row["assignment_id"]
+        for table in ("lessons", "fixed_lessons")
+        for row in state["tables"][table]
+    }
+
+
+def placed_schedule_changed(before, after):
+    old, new = before["tables"], after["tables"]
+    if any(old[table] != new[table] for table in ("lessons", "fixed_lessons")):
+        return True
+
+    placed = placed_assignment_ids(before)
+    # A teacher transfer changes the timetable even when the lesson rows stay in place.
+    def placed_assignment_details(tables):
+        return {
+            row["id"]: (row["class_id"], row["subject_id"], row["teacher_id"])
+            for row in tables["assignments"] if row["id"] in placed
+        }
+
+    return placed_assignment_details(old) != placed_assignment_details(new)
+
+
 def schedule_unchanged(before, after):
     """Display-only edits may proceed even when the existing timetable has errors."""
     def scheduling_state(state):
