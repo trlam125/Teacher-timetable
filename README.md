@@ -8,7 +8,7 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 - Thùng rác cho bộ thời khóa biểu: giữ nguyên dữ liệu vô thời hạn, không tự động dọn; có thể khôi phục, xóa từng mục hoặc làm rỗng thùng rác khi cần.
 - Chỉnh sửa sau xếp lịch: xem trước ảnh hưởng, giữ các tiết hợp lệ, đưa tiết xung đột về kho và lưu bản dự phòng để hoàn tác.
 - Xếp thời khóa biểu tự động theo các ràng buộc.
-- Chế độ môn **Tối đa 2 tiết liên tiếp/buổi**: chọn trong chương trình khối hoặc phân công để chặn chuỗi 3 tiết cùng môn trong cùng lớp và cùng buổi. Sáng/chiều và các ngày tính riêng; mẫu 2 tiết – ngắt 1 tiết – 2 tiết vẫn hợp lệ. Chế độ này cho phép tiết đơn, không bắt buộc ghép đôi; áp dụng cho xếp tự động, ghim và chỉnh lịch thủ công.
+- Chế độ môn **Tối đa 2 tiết/buổi (liền nhau)**: mỗi môn trong một lớp chỉ được 1 tiết hoặc 2 tiết liền nhau trong buổi, không được có tiết thứ 3. Hai tiết cách nhau và mẫu 2 tiết – ngắt 1 tiết – 2 tiết đều không hợp lệ. Sáng/chiều và các ngày tính riêng. Chọn chế độ trong chương trình khối hoặc phân công; áp dụng cho xếp tự động, ghim, chỉnh lịch thủ công và kiểm tra lịch. Mã chế độ lưu trong dữ liệu vẫn là `max_two_consecutive`; lịch cũ được kiểm tra lại theo quy tắc mới khi xếp/chỉnh sửa, các tiết ghim xung đột cần được xử lý trước.
 - Lượt xếp đầu ưu tiên xếp đủ tiết, sau đó tối ưu phân bố môn theo ngày, tiết đôi ưu tiên và khoảng trống của giáo viên. Nếu chưa tìm được lịch đầy đủ, hệ thống giữ phương án xếp được nhiều tiết nhất đã tìm thấy; có thể thử xếp lại phần không cố định ở bước cuối.
 - Điều chỉnh thời khóa biểu thủ công bằng cách bấm/chạm chọn tiết rồi chọn ô đích hoặc khay.
 - Xem lịch theo lớp hoặc giáo viên.
@@ -49,6 +49,18 @@ Kiểm tra cú pháp Python bằng lệnh đang dùng trên GitHub Actions:
 ```text
 python -m compileall -q app
 ```
+
+Kiểm thử bộ xếp lịch:
+
+```text
+python -m unittest discover -s tests -v
+```
+
+Bộ giải gộp các tiết đơn có cùng tập vị trí hợp lệ theo phân công để giảm số
+hoán vị phải tìm kiếm. Ràng buộc tránh tiết, khóa khối/lớp, trùng giáo viên/lớp
+và tối đa tiết liên tiếp vẫn được giữ nguyên. Tiết đôi bắt buộc, cụm ghim và
+mẫu có điểm neo tiếp tục dùng mô hình theo cụm. Khi lịch đang thiếu tiết nhưng
+không còn vị trí trống hợp lệ, cần dùng bước xếp lại các tiết không cố định.
 
 Khởi tạo DB chạy khi ứng dụng bắt đầu phục vụ, thay vì khi import mô-đun.
 

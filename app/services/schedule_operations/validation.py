@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from app.models import Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher
 from app.scheduling.rules import (
-    assignment_consecutive_limit,
+    assignment_session_periods_valid,
     assignment_requires_double,
     class_blocked_slots,
     parse_slots,
     required_double_block_state,
+    max_two_session_keep,
 )
 from app.services.schedule_operations.blocks import fixed_coverage_slots
 from app.services.schedule_validation import schedule_input_validation_report
@@ -23,11 +24,9 @@ def _minimal_schedule_invalid_lesson_analysis(
 ) -> list[tuple[Lesson, str]]:
     """Return only the lessons that must be rejected, with UI-safe reasons.
 
-    Lessons are evaluated in the same deterministic order used by integrity
-    validation: locked lessons first, then movable lessons by slot/id. A lesson
-    is marked invalid only when adding that lesson would introduce a hard
-    conflict. This keeps aggregate limits (daily teacher load and consecutive
-    subject periods) minimal instead of incorrectly marking the whole group.
+    First retain a largest single/adjacent-pair subset of capped sessions,
+    prioritizing pins. Then check availability and collisions in deterministic
+    order: locked lessons first, then movable lessons by slot/id.
     """
     assignment_by_id = {assignment.id: assignment for assignment in assignments}
     teachers = {
@@ -72,18 +71,6 @@ def _minimal_schedule_invalid_lesson_analysis(
     def reject(lesson: Lesson, reason: str) -> None:
         invalid.append((lesson, reason))
 
-    def exceeds_subject_run(periods: set[int], candidate: int, limit: int) -> bool:
-        ordered = sorted(periods | {candidate})
-        longest = current = 0
-        previous = None
-        for period in ordered:
-            current = (
-                current + 1 if previous is not None and period == previous + 1 else 1
-            )
-            longest = max(longest, current)
-            previous = period
-        return longest > limit
-
     ordered_lessons = sorted(
         lessons,
         key=lambda lesson: (
@@ -92,6 +79,34 @@ def _minimal_schedule_invalid_lesson_analysis(
             int(lesson.id or 0),
         ),
     )
+
+    # Select a largest valid subset per capped session before visiting slots.
+    # A greedy visit of periods 1, 3, 4 would otherwise retain only period 1
+    # instead of the valid pair 3–4. Pins take priority over movable lessons.
+    capped_sessions = defaultdict(list)
+    for lesson in ordered_lessons:
+        assignment = assignment_by_id.get(lesson.assignment_id)
+        if not assignment or assignment.block_mode != "max_two_consecutive":
+            continue
+        if (assignment.teacher_id not in teachers or assignment.class_id not in classes
+                or assignment.subject_id not in subjects):
+            continue
+        slot = int(lesson.slot)
+        if (not 0 <= slot < maximum or slot in blocked
+                or slot in teacher_unavailable[assignment.teacher_id]
+                or slot in class_unavailable[assignment.class_id]):
+            continue
+        key = assignment.class_id, assignment.subject_id, slot // project.periods_per_session
+        capped_sessions[key].append(lesson)
+    excluded = set()
+    for members in capped_sessions.values():
+        positions = {row.slot for row in members}
+        pins = {row.slot for row in members if row.locked}
+        keep = max_two_session_keep(positions, pins)
+        if keep is None:
+            # The caller must see a locked conflict and reject the operation.
+            keep = max_two_session_keep(positions, max_two_session_keep(pins))
+        excluded.update(id(row) for row in members if row.slot not in keep)
 
     for lesson in ordered_lessons:
         assignment = assignment_by_id.get(lesson.assignment_id)
@@ -129,6 +144,10 @@ def _minimal_schedule_invalid_lesson_analysis(
         teacher_day_key = (assignment.teacher_id, day)
         subject_run_key = (assignment.class_id, assignment.subject_id, day, session)
 
+        if id(lesson) in excluded:
+            reject(lesson, f"Môn {subject.name} của lớp {school_class.name} mỗi buổi chỉ được "
+                   "1 tiết hoặc 2 tiết liền nhau; không được có tiết thứ 3.")
+            continue
         if teacher_slot_key in teacher_slot_busy:
             reject(lesson, f"Trùng lịch giáo viên {teacher.name} trong cùng một tiết.")
             continue
@@ -144,16 +163,14 @@ def _minimal_schedule_invalid_lesson_analysis(
             )
             continue
 
-        consecutive_limit = assignment_consecutive_limit(project, assignment)
-        if exceeds_subject_run(
-            class_subject_session_periods[subject_run_key],
-            period,
-            consecutive_limit,
+        if not assignment_session_periods_valid(
+            project, assignment,
+            class_subject_session_periods[subject_run_key] | {period},
         ):
             reject(
                 lesson,
-                f"Môn {subject.name} của lớp {school_class.name} vượt giới hạn "
-                f"{consecutive_limit} tiết liên tiếp trong cùng một buổi.",
+                f"Môn {subject.name} của lớp {school_class.name} mỗi buổi chỉ được "
+                "1 tiết hoặc 2 tiết liền nhau; không được có tiết thứ 3.",
             )
             continue
 
@@ -171,7 +188,7 @@ def minimal_schedule_invalid_lessons(
     assignments: list[Assignment],
     lessons: list[Lesson],
 ) -> list[Lesson]:
-    """Keep the maximum valid subset and return only truly invalid lessons."""
+    """Identify conflicting lessons while retaining valid session subsets."""
     return [
         lesson
         for lesson, _reason in _minimal_schedule_invalid_lesson_analysis(

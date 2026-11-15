@@ -16,7 +16,9 @@ from app.models import (
     Teacher,
     TeacherSubject,
 )
-from app.scheduling.rules import assignment_groups, ensure_assignment_hard_feasible
+from app.scheduling.rules import (
+    assignment_groups, assignment_session_periods_valid, ensure_assignment_hard_feasible,
+)
 
 
 def assignment_availability_issues(
@@ -190,6 +192,15 @@ def fixed_lesson_definition_issues(
             sessions=project.sessions,
             periods_per_session=project.periods_per_session,
         )
+        if not error and assignment.block_mode == "max_two_consecutive":
+            sessions = defaultdict(set)
+            for slot, size in specs:
+                for value in range(slot, slot + size):
+                    sessions[value // project.periods_per_session].add(value % project.periods_per_session)
+            if any(not assignment_session_periods_valid(project, assignment, periods)
+                   for periods in sessions.values()):
+                error = ("Các tiết cố định cùng môn trong mỗi buổi chỉ được "
+                         "1 tiết hoặc 2 tiết liền nhau; không được có tiết thứ 3.")
         if error:
             issues.append(
                 {

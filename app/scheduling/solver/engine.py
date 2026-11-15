@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from .backtracking import exact_search
 from .context import SearchBudget, candidate_key, genes_from_candidate as _candidate_genes
 from .cp_sat import solve_cp_sat
+from .cp_sat_compact import compact_task_groups
 from .genetic import GeneticSearch
 from .problem import build_problem
 from .rebuild import conflict_neighborhood, saved_placement_genes
@@ -84,7 +85,10 @@ def ga_schedule(
         if candidate_key(repaired) < candidate_key(best_candidate):
             best_candidate = repaired
 
-    if mode == "rebuild" and best_candidate["unscheduled"] > 0 and not deadline_hit(0.25):
+    if (
+        mode == "rebuild" and best_candidate["unscheduled"] > 0
+        and compact_task_groups(problem) is None and not deadline_hit(0.25)
+    ):
         # Repair around the saved timetable before spending the rest of the
         # request on a global rebuild. Freeze unrelated tasks, then progressively
         # expand through teacher/class conflicts. Local failures prove nothing

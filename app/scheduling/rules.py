@@ -23,11 +23,40 @@ BLOCK_MODES = {"free", "preferred_double", "required_double", "max_two_consecuti
 
 
 def assignment_consecutive_limit(project: Project, assignment: Assignment) -> int:
-    """Limit a class/subject run within one morning or afternoon session."""
+    """Run bound only; use assignment_session_periods_valid for all session rules."""
     session_length = max(1, int(project.periods_per_session))
     if getattr(assignment, "block_mode", "free") == "max_two_consecutive":
         return min(2, session_length)
     return session_length
+
+
+def max_two_session_keep(periods, protected=()) -> set[int] | None:
+    """Largest single/adjacent pair containing every protected period."""
+    values = set(periods)
+    required = set(protected)
+    options = [set()]
+    for period in sorted(values):
+        options.append({period})
+        if period + 1 in values:
+            options.append({period, period + 1})
+    valid = [option for option in options if required <= option]
+    return min(valid, key=lambda option: (-len(option), sorted(option))) if valid else None
+
+
+def assignment_session_periods_valid(project: Project, assignment: Assignment, periods) -> bool:
+    """Validate one class/subject session; morning and afternoon are separate."""
+    ordered = sorted(set(periods))
+    if getattr(assignment, "block_mode", "free") == "max_two_consecutive":
+        return len(ordered) <= 1 or (
+            len(ordered) == 2 and ordered[1] == ordered[0] + 1
+        )
+    longest = current = 0
+    previous = None
+    for period in ordered:
+        current = current + 1 if previous is not None and period == previous + 1 else 1
+        longest = max(longest, current)
+        previous = period
+    return longest <= assignment_consecutive_limit(project, assignment)
 
 
 def slot_meta(project: Project, slot: int):
@@ -144,10 +173,10 @@ def normalized_block_mode(
         )
     if mode == "max_two_consecutive":
         pps = int(project.periods_per_session)
-        capacity = project.days * project.sessions * (pps - pps // 3)
+        capacity = project.days * project.sessions * min(2, pps)
         if total_periods > capacity:
             raise ValueError(
-                f"Chế độ tối đa 2 tiết liên tiếp/buổi chỉ cho phép {capacity} tiết/tuần "
+                f"Chế độ tối đa 2 tiết/buổi (liền nhau) chỉ cho phép {capacity} tiết/tuần "
                 "trong số ngày, buổi và tiết hiện có. Hãy giảm số tiết hoặc đổi chế độ."
             )
     if mode in {"preferred_double", "required_double"} and total_periods >= 2:
@@ -463,17 +492,11 @@ def ensure_assignment_hard_feasible(
         capacity = 0
         pps = project.periods_per_session
         for base in range(0, len(all_slots(project)), pps):
-            run = 0
-            for offset in range(pps):
-                if base + offset in blocked:
-                    run = 0
-                else:
-                    run += 1
-                    # Leave every third available period to break a subject run.
-                    capacity += int(run % 3 != 0)
+            available = {offset for offset in range(pps) if base + offset not in blocked}
+            capacity += len(max_two_session_keep(available))
     if total_periods > capacity:
         run_note = (
-            " và giới hạn tối đa 2 tiết cùng môn liên tiếp trong một buổi"
+            " và giới hạn mỗi buổi chỉ có 1 tiết hoặc 2 tiết cùng môn liền nhau"
             if mode == "max_two_consecutive" else ""
         )
         raise HTTPException(

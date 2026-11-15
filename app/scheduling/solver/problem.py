@@ -20,7 +20,7 @@ from app.models import (
 )
 from app.scheduling.rules import (
     all_slots,
-    assignment_consecutive_limit,
+    assignment_session_periods_valid,
     assignment_groups,
     assignment_requires_double,
     class_blocked_slots,
@@ -381,7 +381,6 @@ def build_problem(
             | frozenset(global_blocked)
         )
         subject = subjects[assignment.subject_id]
-        max_run = assignment_consecutive_limit(p, assignment)
         static_subject_slots = existing_class_subject_slots[
             (assignment.class_id, assignment.subject_id)
         ]
@@ -424,21 +423,16 @@ def build_problem(
             ):
                 continue
 
-            # Prune candidates that already violate max_consecutive even before
-            # any new task is placed.  The dynamic check still runs later for
-            # combinations of multiple tasks.
+            # Prune against the base session before considering other tasks.
             existing_periods = {
                 candidate % p.periods_per_session
                 for candidate in static_subject_slots
                 if candidate // ppd == day
                 and (candidate % ppd) // p.periods_per_session == session
             }
-            run = sorted(existing_periods | set(range(period, period + size)))
-            longest = current = 1
-            for left, right in zip(run, run[1:]):
-                current = current + 1 if right == left + 1 else 1
-                longest = max(longest, current)
-            if longest > max_run:
+            if not assignment_session_periods_valid(
+                p, assignment, existing_periods | set(range(period, period + size))
+            ):
                 continue
 
             rows.append((slot, group_slots, new_slots, day, session, period))

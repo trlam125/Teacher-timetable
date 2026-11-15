@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from collections import Counter, defaultdict
 
-from app.scheduling.rules import assignment_consecutive_limit
+from app.scheduling.rules import assignment_session_periods_valid
 
 
 def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, project, deadline, node_limit=12000):
@@ -45,9 +45,8 @@ def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, p
 
     def respects_subject_limit(index, row, blockers):
         owner = tasks[index][0]
-        limit = assignment_consecutive_limit(project, owner)
         pps = project.periods_per_session
-        if limit >= pps:
+        if owner.block_mode != "max_two_consecutive":
             return True
         key = (owner.class_id, owner.subject_id)
         base = row[0] // pps * pps
@@ -58,12 +57,7 @@ def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, p
             if (other.class_id, other.subject_id) == key:
                 occupied.difference_update(placed[blocker][2])
         occupied.update(row[1])
-        run = 0
-        for slot in range(base, base + pps):
-            run = run + 1 if slot in occupied else 0
-            if run > limit:
-                return False
-        return True
+        return assignment_session_periods_valid(project, owner, occupied)
 
     for index, start in enumerate(genes):
         if start is not None:

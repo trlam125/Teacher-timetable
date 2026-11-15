@@ -34,7 +34,7 @@ function changeDisplayValue(value, field) {
   if (field === "Tiết tránh" || field === "Khóa lịch") {
     try { return JSON.parse(value).map(changeSlotLabel).join(", ") || "Không có"; } catch { return String(value); }
   }
-  if (field === "Chế độ tiết") return ({required_double: "Tiết đôi bắt buộc", preferred_double: "Ưu tiên tiết đôi", max_two_consecutive: "Tối đa 2 tiết liên tiếp/buổi"})[value] || "Tiết đơn";
+  if (field === "Chế độ tiết") return ({required_double: "Tiết đôi bắt buộc", preferred_double: "Ưu tiên tiết đôi", max_two_consecutive: "Tối đa 2 tiết/buổi (liền nhau)"})[value] || "Tiết đơn";
   return String(value ?? "—");
 }
 

@@ -70,10 +70,10 @@ function renderAll() {
 }
 function blockModeOptions(mode = "free") {
   const selected = (value) => (value === mode ? "selected" : "");
-  return `<option value="free" ${selected("free")}>Tự do</option><option value="preferred_double" ${selected("preferred_double")}>Ưu tiên tiết đôi</option><option value="required_double" ${selected("required_double")}>Bắt buộc tiết đôi</option><option value="max_two_consecutive" ${selected("max_two_consecutive")}>Tối đa 2 tiết liên tiếp/buổi</option>`;
+  return `<option value="free" ${selected("free")}>Tự do</option><option value="preferred_double" ${selected("preferred_double")}>Ưu tiên tiết đôi</option><option value="required_double" ${selected("required_double")}>Bắt buộc tiết đôi</option><option value="max_two_consecutive" ${selected("max_two_consecutive")}>Tối đa 2 tiết/buổi (liền nhau)</option>`;
 }
 function blockModeEditor(mode = "free") {
-  return `<label>Chế độ xếp tiết<select name="block_mode" onchange="updateBlockModePreview(this.form)">${blockModeOptions(mode)}</select><small class="block-mode-help">Ưu tiên tiết đôi cho phép tách lẻ. Bắt buộc tiết đôi chỉ để lẻ 1 tiết khi tổng số tiết là số lẻ. Giới hạn 2 tiết liên tiếp tính riêng từng buổi, vẫn cho phép tiết đơn.</small></label><div class="block-mode-preview" data-block-preview></div>`;
+  return `<label>Chế độ xếp tiết<select name="block_mode" onchange="updateBlockModePreview(this.form)">${blockModeOptions(mode)}</select><small class="block-mode-help">Ưu tiên tiết đôi cho phép tách lẻ. Bắt buộc tiết đôi chỉ để lẻ 1 tiết khi tổng số tiết là số lẻ. Tối đa 2 tiết/buổi: mỗi môn trong một lớp được 1 tiết hoặc 2 tiết liền nhau, không có tiết thứ 3; sáng và chiều tính riêng.</small></label><div class="block-mode-preview" data-block-preview></div>`;
 }
 function updateBlockModePreview(form) {
   if (!form) return;

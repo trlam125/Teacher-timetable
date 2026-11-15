@@ -162,7 +162,7 @@ def block_mode_text(mode: str) -> str:
         "free": "Tự do",
         "preferred_double": "Ưu tiên tiết đôi",
         "required_double": "Bắt buộc tiết đôi",
-        "max_two_consecutive": "Tối đa 2 tiết liên tiếp/buổi",
+        "max_two_consecutive": "Tối đa 2 tiết/buổi (liền nhau)",
     }.get(mode or "free", mode or "Tự do")
 
 

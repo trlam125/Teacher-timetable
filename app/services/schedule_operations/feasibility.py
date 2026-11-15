@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.logic import fixed_group_validation_error
 from app.models import Assignment, FixedLesson, Lesson, Project, SchoolClass, Subject, Teacher
 from app.scheduling.rules import (
-    assignment_consecutive_limit,
+    assignment_session_periods_valid,
     assignment_groups,
     assignment_prefers_double,
     assignment_requires_double,
@@ -156,7 +156,6 @@ def assignment_completion_feasible(
         return False
     double = assignment_requires_double(assignment) and enforce_pattern
     single_limit = total % 2 if double else 0
-    max_run = assignment_consecutive_limit(project, assignment)
     reachable = {(0, 0)}
     for day in range(project.days):
         budget = min(total, ppd - teacher_day[day])
@@ -177,11 +176,9 @@ def assignment_completion_feasible(
                 count = mask.bit_count()
                 if mask & mandatory == mandatory and count <= budget:
                     occupied = mask | subject_masks[key]
-                    run = longest = 0
-                    for i in range(pps):
-                        run = run + 1 if occupied & (1 << i) else 0
-                        longest = max(longest, run)
-                    if longest <= max_run:
+                    if assignment_session_periods_valid(
+                        project, assignment, (i for i in range(pps) if occupied & (1 << i))
+                    ):
                         singles = 0
                         if double:
                             # Fixed groups split a run into independent segments;
@@ -264,5 +261,5 @@ def assignment_pattern_label(assignment: Assignment):
     if assignment_prefers_double(assignment):
         return "ưu tiên tiết đôi"
     if assignment.block_mode == "max_two_consecutive":
-        return "tối đa 2 tiết liên tiếp/buổi"
+        return "mỗi buổi chỉ có 1 tiết hoặc 2 tiết liền nhau"
     return "xếp tiết tự do"
