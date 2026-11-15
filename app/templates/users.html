@@ -61,7 +61,7 @@
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
-    <link rel="stylesheet" href="/static/admin-users.css?v=1">
+    <link rel="stylesheet" href="/static/admin-users.css?v=3">
     <script src="/static/admin-users.js?v=1" defer></script>
     <script src="/static/profile-avatar.js?v=2" defer></script>
 </head>
@@ -131,10 +131,31 @@
             {% endif %}
         </section>
         {% endif %}
-        <div class="project-grid account-grid">
+        <section class="panel accounts-panel" aria-labelledby="accounts-title">
+            <div class="section-head accounts-heading">
+                <h2 id="accounts-title">Danh sách tài khoản</h2>
+                <span class="muted">{{ users | length }} tài khoản</span>
+            </div>
+            <div class="accounts-table-wrap">
+            <table class="data-table accounts-table" aria-labelledby="accounts-title">
+                <colgroup>
+                    <col class="account-identity-col"><col class="account-role-col"><col class="account-presence-col">
+                    <col><col class="account-action-col">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th scope="col">Tài khoản</th>
+                        <th scope="col">Vai trò</th>
+                        <th scope="col">Trạng thái</th>
+                        <th scope="col">Trường học</th>
+                        <th scope="col"><span class="admin-visually-hidden">Chi tiết</span></th>
+                    </tr>
+                </thead>
+                <tbody>
             {% for account in users %}
-            <article class="project-card account-card">
+            <tr>
                 {% set assigned_ids = school_assignments.get(account.id, []) %}
+                <td>
                 <div class="account-identity">
                     <div class="avatar-interactive-wrap">
                         <form method="post" action="/admin/users/{{ account.id }}/avatar" enctype="multipart/form-data"
@@ -177,10 +198,13 @@
                         <p class="account-email">{{ account.email }}</p>
                     </div>
                 </div>
-                <div class="account-meta">
+                </td>
+                <td data-label="Vai trò" class="account-role">
                     {% if account.role == "teacher" %}<span class="pill">Giáo viên</span>
                     {% elif account.role == "super_admin" %}<span class="pill approved-pill">Super admin</span>
                     {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
+                </td>
+                <td data-label="Trạng thái">
                     <div class="account-presence {{ 'is-online' if account.id in online_user_ids else '' }}"
                         data-presence-user-id="{{ account.id }}" data-last-seen="{{ account.last_seen or '' }}">
                         <span class="account-presence-dot" aria-hidden="true"></span>
@@ -191,15 +215,16 @@
                                 (account.last_seen | timeago) }}</span>
                         </span>
                     </div>
-                </div>
+                </td>
+                <td data-label="Trường học">
                 <p class="account-schools">
                     {{ school_names_by_account.get(account.id, []) | join(' · ') if assigned_ids else 'Chưa được gán trường' }}
                 </p>
-                <div class="account-card-footer">
+                </td>
+                <td class="account-action">
                     <button type="button" class="admin-detail-link" data-admin-dialog="account-detail-{{ account.id }}"
                         aria-haspopup="dialog" aria-controls="account-detail-{{ account.id }}"
                         aria-label="Xem chi tiết tài khoản {{ account.name }}">Xem chi tiết</button>
-                </div>
                 <dialog id="account-detail-{{ account.id }}" class="admin-detail-dialog" aria-labelledby="account-detail-title-{{ account.id }}">
                     <div class="admin-dialog-content">
                         <header class="admin-dialog-header">
@@ -326,9 +351,13 @@
                         </section>
                     </div>
                 </dialog>
-            </article>
-            {% else %}<div class="empty-state">Không có tài khoản nào trong phạm vi quản lý.</div>{% endfor %}
-        </div>
+                </td>
+            </tr>
+            {% else %}<tr><td colspan="5" class="accounts-empty">Không có tài khoản nào trong phạm vi quản lý.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </section>
         {% if user.role == "super_admin" %}
         <section id="system-logs" class="panel system-logs-panel">
             <div class="section-head system-logs-heading">

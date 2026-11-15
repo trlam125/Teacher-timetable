@@ -4,21 +4,27 @@
   padding-inline: clamp(16px, 3vw, 56px);
 }
 
-.account-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
+.accounts-panel {min-width: 0;}
+.accounts-heading {flex-wrap: wrap; gap: 8px 16px; margin-bottom: 20px;}
+.accounts-heading h2 {margin: 0; font-size: 22px;}
+.accounts-heading > span {font-size: 13px;}
+.accounts-table-wrap, .system-logs-table-wrap {border: 1px solid var(--line); border-radius: 12px; overflow: hidden;}
+.accounts-table, .system-logs-table {table-layout: fixed; border: 0; border-radius: 0;}
+.accounts-table th, .accounts-table td, .system-logs-table th, .system-logs-table td {
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
-
-.account-grid .account-card {
-  display: flex;
-  justify-content: flex-start;
-  gap: 14px;
-  min-width: 0;
-  min-height: 0;
-  padding: 20px;
-  background: var(--card-bg);
-  box-shadow: var(--shadow-xs);
-}
+.accounts-table tbody tr:last-child td, .system-logs-table tbody tr:last-child td {border-bottom: 0;}
+.accounts-table .account-identity-col {width: 30%;}
+.accounts-table .account-role-col {width: 14%;}
+.accounts-table .account-presence-col {width: 18%;}
+.accounts-table .account-action-col {width: 124px;}
+.accounts-table th, .accounts-table td {vertical-align: middle;}
+.accounts-table .account-action > .admin-detail-link {white-space: nowrap;}
+.accounts-table .accounts-empty {padding: 28px 16px; text-align: center; color: var(--muted);}
 
 .account-identity {
   display: flex;
@@ -39,12 +45,12 @@
 }
 
 .account-identity-copy {min-width: 0;}
-.account-identity-copy h3 {margin: 0 0 4px; line-height: 1.4;}
-.account-email {overflow-wrap: anywhere;}
-.account-meta {display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;}
-.account-meta .pill {font-size: 11px; padding: 4px 9px;}
+.account-identity-copy h3 {margin: 0 0 4px; font-size: 15px; font-weight: 600; line-height: 1.4;}
+.account-email {margin: 0; color: var(--muted); overflow-wrap: anywhere;}
+.account-identity-copy .account-email {font-size: 12px;}
+.account-role .pill {font-size: 11px; padding: 4px 9px;}
 
-.account-meta .account-presence {
+.accounts-table .account-presence {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -54,12 +60,11 @@
   background: transparent;
 }
 
-.account-meta .account-presence-copy {display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px 6px; align-items: baseline;}
-.account-meta [data-presence-state] {font-size: 12px; font-weight: 500;}
-.account-meta [data-presence-last-seen] {font-size: 11px;}
-.account-meta .account-presence-dot {width: 6px; height: 6px; margin: 0; box-shadow: none;}
-.account-card .account-schools {margin: 0; line-height: 1.6; overflow-wrap: anywhere;}
-.account-card-footer {margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line);}
+.accounts-table .account-presence-copy {display: flex; flex-direction: column; gap: 2px; min-width: 0;}
+.accounts-table [data-presence-state] {font-size: 12px; font-weight: 500;}
+.accounts-table [data-presence-last-seen] {font-size: 11px;}
+.accounts-table .account-presence-dot {flex-shrink: 0; width: 6px; height: 6px; margin: 0; box-shadow: none;}
+.account-schools {margin: 0; color: var(--muted); line-height: 1.6; overflow-wrap: anywhere;}
 
 .admin-detail-link {
   display: inline-flex;
@@ -130,8 +135,6 @@
 .system-logs-heading p {margin: 0; font-size: 13px; line-height: 1.7;}
 .system-logs-heading .system-logs-count {margin-top: 4px; font-size: 12px;}
 .system-logs-heading > form {flex: 0 0 auto;}
-.system-logs-table-wrap {border: 1px solid var(--line); border-radius: 12px; overflow: hidden;}
-.system-logs-table {table-layout: fixed; border: 0; border-radius: 0;}
 .system-logs-table .log-time-col {width: 14%;}
 .system-logs-table .log-project-col {width: 24%;}
 .system-logs-table .log-account-col {width: 21%;}
@@ -140,15 +143,9 @@
 
 .system-logs-table th, .system-logs-table td {
   vertical-align: top;
-  padding: 16px;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: normal;
   word-break: normal;
-  overflow-wrap: anywhere;
 }
 
-.system-logs-table tbody tr:last-child td {border-bottom: 0;}
 .system-logs-table time {font-variant-numeric: tabular-nums;}
 .log-secondary {display: block; margin-top: 4px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere;}
 .log-project-name, .log-account-name {display: block; font-weight: 600;}
@@ -165,31 +162,37 @@
 .admin-visually-hidden {position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;}
 
 @media (max-width: 1100px) {
+  .accounts-table th, .accounts-table td, .system-logs-table th, .system-logs-table td {padding: 12px;}
+  .accounts-table .account-action-col {width: 112px;}
   .system-logs-table .log-time-col {width: 16%;}
   .system-logs-table .log-project-col {width: 22%;}
   .system-logs-table .log-account-col {width: 20%;}
   .system-logs-table .log-action-col {width: 112px;}
-  .system-logs-table th, .system-logs-table td {padding: 12px;}
 }
 
 @media (max-width: 800px) {
+  .accounts-panel, .system-logs-panel {padding: 16px;}
+  .accounts-table, .accounts-table tbody, .accounts-table tr, .accounts-table td,
   .system-logs-table, .system-logs-table tbody, .system-logs-table tr, .system-logs-table td {display: block; width: 100%;}
-  .system-logs-table colgroup {display: none;}
-  .system-logs-table thead {position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);}
-  .system-logs-table tr {padding: 16px; border-bottom: 1px solid var(--line);}
-  .system-logs-table tr:last-child {border-bottom: 0;}
-  .system-logs-table td {padding: 5px 0; border: 0;}
+  .accounts-table colgroup, .system-logs-table colgroup {display: none;}
+  .accounts-table thead, .system-logs-table thead {position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);}
+  .accounts-table tr, .system-logs-table tr {padding: 16px; border-bottom: 1px solid var(--line);}
+  .accounts-table tr:last-child, .system-logs-table tr:last-child {border-bottom: 0;}
+  .accounts-table td, .system-logs-table td {padding: 5px 0; border: 0;}
+  .accounts-table td:first-child {padding: 0 0 12px;}
+  .accounts-table td[data-label] {display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 12px;}
+  .accounts-table td[data-label]::before {content: attr(data-label); color: var(--muted); font-size: 12px;}
+  .accounts-table td[data-label] > * {min-width: 0; justify-self: start;}
+  .accounts-table .account-action {padding: 10px 0 0; text-align: right;}
+  .accounts-table .accounts-empty {padding: 12px 0;}
   .system-logs-table td[data-label] {display: grid; grid-template-columns: 100px minmax(0, 1fr); column-gap: 14px;}
   .system-logs-table td[data-label]::before {content: attr(data-label); color: var(--muted); grid-column: 1; grid-row: 1 / span 3; font-size: 12px;}
   .system-logs-table td[data-label] > * {grid-column: 2; min-width: 0;}
   .system-logs-table .log-action {padding-top: 10px;}
   .system-logs-table .log-secondary {margin-top: 2px;}
-  .system-logs-panel {padding: 16px;}
 }
 
 @media (max-width: 480px) {
-  .account-grid .account-card {padding: 16px;}
-  .account-identity-copy h3 {font-size: 16px;}
   .incident-metadata {grid-template-columns: minmax(0, 1fr);}
   .admin-detail-dialog input {font-size: 16px;}
   .system-logs-table td[data-label] {grid-template-columns: 80px minmax(0, 1fr); column-gap: 10px;}

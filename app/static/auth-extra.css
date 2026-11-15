@@ -46,15 +46,6 @@
   color: var(--muted);
 }
 
-.account-card {
-  display: grid;
-  gap: 14px;
-}
-
-.account-card>div:first-child p {
-  margin-bottom: 4px;
-}
-
 .account-edit-form {
   display: grid;
   gap: 12px;

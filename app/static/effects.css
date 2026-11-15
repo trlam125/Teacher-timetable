@@ -149,8 +149,7 @@ h3,
 .project-card,
 .manual-tray-panel,
 .global-session-locks,
-.preference-card,
-.account-card {
+.preference-card {
   position: relative;
   overflow: hidden;
   border-color: rgba(148, 163, 184, 0.24);
@@ -179,8 +178,7 @@ h3,
 
 .stats article:hover,
 .project-card:hover,
-.preference-card:hover,
-.account-card:hover {
+.preference-card:hover {
   transform: translateY(-6px);
   border-color: rgba(37, 99, 235, 0.28);
   box-shadow: var(--fx-shadow-hover);
