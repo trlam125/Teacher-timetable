@@ -188,6 +188,7 @@ class ProjectChange(Base):
 
 
 class SchedulerRunDiagnostic(Base):
+    """Legacy storage retained for existing databases; new runs use system incidents."""
     __tablename__ = "scheduler_run_diagnostics"
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
@@ -370,7 +371,8 @@ class TeacherPreference(Base):
     reviewed_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
 
-class ChatbotErrorLog(Base):
+class SystemIncidentLog(Base):
+    # Reuse the existing table so historical AI incidents remain available.
     __tablename__ = "chatbot_error_logs"
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[str] = mapped_column(
@@ -386,10 +388,13 @@ class ChatbotErrorLog(Base):
     user_name: Mapped[str] = mapped_column(String(120), default="")
     user_email: Mapped[str] = mapped_column(String(255), default="")
     error_code: Mapped[str] = mapped_column(
-        String(64), default="chatbot_error", index=True
+        String(64), default="system_error", index=True
     )
     provider_status: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     error_message: Mapped[str] = mapped_column(Text)
+
+
+ChatbotErrorLog = SystemIncidentLog  # Compatibility with existing imports/data.
 
 
 class ChatMessage(Base):

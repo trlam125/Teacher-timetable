@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from collections import defaultdict
 import re
 
 from app.schedule_audit.parsing import (
@@ -24,6 +25,19 @@ def infer_standalone_project(
     day_indexes: set[int] = set()
     explicit_sessions: set[int] = set()
     period_numbers: list[int] = []
+    periods_by_session = defaultdict(set)
+
+    def observe_period(period_text, session_text=""):
+        number = _period_number(_cell_text(period_text))
+        if number is not None:
+            period_numbers.append(number)
+        if _cell_text(session_text):
+            session = _session_index(_cell_text(session_text), 4)
+            if session is not None:
+                explicit_sessions.add(session)
+                if number is not None:
+                    periods_by_session[session].add(number)
+
     for _title, raw_rows in tables:
         rows = _trim_matrix(raw_rows)
         grid = _standalone_find_grid_header(rows)
@@ -33,15 +47,12 @@ def infer_standalone_project(
                 day = _standalone_day_index(day_text)
                 if day is not None:
                     day_indexes.add(day)
+            carried_session = ""
             for values in rows[header_index + 1 :]:
-                if period_col < len(values):
-                    number = _period_number(_cell_text(values[period_col]))
-                    if number is not None:
-                        period_numbers.append(number)
                 if session_col is not None and session_col < len(values):
-                    session = _session_index(_cell_text(values[session_col]), 2)
-                    if session is not None:
-                        explicit_sessions.add(session)
+                    carried_session = _cell_text(values[session_col]) or carried_session
+                if period_col < len(values):
+                    observe_period(values[period_col], carried_session)
         else:
             for header_index, row in enumerate(rows[:30]):
                 kinds = {
@@ -51,45 +62,48 @@ def infer_standalone_project(
                 }
                 if "period" not in kinds or "day" not in kinds:
                     continue
+                carried_session = ""
                 for values in rows[header_index + 1 :]:
                     if kinds["day"] < len(values):
                         day = _standalone_day_index(_cell_text(values[kinds["day"]]))
                         if day is not None:
                             day_indexes.add(day)
-                    if kinds["period"] < len(values):
-                        number = _period_number(_cell_text(values[kinds["period"]]))
-                        if number is not None:
-                            period_numbers.append(number)
                     if "session" in kinds and kinds["session"] < len(values):
-                        session = _session_index(
-                            _cell_text(values[kinds["session"]]), 2
-                        )
-                        if session is not None:
-                            explicit_sessions.add(session)
+                        carried_session = _cell_text(values[kinds["session"]]) or carried_session
+                    if kinds["period"] < len(values):
+                        observe_period(values[kinds["period"]], carried_session)
                 break
     for raw in raw_lessons:
         day = _standalone_day_index(raw.day_text)
         if day is not None:
             day_indexes.add(day)
-        number = _period_number(raw.period_text)
-        if number is not None:
-            period_numbers.append(number)
-        if raw.session_text:
-            session = _session_index(raw.session_text, 2)
-            if session is not None:
-                explicit_sessions.add(session)
+        observe_period(raw.period_text, raw.session_text)
     days = max(day_indexes) + 1 if day_indexes else 6
     days = max(5, min(7, days))
     maximum_period = max(period_numbers, default=5)
-    if 1 in explicit_sessions:
-        sessions = 2
-        periods = max(1, min(8, maximum_period))
+    period_numbering = "session"
+    if explicit_sessions:
+        sessions = max(explicit_sessions) + 1
+        periods = maximum_period
+        # Infer whole-day numbering only when the labeled morning establishes
+        # a boundary and every later session lies in its corresponding range.
+        boundary = max(periods_by_session[0], default=0)
+        if sessions > 1 and boundary and all(
+            periods_by_session[index]
+            and all(index * boundary < number <= (index + 1) * boundary
+                    for number in periods_by_session[index])
+            for index in range(1, sessions)
+        ):
+            periods = boundary
+            period_numbering = "day"
     elif maximum_period > 8:
         sessions = 2
-        periods = max(1, min(8, (maximum_period + 1) // 2))
+        periods = (maximum_period + 1) // 2
+        period_numbering = "day"
     else:
         sessions = 1
-        periods = max(1, min(8, maximum_period))
+        periods = maximum_period
+    periods = max(1, min(20, periods))
     return {
         "id": 0,
         "name": "TKB import",
@@ -97,6 +111,7 @@ def infer_standalone_project(
         "days": days,
         "sessions": sessions,
         "periods": periods,
+        "period_numbering": period_numbering,
         "blocked_slots": [],
     }
 

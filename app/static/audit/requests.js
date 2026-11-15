@@ -9,7 +9,6 @@ async function runScheduleAudit() {
     renderScheduleAuditError(validationError);
     return;
   }
-  scheduleAuditAiRunId += 1;
   resetScheduleAuditAiResult();
   const runId = ++scheduleAuditRunId,
     drop = $("#scheduleAuditDropzone");

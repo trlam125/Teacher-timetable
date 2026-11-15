@@ -17,7 +17,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
-    ChatbotErrorLog,
+    SystemIncidentLog,
     EmailChangeVerification,
     Project,
     School,
@@ -39,7 +39,8 @@ from app.services.profiles import normalize_profile_url
 from app.services.projects import chatbot_ui_context
 from app.services.realtime.manager import realtime_manager
 from app.services.web import bounded_text, redirect_with_notice, templates
-from app.settings import MIN_PASSWORD_LENGTH
+from app.services.system_incidents import incident_log_view
+from app.settings import MIN_PASSWORD_LENGTH, MAX_SYSTEM_INCIDENT_LOGS
 
 router = APIRouter()
 
@@ -87,13 +88,13 @@ def admin_users(
         for account in users
         if account.role == "teacher" and admin_can_manage_account(user, account, db)
     }
-    chatbot_error_logs = []
-    chatbot_error_log_count = 0
+    system_incident_logs = []
+    system_incident_log_count = 0
     if is_super_admin(user):
-        chatbot_error_log_count = db.scalar(select(func.count(ChatbotErrorLog.id))) or 0
-        chatbot_error_logs = db.scalars(
-            select(ChatbotErrorLog).order_by(ChatbotErrorLog.id.desc()).limit(100)
-        ).all()
+        system_incident_log_count = db.scalar(select(func.count(SystemIncidentLog.id))) or 0
+        system_incident_logs = [incident_log_view(row) for row in db.scalars(
+            select(SystemIncidentLog).order_by(SystemIncidentLog.id.desc()).limit(100)
+        ).all()]
     return templates.TemplateResponse(
         "users.html",
         {
@@ -106,8 +107,9 @@ def admin_users(
             "assignable_school_ids": assignable_school_ids,
             "school_assignments": school_assignments,
             "school_names_by_account": school_names_by_account,
-            "chatbot_error_logs": chatbot_error_logs,
-            "chatbot_error_log_count": chatbot_error_log_count,
+            "system_incident_logs": system_incident_logs,
+            "system_incident_log_count": system_incident_log_count,
+            "system_incident_log_limit": MAX_SYSTEM_INCIDENT_LOGS,
             "online_user_ids": realtime_manager.online_user_ids_for(
                 {account.id for account in users}
             ),
@@ -243,15 +245,16 @@ def update_account_schools(
 
 
 @router.post("/admin/chatbot-logs/clear")
-def clear_chatbot_error_logs(
+@router.post("/admin/system-logs/clear")
+def clear_system_incident_logs(
     user: User = Depends(current_user),
     db: Session = Depends(db_session),
 ):
     if not is_super_admin(user):
-        raise HTTPException(403, "Chỉ super admin được xóa log chatbot")
-    db.execute(delete(ChatbotErrorLog))
+        raise HTTPException(403, "Chỉ super admin được xóa nhật ký sự cố hệ thống")
+    db.execute(delete(SystemIncidentLog))
     db.commit()
-    return RedirectResponse("/admin/users#chatbot-logs", 303)
+    return RedirectResponse("/admin/users#system-logs", 303)
 
 
 @router.post("/admin/users/{account_id}/avatar")

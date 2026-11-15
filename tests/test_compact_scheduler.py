@@ -347,7 +347,7 @@ class CompactSchedulerTests(unittest.TestCase):
         self.project.periods_per_session = 5
         self.assignment(1, periods=3, mode='max_two_consecutive')
         add_generated_lessons(self.db, self.project, [(1, slot, True) for slot in (0, 2)])
-        self.db.flush()
+        self.db.commit()
         result = generate_schedule(self.db, self.project, 1, None)
         self.assertEqual(result.status_code, 409)
         self.assertEqual([(row.slot, row.locked) for row in self.db.scalars(

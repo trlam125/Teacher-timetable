@@ -17,7 +17,10 @@ Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa
 - Chia sẻ thời khóa biểu qua liên kết yêu cầu đăng nhập tài khoản; hỗ trợ xuất Excel.
 - Xuất Excel theo phôi mẫu: mỗi lớp có hai cột môn–giáo viên, tiêu đề gộp, Times New Roman; khung và hàng tiết dùng viền đen nét liền mảnh, đường ngăn môn–giáo viên dùng nét chấm. Danh sách GV nghỉ ở sheet riêng. File tải về dùng định dạng `.xlsx`.
 - Hỗ trợ kiểm tra dữ liệu và trợ lý AI.
-- Import kiểm tra TKB nhận bảng Excel mỗi lớp có cặp cột môn–giáo viên và tiêu đề lớp gộp ô; bỏ qua sheet thống kê “GV không có tiết dạy”. Có thể import lại file Excel do ứng dụng xuất ra.
+- **Nhật ký sự cố hệ thống** trong trang quản lý tài khoản dành cho super admin: xem chung sự cố trợ lý AI và các lần xếp lịch bị lỗi, bị từ chối hoặc còn thiếu tiết. Log ghi project, tài khoản, thời gian và chi tiết tìm kiếm; giữ tối đa 500 sự cố, hiển thị 100 mục mới nhất. Lịch sử AI cũ vẫn được giữ. Mục Chẩn đoán bộ xếp riêng đã được bỏ.
+- Import kiểm tra TKB nhận bảng Excel/Word mỗi lớp có cặp cột môn–giáo viên và tiêu đề lớp gộp ô; bỏ qua sheet thống kê “GV không có tiết dạy”. Có thể import lại file Excel do ứng dụng xuất ra; các dòng môn/giáo viên tương ứng trong cùng ô được giữ riêng để phát hiện trùng lớp. Tên giáo viên khác dấu được tính định mức riêng.
+- Hỗ trợ cột lớp gộp ô trong `.xls` và cách đánh số tiết xuyên ngày khi các nhãn buổi xác định được ranh giới. Thứ/buổi/tiết sai được báo lỗi, không tự làm tròn hoặc đổi sang ô khác. Kết quả AI cũ được bỏ qua sau khi đổi tệp hay sửa tên môn/giáo viên.
+- Kiểm tra TKB từ tệp hoạt động độc lập: kiểm tra trùng lớp, giáo viên, phòng; đối chiếu số tiết theo định mức người dùng nhập. Tệp không chứa ràng buộc của project nên chức năng này chưa tự kiểm tra tiết tránh, tiết ghim hay chế độ tối đa 2 tiết/buổi của project.
 
 ## Chỉnh sửa sau khi đã xếp lịch
 
@@ -27,7 +30,7 @@ Tiết ghim/cố định được bảo vệ; cần bỏ cố định trước n
 
 Mở **Bản dự phòng & lịch sử** để hoàn tác lần thay đổi gần nhất khi project chưa có thay đổi tiếp. Bản dự phòng được giữ đến khi xóa vĩnh viễn project. Bản xem trước có hiệu lực 15 phút và phải tính lại nếu dữ liệu thay đổi. Chức năng này chưa thay đổi số ngày/buổi/tiết của toàn project.
 
-Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng lưu bản dự phòng và nâng cấp cột thông báo. Kiểm thử chạy thủ công tại máy phát triển; GitHub Actions chỉ kiểm tra cú pháp Python.
+Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng lưu bản dự phòng và nâng cấp cột thông báo. GitHub Actions kiểm tra cú pháp Python, chạy bộ kiểm thử xếp lịch và kiểm tra từ tệp trên mỗi lần push hoặc pull request. Các kiểm thử dùng dữ liệu riêng, không cần kết nối hay ghi vào DB thật.
 
 ## Công nghệ
 
@@ -54,6 +57,12 @@ Kiểm thử bộ xếp lịch:
 
 ```text
 python -m unittest discover -s tests -v
+```
+
+Kiểm thử giao diện tính định mức từ tệp (Node.js 22+):
+
+```text
+node tests/test_schedule_audit_frontend.js
 ```
 
 Bộ giải gộp các tiết đơn có cùng tập vị trí hợp lệ theo phân công để giảm số

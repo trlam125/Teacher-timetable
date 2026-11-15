@@ -14,7 +14,7 @@ function weeklyCatalogFromReport(report) {
     if (!label) return;
     if (kind === "teachers" && scheduleAuditIsUnknownTeacher(label)) return;
     if (kind === "subjects" && scheduleAuditIsUnknownSubject(label)) return;
-    const key = kind === "subjects" ? weeklySubjectCode(label) : scheduleAuditEntityKey(label);
+    const key = kind === "subjects" ? weeklySubjectCode(label) : kind === "teachers" ? scheduleAuditIdentityKey(label) : scheduleAuditEntityKey(label);
     if (key && !records[kind].has(key)) records[kind].set(key, label);
   };
   for (const cls of report?.viewer?.classes || []) insert("classes", cls.name);
@@ -30,7 +30,7 @@ function weeklyCatalogChanges(previous, next) {
   const changes = {};
   for (const type of ["classes", "subjects", "teachers"]) {
     const normalize = names => {
-      return new Map(names.map(name => [type === "subjects" ? weeklySubjectCode(name) : scheduleAuditEntityKey(name), name]));
+      return new Map(names.map(name => [type === "subjects" ? weeklySubjectCode(name) : type === "teachers" ? scheduleAuditIdentityKey(name) : scheduleAuditEntityKey(name), name]));
     };
     const before = normalize(previous?.[type] || []);
     const after = normalize(next?.[type] || []);
@@ -47,7 +47,7 @@ function weeklyChangesExist(changes) {
 function weeklyRowKey(type, row) {
   const key = scheduleAuditEntityKey;
   if (type === "class_subject") return `${String(row.grade || "").trim()}|${weeklySubjectCode(row.subject)}`;
-  return `${key(row.teacher)}|${key(row.class_name)}|${weeklySubjectCode(row.subject)}`;
+  return `${scheduleAuditIdentityKey(row.teacher)}|${key(row.class_name)}|${weeklySubjectCode(row.subject)}`;
 }
 // Detect incompatible quotas in old drafts that used multiple names for one
 // subject. Such values must be reviewed before a canonicalized draft is saved.
@@ -77,14 +77,14 @@ function weeklyRawSubjectLabel(value) {
 }
 function weeklyMergeLimits(saved, generated, catalog, removeMissing, previousCatalog = null) {
   const kept = {}, subjects = new Set(catalog.subjects.map(weeklySubjectCode)),
-    teachers = new Set(catalog.teachers.map(scheduleAuditEntityKey)),
+    teachers = new Set(catalog.teachers.map(scheduleAuditIdentityKey)),
     classes = new Set(catalog.classes.map(scheduleAuditEntityKey)),
     grades = new Set(catalog.classes.map(x => (String(x).match(/^(1[0-2]|[1-9])[a-z]/i) || [])[1]).filter(Boolean));
   const currentSubjectLabels = new Map((catalog.subjects || [])
     .map(name => [weeklySubjectCode(name), name]));
   const valid = (type, row) => !removeMissing || (
     type === "class_subject" ? subjects.has(weeklySubjectCode(row.subject)) && grades.has(String(row.grade || "").trim()) :
-    teachers.has(scheduleAuditEntityKey(row.teacher)) &&
+    teachers.has(scheduleAuditIdentityKey(row.teacher)) &&
     subjects.has(weeklySubjectCode(row.subject)) && classes.has(scheduleAuditEntityKey(row.class_name)));
   for (const type of WEEKLY_LIMIT_TYPES) {
     const rows = new Map();

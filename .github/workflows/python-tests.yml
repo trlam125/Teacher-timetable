@@ -1,4 +1,4 @@
-name: Python syntax check
+name: Python checks
 
 on:
   push:
@@ -15,5 +15,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: pip
+      - name: Install project dependencies
+        run: python -m pip install -r requirements.txt
       - name: Check application syntax
         run: python -m compileall -q app
+      - name: Run scheduling and file-audit regression tests
+        run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run file-audit frontend regression tests
+        run: node tests/test_schedule_audit_frontend.js

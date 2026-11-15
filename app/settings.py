@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ADMIN_ROLES = frozenset({"admin", "super_admin"})
-MAX_CHATBOT_ERROR_LOGS = 500
+MAX_SYSTEM_INCIDENT_LOGS = 500
 MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS = 350_000
 MAX_SCHEDULE_AUDIT_FILE_BYTES = 15 * 1024 * 1024
 VIETNAM_TZ = timezone(timedelta(hours=7), name="UTC+7")

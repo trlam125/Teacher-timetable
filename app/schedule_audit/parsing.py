@@ -61,6 +61,15 @@ def _cell_text(value: Any) -> str:
     return str(value).strip()
 
 
+def strict_audit_int(value: Any) -> int:
+    """Coordinates must be integers, never truncated floats or booleans."""
+    if type(value) is int:
+        return value
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value.strip()):
+        return int(value.strip())
+    raise ValueError("invalid integer coordinate")
+
+
 def _archive_size_guard(content: bytes) -> None:
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
@@ -107,6 +116,22 @@ def _excel_paired_class_headers(content: bytes) -> dict[str, list[tuple[int, int
     return result
 
 
+def _mark_paired_class_headers(rows, paired_headers):
+    """Keep class/teacher column roles consistent across XLSX, XLS and DOCX."""
+    for row_index, column in paired_headers:
+        if not 0 <= row_index < len(rows):
+            continue
+        header = rows[row_index]
+        if not {"day", "period"} <= {_header_kind(value) for value in header}:
+            continue
+        if not 0 <= column < len(header) or not _standalone_looks_like_class(header[column]):
+            continue
+        if len(header) <= column + 1:
+            header.extend([""] * (column + 2 - len(header)))
+        if not header[column + 1]:
+            header[column + 1] = "Giáo viên"
+
+
 def _read_excel_tables(
     content: bytes, suffix: str
 ) -> list[tuple[str, list[list[str]]]]:
@@ -128,22 +153,10 @@ def _read_excel_tables(
                     [_cell_text(value) for value in row]
                     for row in sheet.iter_rows(values_only=True)
                 ]
-                for row_index, column in paired_headers.get(sheet.title, []):
-                    if row_index >= len(rows):
-                        continue
-                    header = rows[row_index]
-                    kinds = {_header_kind(value) for value in header}
-                    if not {"day", "period"}.issubset(kinds):
-                        continue
-                    if column >= len(header) or not _standalone_looks_like_class(header[column]):
-                        continue
-                    # A merged class heading explicitly owns both columns.
-                    # Mark the right-hand role without filling merged lesson cells.
-                    if len(header) <= column + 1:
-                        header.extend([""] * (column + 2 - len(header)))
-                    if not header[column + 1]:
-                        header[column + 1] = "Giáo viên"
+                _mark_paired_class_headers(rows, paired_headers.get(sheet.title, []))
                 tables.append((sheet.title, rows))
+        except Exception as exc:
+            raise ScheduleAuditParseError("Không đọc được dữ liệu trong file Excel. Hãy kiểm tra lại file.") from exc
         finally:
             workbook.close()
         return tables
@@ -155,7 +168,7 @@ def _read_excel_tables(
             "File .xls cần thư viện xlrd. Hãy chạy lại pip install -r requirements.txt hoặc lưu file thành .xlsx."
         ) from exc
     try:
-        book = xlrd.open_workbook(file_contents=content, on_demand=True)
+        book = xlrd.open_workbook(file_contents=content, on_demand=True, formatting_info=True)
     except Exception as exc:
         raise ScheduleAuditParseError("Không đọc được file Excel .xls.") from exc
     tables = []
@@ -165,7 +178,13 @@ def _read_excel_tables(
                 [_cell_text(sheet.cell_value(r, c)) for c in range(sheet.ncols)]
                 for r in range(sheet.nrows)
             ]
+            _mark_paired_class_headers(rows, [
+                (top, left) for top, bottom, left, right in sheet.merged_cells
+                if bottom == top + 1 and right == left + 2
+            ])
             tables.append((sheet.name, rows))
+    except Exception as exc:
+        raise ScheduleAuditParseError("Không đọc được dữ liệu trong file Excel .xls.") from exc
     finally:
         book.release_resources()
     return tables
@@ -191,10 +210,13 @@ def _read_delimited_table(
         delimiter = dialect.delimiter
     except csv.Error:
         pass
-    rows = [
-        [_cell_text(value) for value in row]
-        for row in csv.reader(io.StringIO(text), delimiter=delimiter)
-    ]
+    try:
+        rows = [
+            [_cell_text(value) for value in row]
+            for row in csv.reader(io.StringIO(text), delimiter=delimiter)
+        ]
+    except csv.Error as exc:
+        raise ScheduleAuditParseError("File CSV/TSV có ô quá dài hoặc cấu trúc không hợp lệ.") from exc
     return [("Dữ liệu", rows)]
 
 
@@ -250,9 +272,35 @@ def _read_docx_tables(content: bytes) -> list[tuple[str, list[list[str]]]]:
             continue
         table_no += 1
         rows: list[list[str]] = []
+        paired_headers: list[tuple[int, int]] = []
         for tr in child.findall("w:tr", namespace):
-            row = [_docx_text(tc, namespace) for tc in tr.findall("w:tc", namespace)]
+            row = []
+            # DOCX merged cells occupy gridSpan columns. Preserve those
+            # coordinates so the following class/teacher columns stay aligned.
+            before = tr.find("w:trPr/w:gridBefore", namespace)
+            if before is not None:
+                try:
+                    count = int(before.get(f"{{{namespace['w']}}}val", "0"))
+                except ValueError as exc:
+                    raise ScheduleAuditParseError("Cấu trúc cột trong bảng Word không hợp lệ.") from exc
+                if not 0 <= count <= 512:
+                    raise ScheduleAuditParseError("Bảng Word có quá nhiều cột.")
+                row.extend([""] * count)
+            for tc in tr.findall("w:tc", namespace):
+                span_node = tc.find("w:tcPr/w:gridSpan", namespace)
+                try:
+                    span = int(span_node.get(f"{{{namespace['w']}}}val", "1")) if span_node is not None else 1
+                except ValueError as exc:
+                    raise ScheduleAuditParseError("Ô gộp trong bảng Word không hợp lệ.") from exc
+                if not 1 <= span <= 512 or len(row) + span > 512:
+                    raise ScheduleAuditParseError("Bảng Word có quá nhiều cột.")
+                value = _docx_text(tc, namespace)
+                if span == 2 and _standalone_looks_like_class(value):
+                    paired_headers.append((len(rows), len(row)))
+                row.append(value)
+                row.extend([""] * (span - 1))
             rows.append(row)
+        _mark_paired_class_headers(rows, paired_headers)
         title = last_paragraph or f"Bảng {table_no}"
         tables.append((title, rows))
     return tables
@@ -320,7 +368,7 @@ def _day_index(value: str) -> int | None:
     }
     if text in english:
         return english[text]
-    match = re.search(r"(?:thu\s*)?([2-8])\b", text)
+    match = re.fullmatch(r"(?:thu\s*|t\s*)?([2-8])", text)
     if match:
         number = int(match.group(1))
         return 6 if number == 8 else number - 2
@@ -332,22 +380,16 @@ def _day_index(value: str) -> int | None:
 
 
 def _session_index(value: str, session_count: int) -> int | None:
-    if session_count <= 1:
-        return 0
     text = normalize_text(value)
     if not text:
-        return None
+        return 0 if session_count == 1 else None
     # File TKB thực tế thường ghi "Sáng 2" / "Chiều 2", trong đó số 2 là thứ
     # chứ không phải số buổi. Ưu tiên từ Sáng/Chiều trước khi đọc bất kỳ chữ số nào.
-    if text == "s" or text.startswith("sang") or "morning" in text:
+    if re.fullmatch(r"(?:s|sang|morning)(?:\s*[2-8])?", text):
         return 0
-    if text == "c" or text.startswith("chieu") or "afternoon" in text:
-        return 1 if session_count > 1 else 0
-    if any(token in text for token in ("buoi 1", "ca 1")):
-        return 0
-    if any(token in text for token in ("buoi 2", "ca 2")):
-        return 1 if session_count > 1 else 0
-    match = re.search(r"(?:buoi|ca|session)\s*([1-9])\b", text)
+    if re.fullmatch(r"(?:c|chieu|afternoon)(?:\s*[2-8])?", text):
+        return 1 if session_count > 1 else None
+    match = re.fullmatch(r"(?:buoi|ca|session|b)\s*([1-9])", text)
     if match:
         index = int(match.group(1)) - 1
         return index if 0 <= index < session_count else None
@@ -355,10 +397,11 @@ def _session_index(value: str, session_count: int) -> int | None:
 
 
 def _period_number(value: str) -> int | None:
-    text = normalize_text(value)
+    text = unicodedata.normalize("NFD", str(value or "").strip().casefold())
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
     if not text:
         return None
-    match = re.search(r"\b(\d{1,2})\b", text)
+    match = re.fullmatch(r"(?:(?:tiet(?:\s+hoc)?|period)\s*)?([0-9]{1,2})(?:[.,]0+)?", text)
     return int(match.group(1)) if match else None
 
 
@@ -443,7 +486,15 @@ def _resolve_slot(
     if day is None or period is None or not (0 <= day < days):
         return None
     session = _session_index(session_text, sessions)
-    if session is None and 1 <= period <= sessions * periods:
+    if _cell_text(session_text) and session is None:
+        return None
+    if project.get("period_numbering") == "day" and 1 <= period <= sessions * periods:
+        numbered_session = (period - 1) // periods
+        if session is not None and session != numbered_session:
+            return None
+        session = numbered_session
+        period = ((period - 1) % periods) + 1
+    elif session is None and 1 <= period <= sessions * periods:
         session = (period - 1) // periods
         period = ((period - 1) % periods) + 1
     if session is None:
@@ -514,6 +565,8 @@ def _parse_long_table(title: str, rows: list[list[str]]) -> list[RawLesson]:
                 last_day = get("day")
             if get("session"):
                 last_session = get("session")
+            if _header_kind(period) == "period" and _header_kind(class_text) == "class":
+                continue
             if not period or not class_text or not (subject or lesson or teacher):
                 continue
             parsed.append(
@@ -1106,7 +1159,7 @@ def _standalone_parse_grid(
     ):
         row_no = row_index + 1
         period = values[period_col] if period_col < len(values) else ""
-        if not period or _period_number(period) is None:
+        if not period or _header_kind(period) == "period":
             continue
         session_value = (
             values[session_col]
@@ -1268,7 +1321,7 @@ def _standalone_parse_wide(
             ):
                 period_number = last_period + 1
                 period = str(period_number)
-        if not day or period_number is None:
+        if not period or _header_kind(period) == "period":
             last_period = None
             continue
         last_period = period_number
@@ -1306,6 +1359,23 @@ def _standalone_parse_wide(
                 )
             else:
                 separate_teacher = _cell_text(get(teacher_columns[col])) if col in teacher_columns else ""
+                if col in teacher_columns:
+                    subject_lines = [part.strip() for part in lesson.splitlines() if part.strip()]
+                    teacher_lines = [part.strip() for part in separate_teacher.splitlines() if part.strip()]
+                    # The app exports conflicting lessons as aligned lines in
+                    # the subject/teacher pair. Keep each as a separate lesson
+                    # so re-import cannot hide the class collision. Require
+                    # recognizable subjects to avoid splitting wrapped labels.
+                    if (len(subject_lines) > 1 and len(subject_lines) == len(teacher_lines)
+                            and all(_standalone_subject_from_text(part) for part in subject_lines)):
+                        for subject_line, teacher_line in zip(subject_lines, teacher_lines):
+                            parsed.append(RawLesson(
+                                day, session, period, header,
+                                lesson_text=f"{subject_line} · {teacher_line}",
+                                subject_text=subject_line, teacher_text=teacher_line,
+                                source=f"{title} · dòng {row_no}", origin="class",
+                            ))
+                        continue
                 if col in teacher_columns:
                     class_name, subject_name, teacher_name = header, lesson, separate_teacher
                 else:

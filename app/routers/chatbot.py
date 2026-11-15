@@ -13,15 +13,15 @@ from fastapi import (
 )
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.logging_config import logger
-from app.models import ChatbotErrorLog, User
+from app.models import User
 from app.services.authentication.sessions import current_user, db_session
 from app.services.projects import chatbot_project_data_for_user, chatbot_ui_context
 from app.services.web import templates
-from app.settings import MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS, MAX_CHATBOT_ERROR_LOGS
+from app.settings import MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS
+from app.services.system_incidents import record_system_incident
 
 router = APIRouter()
 
@@ -135,30 +135,12 @@ def chatbot_reply(
         error_code: str, error_message: str, provider_status: int | None = None
     ) -> None:
         try:
-            db.add(
-                ChatbotErrorLog(
-                    project_id=p.id,
-                    project_name=p.name,
-                    user_id=user.id,
-                    user_name=user.name,
-                    user_email=user.email,
-                    error_code=error_code[:64],
-                    provider_status=provider_status,
-                    error_message=error_message[:8000],
-                )
+            record_system_incident(
+                db, project_id=p.id, project_name=p.name,
+                actor={"id": user.id, "name": user.name, "email": user.email},
+                error_code=error_code, message=error_message, provider_status=provider_status,
             )
             db.commit()
-            cutoff_id = db.scalar(
-                select(ChatbotErrorLog.id)
-                .order_by(ChatbotErrorLog.id.desc())
-                .offset(MAX_CHATBOT_ERROR_LOGS - 1)
-                .limit(1)
-            )
-            if cutoff_id is not None:
-                db.execute(
-                    delete(ChatbotErrorLog).where(ChatbotErrorLog.id < cutoff_id)
-                )
-                db.commit()
         except Exception:
             db.rollback()
             logger.exception("Could not persist chatbot error log for project %s", pid)

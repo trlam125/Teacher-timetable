@@ -5,6 +5,7 @@ import json
 from fastapi import HTTPException, UploadFile
 
 from app.settings import MAX_SCHEDULE_AUDIT_FILE_BYTES
+from app.schedule_audit.parsing import strict_audit_int
 
 
 def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
@@ -29,7 +30,7 @@ def read_schedule_audit_report_json(report_json: str) -> dict:
         )
     try:
         report = json.loads(raw)
-    except json.JSONDecodeError as exc:
+    except (ValueError, RecursionError) as exc:
         raise HTTPException(
             400, "Dữ liệu thời khóa biểu đã chỉnh sửa không hợp lệ."
         ) from exc
@@ -42,9 +43,9 @@ def read_schedule_audit_report_json(report_json: str) -> dict:
     if len(cells) > 50000:
         raise HTTPException(413, "Thời khóa biểu có quá nhiều ô để phân tích bằng AI.")
     try:
-        days = int(viewer.get("days") or 0)
-        sessions = int(viewer.get("sessions") or 0)
-        periods = int(viewer.get("periods") or 0)
+        days = strict_audit_int(viewer.get("days"))
+        sessions = strict_audit_int(viewer.get("sessions"))
+        periods = strict_audit_int(viewer.get("periods"))
     except (TypeError, ValueError) as exc:
         raise HTTPException(
             400, "Kích thước thời khóa biểu đã chỉnh sửa không hợp lệ."

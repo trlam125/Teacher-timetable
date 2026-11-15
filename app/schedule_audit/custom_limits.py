@@ -6,6 +6,7 @@ from math import isfinite
 import re
 import unicodedata
 from typing import Any
+from app.schedule_audit.parsing import _identity_text
 
 CLASS_PATTERN = re.compile(r'^\s*(1[0-2]|[1-9])\s*([a-zA-Z])\s*0*(\d{1,2})\s*$', re.I)
 SECTIONS = ('class_subject', 'assignments')
@@ -77,7 +78,7 @@ def validate_limits(limits: Any) -> dict[str, list[dict[str, Any]]]:
                 row['class_name'] = _class_name(item.get('class_name'))
                 if not row['class_name']:
                     raise ValueError('Lớp phải có dạng 6A1, 7A2, 9C1...')
-                key = (_key(row['teacher']), row['class_name'], _subject_key(row['subject']))
+                key = (_identity_text(row['teacher']), row['class_name'], _subject_key(row['subject']))
             if key in used:
                 raise ValueError('Có dòng định mức trùng nhau. Hãy gộp thành một dòng.')
             used.add(key)
@@ -110,7 +111,7 @@ def check_custom_weekly_workload(viewer: dict[str, Any], raw_limits: Any) -> dic
         subject_name = str(cell.get('subject_name') or '').strip()
         subject = _subject_key(subject_name)
         teacher_name = str(cell.get('teacher_name') or '').strip()
-        teacher = _key(teacher_name)
+        teacher = _identity_text(teacher_name)
         class_subjects[cls][subject] += 1
         if teacher:
             teacher_subjects[(teacher, cls)][subject] += 1
@@ -138,7 +139,7 @@ def check_custom_weekly_workload(viewer: dict[str, Any], raw_limits: Any) -> dic
     unverified_teachers: set[str] = set()
     for row in limits['assignments']:
         cls = row['class_name']
-        teacher = _key(row['teacher'])
+        teacher = _identity_text(row['teacher'])
         subject = _subject_key(row['subject'])
         configured.add((teacher, cls, subject))
         teacher_targets[teacher] += row['periods']
@@ -159,7 +160,7 @@ def check_custom_weekly_workload(viewer: dict[str, Any], raw_limits: Any) -> dic
         for row in raw_limits.get('assignments', []):
             if not isinstance(row, dict) or row.get('periods') not in ('', None):
                 continue
-            teacher = _key(row.get('teacher'))
+            teacher = _identity_text(row.get('teacher'))
             if teacher:
                 unverified_teachers.add(teacher)
                 teacher_names.setdefault(teacher, str(row.get('teacher')))

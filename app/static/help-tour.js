@@ -42,7 +42,7 @@
         { target: '.school-create-form', title: 'Tạo trường', text: 'Tạo trường mới trước khi gán quản trị viên hoặc tạo bộ thời khóa biểu cho trường đó.' },
         { target: 'main .panel', title: 'Quản lý danh sách trường', text: 'Bạn có thể xem và đổi tên các trường đã có trong hệ thống.' },
         { target: '.project-grid', title: 'Quản lý tài khoản', text: 'Mỗi thẻ tài khoản cho phép xem trạng thái, gán trường và cập nhật quyền hoặc thông tin cần thiết.' },
-        { target: '#chatbot-logs', title: 'Nhật ký Trợ lý AI', text: 'Khu vực này cho phép quản trị viên theo dõi lịch sử sử dụng Trợ lý AI và dọn nhật ký khi cần.' }
+        { target: '#system-logs', title: 'Nhật ký sự cố hệ thống', text: 'Super admin xem sự cố trợ lý AI, lỗi xếp lịch và các lần xếp còn thiếu tiết tại đây.' }
       ]
     },
     audit: {
@@ -159,7 +159,7 @@
     if (document.getElementById('teacher-preferences')) return pageTours.teacherPortal;
     if (document.querySelector('main.account-page')) return pageTours.teacherAccount;
     if (document.querySelector('main.preference-page') && document.getElementById('teacherProjectSelect')?.disabled) return pageTours.teacherEmpty;
-    if (document.getElementById('chatbot-logs')) return pageTours.users;
+    if (document.getElementById('system-logs')) return pageTours.users;
     if (document.getElementById('newProject') && document.querySelector('.project-grid')) return pageTours.projects;
 
     return {

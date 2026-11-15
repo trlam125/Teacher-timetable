@@ -405,7 +405,7 @@ def _purge_project_rows(db: Session, projects: list[Project]):
     ):
         db.execute(delete(model).where(model.project_id.in_(project_ids)))
 
-    # Log chatbot không có khóa ngoại tới projects, nhưng vẫn dọn theo project
+    # Nhật ký sự cố không có khóa ngoại tới projects, nhưng vẫn dọn theo project
     # để không giữ lại dữ liệu mồ côi sau khi bộ TKB đã bị xóa.
     db.execute(delete(ChatbotErrorLog).where(ChatbotErrorLog.project_id.in_(project_ids)))
     # Existing databases may still contain these retired tables even though

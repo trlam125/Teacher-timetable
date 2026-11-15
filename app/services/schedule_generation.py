@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import json
 from typing import Optional
 import time
 
+from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -28,10 +30,47 @@ from app.services.schedule_operations.validation import (
     schedule_integrity_report,
 )
 from app.services.schedule_validation import schedule_input_validation_report
-from app.services.scheduler_diagnostics import record_scheduler_run
+from app.services.system_incidents import record_scheduler_incident
 
 
-def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[GenerateScheduleIn]):
+def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[GenerateScheduleIn], *, actor=None):
+    context = {
+        "project_id": pid, "project_name": p.name,
+        "actor": {key: getattr(actor, key, None) for key in ("id", "name", "email")},
+        "search": None,
+    }
+
+    def persist_failure(outcome):
+        db.rollback()
+        try:
+            record_scheduler_incident(db, context, outcome)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Could not persist scheduler incident for project %s", pid)
+
+    try:
+        result = _generate_schedule(db, p, pid, payload, incident_context=context)
+    except Exception as exc:
+        blocked = isinstance(exc, HTTPException) and exc.status_code < 500
+        persist_failure({
+            "status": "blocked" if blocked else "error", "saved": False,
+            "message": str(exc.detail) if blocked else "Bộ xếp gặp sự cố khi xử lý hoặc lưu thời khóa biểu.",
+            "exception_type": type(exc).__name__,
+        })
+        raise
+    if isinstance(result, JSONResponse) and result.status_code >= 400:
+        response = json.loads(result.body)
+        if not response.get("requires_confirmation"):
+            persist_failure({
+                "status": "blocked" if result.status_code < 500 else "rejected",
+                "saved": False, "message": response.get("message", "Không thể xếp lịch."),
+                "reason": response.get("reason"), "validation": response,
+            })
+    return result
+
+
+def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_context):
     assignments = db.scalars(
         select(Assignment).where(Assignment.project_id == pid)
     ).all()
@@ -413,16 +452,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
 
     search_diagnostics = None
 
-    def record_failed_run(outcome):
-        db.rollback()
-        if search_diagnostics is not None:
-            try:
-                record_scheduler_run(db, pid, search_diagnostics, outcome)
-                db.commit()
-            except Exception:
-                db.rollback()
-                logger.exception("Could not persist failed scheduler diagnostic for project %s", pid)
-
     def run_solver(solver, mode, tries):
         nonlocal search_diagnostics
         started = time.monotonic()
@@ -431,11 +460,11 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             "mode": mode,
             "initial_lessons": len(existing),
         }
+        incident_context["search"] = search_diagnostics
         try:
             result = solver(db, p, tries=tries)
         except Exception:
             search_diagnostics["elapsed_seconds"] = round(time.monotonic() - started, 3)
-            record_failed_run({"status": "error", "saved": False, "message": "Bộ xếp gặp sự cố; lịch trước thao tác được giữ lại."})
             raise
         search_diagnostics.update({
             "solver": result.get("solver"),
@@ -446,6 +475,7 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             "search_limited": result.get("search_limited", not result.get("optimal", False)),
             "maximum_placed": result.get("maximum_placed", result["unscheduled"] == 0),
             "reused_periods": result.get("reused_periods"),
+            "proven_infeasible": result.get("proven_infeasible", False),
             "search_phases": result.get("search_phases", []),
         })
         logger.info("Schedule generation diagnostic: %s", search_diagnostics)
@@ -462,7 +492,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 "Generated/current timetable failed final validation: %s",
                 integrity,
             )
-            record_failed_run({"status": "rejected", "saved": False, "message": "Kết quả xếp bị từ chối do không vượt qua kiểm tra toàn vẹn.", "integrity": integrity})
             return JSONResponse(
                 {
                     "ok": False,
@@ -499,8 +528,6 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
             class_capacity_issues=input_validation["class_capacity_issues"],
             assignment_availability_issues=input_validation["assignment_availability_issues"],
         )
-        if search_diagnostics is not None:
-            response_payload["search_diagnostics"] = search_diagnostics
         if response_payload["partial"]:
             response_payload["message"] = (
                 f"Đã lưu {len(current_lessons)} tiết lên thời khóa biểu; "
@@ -516,16 +543,21 @@ def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[Gener
                 affected_lesson_ids=movable_ids,
                 moved_count=len(movable_ids),
             )
-        if search_diagnostics is not None:
-            record_scheduler_run(db, pid, search_diagnostics, {
-                "status": "partial" if response_payload["partial"] else "complete",
+        if response_payload["partial"]:
+            outcome = {
+                "status": "partial",
                 "saved": True,
                 "scheduled": len(current_lessons),
                 "unscheduled": missing_periods,
                 "score": response_payload.get("score"),
                 "preserved_current": response_payload.get("preserved_current", False),
                 "message": response_payload["message"],
-            })
+            }
+            try:
+                with db.begin_nested():
+                    record_scheduler_incident(db, incident_context, outcome)
+            except Exception:
+                logger.exception("Could not persist partial scheduler incident for project %s", pid)
         db.commit()
         return response_payload
 

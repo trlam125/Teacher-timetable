@@ -16,6 +16,7 @@ from app.schedule_audit.parsing import (
     _standalone_teacher_is_optional,
     normalize_text,
     slot_label,
+    strict_audit_int,
 )
 from app.subject_catalog import canonical_subject_name
 
@@ -36,9 +37,9 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         raise ValueError("missing viewer")
 
     try:
-        days = int(viewer.get("days") or 0)
-        sessions = int(viewer.get("sessions") or 0)
-        periods = int(viewer.get("periods") or 0)
+        days = strict_audit_int(viewer.get("days"))
+        sessions = strict_audit_int(viewer.get("sessions"))
+        periods = strict_audit_int(viewer.get("periods"))
     except (TypeError, ValueError) as exc:
         raise ValueError("invalid schedule dimensions") from exc
     if not (1 <= days <= 7 and 1 <= sessions <= 4 and 1 <= periods <= 20):
@@ -66,7 +67,7 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         if not isinstance(item, dict):
             raise ValueError("invalid class")
         try:
-            class_id = int(item.get("id"))
+            class_id = strict_audit_int(item.get("id"))
         except (TypeError, ValueError) as exc:
             raise ValueError("invalid class id") from exc
         name = _cell_text(item.get("name"))[:160]
@@ -86,9 +87,9 @@ def recalculate_standalone_edited_report(report: dict[str, Any]) -> dict[str, An
         if not isinstance(item, dict):
             raise ValueError("invalid cell")
         try:
-            draft_id = int(item.get("draft_id") or index)
-            slot = int(item.get("slot"))
-            class_id = int(item.get("class_id"))
+            draft_id = strict_audit_int(item.get("draft_id", index))
+            slot = strict_audit_int(item.get("slot"))
+            class_id = strict_audit_int(item.get("class_id"))
         except (TypeError, ValueError) as exc:
             raise ValueError("invalid cell coordinates") from exc
         if draft_id <= 0 or draft_id in seen_draft_ids:
@@ -525,7 +526,7 @@ def apply_standalone_viewer_edits(
         if not isinstance(cell, dict):
             raise ValueError("invalid edited cell")
         try:
-            draft_id = int(cell.get("draft_id") or index)
+            draft_id = strict_audit_int(cell.get("draft_id", index))
         except (TypeError, ValueError) as exc:
             raise ValueError("invalid edited draft id") from exc
         if draft_id <= 0 or draft_id in edited_by_draft:
@@ -537,7 +538,7 @@ def apply_standalone_viewer_edits(
         if not isinstance(cell, dict):
             raise ValueError("invalid base cell")
         try:
-            draft_id = int(cell.get("draft_id") or index)
+            draft_id = strict_audit_int(cell.get("draft_id", index))
         except (TypeError, ValueError) as exc:
             raise ValueError("invalid base draft id") from exc
         base_draft_ids.add(draft_id)

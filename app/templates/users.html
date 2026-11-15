@@ -310,22 +310,22 @@
             {% else %}<div class="empty-state">Không có tài khoản nào trong phạm vi quản lý.</div>{% endfor %}
         </div>
         {% if user.role == "super_admin" %}
-        <section id="chatbot-logs" class="panel" style="margin-top:28px">
+        <section id="system-logs" class="panel" style="margin-top:28px">
             <div class="section-head" style="margin-bottom:16px">
                 <div>
-                    <h2 style="margin:0 0 6px">Lịch sử sự cố trợ lý AI</h2>
+                    <h2 style="margin:0 0 6px">Nhật ký sự cố hệ thống</h2>
                     <p>
-                        Ghi nhận các sự cố khi dùng trợ lý AI để người quản lý kiểm tra. Không lưu nội dung câu hỏi hoặc tệp người dùng; hệ thống chỉ giữ tối đa 500 lần gần nhất.
-                        {% if chatbot_error_log_count %}Đang có {{ chatbot_error_log_count }} lần gặp sự cố; bảng hiển thị tối đa
+                        Ghi nhận sự cố trợ lý AI và các lần xếp lịch bị lỗi, bị từ chối hoặc chưa đủ tiết. Hệ thống giữ tối đa {{ system_incident_log_limit }} sự cố gần nhất.
+                        {% if system_incident_log_count %}Đang có {{ system_incident_log_count }} sự cố; bảng hiển thị tối đa
                         100 lần gần
                         nhất.{% endif %}
                     </p>
                 </div>
-                {% if chatbot_error_logs %}
-                <form method="post" action="/admin/chatbot-logs/clear"
-                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ lịch sử sự cố trợ lý AI?', {title: 'Xóa lịch sử sự cố', confirmText: 'Xóa lịch sử'}).then(ok => { if (ok) this.submit(); });">
+                {% if system_incident_logs %}
+                <form method="post" action="/admin/system-logs/clear"
+                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ nhật ký sự cố hệ thống?', {title: 'Xóa nhật ký sự cố', confirmText: 'Xóa nhật ký'}).then(ok => { if (ok) this.submit(); });">
                     <button class="btn btn-tame-ape btn-tame-ape-danger" type="submit"><span class="btn__text">Xóa
-                            lịch sử</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
+                            nhật ký</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                 height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round" class="svg">
                                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -338,24 +338,26 @@
                 </form>
                 {% endif %}
             </div>
-            {% if chatbot_error_logs %}
+            {% if system_incident_logs %}
             <div style="overflow-x:auto">
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Giờ Việt Nam (UTC+7)</th>
+                            <th>Khu vực</th>
                             <th>Thời khóa biểu</th>
                             <th>Tài khoản</th>
-                            <th>Loại lỗi</th>
+                            <th>Loại sự cố</th>
                             <th>Thông tin sự cố</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for log in chatbot_error_logs %}
+                        {% for log in system_incident_logs %}
                         <tr>
                             <td style="white-space:nowrap">{{ log.created_at | vietnam_datetime }}</td>
+                            <td style="white-space:nowrap">{{ log.source_label }}</td>
                             <td>
-                                <b>{{ log.project_name or ('Project #' ~ log.project_id) }}</b>
+                                <b>{{ log.project_name or ('Project #' ~ log.project_id if log.project_id else '—') }}</b>
                                 {% if log.project_id %}<div class="muted">ID {{ log.project_id }}</div>{% endif %}
                             </td>
                             <td>
@@ -369,7 +371,12 @@
                                 {% endif %}
                             </td>
                             <td style="min-width:320px; max-width:520px; white-space:normal; word-break:break-word">
-                                {{ log.error_message }}
+                                {{ log.summary }}
+                                {% if log.details %}
+                                <details style="margin-top:8px"><summary>Chi tiết sự cố</summary>
+                                    <pre style="white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px">{{ log.details }}</pre>
+                                </details>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -377,7 +384,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="muted" style="margin:0">Chưa ghi nhận sự cố nào của trợ lý AI.</p>
+            <p class="muted" style="margin:0">Chưa ghi nhận sự cố hệ thống.</p>
             {% endif %}
         </section>
         {% endif %}

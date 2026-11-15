@@ -37,7 +37,15 @@ function setScheduleAuditFile(file) {
   }
 }
 function resetScheduleAuditAiResult() {
+  // A response computed before a file/name edit must never restore old data.
+  scheduleAuditAiRunId += 1;
   scheduleAuditAiAnalysis = null;
+  const button = $("#scheduleAuditAiButton");
+  if (button) {
+    button.classList.remove("is-loading");
+    button.disabled = !scheduleAuditAiIsEnabled();
+    button.textContent = "✦ Phân tích bằng AI";
+  }
   const aiBox = $("#scheduleAuditAiResult");
   if (aiBox) {
     aiBox.hidden = true;
@@ -47,7 +55,6 @@ function resetScheduleAuditAiResult() {
 function clearScheduleAuditFile(resetResult = true) {
   scheduleAuditRunId += 1;
   weeklyCatalogPromptCancel?.();
-  scheduleAuditAiRunId += 1;
   scheduleAuditLastReport = null;
   resetScheduleAuditWorkloadLimits();
   scheduleAuditManualEdits = 0;
@@ -87,14 +94,8 @@ function selectScheduleAuditFile(file, { autoRun = true } = {}) {
     renderScheduleAuditError(error);
     return false;
   }
-  weeklyCatalogPromptCancel?.();
-  scheduleAuditAiRunId += 1;
-  scheduleAuditLastReport = null;
-  resetScheduleAuditWorkloadLimits();
-  scheduleAuditManualEdits = 0;
+  clearScheduleAuditFile();
   scheduleAuditActiveView = "timetable";
-  scheduleAuditTableExpanded = false;
-  resetScheduleAuditAiResult();
   setScheduleAuditFile(file);
   const formatGuide = $("#scheduleAuditFormatGuide");
   if (formatGuide) formatGuide.open = false;
