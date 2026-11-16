@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import time
+import threading
+from contextlib import contextmanager
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from app.settings import APP_BASE_URL
+from app.services.traffic import TTLCache, TokenBuckets
 
 router = APIRouter()
 
@@ -42,12 +45,36 @@ def mobile_config():
     )
 
 
-_weather_cache: dict[str, tuple[dict, float]] = {}
-_WEATHER_CACHE_TTL = 600.0  # 10 minutes cache
+_weather_cache = TTLCache(ttl=600, capacity=256)
+_location_name_cache = TTLCache(ttl=86400, capacity=256)
+_upstream_slots = threading.BoundedSemaphore(4)
+_weather_requests = TokenBuckets(rate=2, burst=4, capacity=1)
+_location_requests = TokenBuckets(rate=1, burst=1, capacity=1)
+_MAX_UPSTREAM_BYTES = 256 * 1024
 
 
-_location_name_cache: dict[str, tuple[str, float]] = {}
-_LOCATION_NAME_CACHE_TTL = 86400.0  # 24 hours
+@contextmanager
+def _upstream_budget(limiter):
+    if not _upstream_slots.acquire(blocking=False):
+        raise HTTPException(503, "Weather service busy", headers={"Retry-After": "5"})
+    try:
+        if not limiter.allow("upstream"):
+            raise HTTPException(429, "Weather request limit reached", headers={"Retry-After": "2"})
+        yield
+    finally:
+        _upstream_slots.release()
+
+
+def _read_upstream_json(response):
+    import json
+
+    content = response.read(_MAX_UPSTREAM_BYTES + 1)
+    if len(content) > _MAX_UPSTREAM_BYTES:
+        raise ValueError("Upstream response too large")
+    payload = json.loads(content.decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Invalid upstream response")
+    return payload
 
 
 def _clean_location_name(value: object) -> str:
@@ -77,16 +104,15 @@ def get_location_name(
     longitude: float = Query(..., ge=-180, le=180),
 ):
     """Resolve GPS coordinates to a short city/province name using OpenStreetMap Nominatim."""
-    import json
     import urllib.parse
     import urllib.request
 
-    cache_key = f"v1:{round(latitude, 3)},{round(longitude, 3)}"
-    now = time.time()
+    latitude, longitude = round(latitude, 3), round(longitude, 3)
+    cache_key = f"v1:{latitude},{longitude}"
     cached = _location_name_cache.get(cache_key)
-    if cached and now - cached[1] < _LOCATION_NAME_CACHE_TTL:
+    if cached is not None:
         return JSONResponse(
-            {"name": cached[0], "cached": True},
+            {"name": cached, "cached": True},
             headers={"Cache-Control": "private, max-age=3600"},
         )
 
@@ -110,8 +136,9 @@ def get_location_name(
                 "Accept": "application/json",
             },
         )
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
+        with _upstream_budget(_location_requests):
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                payload = _read_upstream_json(resp)
 
         address = payload.get("address") if isinstance(payload, dict) else {}
         if not isinstance(address, dict):
@@ -120,16 +147,16 @@ def get_location_name(
         if not name:
             return JSONResponse({"name": ""}, status_code=404)
 
-        _location_name_cache[cache_key] = (name, now)
+        _location_name_cache.put(cache_key, name)
         return JSONResponse(
             {"name": name, "cached": False},
             headers={"Cache-Control": "private, max-age=3600"},
         )
-    except Exception as exc:
+    except HTTPException:
+        raise
+    except Exception:
         # Reverse geocoding chỉ phục vụ nhãn hiển thị; lỗi không được làm hỏng widget thời tiết.
-        if cached:
-            return JSONResponse({"name": cached[0], "cached": True})
-        return JSONResponse({"name": "", "error": str(exc)}, status_code=502)
+        return JSONResponse({"name": "", "error": "Location service unavailable"}, status_code=502)
 
 
 @router.get("/api/weather")
@@ -139,17 +166,12 @@ def get_weather(
 ):
     """Fetch current weather and 7-day forecast from Open-Meteo with caching."""
     import urllib.request
-    import json
 
-    cache_key = f"v1:{round(latitude, 3)},{round(longitude, 3)}"
-    now = time.time()
-
-    if cache_key in _weather_cache:
-        cached_data, timestamp = _weather_cache[cache_key]
-        if now - timestamp < _WEATHER_CACHE_TTL:
-            return JSONResponse(
-                cached_data, headers={"Cache-Control": "public, max-age=600"}
-            )
+    latitude, longitude = round(latitude, 3), round(longitude, 3)
+    cache_key = f"v1:{latitude},{longitude}"
+    cached_data = _weather_cache.get(cache_key)
+    if cached_data is not None:
+        return JSONResponse(cached_data, headers={"Cache-Control": "public, max-age=600"})
 
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
@@ -164,12 +186,12 @@ def get_weather(
         req = urllib.request.Request(
             url, headers={"User-Agent": "TeacherTimetable/1.0 (Open-Meteo Integration)"}
         )
-        with urllib.request.urlopen(req, timeout=7) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            _weather_cache[cache_key] = (data, now)
-            return JSONResponse(data, headers={"Cache-Control": "public, max-age=600"})
-    except Exception as e:
-        if cache_key in _weather_cache:
-            data, _ = _weather_cache[cache_key]
-            return JSONResponse(data)
-        return JSONResponse({"error": str(e)}, status_code=502)
+        with _upstream_budget(_weather_requests):
+            with urllib.request.urlopen(req, timeout=7) as resp:
+                data = _read_upstream_json(resp)
+        _weather_cache.put(cache_key, data)
+        return JSONResponse(data, headers={"Cache-Control": "public, max-age=600"})
+    except HTTPException:
+        raise
+    except Exception:
+        return JSONResponse({"error": "Weather service unavailable"}, status_code=502)

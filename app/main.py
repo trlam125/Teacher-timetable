@@ -24,6 +24,8 @@ from app.routers.teacher import router as teacher_router
 from app.services.bootstrap.runtime import initialize_database, run_database_bootstrap_step
 from app.services.schedule_live import register_schedule_live
 from app.services.schedule_notifications import register_schedule_notifications
+from app.services.request_protection import RequestProtectionMiddleware
+from app import settings
 
 @asynccontextmanager
 async def application_lifespan(app: FastAPI):
@@ -36,6 +38,20 @@ async def application_lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Teacher Timetable", lifespan=application_lifespan)
+    app.add_middleware(
+        RequestProtectionMiddleware,
+        max_body_bytes=settings.HTTP_MAX_BODY_BYTES,
+        body_timeout=settings.HTTP_BODY_TIMEOUT_SECONDS,
+        requests_per_minute=settings.HTTP_RATE_PER_MINUTE,
+        burst=settings.HTTP_RATE_BURST,
+        max_http=settings.HTTP_MAX_CONCURRENT,
+        max_body_requests=settings.HTTP_MAX_BODY_CONCURRENT,
+        max_websockets=settings.WS_MAX_CONNECTIONS,
+        ws_per_ip=settings.WS_MAX_CONNECTIONS_PER_IP,
+        ws_message_bytes=settings.WS_MAX_MESSAGE_BYTES,
+        ws_events_per_minute=settings.WS_EVENTS_PER_MINUTE,
+        ws_event_burst=settings.WS_EVENT_BURST,
+    )
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     register_exception_handlers(app)
     app.include_router(system_router)

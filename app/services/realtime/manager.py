@@ -18,6 +18,11 @@ from app.config import DATABASE_URL
 from app.database import SessionLocal, engine
 from app.logging_config import logger
 from app.models import RealtimeConnection, RealtimeEvent
+from app.settings import WS_MAX_CONNECTIONS_PER_USER
+
+
+class ConnectionLimitExceeded(Exception):
+    pass
 
 
 class RealtimeConnectionManager:
@@ -206,15 +211,19 @@ class RealtimeConnectionManager:
             self._ensure_listener(asyncio.get_running_loop())
         except RuntimeError:
             pass
-        with self._lock:
-            self._connections[user_id][connection_id] = websocket
-            self._send_locks[connection_id] = asyncio.Lock()
-
         now = _utc_now_iso()
         db = SessionLocal()
         try:
             self._lock_user_presence(db, user_id)
             self._cleanup_stale_presence(db)
+            active_ids = db.scalars(
+                select(RealtimeConnection.connection_id).where(
+                    RealtimeConnection.user_id == user_id,
+                    RealtimeConnection.updated_at >= self._presence_cutoff(),
+                ).limit(WS_MAX_CONNECTIONS_PER_USER)
+            ).all()
+            if len(active_ids) >= WS_MAX_CONNECTIONS_PER_USER:
+                raise ConnectionLimitExceeded()
             was_offline = (
                 db.scalar(
                     select(RealtimeConnection.connection_id)
@@ -235,12 +244,14 @@ class RealtimeConnectionManager:
                 )
             )
             db.commit()
+            with self._lock:
+                self._connections[user_id][connection_id] = websocket
+                self._send_locks[connection_id] = asyncio.Lock()
             return was_offline
         except Exception:
             db.rollback()
-            logger.exception("Could not register shared realtime presence.")
-            with self._lock:
-                return len(self._connections.get(user_id, {})) == 1
+            self.discard_local(user_id, connection_id)
+            raise
         finally:
             db.close()
 

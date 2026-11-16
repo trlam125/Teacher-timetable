@@ -40,6 +40,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         return JSONResponse(
             {"ok": False, **structured, "message": structured.get("message", str(detail)), "detail": detail},
             status_code=exc.status_code,
+            headers=exc.headers,
         )
     return render_error_page(request, exc.status_code, headers=exc.headers)
 

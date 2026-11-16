@@ -9,7 +9,16 @@ from fastapi.templating import Jinja2Templates
 
 from app.settings import VIETNAM_TZ
 
-templates = Jinja2Templates(directory="app/templates")
+class ApplicationTemplates(Jinja2Templates):
+    """Keep existing route calls while using Starlette's request-first API."""
+
+    def TemplateResponse(self, name, context, **kwargs):
+        return super().TemplateResponse(
+            request=context["request"], name=name, context=context, **kwargs
+        )
+
+
+templates = ApplicationTemplates(directory="app/templates")
 
 
 def redirect_with_notice(

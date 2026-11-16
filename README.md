@@ -1,5 +1,8 @@
 # Smart TKB
 
+Hướng dẫn triển khai các giới hạn lưu lượng, upload, WebSocket và proxy:
+[SECURITY_DEPLOYMENT.md](docs/SECURITY_DEPLOYMENT.md).
+
 Smart TKB là ứng dụng web hỗ trợ tạo, quản lý và xem thời khóa biểu cho nhà trường.
 
 ## Tính năng chính
