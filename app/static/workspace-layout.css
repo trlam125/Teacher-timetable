@@ -268,10 +268,10 @@ body.workspace-viewport .content {
   display: block;
 }
 
-/* Use the unused horizontal space when editing the class/subject matrix.
-   Scope the compact sidebar and inner gutters to this page only. */
+/* Keep the compact sidebar width consistent across all workspace tabs.
+   The class/subject matrix also uses narrower inner gutters. */
 @media (min-width: 901px) {
-  body.workspace-viewport .workspace:has(#assignments.active):not(.sidebar-collapsed) {
+  body.workspace-viewport .workspace:not(.sidebar-collapsed) {
     grid-template-columns: 220px minmax(0, 1fr);
   }
 
@@ -282,7 +282,7 @@ body.workspace-viewport .content {
 }
 
 @media (min-width: 901px) and (max-width: 1350px) {
-  body.workspace-viewport .workspace:has(#assignments.active):not(.sidebar-collapsed) {
+  body.workspace-viewport .workspace:not(.sidebar-collapsed) {
     grid-template-columns: 208px minmax(0, 1fr);
   }
 }
