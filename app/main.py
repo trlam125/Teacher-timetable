@@ -26,6 +26,7 @@ from app.services.bootstrap.runtime import initialize_database, run_database_boo
 from app.services.schedule_live import register_schedule_live
 from app.services.schedule_notifications import register_schedule_notifications
 from app.services.request_protection import RequestProtectionMiddleware
+from app.services.security_headers import FrameProtectedFastAPI
 from app.services.authentication.csrf import verify_request_csrf
 from app import settings
 from app.services.authentication.email_delivery import email_delivery_worker
@@ -46,7 +47,7 @@ async def application_lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Teacher Timetable", lifespan=application_lifespan,
+    app = FrameProtectedFastAPI(title="Teacher Timetable", lifespan=application_lifespan,
                   dependencies=[Depends(verify_request_csrf)])
     app.add_middleware(
         RequestProtectionMiddleware,

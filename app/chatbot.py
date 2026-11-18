@@ -18,7 +18,11 @@ from xml.etree import ElementTree
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from app.services.upload_limits import UploadLimitError, MAX_TEXT_CHARS, bounded_document_parser, ensure_workbook_safe
+from app.services.upload_limits import (
+    UploadLimitError, MAX_TEXT_CHARS, bounded_document_parser,
+    ensure_archive_safe, ensure_workbook_safe,
+)
+from app.services.xml_limits import ensure_xml_safe
 
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -123,6 +127,7 @@ def _word_table_rows(table: ElementTree.Element) -> tuple[list[list[str]], bool]
 
 def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
     try:
+        ensure_archive_safe(content, max_bytes=MAX_DOCX_UNCOMPRESSED_BYTES)
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
             infos = archive.infolist()
             if sum(info.file_size for info in infos) > MAX_DOCX_UNCOMPRESSED_BYTES:
@@ -136,13 +141,18 @@ def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
             if document_info.file_size > MAX_DOCX_XML_BYTES:
                 raise ChatbotError("Nội dung văn bản trong tệp Word quá lớn.")
             document_xml = archive.read(document_info)
+    except UploadLimitError as exc:
+        raise ChatbotError(str(exc)) from exc
     except zipfile.BadZipFile as exc:
         raise ChatbotError(
             "Không thể đọc tệp Word. Hãy kiểm tra lại định dạng .docx."
         ) from exc
 
     try:
+        ensure_xml_safe(document_xml)
         root = ElementTree.fromstring(document_xml)
+    except UploadLimitError as exc:
+        raise ChatbotError(str(exc)) from exc
     except ElementTree.ParseError as exc:
         raise ChatbotError("Cấu trúc XML trong tệp Word không hợp lệ.") from exc
     body = root.find(f"{W}body")
