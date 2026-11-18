@@ -17,7 +17,7 @@ router = APIRouter()
 
 @router.get("/logout")
 def logout_page(request: Request):
-    return templates.TemplateResponse("device_login.html", {"request": request, "mode": "logout"})
+    return templates.TemplateResponse("logout.html", {"request": request})
 
 
 @router.post("/logout")

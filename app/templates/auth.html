@@ -30,7 +30,7 @@
     <script src="/static/auth-panda.js?v=1" defer></script>
     <script src="/static/visual-captcha.js?v=1" defer></script>
     <script src="/static/auth-effects.js?v=1" defer></script>
-    <script src="/static/auth-buttons.js?v=3" defer></script>
+    <script src="/static/auth-buttons.js?v=4" defer></script>
     <script src="/static/auth-slide.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/verification-code.css?v=1">
     <script src="/static/verification-code.js?v=1" defer></script>
@@ -110,6 +110,7 @@
                     %}
                     {% endif %}
                     {% if error and mode == initial_mode %}<div class="alert error">{{ error }}</div>{% endif %}
+                    {% if success and mode == initial_mode %}<div class="alert success" role="status">{{ success }}</div>{% endif %}
                     {% if mode=="register" %}
                     <label>
                         Tên giáo viên<input name="name" value="{{ form_values.name or '' }}" maxlength="120"
@@ -239,7 +240,7 @@
                     {% if mode in ["login", "register"] %}
                     {% include "_social_login.html" %}
                     {% endif %}
-                    {% if mode == 'login' %}<p class="auth-device-note">Đăng nhập trên mọi thiết bị · Tối đa 2 thiết bị hoạt động cùng lúc. Khi đủ 2 phiên, máy ít hoạt động gần đây nhất sẽ được đăng xuất. Máy mới chỉ nhận email cảnh báo.</p>{% endif %}
+                    {% if mode == 'login' %}<p class="auth-device-note">Bạn có thể đăng nhập trên nhiều máy và sử dụng tối đa 2 máy cùng lúc. Khi đăng nhập máy mới, máy ít dùng gần đây nhất sẽ được đăng xuất nếu đã đủ 2 máy.</p>{% endif %}
                     {% if mode=="login" %}
                     <p>Chưa có tài khoản? <a href="/register" data-auth-switch="register">Đăng ký</a></p>
                     {% else %}

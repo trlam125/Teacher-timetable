@@ -40,9 +40,9 @@
       steps: [
         { target: '.page-title', title: 'Quản lý người dùng và trường', text: 'Trang này tập trung các thao tác quản trị tài khoản giáo viên, quản trị viên và trường học.' },
         { target: '.school-create-form', title: 'Tạo trường', text: 'Tạo trường mới trước khi gán quản trị viên hoặc tạo bộ thời khóa biểu cho trường đó.' },
-        { target: 'main .panel', title: 'Quản lý danh sách trường', text: 'Bạn có thể xem và đổi tên các trường đã có trong hệ thống.' },
+        { target: 'main .panel', title: 'Quản lý danh sách trường', text: 'Bạn có thể xem và đổi tên các trường đã thêm.' },
         { target: '.project-grid', title: 'Quản lý tài khoản', text: 'Mỗi thẻ tài khoản cho phép xem trạng thái, gán trường và cập nhật quyền hoặc thông tin cần thiết.' },
-        { target: '#system-logs', title: 'Nhật ký sự cố hệ thống', text: 'Super admin xem sự cố trợ lý AI, lỗi xếp lịch và các lần xếp còn thiếu tiết tại đây.' }
+        { target: '#system-logs', title: 'Lịch sử lỗi', text: 'Bạn có thể xem các lần trợ lý gặp lỗi, xếp lịch chưa thành công hoặc còn thiếu tiết tại đây.' }
       ]
     },
     audit: {
@@ -71,7 +71,7 @@
       label: 'Tài khoản giáo viên',
       steps: [
         { target: 'main .section-head', title: 'Thông tin tài khoản', text: 'Trang này dùng để xem và cập nhật các thông tin liên quan đến tài khoản giáo viên.' },
-        { target: 'main .account-form', title: 'Thông tin cá nhân', text: 'Kiểm tra hoặc cập nhật các trường thông tin được hệ thống cho phép chỉnh sửa.' },
+        { target: 'main .account-form', title: 'Thông tin cá nhân', text: 'Kiểm tra hoặc cập nhật thông tin cá nhân của bạn.' },
         { target: 'form.account-form', title: 'Đổi mật khẩu', text: 'Dùng biểu mẫu này để đặt mật khẩu mới cho tài khoản khi cần.' }
       ]
     },
@@ -91,7 +91,7 @@
         { target: '.sidebar', title: 'Danh mục quản lý', text: 'Dùng thanh này để chuyển giữa dữ liệu môn học, giáo viên, lớp, phân công, ràng buộc và khu vực xếp lịch.' },
         { target: '#overview .page-title', title: 'Thông tin bộ thời khóa biểu', text: 'Phần đầu cho biết tên bộ, trường và cấu hình số ngày, số buổi của phương án hiện tại.' },
         { target: '#overview .stats', title: 'Theo dõi nhanh dữ liệu', text: 'Các thẻ thống kê giúp bạn biết ngay số giáo viên, lớp, phân công và số tiết đã được xếp.' },
-        { target: '#overview [data-schedule-action]', title: 'Xếp tự động', text: 'Sau khi dữ liệu và ràng buộc đã đủ, bấm nút này để hệ thống tạo thời khóa biểu tự động.' }
+        { target: '#overview [data-schedule-action]', title: 'Xếp tự động', text: 'Sau khi nhập đủ thông tin và các điều kiện, bấm nút này để tạo thời khóa biểu.' }
       ]
     },
     subjects: entitySteps('Môn học', '#subjects', '#subjectTable', 'môn', 'Khai báo tên môn và tên rút gọn.'),
@@ -112,7 +112,7 @@
     constraints: {
       label: 'Ràng buộc',
       steps: [
-        { target: '#constraints .section-head', title: 'Ngày nghỉ / tiết tránh', text: 'Ràng buộc ở đây là điều kiện cứng: các ô được đánh dấu sẽ không được hệ thống xếp tiết vào.' },
+        { target: '#constraints .section-head', title: 'Ngày nghỉ / tiết tránh', text: 'Các ô được đánh dấu sẽ không được xếp tiết vào.' },
         { target: '#constraintType', title: 'Chọn loại đối tượng', text: 'Chọn đang thiết lập tiết tránh cho giáo viên hay cho lớp.' },
         { target: '#constraintEntity', title: 'Chọn giáo viên hoặc lớp', text: 'Chọn đúng đối tượng cần cấu hình trước khi đánh dấu các ô không thể học hoặc dạy.' },
         { target: '#constraintGrid', title: 'Đánh dấu tiết cần tránh', text: 'Bấm vào các ô thời gian không được phép xếp lịch cho đối tượng đang chọn.' },
@@ -135,7 +135,7 @@
         { target: '#assignmentCoverage', title: 'Kiểm tra phân công', text: 'Khu vực này hiển thị các cảnh báo phân công trùng, quá tải hoặc chưa đủ dữ liệu.' },
         { target: '#manualTrayPanel', title: 'Kho tiết chưa xếp', text: 'Các tiết chưa xếp luôn hiển thị tại đây. Chọn một thẻ tiết, sau đó chọn ô hợp lệ trên thời khóa biểu để xếp.' },
         { target: '#scheduleGrid', title: 'Lưới thời khóa biểu', text: 'Bấm tiết trên lịch để chọn, sau đó bấm ô hợp lệ để chuyển. Hệ thống sẽ kiểm tra các điều kiện trước khi lưu.' },
-        { target: '#schedule [data-schedule-action]', title: 'Xếp tự động', text: 'Bấm nút này để hệ thống xếp thời khóa biểu theo phân công và các điều kiện bạn đã chọn.' }
+        { target: '#schedule [data-schedule-action]', title: 'Xếp tự động', text: 'Bấm nút này để xếp thời khóa biểu theo phân công và các điều kiện bạn đã chọn.' }
       ]
     }
   };

@@ -79,7 +79,7 @@ class RequestProtectionMiddleware:
             return await reject(429)
         path = scope.get("path", "")
         if (path in {"/login", "/register", "/forgot-password"}
-                or path.startswith(("/auth/", "/register/", "/reset-password/", "/account/email-change"))):
+                or path.startswith(("/auth/", "/register/", "/login/unlock", "/reset-password/", "/account/email-change"))):
             if not self._auth.allow(identity):
                 return await reject(429)
         if path in {"/api/weather", "/api/location-name"} and not self._public.allow(identity):

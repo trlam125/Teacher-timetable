@@ -34,13 +34,8 @@ def solve_cp_sat(
     existing_teacher_day = problem.existing_teacher_day
     ppd = problem.periods_per_day
     assignments = problem.assignments
-    subjects = problem.subjects
     p = problem.project
-    existing_css = problem.existing_css
     existing = problem.existing
-    existing_class_subject_day = problem.existing_class_subject_day
-    teachers = problem.teachers
-    existing_assignment_slots = problem.existing_assignment_slots
     assignment_by_id = problem.assignment_by_id
 
     def cp_time_left():

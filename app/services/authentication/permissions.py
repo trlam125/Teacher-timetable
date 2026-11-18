@@ -58,7 +58,7 @@ def admin_can_manage_account(
     if account.id == admin.id:
         return True
     if is_super_admin(admin):
-        return account.role != "super_admin"
+        return account.role in {"admin", "teacher"}
     if account.role != "teacher" or db is None:
         return False
 

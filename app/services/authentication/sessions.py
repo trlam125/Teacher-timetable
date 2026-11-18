@@ -65,13 +65,13 @@ def invalidate_credential_state(user: User):
 def set_session_cookie(response, user: User, request, db: Session, *, device=None, browser_token=None):
     browser_token = browser_token or browser_secret(request)
     if not browser_token:
-        raise HTTPException(401, "Phiên thiết bị không hợp lệ. Hãy đăng nhập lại.")
+        raise HTTPException(401, "Vui lòng đăng nhập lại để tiếp tục.")
     if device is None:
         device = db.scalar(select(AccountDevice).where(
             AccountDevice.user_id == user.id,
             AccountDevice.browser_hash == secret_hash(browser_token)))
     if not device or device.user_id != user.id or device.browser_hash != secret_hash(browser_token):
-        raise HTTPException(401, "Phiên thiết bị không hợp lệ. Hãy đăng nhập lại.")
+        raise HTTPException(401, "Vui lòng đăng nhập lại để tiếp tục.")
     session_secret = secrets.token_urlsafe(32)
     device.session_hash = secret_hash(session_secret)
     device.last_used_at = int(time.time())

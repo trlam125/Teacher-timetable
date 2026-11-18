@@ -138,6 +138,9 @@ class EmailChangeVerification(Base):
         ForeignKey("users.id"), index=True
     )
     new_email: Mapped[str] = mapped_column(String(255), index=True)
+    verification_email: Mapped[str] = mapped_column(String(255), default="", server_default="")
+    actor_session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    target_session_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     otp_hash: Mapped[str] = mapped_column(String(64))
     token_hash: Mapped[str] = mapped_column(String(64))
     expires_at: Mapped[str] = mapped_column(String(40))
@@ -145,6 +148,55 @@ class EmailChangeVerification(Base):
     created_at: Mapped[str] = mapped_column(
         String(40), default=lambda: datetime.now(timezone.utc).isoformat()
     )
+
+
+class LoginUnlockVerification(Base):
+    __tablename__ = "login_unlock_verifications"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    email: Mapped[str] = mapped_column(String(255))
+    browser_hash: Mapped[str] = mapped_column(String(64))
+    session_version: Mapped[int] = mapped_column(Integer)
+    otp_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[int] = mapped_column(Integer, index=True)
+    resend_available_at: Mapped[int] = mapped_column(Integer)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class EmailDeliveryJob(Base):
+    __tablename__ = "email_delivery_jobs"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    recipient: Mapped[str] = mapped_column(String(255))
+    payload_json: Mapped[str] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[int] = mapped_column(Integer, index=True)
+    lease_until: Mapped[int] = mapped_column(Integer, default=0)
+    lease_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    sent_at: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[int] = mapped_column(Integer)
+    quota_day: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class LoginAlertDeliveryState(Base):
+    __tablename__ = "login_alert_delivery_states"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    day_started_at: Mapped[int] = mapped_column(Integer, default=0)
+    daily_count: Mapped[int] = mapped_column(Integer, default=0)
+    next_allowed_at: Mapped[int] = mapped_column(Integer, default=0)
+    active_job_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    pending_job_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+
+class LoginAlertEvent(Base):
+    """Keep every new-device login even when its email is grouped or deferred."""
+    __tablename__ = "login_alert_events"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[Optional[str]] = mapped_column(ForeignKey("email_delivery_jobs.id", ondelete="SET NULL"), nullable=True, index=True)
+    label: Mapped[str] = mapped_column(String(120))
+    logged_in_at: Mapped[str] = mapped_column(String(40))
 
 
 class School(Base):

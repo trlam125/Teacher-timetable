@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+import asyncio
 
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +28,7 @@ from app.services.schedule_notifications import register_schedule_notifications
 from app.services.request_protection import RequestProtectionMiddleware
 from app.services.authentication.csrf import verify_request_csrf
 from app import settings
+from app.services.authentication.email_delivery import email_delivery_worker
 
 @asynccontextmanager
 async def application_lifespan(app: FastAPI):
@@ -34,7 +36,13 @@ async def application_lifespan(app: FastAPI):
     register_schedule_notifications()
     register_schedule_live()
     run_database_bootstrap_step(initialize_database)
-    yield
+    mail_worker = asyncio.create_task(email_delivery_worker())
+    try:
+        yield
+    finally:
+        mail_worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await mail_worker
 
 
 def create_app() -> FastAPI:

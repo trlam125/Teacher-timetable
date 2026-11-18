@@ -1,12 +1,11 @@
 """Compatibility entry point; implementations live in focused modules."""
 from fastapi import APIRouter
 
-router = APIRouter()
-from app.routers.entities.entity_updates import router as _router_0
-router.include_router(_router_0)
-from app.routers.entities.assignment_updates import router as _router_1
-router.include_router(_router_1)
+from app.routers.entities.assignment_updates import router as assignment_updates_router
+from app.routers.entities.entity_updates import router as entity_updates_router
 
-__all__ = [
-    'router',
-]
+router = APIRouter()
+router.include_router(entity_updates_router)
+router.include_router(assignment_updates_router)
+
+__all__ = ["router"]

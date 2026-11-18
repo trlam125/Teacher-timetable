@@ -20,7 +20,7 @@ from app.services.authentication.credentials import (
     registration_signer,
     reset_signer,
 )
-from app.services.authentication.permissions import admin_can_manage_account
+from app.services.authentication.permissions import admin_can_manage_account, is_super_admin
 from app.settings import (
     EMAIL_CHANGE_CONFIRM_TTL_SECONDS,
     EMAIL_CHANGE_OTP_TTL_SECONDS,
@@ -157,6 +157,8 @@ def email_change_confirmation_data(
         target = db.get(User, int(data["account_id"]))
         if not target:
             raise HTTPException(404, "Tài khoản không còn tồn tại")
+        if data.get("actor_version") != actor.session_version or data.get("target_version") != target.session_version:
+            raise HTTPException(400, "Thông tin tài khoản đã thay đổi. Vui lòng thực hiện lại.")
         if target.id != actor.id and not admin_can_manage_account(actor, target, db):
             raise HTTPException(403, "Bạn không còn quyền đổi email tài khoản này")
         new_email = str(data["new_email"]).lower().strip()
@@ -168,18 +170,19 @@ def email_change_confirmation_data(
         ) from exc
 
 
+def email_change_recipient(actor: User, target: User, new_email: str) -> str:
+    return actor.email if is_super_admin(actor) and actor.id != target.id else new_email
+
+
 def email_change_verification_for_token(
-    token: str, actor: User, db: Session
+    token: str, actor: User, db: Session, *, lock: bool = True
 ) -> EmailChangeVerification | None:
     try:
         data = email_change_otp_signer.loads(
             token, max_age=EMAIL_CHANGE_OTP_TTL_SECONDS
         )
-        row = db.scalar(
-            select(EmailChangeVerification)
-            .where(EmailChangeVerification.id == int(data["id"]))
-            .with_for_update()
-        )
+        query = select(EmailChangeVerification).where(EmailChangeVerification.id == int(data["id"]))
+        row = db.scalar(query.with_for_update().execution_options(populate_existing=True) if lock else query)
         if not row or row.requested_by_user_id != actor.id:
             return None
         nonce_hash = hashlib.sha256(str(data["nonce"]).encode()).hexdigest()

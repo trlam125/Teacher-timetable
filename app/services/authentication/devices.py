@@ -4,16 +4,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hmac
 import secrets
-import smtplib
 import time
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select
 from starlette.background import BackgroundTask
 
-from app.logging_config import logger
 from app.models import AccountDevice, DeviceLoginChallenge
-from app.services.authentication.mail import send_device_login_alert_email
+from app.services.authentication.email_delivery import queue_login_alert, deliver_login_alert
 from app.services.authentication.navigation import after_login_redirect
 from app.services.authentication.permissions import is_admin
 from app.services.authentication.sessions import (
@@ -34,22 +32,13 @@ def device_label(request):
     return f"{browser} trên {platform}"
 
 
-def _send_login_alert(recipient, label, logged_in_at):
-    # Mail outages must never lock out a successfully committed login.
-    try:
-        if not send_device_login_alert_email(recipient, label, logged_in_at):
-            logger.warning("New-device login alert could not be delivered")
-    except (OSError, smtplib.SMTPException, RuntimeError, ValueError):
-        logger.warning("New-device login alert delivery failed")
-
-
 def begin_login(request, db, user, *, email_just_verified=False):
     expected_version = user.session_version
     user = lock_account(db, user.id)
     if not user or user.session_version != expected_version:
         raise HTTPException(401, "Tài khoản vừa thay đổi. Hãy đăng nhập lại.")
     if user.role != "teacher" and not is_admin(user):
-        raise HTTPException(403, "Tài khoản không có quyền truy cập hệ thống")
+        raise HTTPException(403, "Tài khoản này chưa được phép sử dụng Smart TKB.")
 
     browser = browser_secret(request) or secrets.token_urlsafe(32)
     device = db.scalar(select(AccountDevice).where(
@@ -77,11 +66,11 @@ def begin_login(request, db, user, *, email_just_verified=False):
     db.execute(delete(DeviceLoginChallenge).where(DeviceLoginChallenge.user_id == user.id))
     user.last_seen = datetime.now(timezone.utc).isoformat(timespec="seconds")
     response = after_login_redirect(request, "/teacher" if user.role == "teacher" else "/projects")
+    alert_id = queue_login_alert(db, user, label, datetime.now(timezone.utc)) if is_new and not email_just_verified else None
     set_session_cookie(response, user, request, db, device=device, browser_token=browser)
     response.delete_cookie(PENDING_COOKIE)
-    if is_new and not email_just_verified:
-        response.background = BackgroundTask(_send_login_alert, user.email, label,
-                                              datetime.now(timezone.utc))
+    if alert_id:
+        response.background = BackgroundTask(deliver_login_alert, alert_id)
     return response
 
 

@@ -15,6 +15,8 @@ from app.services.bootstrap.migrations.schools_and_chat import migrate_schools_a
 from app.services.bootstrap.migrations.project_trash import migrate_project_trash
 from app.services.bootstrap.migrations.change_notifications import migrate_change_notifications
 from sqlalchemy import inspect
+from app.services.bootstrap.migrations.email_approvals import migrate_email_approvals
+from app.services.bootstrap.migrations.login_alert_limits import migrate_login_alert_limits
 
 
 def migrate_schema():
@@ -31,6 +33,8 @@ def migrate_schema():
             return
 
         migrate_accounts(connection, inspector)
+        migrate_email_approvals(connection, inspector)
+        migrate_login_alert_limits(connection, inspector)
         migrate_project_trash(connection, inspector)
         migrate_change_notifications(connection, inspector)
         migrate_schools_and_chat(connection, inspector)

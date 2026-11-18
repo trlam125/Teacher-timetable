@@ -18,7 +18,7 @@
             <a class="device-brand" href="/"><img src="/static/brand-logo.svg?v=1" width="36" height="36" alt=""><span>Smart TKB</span></a>
             <div class="device-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M14 8l4 4-4 4M9 12h10"/></svg></div>
             <h1 id="device-login-title">Đăng xuất khỏi thiết bị này?</h1>
-            <p>Bạn có thể đăng nhập lại bất cứ lúc nào. Sau khi đăng xuất, thiết bị này không còn chiếm một phiên hoạt động.</p>
+            <p>Bạn có thể đăng nhập lại bất cứ lúc nào. Sau khi đăng xuất, bạn có thể dùng tài khoản trên một máy khác.</p>
             <form method="post" action="/logout">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button class="btn wide" type="submit">Đăng xuất</button>

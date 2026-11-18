@@ -55,7 +55,7 @@
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
-    <script src="/static/auth-buttons.js?v=2" defer></script>
+    <script src="/static/auth-buttons.js?v=4" defer></script>
     <script src="/static/btn-tame-ape.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
@@ -63,7 +63,7 @@
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
-    <link rel="stylesheet" href="/static/admin-users.css?v=3">
+    <link rel="stylesheet" href="/static/admin-users.css?v=4">
     <script src="/static/admin-users.js?v=2" defer></script>
     <script src="/static/profile-avatar.js?v=2" defer></script>
 </head>
@@ -215,7 +215,7 @@
                         data-presence-user-id="{{ account.id }}" data-last-seen="{{ account.last_seen or '' }}">
                         <span class="account-presence-dot" aria-hidden="true"></span>
                         <span class="account-presence-copy">
-                            <strong data-presence-state>{{ 'Online' if account.id in online_user_ids else 'Offline'
+                            <strong data-presence-state>{{ 'Đang hoạt động' if account.id in online_user_ids else 'Không hoạt động'
                                 }}</strong>
                             <span data-presence-last-seen>{{ 'Đang hoạt động' if account.id in online_user_ids else
                                 (account.last_seen | timeago) }}</span>
@@ -326,7 +326,7 @@
                                         autocomplete="current-password">
                                 </label>
                                 {% endif %}
-                                <p class="muted">Sau bước này hệ thống sẽ hỏi xác nhận, rồi mới gửi OTP tới email mới.</p>
+                                <p class="muted">{% if user.role == 'super_admin' and account.id != user.id %}Mã xác nhận sẽ được gửi đến email của bạn để đồng ý thay đổi này.{% else %}Mã xác nhận sẽ được gửi đến email mới.{% endif %}</p>
                                 <div class="row end">
                                     <button class="btn ghost" type="submit">Tiếp tục đổi email</button>
                                 </div>
@@ -373,13 +373,13 @@
         <section id="system-logs" class="panel system-logs-panel">
             <div class="section-head system-logs-heading">
                 <div>
-                    <h2 style="margin:0 0 6px">Nhật ký sự cố hệ thống</h2>
+                    <h2 style="margin:0 0 6px">Lịch sử lỗi</h2>
                     <p>Sự cố trợ lý AI và bộ xếp lịch · Giờ Việt Nam (UTC+7)</p>
                     <p class="system-logs-count">{{ system_incident_log_count }} sự cố · Hiển thị tối đa 100 lần gần nhất · Lưu tối đa {{ system_incident_log_limit }} sự cố</p>
                 </div>
                 {% if system_incident_logs %}
                 <form method="post" action="/admin/system-logs/clear"
-                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ nhật ký sự cố hệ thống?', {title: 'Xóa nhật ký sự cố', confirmText: 'Xóa nhật ký'}).then(ok => { if (ok) this.submit(); });">
+                    onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ lịch sử lỗi?', {title: 'Xóa lịch sử lỗi', confirmText: 'Xóa lịch sử'}).then(ok => { if (ok) this.submit(); });">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button class="btn btn-tame-ape btn-tame-ape-danger" type="submit"><span class="btn__text">Xóa
                             nhật ký</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
@@ -397,7 +397,7 @@
             </div>
             {% if system_incident_logs %}
             <div class="system-logs-table-wrap">
-                <table class="data-table system-logs-table" aria-label="Nhật ký sự cố hệ thống">
+                <table class="data-table system-logs-table" aria-label="Lịch sử lỗi">
                     <colgroup>
                         <col class="log-time-col"><col class="log-project-col"><col class="log-account-col">
                         <col class="log-summary-col"><col class="log-action-col">
@@ -419,21 +419,19 @@
                                 <span class="log-secondary">{{ log.source_label }}</span>
                             </td>
                             <td data-label="Thời khóa biểu">
-                                <span class="log-project-name">{{ log.project_name or ('Project #' ~ log.project_id if log.project_id else '—') }}</span>
-                                {% if log.project_id %}<span class="log-secondary">ID {{ log.project_id }}</span>{% endif %}
+                                <span class="log-project-name">{{ log.project_name or ('Thời khóa biểu số ' ~ log.project_id if log.project_id else '—') }}</span>
                             </td>
                             <td data-label="Tài khoản">
                                 <span class="log-account-name">{{ log.user_name or 'Không xác định' }}</span>
                                 {% if log.user_email %}<span class="log-secondary">{{ log.user_email }}</span>{% endif %}
                             </td>
                             <td data-label="Sự cố">
-                                <span class="log-code">{{ log.error_code }}</span>
                                 <p class="log-summary">{{ log.summary }}</p>
                             </td>
                             <td class="log-action">
                                 <button type="button" class="admin-detail-link" data-admin-dialog="incident-detail-{{ loop.index }}"
                                     aria-haspopup="dialog" aria-controls="incident-detail-{{ loop.index }}"
-                                    aria-label="Xem chi tiết sự cố {{ log.error_code }} lúc {{ log.created_at | vietnam_datetime }}">Xem chi tiết</button>
+                                    aria-label="Xem chi tiết lỗi lúc {{ log.created_at | vietnam_datetime }}">Xem chi tiết</button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -451,18 +449,16 @@
                         <button type="button" class="admin-dialog-close" data-close-admin-dialog aria-label="Đóng chi tiết sự cố" autofocus>×</button>
                     </header>
                     <dl class="incident-metadata">
-                        <div><dt>Thời khóa biểu</dt><dd>{{ log.project_name or ('Project #' ~ log.project_id if log.project_id else '—') }}{% if log.project_id %}<span class="log-secondary">ID {{ log.project_id }}</span>{% endif %}</dd></div>
+                        <div><dt>Thời khóa biểu</dt><dd>{{ log.project_name or ('Thời khóa biểu số ' ~ log.project_id if log.project_id else '—') }}</dd></div>
                         <div><dt>Tài khoản</dt><dd>{{ log.user_name or 'Không xác định' }}{% if log.user_email %}<span class="log-secondary">{{ log.user_email }}</span>{% endif %}</dd></div>
-                        <div><dt>Loại sự cố</dt><dd><span class="log-code">{{ log.error_code }}</span></dd></div>
-                        {% if log.provider_status %}<div><dt>Mã phản hồi</dt><dd>{{ log.provider_status }}</dd></div>{% endif %}
+                        <div><dt>Nội dung liên quan</dt><dd>{{ log.source_label }}</dd></div>
                     </dl>
                     <p class="incident-summary">{{ log.summary }}</p>
-                    {% if log.details %}<pre class="incident-details">{{ log.details }}</pre>{% endif %}
                 </div>
             </dialog>
             {% endfor %}
             {% else %}
-            <p class="muted" style="margin:0">Chưa ghi nhận sự cố hệ thống.</p>
+            <p class="muted" style="margin:0">Chưa ghi nhận lỗi.</p>
             {% endif %}
         </section>
         {% endif %}

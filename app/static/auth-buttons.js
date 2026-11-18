@@ -171,7 +171,8 @@
 
             // 6) Success mark pops up
             loginBtn.classList.add('success');
-            if (btnText) btnText.textContent = 'Đã đăng nhập';
+            if (btnText) btnText.textContent = new URL(response.url, location.origin).pathname === '/login/unlock'
+              ? 'Kiểm tra email của bạn' : 'Đã đăng nhập';
             await sleep(350);
 
             // Navigate to destination
@@ -194,10 +195,10 @@
             // Extract error message from HTML response if available
             let errorMessage = response?.networkError
               ? 'Không kết nối được máy chủ. Hãy kiểm tra mạng rồi thử lại.'
-              : ({403: 'Phiên biểu mẫu đã hết hạn. Hãy tải lại trang rồi đăng nhập.',
+              : ({403: 'Vui lòng mở lại trang rồi đăng nhập.',
                   429: 'Bạn đã thử quá nhiều lần. Vui lòng đợi rồi thử lại.',
                   503: 'Dịch vụ đăng nhập tạm thời gián đoạn. Vui lòng thử lại sau.',
-                  401: 'Phiên xác thực không còn hợp lệ. Hãy tải lại trang rồi đăng nhập.'}[response?.status]
+                  401: 'Vui lòng đăng nhập lại để tiếp tục.'}[response?.status]
                   || 'Email hoặc mật khẩu không đúng');
             if (response && typeof response.text === 'function') {
               try {

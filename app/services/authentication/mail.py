@@ -157,17 +157,52 @@ def send_email_message(
     return _send_email_via_smtp(recipient, subject, body, html_body=html_body)
 
 
-def send_device_login_alert_email(recipient: str, device_label: str, logged_in_at) -> bool:
+def send_login_unlock_email(recipient: str, otp: str) -> bool:
+    subject = "Mã xác nhận đăng nhập Smart TKB"
+    text = (f"Mã xác nhận của bạn: {otp}\n\n"
+            "Nhập mã này để tiếp tục đăng nhập sau nhiều lần nhập sai. Mã có hiệu lực 10 phút và chỉ dùng một lần.\n"
+            "Bạn vẫn cần mật khẩu để đăng nhập. Không chia sẻ mã này với người khác.\n"
+            "Nếu bạn không yêu cầu mã, bạn có thể bỏ qua thư này.")
+    content = ('<h2>Xác nhận đăng nhập</h2><p>Mã xác nhận của bạn là:</p>'
+        f'<p style="font-size:30px;font-weight:700;letter-spacing:6px">{html.escape(otp)}</p>'
+        '<p>Mã có hiệu lực 10 phút. Không chia sẻ mã này với người khác.</p>'
+        '<p>Sau khi xác nhận, hãy dùng mật khẩu của bạn để đăng nhập.</p>')
+    return send_email_message(recipient, subject, text, html_body=_render_email_html(subject, "Mã xác nhận đăng nhập của bạn", content))
+
+
+def send_device_login_alert_email(recipient: str, device_label: str, logged_in_at, *,
+                                count: int = 1, first_logged_in_at=None, device_labels=None) -> bool:
     from app.settings import VIETNAM_TZ
 
     timestamp = logged_in_at.astimezone(VIETNAM_TZ).strftime("%H:%M:%S ngày %d/%m/%Y (giờ Việt Nam)")
+    if count > 1:
+        first = (first_logged_in_at or logged_in_at).astimezone(VIETNAM_TZ).strftime("%H:%M:%S ngày %d/%m/%Y")
+        labels = ", ".join(device_labels or [device_label])
+        subject = "Tổng hợp đăng nhập từ thiết bị mới · Smart TKB"
+        text = (f"Có {count} lượt đăng nhập từ thiết bị mới vào tài khoản Smart TKB của bạn.\n\n"
+                f"Từ: {first} (giờ Việt Nam)\nĐến: {timestamp}\nThiết bị gồm: {labels}\n\n"
+                "Các lượt đăng nhập gần nhau được gộp để tránh gửi nhiều thư.\n"
+                "Nếu đây là bạn, bạn không cần làm gì thêm.\n"
+                "Nếu không phải bạn, hãy mở Smart TKB và đổi mật khẩu ngay để đăng xuất khỏi các thiết bị khác.")
+        content = (
+            '<h2 style="margin:0 0 16px;font-size:21px;">Các lượt đăng nhập gần đây</h2>'
+            f'<p>Có <strong>{count}</strong> lượt đăng nhập từ thiết bị mới vào tài khoản của bạn.</p>'
+            f'<p><strong>Từ:</strong> {html.escape(first)} (giờ Việt Nam)<br>'
+            f'<strong>Đến:</strong> {html.escape(timestamp)}<br>'
+            f'<strong>Thiết bị gồm:</strong> {html.escape(labels)}</p>'
+            '<p>Các lượt đăng nhập gần nhau được gộp để tránh gửi nhiều thư.</p>'
+            '<p>Nếu không phải bạn, hãy mở Smart TKB và <strong>đổi mật khẩu ngay</strong> '
+            'để đăng xuất khỏi các thiết bị khác.</p>'
+        )
+        return send_email_message(recipient, subject, text,
+            html_body=_render_email_html(subject, f"Có {count} lượt đăng nhập từ thiết bị mới", content))
     subject = "Cảnh báo đăng nhập từ thiết bị mới · Smart TKB"
     text = ("Tài khoản Smart TKB của bạn vừa đăng nhập thành công trên thiết bị mới.\n\n"
             f"Thiết bị: {device_label}\nThời gian: {timestamp}\n\n"
             "Nếu đây là bạn, bạn không cần làm gì thêm. Không cần nhập mã xác minh.\n"
-            "Tài khoản hoạt động trên tối đa 2 thiết bị cùng lúc. Nếu đã đủ 2 phiên, "
+            "Tài khoản hoạt động trên tối đa 2 thiết bị cùng lúc. Nếu đã có 2 thiết bị, "
             "thiết bị ít hoạt động gần đây nhất sẽ được đăng xuất.\n\n"
-            "Nếu không phải bạn, hãy mở Smart TKB và đổi mật khẩu ngay để thu hồi các phiên đăng nhập.")
+            "Nếu không phải bạn, hãy mở Smart TKB và đổi mật khẩu ngay để đăng xuất khỏi các thiết bị khác.")
     content = (
         '<h2 style="margin:0 0 16px;font-size:21px;">Đăng nhập trên thiết bị mới</h2>'
         '<p>Tài khoản của bạn vừa đăng nhập thành công trên Smart TKB.</p>'
@@ -175,7 +210,7 @@ def send_device_login_alert_email(recipient: str, device_label: str, logged_in_a
         f'<strong>Thời gian:</strong> {html.escape(timestamp)}</p>'
         '<p>Nếu đây là bạn, bạn không cần làm gì thêm.</p>'
         '<p>Nếu không phải bạn, hãy mở Smart TKB và <strong>đổi mật khẩu ngay</strong> '
-        'để thu hồi các phiên đăng nhập.</p>'
+        'để đăng xuất khỏi các thiết bị khác.</p>'
     )
     return send_email_message(recipient, subject, text,
                               html_body=_render_email_html(subject, "Có lượt đăng nhập mới vào tài khoản của bạn", content))
@@ -221,7 +256,7 @@ def _render_email_html(title: str, preheader: str, content_html: str) -> str:
         '                    <tr>\n'
         '                        <td style="padding:20px 32px;background-color:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">\n'
         '                            <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">\n'
-        '                                Thư này được gửi tự động từ hệ thống Smart TKB.<br>\n'
+        '                                Thư này được gửi tự động từ Smart TKB.<br>\n'
         '                                Vui lòng không trả lời trực tiếp email này.\n'
         '                            </p>\n'
         '                        </td>\n'
@@ -250,7 +285,7 @@ def send_password_reset_email(recipient: str, reset_url: str) -> bool:
         Xin chào,
     </p>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#334155;">
-        Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản tại hệ thống <strong>Smart TKB</strong>. Vui lòng bấm vào nút bên dưới để thiết lập mật khẩu mới:
+        Bạn vừa yêu cầu đặt lại mật khẩu trên <strong>Smart TKB</strong>. Bấm vào nút bên dưới để chọn mật khẩu mới:
     </p>
     <div style="margin:28px 0;text-align:center;">
         <a href="{safe_url}" target="_blank" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:8px;box-shadow:0 4px 6px -1px rgba(37,99,235,0.25);">
@@ -283,7 +318,7 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
     safe_name = teacher_name.strip() if teacher_name else "bạn"
     text_body = (
         f"Xin chào {safe_name},\n\n"
-        "Bạn vừa thực hiện đăng ký tài khoản trên hệ thống Smart TKB.\n\n"
+        "Bạn vừa đăng ký tài khoản trên Smart TKB.\n\n"
         "Mã xác nhận xác nhận của bạn là:\n\n"
         f"    {otp}\n\n"
         "Mã có hiệu lực trong vòng 10 phút và chỉ dùng được một lần.\n\n"
@@ -296,7 +331,7 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
         Xin chào <strong>{safe_name_html}</strong>,
     </p>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#334155;">
-        Bạn vừa thực hiện đăng ký tài khoản trên hệ thống <strong>Smart TKB</strong>. Vui lòng nhập mã xác nhận dưới đây để hoàn tất xác thực tài khoản:
+        Bạn vừa đăng ký tài khoản trên <strong>Smart TKB</strong>. Nhập mã dưới đây để hoàn tất đăng ký:
     </p>
     <div style="margin:28px 0;text-align:center;">
         <div style="display:inline-block;background-color:#f8fafc;border:2px dashed #94a3b8;border-radius:12px;padding:14px 28px;font-size:32px;font-weight:800;letter-spacing:8px;color:#0f172a;font-family:'Consolas','Courier New',monospace;">
@@ -316,15 +351,16 @@ def send_registration_otp_email(recipient: str, otp: str, teacher_name: str) -> 
     return send_email_message(recipient, subject, text_body, html_body=html_body)
 
 
-def send_email_change_otp_email(recipient: str, otp: str) -> bool:
+def send_email_change_otp_email(recipient: str, otp: str, *, target_name: str = "", new_email: str = "") -> bool:
     subject = "Mã xác nhận đổi email Smart TKB"
     text_body = (
         "Xin chào,\n\n"
-        "Bạn vừa yêu cầu thay đổi địa chỉ email trên hệ thống Smart TKB.\n\n"
-        "Mã xác nhận xác nhận email mới của bạn là:\n\n"
+        f"Bạn vừa yêu cầu đổi email{(' cho ' + target_name) if target_name else ''} trên Smart TKB.\n\n"
+        f"{('Email mới: ' + new_email + chr(10) + chr(10)) if new_email else ''}"
+        "Mã xác nhận của bạn là:\n\n"
         f"    {otp}\n\n"
         "Mã có hiệu lực trong vòng 10 phút và chỉ dùng được một lần.\n\n"
-        "Nếu bạn không yêu cầu thay đổi email, vui lòng bỏ qua thư này."
+        "Nếu bạn không yêu cầu thay đổi email, không chia sẻ mã và hãy đổi mật khẩu của bạn."
     )
     safe_otp_html = html.escape(otp.strip())
     content_html = f"""
@@ -332,8 +368,9 @@ def send_email_change_otp_email(recipient: str, otp: str) -> bool:
         Xin chào,
     </p>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#334155;">
-        Bạn vừa yêu cầu thay đổi địa chỉ email cho tài khoản <strong>Smart TKB</strong>. Vui lòng nhập mã xác nhận dưới đây để xác nhận địa chỉ email mới:
+        Bạn vừa yêu cầu đổi email{(' cho <strong>' + html.escape(target_name) + '</strong>') if target_name else ''} trên <strong>Smart TKB</strong>. Vui lòng nhập mã dưới đây để đồng ý thay đổi:
     </p>
+    <p style="font-size:14px;line-height:1.6">{('Email mới: <strong>' + html.escape(new_email) + '</strong>') if new_email else ''}</p>
     <div style="margin:28px 0;text-align:center;">
         <div style="display:inline-block;background-color:#f8fafc;border:2px dashed #94a3b8;border-radius:12px;padding:14px 28px;font-size:32px;font-weight:800;letter-spacing:8px;color:#0f172a;font-family:'Consolas','Courier New',monospace;">
             {safe_otp_html}

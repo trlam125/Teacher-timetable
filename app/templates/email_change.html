@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="/static/design-tokens.css?v=1">
     <link rel="stylesheet" href="/static/style.css?v=11">
     <link rel="stylesheet" href="/static/auth-extra.css?v=1">
-    <link rel="stylesheet" href="/static/verification-code.css?v=1">
+    <link rel="stylesheet" href="/static/verification-code.css?v=2">
     <script src="/static/verification-code.js?v=1" defer></script>
 </head>
 
@@ -58,19 +58,19 @@
                 <div class="muted" style="margin-top:12px">Email mới</div>
                 <b>{{ new_email }}</b>
             </div>
-            <p>Kiểm tra địa chỉ rồi xác nhận để nhận mã qua email mới.</p>
+            <p>{% if managed_approval %}Kiểm tra địa chỉ rồi tiếp tục. Mã xác nhận sẽ được gửi tới email của bạn: <b>{{ masked_email }}</b>.{% else %}Kiểm tra địa chỉ rồi tiếp tục để nhận mã tại email mới.{% endif %}</p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/confirm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}">
                 <div class="row" style="justify-content:space-between;margin-top:18px">
                     <a class="btn ghost" href="{{ back_path }}">Hủy</a>
-                    <button class="btn" type="submit">Xác nhận và gửi OTP</button>
+                    <button class="btn" type="submit">Gửi mã xác nhận</button>
                 </div>
             </form>
             {% elif mode == "otp" %}
-            <h1>Xác minh email mới</h1>
-            <p>Mã xác nhận 6 số đã được gửi tới <b>{{ masked_email }}</b>. Email chỉ được thay đổi sau khi mã này hợp lệ.</p>
+            <h1>Xác nhận đổi email</h1>
+            <p>{% if managed_approval %}Mã gồm 6 số đã được gửi tới email của bạn: <b>{{ masked_email }}</b>. Nhập mã để đổi email cho <b>{{ target.name }}</b>.{% else %}Mã gồm 6 số đã được gửi tới <b>{{ masked_email }}</b>. Nhập mã để hoàn tất đổi email.{% endif %}</p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/verify" class="account-edit-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

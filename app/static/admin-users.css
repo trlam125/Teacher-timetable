@@ -149,7 +149,6 @@
 .system-logs-table time {font-variant-numeric: tabular-nums;}
 .log-secondary {display: block; margin-top: 4px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere;}
 .log-project-name, .log-account-name {display: block; font-weight: 600;}
-.log-code {font-size: 12px; color: var(--primary2); overflow-wrap: anywhere;}
 .log-project-name, .log-summary {display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;}
 .log-summary {margin: 6px 0 0;}
 .log-action .admin-detail-link {white-space: nowrap; min-height: 24px; padding-top: 0;}
@@ -158,7 +157,6 @@
 .incident-metadata dt {color: var(--muted); font-size: 12px; margin-bottom: 4px;}
 .incident-metadata dd {margin: 0; font-size: 14px; line-height: 1.6;}
 .incident-summary {margin: 24px 0 16px; font-size: 14px; line-height: 1.7;}
-.incident-details {margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 12px; line-height: 1.7;}
 .admin-visually-hidden {position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;}
 
 @media (max-width: 1100px) {
@@ -197,3 +195,13 @@
   .admin-detail-dialog input {font-size: 16px;}
   .system-logs-table td[data-label] {grid-template-columns: 80px minmax(0, 1fr); column-gap: 10px;}
 }
+/* Account details use the same readable fields as the sign-in forms. */
+.admin-dialog-content .account-edit-form input:not([type="hidden"]):not([type="checkbox"]):not([type="file"]) {
+  display: block; width: 100%; min-width: 0; min-height: 48px; padding: 12px 14px;
+  border: 1px solid var(--input-border, var(--line)); border-radius: 10px;
+  background: var(--input-bg, var(--card-bg)); color: var(--ink); font: inherit;
+}
+.admin-dialog-content .account-edit-form input:disabled { color: var(--muted); background: var(--soft); opacity: 1; }
+.admin-dialog-content .account-edit-form input:focus-visible { outline: 3px solid var(--primary-focus, var(--primary)); outline-offset: 2px; border-color: var(--primary); }
+.admin-dialog-content .account-edit-form label { color: var(--ink); }
+.admin-dialog-content .account-edit-form .btn { min-height: 44px; }

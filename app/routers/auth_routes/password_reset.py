@@ -134,8 +134,8 @@ def forgot_password(
                 "request": request,
                 "captcha_challenge": fresh_challenge,
                 "captcha_token": fresh_token,
-                "error": "Chức năng đặt lại mật khẩu chưa được cấu hình đầy đủ. "
-                "Vui lòng liên hệ quản trị viên để kiểm tra URL công khai và dịch vụ gửi email.",
+                "error": "Hiện chưa gửi được thư đặt lại mật khẩu. "
+                "Vui lòng thử lại sau hoặc liên hệ người quản lý.",
                 "submitted": False,
                 "dev_reset_link": None,
             },

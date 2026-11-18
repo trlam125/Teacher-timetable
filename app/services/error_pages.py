@@ -9,7 +9,7 @@ def render_error_page(request: Request, status_code: int, *, headers=None, form_
     if form_error is not None:
         title = "Vui lòng mở lại biểu mẫu"
         description = form_error.detail
-        hint = "Yêu cầu chưa được thực hiện. Mở lại trang để nhận phiên biểu mẫu mới rồi thử lại."
+        hint = "Thay đổi chưa được lưu. Vui lòng mở lại trang rồi thử lại."
     elif status_code == 404:
         title = "Không tìm thấy trang"
         description = (

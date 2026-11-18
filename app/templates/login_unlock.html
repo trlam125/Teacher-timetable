@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
+    <script src="/static/verification-code.js?v=1" defer></script>
+    <script>if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark-mode');</script>
+    <title>Xác nhận đăng nhập · Smart TKB</title>
+    <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
+    <link rel="stylesheet" href="/static/design-tokens.css?v=1">
+    <link rel="stylesheet" href="/static/style.css?v=11">
+    <link rel="stylesheet" href="/static/device-login.css?v=3">
+    <link rel="stylesheet" href="/static/verification-code.css?v=2">
+</head>
+<body>
+    <main class="device-login-shell">
+        <section class="device-login-card" aria-labelledby="unlock-title">
+            <a class="device-brand" href="/login"><img src="/static/brand-logo.svg?v=1" width="36" height="36" alt=""><span>Smart TKB</span></a>
+            <div class="verification-intro" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></div>
+            <h1 id="unlock-title">{% if mode == 'code' %}Xác nhận để tiếp tục{% else %}Vui lòng thử lại{% endif %}</h1>
+            {% if mode == 'code' %}
+            <p>Sau nhiều lần nhập sai, bạn cần xác nhận email. Nếu email và mật khẩu vừa nhập đều đúng, mã gồm 6 số sẽ được gửi tới <b>{{ masked_email }}</b>.</p>
+            {% endif %}
+            {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+            {% if mode == 'code' %}
+            <form method="post" action="/login/unlock/verify">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="verification-field">
+                    <label for="unlock-code">Mã xác nhận gồm 6 số</label>
+                    <input id="unlock-code" name="otp" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+                           autocomplete="one-time-code" data-verification-code required autofocus aria-describedby="unlock-code-help" placeholder="000000">
+                    <small id="unlock-code-help">Có thể dán cả mã từ email. Mã có hiệu lực 10 phút.</small>
+                </div>
+                <button class="btn wide" type="submit">Xác nhận email</button>
+            </form>
+            <details class="otp-resend-details">
+                <summary>Chưa nhận được mã?</summary>
+                <p>Hãy kiểm tra thư rác. Nếu chưa nhận được thư, quay lại kiểm tra email và mật khẩu. Bạn có thể gửi lại mã sau một phút.</p>
+                <form method="post" action="/login/unlock/resend">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="btn ghost wide" type="submit">Gửi lại mã</button>
+                </form>
+            </details>
+            {% endif %}
+            <a class="btn ghost wide device-back" href="/login">Quay lại đăng nhập</a>
+        </section>
+    </main>
+</body>
+</html>

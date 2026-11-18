@@ -907,7 +907,7 @@ import {
     const state = row.querySelector("[data-presence-state]");
     const detail = row.querySelector("[data-presence-last-seen]");
     if (lastSeen) row.dataset.lastSeen = lastSeen;
-    if (state) state.textContent = online ? "Online" : "Offline";
+    if (state) state.textContent = online ? "Đang hoạt động" : "Không hoạt động";
     if (detail) detail.textContent = online ? "Đang hoạt động" : formatLastSeen(row.dataset.lastSeen || lastSeen);
   }
 

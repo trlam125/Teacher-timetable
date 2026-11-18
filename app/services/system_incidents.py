@@ -54,7 +54,7 @@ def incident_log_view(row):
     summary, separator, details = row.error_message.partition("\n\n")
     code = row.error_code or "system_error"
     source = "Bộ xếp lịch" if code.startswith("scheduler_") else (
-        "Hệ thống" if code.startswith("system_") else "Trợ lý AI"
+        "Smart TKB" if code.startswith("system_") else "Trợ lý AI"
     )
     return {
         "id": row.id, "created_at": row.created_at,

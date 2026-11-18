@@ -5,6 +5,7 @@ from app.services.authentication.captcha import new_captcha
 from app.services.authentication.credentials import pwd, signer
 from app.services.authentication.csrf import require_form_token
 from app.services.authentication.devices import begin_login
+from app.services.authentication.login_unlock import start_unlock, take_unlock_pass, UNLOCK_PASS_COOKIE
 from app.services.authentication.rate_limits import (
     clear_rate_limit_bucket,
     client_rate_limit_key,
@@ -46,12 +47,20 @@ def login_page(request: Request):
         except (BadSignature, SignatureExpired, AttributeError):
             pass
     response = templates.TemplateResponse(
-        "auth.html", _login_template_context(request, error)
+        "auth.html", {**_login_template_context(request, error), "success": _login_notice(request)}
     )
     if notice:
         response.delete_cookie("oauth_notice")
+    response.delete_cookie("login_notice")
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _login_notice(request):
+    try:
+        return signer.loads(request.cookies.get("login_notice", ""), max_age=120).get("message")
+    except (BadSignature, SignatureExpired, AttributeError):
+        return None
 
 
 
@@ -66,18 +75,15 @@ def login(
     require_form_token(request, csrf_token)
     normalized_email = email.lower().strip()
     ip_key = client_rate_limit_key(request)
-    if rate_limit_blocked(
+    unlocked = take_unlock_pass(request, db, normalized_email)
+    if not unlocked and (rate_limit_blocked(
         "login_ip", ip_key, limit=20, window_seconds=10 * 60
     ) or rate_limit_blocked(
         "login_email", normalized_email, limit=8, window_seconds=10 * 60
-    ):
-        return templates.TemplateResponse(
-            "auth.html",
-            _login_template_context(
-                request, "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
-            ),
-            status_code=429,
-        )
+    )):
+        account = db.scalar(select(User).where(User.email == normalized_email))
+        password_confirmed = bool(account and pwd.verify(password, account.password_hash))
+        return start_unlock(request, db, normalized_email, password_confirmed=password_confirmed)
     user = db.scalar(select(User).where(User.email == normalized_email))
     if not user or not pwd.verify(password, user.password_hash):
         ip_limited = rate_limit_exceeded(
@@ -87,13 +93,7 @@ def login(
             "login_email", normalized_email, limit=8, window_seconds=10 * 60
         )
         if ip_limited or email_limited:
-            return templates.TemplateResponse(
-                "auth.html",
-                _login_template_context(
-                    request, "Bạn đã thử đăng nhập sai quá nhiều lần. Vui lòng đợi vài phút rồi thử lại."
-                ),
-                status_code=429,
-            )
+            return start_unlock(request, db, normalized_email)
         return templates.TemplateResponse(
             "auth.html",
             _login_template_context(request, "Email hoặc mật khẩu không đúng"),
@@ -102,4 +102,6 @@ def login(
     # Chỉ lỗi đăng nhập mới được tính vào rate-limit. Đăng nhập đúng xóa bucket
     # theo email để các lần đăng nhập hợp lệ không tự khóa tài khoản.
     clear_rate_limit_bucket("login_email", normalized_email)
-    return begin_login(request, db, user)
+    response = begin_login(request, db, user)
+    response.delete_cookie(UNLOCK_PASS_COOKIE)
+    return response

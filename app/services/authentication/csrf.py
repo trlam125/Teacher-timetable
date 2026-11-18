@@ -44,7 +44,7 @@ def require_same_origin(request, *, allow_missing=True):
     if not origin:
         if allow_missing and request.headers.get("sec-fetch-site") != "cross-site":
             return
-        raise FormSecurityError("Nguồn yêu cầu không hợp lệ", "invalid_origin")
+        raise FormSecurityError("Vui lòng mở lại trang Smart TKB rồi thử lại.", "invalid_origin")
     try:
         supplied = urlsplit(origin)
         fallback = str(request.base_url).replace("wss://", "https://", 1).replace("ws://", "http://", 1)
@@ -61,7 +61,7 @@ def require_same_origin(request, *, allow_missing=True):
         if request.headers.get("sec-fetch-site") == "cross-site":
             raise ValueError
     except (TypeError, ValueError):
-        raise FormSecurityError("Nguồn yêu cầu không hợp lệ", "invalid_origin") from None
+        raise FormSecurityError("Vui lòng mở lại trang Smart TKB rồi thử lại.", "invalid_origin") from None
 
 
 def require_form_token(request, token: str):
@@ -74,7 +74,7 @@ def require_form_token(request, token: str):
             raise ValueError
         require_same_origin(request)
     except (BadSignature, TypeError, ValueError):
-        raise FormSecurityError("Phiên biểu mẫu không hợp lệ hoặc đã hết hạn. Hãy tải lại trang rồi thử lại.",
+        raise FormSecurityError("Trang đã mở quá lâu hoặc thông tin chưa đầy đủ. Vui lòng tải lại rồi thử lại.",
                                 "expired_form") from None
 
 

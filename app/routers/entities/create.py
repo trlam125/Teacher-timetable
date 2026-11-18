@@ -404,13 +404,11 @@ def add_assignments_bulk(
             f"{preview}{suffix}. Hãy sửa phân công hiện có hoặc bỏ cặp đó khỏi lần phân công này.",
         )
 
-    added_periods = 0
     added_periods_by_class = Counter()
     for subject_id in subject_ids:
         periods, _ = normalized[subject_id]
         for class_id in class_ids:
             if (subject_id, class_id) not in existing_pairs:
-                added_periods += periods
                 added_periods_by_class[class_id] += periods
     for class_id, class_added_periods in added_periods_by_class.items():
         ensure_class_load_fits(

@@ -26,8 +26,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             return JSONResponse(
                 {
                     "ok": False,
-                    "message": "Phiên đăng nhập đã hết hạn.",
-                    "detail": "Phiên đăng nhập đã hết hạn.",
+                    "message": "Vui lòng đăng nhập lại để tiếp tục.",
+                    "detail": "Vui lòng đăng nhập lại để tiếp tục.",
                 },
                 status_code=401,
                 headers={"Cache-Control": "no-store"},

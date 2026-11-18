@@ -1,24 +1,21 @@
-"""Compatibility entry point; implementations live in focused modules."""
+"""Combine the account routes while preserving the public router entry point."""
 from fastapi import APIRouter
 
-router = APIRouter()
-from app.routers.auth_routes.home import router as _router_0
-router.include_router(_router_0)
-from app.routers.auth_routes.login import router as _router_1
-router.include_router(_router_1)
-from app.routers.auth_routes.registration import router as _router_2
-router.include_router(_router_2)
-from app.routers.auth_routes.password_reset import router as _router_3
-router.include_router(_router_3)
-from app.routers.auth_routes.logout import router as _router_4
-router.include_router(_router_4)
-from app.routers.auth_routes.email_change import router as _router_5
-router.include_router(_router_5)
-from app.routers.auth_routes.avatar import router as _router_6
-router.include_router(_router_6)
-from app.routers.auth_routes.devices import router as _router_7
-router.include_router(_router_7)
+from app.routers.auth_routes.avatar import router as avatar_router
+from app.routers.auth_routes.devices import router as devices_router
+from app.routers.auth_routes.email_change import router as email_change_router
+from app.routers.auth_routes.home import router as home_router
+from app.routers.auth_routes.login import router as login_router
+from app.routers.auth_routes.login_unlock import router as login_unlock_router
+from app.routers.auth_routes.logout import router as logout_router
+from app.routers.auth_routes.password_reset import router as password_reset_router
+from app.routers.auth_routes.registration import router as registration_router
 
-__all__ = [
-    'router',
-]
+router = APIRouter()
+for account_router in (
+    home_router, login_router, registration_router, password_reset_router,
+    logout_router, email_change_router, avatar_router, devices_router, login_unlock_router,
+):
+    router.include_router(account_router)
+
+__all__ = ["router"]
