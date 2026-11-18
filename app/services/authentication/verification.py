@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 import hashlib
 import hmac
+import re
 
 from fastapi import HTTPException, Request
 from itsdangerous import BadSignature, SignatureExpired
@@ -26,6 +27,12 @@ from app.settings import (
     REGISTRATION_OTP_TTL_SECONDS,
     RESET_TOKEN_TTL_SECONDS,
 )
+
+
+def normalize_otp(value: str) -> str:
+    """Accept codes copied with spaces or hyphens while requiring ASCII digits."""
+    normalized = re.sub(r"[\s-]", "", value)
+    return normalized if re.fullmatch(r"[0-9]{6}", normalized) else ""
 
 
 def registration_otp_hash(email: str, otp: str) -> str:

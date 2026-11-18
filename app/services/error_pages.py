@@ -5,8 +5,12 @@ from fastapi import Request
 from app.services.web import templates
 
 
-def render_error_page(request: Request, status_code: int, *, headers=None):
-    if status_code == 404:
+def render_error_page(request: Request, status_code: int, *, headers=None, form_error=None):
+    if form_error is not None:
+        title = "Vui lòng mở lại biểu mẫu"
+        description = form_error.detail
+        hint = "Yêu cầu chưa được thực hiện. Mở lại trang để nhận phiên biểu mẫu mới rồi thử lại."
+    elif status_code == 404:
         title = "Không tìm thấy trang"
         description = (
             "Trang bạn cần mở có thể đã được di chuyển, không còn tồn tại "
@@ -34,6 +38,7 @@ def render_error_page(request: Request, status_code: int, *, headers=None):
             "title": title,
             "description": description,
             "hint": hint,
+            "form_error": form_error is not None,
         },
         status_code=status_code,
         headers=headers,

@@ -24,6 +24,7 @@ from app.services.authentication.rate_limits import client_rate_limit_key, rate_
 from app.services.authentication.sessions import db_session
 from app.services.authentication.verification import (
     mask_email,
+    normalize_otp,
     registration_otp_context,
     registration_otp_hash,
     registration_verification_for_token,
@@ -234,7 +235,7 @@ def verify_registration_otp(
             ),
             status_code=429,
         )
-    normalized_otp = otp.strip()
+    normalized_otp = normalize_otp(otp)
     if (
         not normalized_otp.isdigit()
         or len(normalized_otp) != 6

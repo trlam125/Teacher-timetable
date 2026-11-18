@@ -41,14 +41,15 @@
                     </svg>
                 </div>
             </div>
-            <span class="error-status">Lỗi {{ status_code }} · {{ 'Truy cập bị giới hạn' if status_code == 403 else 'Trang không khả dụng' }}</span>
+            <span class="error-status">Lỗi {{ status_code }} · {{ 'Cần mở lại biểu mẫu' if form_error else ('Truy cập bị giới hạn' if status_code == 403 else 'Trang không khả dụng') }}</span>
             <h1 id="error-title">{{ title }}</h1>
             <p id="error-description" class="error-description">{{ description }}</p>
             <p class="error-hint">{{ hint }}</p>
             <nav class="error-actions" aria-label="Điều hướng khi gặp lỗi">
-                <a class="error-button error-button-primary" href="/">
+                {% set reopen_login = form_error and request.url.path in ['/login', '/register', '/register/verify', '/register/resend', '/auth/device/verify', '/auth/device/complete', '/auth/device/resend'] %}
+                <a class="error-button error-button-primary" href="{{ '/login' if reopen_login else '/' }}">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg>
-                    Về trang chủ
+                    {{ 'Mở lại trang đăng nhập' if reopen_login else 'Về trang chủ' }}
                 </a>
                 <button class="error-button error-button-secondary" id="error-back" type="button" hidden>
                     <span aria-hidden="true">←</span> Quay lại

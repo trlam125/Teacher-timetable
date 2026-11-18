@@ -1,0 +1,55 @@
+/* Shared verification field; keep one input for selection, paste and autofill. */
+.verification-field { display: grid; gap: 10px; min-width: 0; margin: 24px 0; color: var(--ink); }
+.verification-field label { display: block; margin: 0; font-size: 14px; font-weight: 600; }
+.verification-field input[data-verification-code] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 64px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--input-border, var(--line));
+  border-radius: 12px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: clamp(24px, 6vw, 30px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .35em;
+  text-align: center;
+  box-shadow: none;
+}
+.verification-field input[data-verification-code]::placeholder { color: var(--muted); opacity: .6; }
+.verification-field input[data-verification-code]:focus-visible {
+  border-color: var(--primary);
+  outline: 3px solid var(--primary-focus, var(--input-focus-shadow));
+  outline-offset: 2px;
+}
+.verification-field input[aria-invalid="true"] { border-color: var(--danger); }
+.verification-field small { color: var(--muted); font-size: 13px; line-height: 1.6; font-weight: 400; }
+.verification-intro { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 20px; border-radius: 16px; background: var(--soft); color: var(--primary); }
+.verification-intro svg { width: 28px; height: 28px; }
+.auth-register_otp .auth-story, .auth-register_otp .panda { display: none; }
+.auth-register_otp .auth-shell { grid-template-columns: minmax(0, 1fr); width: min(480px, 100%); min-height: 0; border-radius: 24px; }
+.auth-register_otp .panda-card { width: 100%; max-width: none; margin: 0; padding: clamp(24px, 6vw, 40px); border-radius: 24px; animation: none; }
+.auth-register_otp .auth-card-body { padding: 0; }
+.auth-register_otp .panda-card > .auth-card-body > .brand { display: inline-flex; margin: 0 0 28px; }
+.auth-register_otp .panda-card h1 { margin: 0 0 12px; font-size: clamp(24px, 6vw, 28px); line-height: 1.35; }
+.auth-register_otp .auth-card-body > p { overflow-wrap: anywhere; }
+.auth-register_otp .panda-card .muted { color: var(--muted); }
+.auth-register_otp .auth-submit, .auth-register_otp .btn { min-height: 48px; }
+.verification-page { min-height: 100dvh; display: grid; place-items: center; }
+.verification-page > .container { width: min(100%, 580px); }
+.verification-page > .container > .panel { padding: clamp(24px, 5vw, 40px); border: 1px solid var(--line); border-radius: 24px; background: var(--card-bg); box-shadow: var(--card-shadow); }
+.verification-page h1 { font-size: clamp(24px, 5vw, 28px); line-height: 1.35; margin: 16px 0; }
+.verification-page p { overflow-wrap: anywhere; line-height: 1.7; }
+.verification-page .btn { min-height: 48px; white-space: normal; }
+.otp-resend-details { margin: 0 0 20px; font-size: 14px; }
+.otp-resend-details summary { min-height: 44px; align-content: center; color: var(--primary); cursor: pointer; }
+.otp-resend-details summary:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
+.otp-resend-details .visual-captcha { margin: 12px 0; }
+.auth-device-note { margin: 16px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+@media (max-width: 540px) {
+  .auth-register_otp.auth-scene { padding: 72px 16px 24px; }
+}

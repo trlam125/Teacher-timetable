@@ -20,6 +20,14 @@ _token = re.compile(r"[A-Za-z0-9_-]{43}")
 _signer = URLSafeTimedSerializer(SECRET_KEY, salt="browser-form-csrf-v1")
 
 
+class FormSecurityError(HTTPException):
+    """A rejected browser form is not an account authorization failure."""
+
+    def __init__(self, message: str, code: str):
+        super().__init__(403, message)
+        self.code = code
+
+
 def secure_cookies() -> bool:
     return APP_ENV == "production" or APP_BASE_URL.lower().startswith("https://")
 
@@ -36,7 +44,7 @@ def require_same_origin(request, *, allow_missing=True):
     if not origin:
         if allow_missing and request.headers.get("sec-fetch-site") != "cross-site":
             return
-        raise HTTPException(403, "Nguồn yêu cầu không hợp lệ")
+        raise FormSecurityError("Nguồn yêu cầu không hợp lệ", "invalid_origin")
     try:
         supplied = urlsplit(origin)
         fallback = str(request.base_url).replace("wss://", "https://", 1).replace("ws://", "http://", 1)
@@ -53,7 +61,7 @@ def require_same_origin(request, *, allow_missing=True):
         if request.headers.get("sec-fetch-site") == "cross-site":
             raise ValueError
     except (TypeError, ValueError):
-        raise HTTPException(403, "Nguồn yêu cầu không hợp lệ") from None
+        raise FormSecurityError("Nguồn yêu cầu không hợp lệ", "invalid_origin") from None
 
 
 def require_form_token(request, token: str):
@@ -66,7 +74,8 @@ def require_form_token(request, token: str):
             raise ValueError
         require_same_origin(request)
     except (BadSignature, TypeError, ValueError):
-        raise HTTPException(403, "Phiên biểu mẫu không hợp lệ hoặc đã hết hạn. Hãy tải lại trang rồi thử lại.") from None
+        raise FormSecurityError("Phiên biểu mẫu không hợp lệ hoặc đã hết hạn. Hãy tải lại trang rồi thử lại.",
+                                "expired_form") from None
 
 
 async def verify_request_csrf(request: HTTPConnection):

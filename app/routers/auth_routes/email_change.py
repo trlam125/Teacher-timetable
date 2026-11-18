@@ -33,6 +33,7 @@ from app.services.authentication.verification import (
     email_change_target,
     email_change_verification_for_token,
     mask_email,
+    normalize_otp,
 )
 from app.services.web import bounded_text, templates
 from app.settings import EMAIL_CHANGE_OTP_MAX_ATTEMPTS, EMAIL_CHANGE_OTP_TTL_SECONDS
@@ -294,7 +295,7 @@ def verify_email_change(
             },
             status_code=429,
         )
-    normalized_otp = otp.strip()
+    normalized_otp = normalize_otp(otp)
     if (
         not normalized_otp.isdigit()
         or len(normalized_otp) != 6

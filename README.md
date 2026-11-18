@@ -126,16 +126,16 @@ http://127.0.0.1:8000
 
 ## Tài khoản
 
-### Xác minh thiết bị và phiên đăng nhập
+### Thiết bị và phiên đăng nhập
 
-- Mỗi tài khoản giữ tối đa **2 trình duyệt/thiết bị đã xác minh**. Máy mới phải đăng nhập đúng rồi nhập OTP gửi đến email tài khoản; đăng nhập Google cũng áp dụng bước này.
-- Khi đã có 2 thiết bị, sau khi xác minh OTP, người dùng chọn thiết bị cần đăng xuất trước khi thêm máy mới. Máy bị chọn mất quyền truy cập cả HTTP và chat WebSocket.
-- OTP có hiệu lực 10 phút, tối đa 5 lần nhập sai; gửi lại sau 60 giây. Việc gửi mã bị giới hạn theo tài khoản và địa chỉ kết nối. Cần cấu hình SMTP hoặc mail proxy đang dùng; không có chế độ bỏ qua OTP trên production.
+- Không giới hạn số trình duyệt/thiết bị từng đăng nhập; mỗi tài khoản có tối đa **2 phiên thiết bị còn hiệu lực cùng lúc**, áp dụng cả super admin, admin, giáo viên và đăng nhập Google.
+- Máy mới đăng nhập thành công ngay sau khi xác thực tài khoản, **không nhập OTP thiết bị**. Hệ thống gửi email cảnh báo gồm tên thiết bị và thời điểm đăng nhập theo giờ Việt Nam. Email chạy sau khi phiên đã được lưu; lỗi gửi mail không chặn đăng nhập. Cần giữ cấu hình SMTP/mail proxy để nhận cảnh báo. Đăng ký tài khoản và đổi email vẫn yêu cầu mã xác nhận; có thể dán cả mã 6 số, gồm cả mã có khoảng trắng hoặc dấu gạch nối.
+- Khi đã có 2 phiên còn hiệu lực, đăng nhập tiếp sẽ thu hồi phiên của thiết bị ít hoạt động gần đây nhất. Máy đã đăng xuất hoặc hết phiên không chiếm chỗ. Khóa hàng tài khoản bảo vệ giới hạn khi nhiều máy đăng nhập cùng lúc; thiết bị đã nhớ vẫn được giữ để nhận diện lần đăng nhập sau.
 - Nhận diện bằng cookie bảo mật của trình duyệt, không dựa vào địa chỉ IP. Trình duyệt khác, chế độ riêng tư hoặc xóa cookie được xem là máy mới. Hai thiết bị có thể dùng chung một địa chỉ mạng.
-- Đăng xuất thu hồi phiên hiện tại ở máy chủ, giữ thiết bị đã xác minh để lần sau chỉ cần nhập thông tin đăng nhập. Đổi email hoặc mật khẩu thu hồi các phiên và liên kết reset cũ.
-- Khi cập nhật phiên bản này, **khởi động lại backend** để tạo bảng `account_devices` và `device_login_challenges` qua bootstrap hiện có. Các cookie phiên cũ không có mã phiên thiết bị sẽ không được chấp nhận; người dùng cần đăng nhập và xác minh lại. Dữ liệu TKB được giữ nguyên.
+- Đăng xuất thu hồi phiên hiện tại ở máy chủ, giữ thiết bị đã nhớ để lần sau chỉ cần nhập thông tin đăng nhập. Đổi email hoặc mật khẩu thu hồi các phiên và liên kết reset cũ. Phiên bị thu hồi không qua được kiểm tra HTTP và kiểm tra phiên ở sự kiện WebSocket.
+- Khi cập nhật phiên bản này, **khởi động lại backend**. Không cần đổi cấu trúc database. Phiên thiết bị hiện có được giữ; quy tắc tối đa 2 phiên được áp dụng ở lần đăng nhập tiếp theo. Trang OTP thiết bị cũ chuyển về đăng nhập và không cấp phiên từ mã/challenge cũ. Các cookie phiên cũ không có mã phiên thiết bị cần đăng nhập lại. Dữ liệu TKB được giữ nguyên.
 - Kiểm thử đồng thời dùng PostgreSQL tạm trong CI, tách khỏi database ứng dụng. Không cấu hình `AUTH_TEST_DATABASE_URL` trỏ tới dữ liệu vận hành.
-- Đăng xuất hoặc bấm **Hủy xác minh** xóa phiên OTP đang dở ở máy chủ. OTP đã xác minh nhưng còn chờ chọn thiết bị cũng bị hủy; các cookie sao chép của phiên xác minh đó không dùng tiếp được sau khi hủy hoàn tất.
+- Lỗi CSRF/nguồn biểu mẫu được thông báo là yêu cầu mở lại biểu mẫu, tách khỏi lỗi thiếu quyền truy cập. Không bỏ kiểm tra CSRF hoặc mở rộng quyền tài khoản khi gặp lỗi này.
 - Các yêu cầu thay đổi dữ liệu (POST/PUT/PATCH/DELETE) yêu cầu CSRF token gắn với trình duyệt, áp dụng cả form, upload và JSON API. Giao diện gửi token tự động; API client riêng phải lấy token từ trang và gửi `X-CSRF-Token` cùng cookie. WebSocket yêu cầu Origin của website. Cần cấu hình `APP_BASE_URL` đúng origin công khai khi dùng reverse proxy.
 
 ### Giới hạn tệp tải lên

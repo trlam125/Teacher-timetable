@@ -157,12 +157,28 @@ def send_email_message(
     return _send_email_via_smtp(recipient, subject, body, html_body=html_body)
 
 
-def send_device_login_otp_email(recipient: str, otp: str, device_label: str) -> bool:
-    text = (f"Mã xác minh đăng nhập Smart TKB: {otp}\n\n"
-            f"Thiết bị: {device_label}\n"
-            "Mã có hiệu lực 10 phút. Không chia sẻ mã này với người khác.\n"
-            "Nếu không phải bạn đăng nhập, hãy bỏ qua email và đổi mật khẩu.")
-    return send_email_message(recipient, "Xác minh thiết bị đăng nhập Smart TKB", text)
+def send_device_login_alert_email(recipient: str, device_label: str, logged_in_at) -> bool:
+    from app.settings import VIETNAM_TZ
+
+    timestamp = logged_in_at.astimezone(VIETNAM_TZ).strftime("%H:%M:%S ngày %d/%m/%Y (giờ Việt Nam)")
+    subject = "Cảnh báo đăng nhập từ thiết bị mới · Smart TKB"
+    text = ("Tài khoản Smart TKB của bạn vừa đăng nhập thành công trên thiết bị mới.\n\n"
+            f"Thiết bị: {device_label}\nThời gian: {timestamp}\n\n"
+            "Nếu đây là bạn, bạn không cần làm gì thêm. Không cần nhập mã xác minh.\n"
+            "Tài khoản hoạt động trên tối đa 2 thiết bị cùng lúc. Nếu đã đủ 2 phiên, "
+            "thiết bị ít hoạt động gần đây nhất sẽ được đăng xuất.\n\n"
+            "Nếu không phải bạn, hãy mở Smart TKB và đổi mật khẩu ngay để thu hồi các phiên đăng nhập.")
+    content = (
+        '<h2 style="margin:0 0 16px;font-size:21px;">Đăng nhập trên thiết bị mới</h2>'
+        '<p>Tài khoản của bạn vừa đăng nhập thành công trên Smart TKB.</p>'
+        f'<p><strong>Thiết bị:</strong> {html.escape(device_label)}<br>'
+        f'<strong>Thời gian:</strong> {html.escape(timestamp)}</p>'
+        '<p>Nếu đây là bạn, bạn không cần làm gì thêm.</p>'
+        '<p>Nếu không phải bạn, hãy mở Smart TKB và <strong>đổi mật khẩu ngay</strong> '
+        'để thu hồi các phiên đăng nhập.</p>'
+    )
+    return send_email_message(recipient, subject, text,
+                              html_body=_render_email_html(subject, "Có lượt đăng nhập mới vào tài khoản của bạn", content))
 
 
 def _render_email_html(title: str, preheader: str, content_html: str) -> str:

@@ -30,8 +30,10 @@
     <script src="/static/auth-panda.js?v=1" defer></script>
     <script src="/static/visual-captcha.js?v=1" defer></script>
     <script src="/static/auth-effects.js?v=1" defer></script>
-    <script src="/static/auth-buttons.js?v=2" defer></script>
+    <script src="/static/auth-buttons.js?v=3" defer></script>
     <script src="/static/auth-slide.js?v=1" defer></script>
+    <link rel="stylesheet" href="/static/verification-code.css?v=1">
+    <script src="/static/verification-code.js?v=1" defer></script>
 </head>
 
 <body class="auth-page auth-scene auth-{{ mode }}">
@@ -91,6 +93,9 @@
                 </div>
                 <div class="auth-card-body">
                     <a class="brand" href="/">Smart TKB</a>
+                    {% if mode == 'register_otp' %}
+                    <div class="verification-intro" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></div>
+                    {% endif %}
                     <h1>
                         {{'Đăng nhập' if mode=='login' else ('Xác nhận email' if mode=='register_otp' else 'Tạo tài
                         khoản
@@ -154,19 +159,24 @@
                     </label>
                     {% elif mode=="register_otp" %}
                     <input type="hidden" name="verification_token" value="{{ verification_token }}">
-                    <label class="auth-field">
-                        Mã xác nhận 6 số<span class="auth-input-wrap"><input name="otp" inputmode="numeric"
-                                pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000"
-                                required autofocus>
-                        </span>
-                    </label>
-                    <p class="muted otp-captcha-intro">Chỉ cần xác minh bên dưới khi bạn muốn gửi lại mã xác nhận.</p>
+                    <div class="verification-field">
+                        <label for="registration-code">Mã xác nhận gồm 6 số</label>
+                        <input id="registration-code" name="otp" type="text" inputmode="numeric"
+                            pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000"
+                            data-verification-code aria-describedby="registration-code-help" required autofocus>
+                        <small id="registration-code-help">Có thể dán cả 6 số từ email, kể cả mã có khoảng trắng. Mã có hiệu lực 10 phút.</small>
+                    </div>
+                    <details class="otp-resend-details">
+                    <summary>Chưa nhận được mã?</summary>
+                    <p class="muted otp-captcha-intro">Kiểm tra thư rác hoặc hoàn thành xác minh bên dưới để gửi lại mã sau 60 giây.</p>
                     <input type="hidden" name="human_confirm" value="yes">
                     {% set captcha_enforce = "resend" %}
                     {% include "_visual_captcha.html" %}
                     <label class="bot-trap" aria-hidden="true">
                         Website<input name="website" tabindex="-1" autocomplete="off">
                     </label>
+                    <button class="btn ghost wide" type="submit" formaction="/register/resend" formnovalidate>Gửi lại mã xác nhận</button>
+                    </details>
                     {% endif %}
                     {% if mode=="login" %}<p class="auth-link"><a href="/forgot-password">Quên mật khẩu?</a></p>{% endif
                     %}
@@ -226,11 +236,10 @@
                             mode=='register_otp' else 'Gửi mã xác nhận')}}</span><i aria-hidden="true">→</i>
                     </button>
                     {% endif %}
-                    {% if mode=="register_otp" %}<button class="btn ghost wide" type="submit"
-                        formaction="/register/resend" formnovalidate>Gửi lại mã xác nhận</button>{% endif %}
                     {% if mode in ["login", "register"] %}
                     {% include "_social_login.html" %}
                     {% endif %}
+                    {% if mode == 'login' %}<p class="auth-device-note">Đăng nhập trên mọi thiết bị · Tối đa 2 thiết bị hoạt động cùng lúc. Khi đủ 2 phiên, máy ít hoạt động gần đây nhất sẽ được đăng xuất. Máy mới chỉ nhận email cảnh báo.</p>{% endif %}
                     {% if mode=="login" %}
                     <p>Chưa có tài khoản? <a href="/register" data-auth-switch="register">Đăng ký</a></p>
                     {% else %}

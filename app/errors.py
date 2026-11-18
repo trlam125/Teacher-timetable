@@ -6,9 +6,17 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.services.api_error_responses import unexpected_exception_handler
 from app.services.error_pages import render_error_page
+from app.services.authentication.csrf import FormSecurityError
 
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if isinstance(exc, FormSecurityError):
+        if (request.url.path.startswith("/api/")
+                or request.headers.get("x-requested-with") == "XMLHttpRequest"):
+            return JSONResponse({"ok": False, "code": exc.code,
+                                 "message": exc.detail, "detail": exc.detail},
+                                status_code=403, headers={"Cache-Control": "no-store"})
+        return render_error_page(request, 403, form_error=exc, headers=exc.headers)
     if exc.status_code == 401:
         if (
             request.url.path.startswith("/api/")

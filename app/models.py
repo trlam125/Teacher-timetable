@@ -32,7 +32,7 @@ class User(Base):
 
 
 class AccountDevice(Base):
-    """Two trusted browsers per account; session secrets are stored only as hashes."""
+    """Remembered browsers; only two live sessions, with secrets stored as hashes."""
     __tablename__ = "account_devices"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)

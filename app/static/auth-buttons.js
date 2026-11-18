@@ -171,8 +171,7 @@
 
             // 6) Success mark pops up
             loginBtn.classList.add('success');
-            if (btnText) btnText.textContent = new URL(response.url, window.location.origin).pathname === '/auth/device'
-              ? 'Xác minh thiết bị' : 'Đã đăng nhập';
+            if (btnText) btnText.textContent = 'Đã đăng nhập';
             await sleep(350);
 
             // Navigate to destination
@@ -197,17 +196,19 @@
               ? 'Không kết nối được máy chủ. Hãy kiểm tra mạng rồi thử lại.'
               : ({403: 'Phiên biểu mẫu đã hết hạn. Hãy tải lại trang rồi đăng nhập.',
                   429: 'Bạn đã thử quá nhiều lần. Vui lòng đợi rồi thử lại.',
-                  503: 'Chưa gửi được mã xác minh thiết bị. Vui lòng thử lại sau.',
+                  503: 'Dịch vụ đăng nhập tạm thời gián đoạn. Vui lòng thử lại sau.',
                   401: 'Phiên xác thực không còn hợp lệ. Hãy tải lại trang rồi đăng nhập.'}[response?.status]
                   || 'Email hoặc mật khẩu không đúng');
             if (response && typeof response.text === 'function') {
               try {
-                const text = await response.text();
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(text, 'text/html');
-                const errAlert = doc.querySelector('.alert.error, .alert');
-                if (errAlert && errAlert.textContent.trim()) {
-                  errorMessage = errAlert.textContent.trim();
+                if (response.headers.get('content-type')?.includes('application/json')) {
+                  const payload = await response.json();
+                  if (typeof payload.message === 'string') errorMessage = payload.message;
+                } else {
+                  const text = await response.text();
+                  const doc = new DOMParser().parseFromString(text, 'text/html');
+                  const errAlert = doc.querySelector('.alert.error, .alert, #error-description');
+                  if (errAlert?.textContent.trim()) errorMessage = errAlert.textContent.trim();
                 }
               } catch (err) {
                 // Keep default message

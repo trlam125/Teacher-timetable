@@ -1,73 +1,29 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta name="csrf-token" content="{{ csrf_token }}">
-    <script src="/static/request-security.js?v=1"></script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Xác minh thiết bị · Smart TKB</title>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
+    <title>Đăng xuất · Smart TKB</title>
     <script>if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark-mode');</script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
+    <link rel="stylesheet" href="/static/design-tokens.css?v=1">
     <link rel="stylesheet" href="/static/style.css?v=11">
-    <link rel="stylesheet" href="/static/auth-extra.css?v=1">
-    <link rel="stylesheet" href="/static/device-login.css?v=1">
+    <link rel="stylesheet" href="/static/device-login.css?v=2">
 </head>
 <body>
     <main class="device-login-shell">
-        <section class="panel device-login-card" aria-labelledby="device-login-title">
-            <a class="brand brand-with-logo" href="/login"><img src="/static/brand-logo.svg?v=1" alt=""><span>Smart TKB</span></a>
-            {% if mode == 'choose' %}
-            <h1 id="device-login-title">Chọn thiết bị cần đăng xuất</h1>
-            <p>Email đã được xác minh. Tài khoản chỉ giữ tối đa 2 thiết bị. Chọn một thiết bị bên dưới để thay bằng máy này.</p>
-            {% elif mode == 'logout' %}
-            <h1 id="device-login-title">Đăng xuất tài khoản</h1>
-            {% else %}
-            <h1 id="device-login-title">Xác minh thiết bị mới</h1>
-            <p>Nhập mã 6 số đã gửi tới <b>{{ masked_email }}</b> để tiếp tục đăng nhập. Mã có hiệu lực 10 phút.</p>
-            {% endif %}
-            {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
-            {% if mode == 'logout' %}
+        <section class="device-login-card" aria-labelledby="device-login-title">
+            <a class="device-brand" href="/"><img src="/static/brand-logo.svg?v=1" width="36" height="36" alt=""><span>Smart TKB</span></a>
+            <div class="device-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M14 8l4 4-4 4M9 12h10"/></svg></div>
+            <h1 id="device-login-title">Đăng xuất khỏi thiết bị này?</h1>
+            <p>Bạn có thể đăng nhập lại bất cứ lúc nào. Sau khi đăng xuất, thiết bị này không còn chiếm một phiên hoạt động.</p>
             <form method="post" action="/logout">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                
-                <button class="btn wide" type="submit">Xác nhận đăng xuất</button>
+                <button class="btn wide" type="submit">Đăng xuất</button>
             </form>
-            {% elif mode == 'choose' %}
-            <form method="post" action="/auth/device/complete" class="device-login-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                
-                <fieldset class="device-options">
-                    <legend>Thiết bị đã xác minh</legend>
-                    {% for device in devices %}
-                    <label class="device-option">
-                        <input type="radio" name="replace_device_id" value="{{ device.id }}" required>
-                        <span><strong>{{ device.label }}</strong><small>Dùng gần nhất: {{ device.last_used | vietnam_datetime }}</small></span>
-                    </label>
-                    {% endfor %}
-                </fieldset>
-                <button class="btn wide" type="submit">Đăng xuất máy đã chọn và tiếp tục</button>
-            </form>
-            {% else %}
-            <form method="post" action="/auth/device/verify" class="device-login-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                
-                <label>Mã xác minh<input name="otp" type="text" inputmode="numeric" pattern="[0-9]{6}"
-                    maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus></label>
-                <button class="btn wide" type="submit">Xác minh và tiếp tục</button>
-            </form>
-            <form method="post" action="/auth/device/resend" class="device-login-resend">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                
-                <button type="submit" class="btn ghost wide">Gửi lại mã</button>
-            </form>
-            <p class="muted">Hãy kiểm tra thư rác. Có thể gửi lại mã sau 60 giây.</p>
-            {% endif %}
-            {% if mode != 'logout' %}
-            <form method="post" action="/auth/device/cancel">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="btn ghost wide device-back" type="submit">Hủy xác minh và quay lại</button>
-            </form>
-            {% else %}<a class="device-back" href="/login">Quay lại đăng nhập</a>{% endif %}
+            <a class="btn ghost wide device-back" href="/">Tiếp tục sử dụng</a>
         </section>
     </main>
 </body>
