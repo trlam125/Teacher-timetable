@@ -13,6 +13,11 @@ from xml.etree import ElementTree as ET
 
 from openpyxl import load_workbook
 from openpyxl.utils.cell import range_boundaries
+from app.services.upload_limits import (
+    UploadLimitError, MAX_CELLS, MAX_COLUMNS, MAX_ROWS, MAX_SHEETS,
+    MAX_TEXT_CHARS,
+    bounded_document_parser, bounded_rows, ensure_archive_safe, ensure_workbook_safe,
+)
 
 
 MAX_ARCHIVE_UNCOMPRESSED_BYTES = 80 * 1024 * 1024
@@ -72,14 +77,9 @@ def strict_audit_int(value: Any) -> int:
 
 def _archive_size_guard(content: bytes) -> None:
     try:
-        with zipfile.ZipFile(io.BytesIO(content)) as zf:
-            total = sum(max(0, item.file_size) for item in zf.infolist())
-    except zipfile.BadZipFile as exc:
-        raise ScheduleAuditParseError("File nén không hợp lệ hoặc đã bị hỏng.") from exc
-    if total > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
-        raise ScheduleAuditParseError(
-            "File có dữ liệu giải nén quá lớn để kiểm tra an toàn."
-        )
+        ensure_archive_safe(content, max_bytes=MAX_ARCHIVE_UNCOMPRESSED_BYTES)
+    except UploadLimitError as exc:
+        raise ScheduleAuditParseError(str(exc)) from exc
 
 
 def _excel_paired_class_headers(content: bytes) -> dict[str, list[tuple[int, int]]]:
@@ -136,25 +136,29 @@ def _read_excel_tables(
     content: bytes, suffix: str
 ) -> list[tuple[str, list[list[str]]]]:
     if suffix in {".xlsx", ".xlsm"}:
-        _archive_size_guard(content)
         try:
+            ensure_workbook_safe(content)
             paired_headers = _excel_paired_class_headers(content)
             workbook = load_workbook(
-                io.BytesIO(content), read_only=True, data_only=True
+                io.BytesIO(content), read_only=True, data_only=True, keep_links=False
             )
+        except UploadLimitError as exc:
+            raise ScheduleAuditParseError(str(exc)) from exc
         except Exception as exc:
             raise ScheduleAuditParseError(
                 "Không đọc được file Excel. Hãy kiểm tra file có bị hỏng không."
             ) from exc
         tables: list[tuple[str, list[list[str]]]] = []
         try:
+            budget = {"cells": MAX_CELLS, "chars": MAX_TEXT_CHARS}
             for sheet in workbook.worksheets:
-                rows = [
-                    [_cell_text(value) for value in row]
-                    for row in sheet.iter_rows(values_only=True)
-                ]
+                if len(workbook.worksheets) > MAX_SHEETS or (sheet.max_row or 0) > MAX_ROWS or (sheet.max_column or 0) > MAX_COLUMNS:
+                    raise UploadLimitError("Bảng Excel vượt giới hạn hàng/cột/sheet an toàn.")
+                rows = bounded_rows(sheet.iter_rows(values_only=True), budget=budget)
                 _mark_paired_class_headers(rows, paired_headers.get(sheet.title, []))
                 tables.append((sheet.title, rows))
+        except UploadLimitError as exc:
+            raise ScheduleAuditParseError(str(exc)) from exc
         except Exception as exc:
             raise ScheduleAuditParseError("Không đọc được dữ liệu trong file Excel. Hãy kiểm tra lại file.") from exc
         finally:
@@ -168,21 +172,27 @@ def _read_excel_tables(
             "File .xls cần thư viện xlrd. Hãy chạy lại pip install -r requirements.txt hoặc lưu file thành .xlsx."
         ) from exc
     try:
-        book = xlrd.open_workbook(file_contents=content, on_demand=True, formatting_info=True)
+        book = xlrd.open_workbook(file_contents=content, on_demand=True, formatting_info=True, ragged_rows=True)
     except Exception as exc:
         raise ScheduleAuditParseError("Không đọc được file Excel .xls.") from exc
     tables = []
     try:
-        for sheet in book.sheets():
-            rows = [
-                [_cell_text(sheet.cell_value(r, c)) for c in range(sheet.ncols)]
-                for r in range(sheet.nrows)
-            ]
+        if book.nsheets > MAX_SHEETS:
+            raise UploadLimitError("Tệp có quá nhiều sheet.")
+        budget = {"cells": MAX_CELLS, "chars": MAX_TEXT_CHARS}
+        for index in range(book.nsheets):
+            sheet = book.sheet_by_index(index)
+            if sheet.nrows > MAX_ROWS or sheet.ncols > MAX_COLUMNS or sheet.nrows * sheet.ncols > budget["cells"]:
+                raise UploadLimitError("Bảng Excel vượt giới hạn số ô an toàn.")
+            rows = bounded_rows((sheet.row_values(r) for r in range(sheet.nrows)), budget=budget)
             _mark_paired_class_headers(rows, [
                 (top, left) for top, bottom, left, right in sheet.merged_cells
                 if bottom == top + 1 and right == left + 2
             ])
             tables.append((sheet.name, rows))
+            book.unload_sheet(index)
+    except UploadLimitError as exc:
+        raise ScheduleAuditParseError(str(exc)) from exc
     except Exception as exc:
         raise ScheduleAuditParseError("Không đọc được dữ liệu trong file Excel .xls.") from exc
     finally:
@@ -211,10 +221,9 @@ def _read_delimited_table(
     except csv.Error:
         pass
     try:
-        rows = [
-            [_cell_text(value) for value in row]
-            for row in csv.reader(io.StringIO(text), delimiter=delimiter)
-        ]
+        rows = bounded_rows(csv.reader(io.StringIO(text), delimiter=delimiter))
+    except UploadLimitError as exc:
+        raise ScheduleAuditParseError(str(exc)) from exc
     except csv.Error as exc:
         raise ScheduleAuditParseError("File CSV/TSV có ô quá dài hoặc cấu trúc không hợp lệ.") from exc
     return [("Dữ liệu", rows)]
@@ -306,6 +315,7 @@ def _read_docx_tables(content: bytes) -> list[tuple[str, list[list[str]]]]:
     return tables
 
 
+@bounded_document_parser(ScheduleAuditParseError)
 def read_tables(
     filename: str, content: bytes
 ) -> tuple[str, list[tuple[str, list[list[str]]]]]:

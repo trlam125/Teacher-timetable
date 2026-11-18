@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -26,7 +28,7 @@
     <link rel="stylesheet" href="/static/auth-effects.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
     <script src="/static/auth-effects.js?v=1" defer></script>
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <script src="/static/btn-tame-ape.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
@@ -58,6 +60,7 @@
                 <a class="btn ghost" href="/projects">Quay lại danh sách</a>
                 <form method="post" action="/projects/trash/empty"
                     onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa vĩnh viễn toàn bộ {{ projects|length }} bộ thời khóa biểu trong thùng rác đang hiển thị? Toàn bộ dữ liệu, phân công và lịch đã xếp của các mục này sẽ bị xóa và không thể khôi phục.', {title: 'Làm rỗng thùng rác', confirmText: 'Xóa tất cả'}).then(ok => { if (ok) this.submit(); });">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% for project in projects %}<input type="hidden" name="project_ids" value="{{ project.id }}">{% endfor %}
                     <button class="btn ghost project-delete-btn" type="submit" {% if not projects %}disabled{% endif %}>Làm rỗng thùng rác</button>
                 </form>
@@ -101,10 +104,12 @@
                 <div class="row">
                     {% if in_trash %}
                     <form method="post" action="/projects/{{ p.id }}/restore">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button class="btn" type="submit">Khôi phục</button>
                     </form>
                     <form method="post" action="/projects/{{ p.id }}/purge"
                         onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa vĩnh viễn bộ thời khóa biểu này? Toàn bộ dữ liệu, phân công và lịch đã xếp sẽ bị xóa và không thể khôi phục.', {title: 'Xóa vĩnh viễn', confirmText: 'Xóa vĩnh viễn'}).then(ok => { if (ok) this.submit(); });">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button class="btn ghost project-delete-btn" type="submit">Xóa vĩnh viễn</button>
                     </form>
                     {% else %}
@@ -116,6 +121,7 @@
                         data-project-name="{{ p.name|e }}" onclick="openCloneDialog(this)">Nhân bản</button>
                     <form method="post" action="/projects/{{ p.id }}/delete"
                         onsubmit="event.preventDefault(); window.OperationStatus.confirm('Chuyển bộ thời khóa biểu này vào Thùng rác? Toàn bộ dữ liệu được giữ lại để bạn khôi phục khi cần.', {title: 'Chuyển vào Thùng rác', confirmText: 'Chuyển vào Thùng rác'}).then(ok => { if (ok) this.submit(); });">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button class="btn ghost project-delete-btn" type="submit">Xóa</button>
                     </form>
                     {% endif %}
@@ -128,6 +134,7 @@
     </main>
     <dialog id="newProject" data-app-zoom>
         <form method="post" action="/projects" class="modal-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <h2>Tạo bộ thời khóa biểu</h2>
             <label>
                 Tên bộ TKB<input name="name" value="TKB học kỳ I" required>
@@ -155,6 +162,7 @@
     </dialog>
     <dialog id="renameProject" data-app-zoom>
         <form method="post" class="modal-form" id="renameProjectForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <h2>Đổi tên bộ thời khóa biểu</h2>
             <label>
                 Tên bộ TKB
@@ -177,6 +185,7 @@
     </dialog>
     <dialog id="cloneProject" data-app-zoom>
         <form method="post" class="modal-form" id="cloneProjectForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <h2>Nhân bản bộ thời khóa biểu</h2>
             <label>
                 Tên bộ TKB mới

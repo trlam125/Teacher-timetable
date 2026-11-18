@@ -16,6 +16,8 @@ from app.routers.auth_routes.email_change import router as _router_5
 router.include_router(_router_5)
 from app.routers.auth_routes.avatar import router as _router_6
 router.include_router(_router_6)
+from app.routers.auth_routes.devices import router as _router_7
+router.include_router(_router_7)
 
 __all__ = [
     'router',

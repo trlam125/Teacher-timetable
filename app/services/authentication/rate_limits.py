@@ -7,6 +7,24 @@ from app.config import SECRET_KEY
 from app.database import engine
 from datetime import datetime, timezone
 from fastapi import Request
+from fastapi import HTTPException
+from app.services.authentication.credentials import pwd
+
+
+def verify_sensitive_password(request, account, password: str) -> bool:
+    """Password confirmation must not become a second, less limited guessing API."""
+    ip_key = client_rate_limit_key(request)
+    if (rate_limit_blocked("login_email", account.email, limit=8, window_seconds=600)
+            or rate_limit_blocked("login_ip", ip_key, limit=20, window_seconds=600)):
+        raise HTTPException(429, "Bạn đã thử sai mật khẩu quá nhiều lần. Hãy thử lại sau 10 phút.")
+    if not pwd.verify(password, account.password_hash):
+        limited_email = rate_limit_exceeded("login_email", account.email, limit=8, window_seconds=600)
+        limited_ip = rate_limit_exceeded("login_ip", ip_key, limit=20, window_seconds=600)
+        if limited_email or limited_ip:
+            raise HTTPException(429, "Bạn đã thử sai mật khẩu quá nhiều lần. Hãy thử lại sau 10 phút.")
+        return False
+    clear_rate_limit_bucket("login_email", account.email)
+    return True
 
 
 def _rate_limit_identity(value: str) -> str:

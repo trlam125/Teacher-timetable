@@ -17,10 +17,11 @@ from app.logging_config import logger
 from app.models import RegistrationVerification, User
 from app.services.authentication.captcha import captcha_is_valid, new_captcha
 from app.services.authentication.credentials import pwd, registration_signer
-from app.services.authentication.navigation import after_login_redirect
+from app.services.authentication.csrf import require_form_token
+from app.services.authentication.devices import begin_login
 from app.services.authentication.mail import send_registration_otp_email
 from app.services.authentication.rate_limits import client_rate_limit_key, rate_limit_exceeded
-from app.services.authentication.sessions import db_session, set_session_cookie
+from app.services.authentication.sessions import db_session
 from app.services.authentication.verification import (
     mask_email,
     registration_otp_context,
@@ -67,8 +68,10 @@ def register(
     captcha_token: str = Form(...),
     human_confirm: Optional[str] = Form(None),
     website: str = Form(""),
+    csrf_token: str = Form(""),
     db: Session = Depends(db_session),
 ):
+    require_form_token(request, csrf_token)
     name = name.strip()
     email = email.lower().strip()
     fresh_challenge, fresh_captcha_token = new_captcha("registration")
@@ -114,9 +117,8 @@ def register(
     if not email or "@" not in email:
         context["error"] = "Email không hợp lệ"
         return templates.TemplateResponse("auth.html", context, status_code=400)
-    if db.scalar(select(User).where(User.email == email)):
-        context["error"] = "Email đã tồn tại"
-        return templates.TemplateResponse("auth.html", context, status_code=400)
+    # Always require mailbox verification before disclosing an existing account.
+    # The OTP completion below refuses to replace an already registered user.
 
     now = datetime.now(timezone.utc)
     for expired in db.scalars(
@@ -202,8 +204,10 @@ def verify_registration_otp(
     request: Request,
     verification_token: str = Form(...),
     otp: str = Form(...),
+    csrf_token: str = Form(""),
     db: Session = Depends(db_session),
 ):
+    require_form_token(request, csrf_token)
     verification = registration_verification_for_token(
         verification_token, db, lock=True
     )
@@ -293,9 +297,7 @@ def verify_registration_otp(
             ),
             status_code=409,
         )
-    response = after_login_redirect(request, "/teacher")
-    set_session_cookie(response, user)
-    return response
+    return begin_login(request, db, user, email_just_verified=True)
 
 
 
@@ -307,8 +309,10 @@ def resend_registration_otp(
     captcha_token: str = Form(...),
     human_confirm: Optional[str] = Form(None),
     website: str = Form(""),
+    csrf_token: str = Form(""),
     db: Session = Depends(db_session),
 ):
+    require_form_token(request, csrf_token)
     verification = registration_verification_for_token(
         verification_token, db, lock=True
     )

@@ -17,13 +17,13 @@ from app.services.authentication.permissions import is_admin
 from app.services.authentication.rate_limits import (
     clear_rate_limit_bucket, client_rate_limit_key, rate_limit_blocked, rate_limit_exceeded,
 )
-from app.services.authentication.sessions import db_session, set_session_cookie
+from app.services.authentication.sessions import db_session
+from app.services.authentication.devices import begin_login
 from app.services.social_auth import (
     PROVIDER_NAMES, SocialAuthError, authorization_url, digest, exchange_identity,
     provider_config,
 )
 from app.services.web import templates
-from app.services.authentication.navigation import after_login_redirect
 from app.settings import APP_BASE_URL, APP_ENV
 
 router = APIRouter()
@@ -63,10 +63,8 @@ def failure(request, message):
 def finish(db, user, request):
     if user.role != "teacher" and not is_admin(user):
         raise SocialAuthError("Tài khoản không có quyền truy cập hệ thống.")
-    user.last_seen = datetime.now(timezone.utc).isoformat(timespec="seconds")
     db.commit()
-    response = after_login_redirect(request, "/teacher" if user.role == "teacher" else "/projects")
-    set_session_cookie(response, user)
+    response = begin_login(request, db, user)
     return clear_cookies(response)
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.errors import register_exception_handlers
@@ -25,6 +25,7 @@ from app.services.bootstrap.runtime import initialize_database, run_database_boo
 from app.services.schedule_live import register_schedule_live
 from app.services.schedule_notifications import register_schedule_notifications
 from app.services.request_protection import RequestProtectionMiddleware
+from app.services.authentication.csrf import verify_request_csrf
 from app import settings
 
 @asynccontextmanager
@@ -37,7 +38,8 @@ async def application_lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Teacher Timetable", lifespan=application_lifespan)
+    app = FastAPI(title="Teacher Timetable", lifespan=application_lifespan,
+                  dependencies=[Depends(verify_request_csrf)])
     app.add_middleware(
         RequestProtectionMiddleware,
         max_body_bytes=settings.HTTP_MAX_BODY_BYTES,

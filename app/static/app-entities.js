@@ -532,7 +532,7 @@ async function submitEntity(e) {
   e.preventDefault();
   const form = e.target,
     formData = new FormData(form),
-    o = Object.fromEntries(formData),
+    o = Object.fromEntries([...formData].filter(([key]) => key !== "csrf_token")),
     submitButton = e.submitter || $("#entitySubmitButton");
   setEntityActionMessage("");
   setInlineActionState(submitButton, "loading", {

@@ -11,6 +11,7 @@ from app.database import SessionLocal
 from app.models import User, UserSchool
 from app.services.authentication.credentials import signer
 from app.services.authentication.permissions import is_super_admin, user_school_ids
+from app.services.authentication.sessions import session_user
 from app.services.web import _parse_iso_datetime
 from app.settings import SESSION_TTL_SECONDS
 
@@ -47,11 +48,7 @@ def websocket_session_user(websocket: WebSocket) -> User | None:
         return None
     db = SessionLocal()
     try:
-        data = signer.loads(raw, max_age=SESSION_TTL_SECONDS)
-        account = db.get(User, int(data["uid"]))
-        if not account or int(data.get("sv", -1)) != account.session_version:
-            return None
-        return account
+        return session_user(websocket.cookies, db)
     except (BadSignature, SignatureExpired, KeyError, TypeError, ValueError):
         return None
     finally:

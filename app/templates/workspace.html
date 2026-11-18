@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -34,7 +36,7 @@
     <link rel="stylesheet" href="/static/export-button.css?v=1">
     <script src="/static/weather-widget.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=2">
@@ -192,7 +194,7 @@
     <script src="/static/workspace/navigation.js?v=4"></script>
     <script src="/static/workspace/bulk-entities.js?v=4"></script>
     <script src="/static/workspace/assignments.js?v=17"></script>
-    <script src="/static/app-entities.js?v=14"></script>
+    <script src="/static/app-entities.js?v=15"></script>
     <script src="/static/schedule/schedule-view.js?v=15"></script>
     <script src="/static/schedule/schedule-placement.js?v=8"></script>
     <script src="/static/schedule/schedule-constraints.js?v=11"></script>

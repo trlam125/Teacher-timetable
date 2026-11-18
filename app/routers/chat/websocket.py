@@ -5,7 +5,8 @@ import json
 import secrets
 import time
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from app.services.authentication.csrf import require_same_origin
 
 from app.logging_config import logger
 from app.services.realtime.events import connection_context, handle_event, school_presence_context
@@ -42,6 +43,11 @@ async def _register(account, connection_id, websocket):
 
 @router.websocket("/ws/realtime")
 async def realtime_socket(websocket: WebSocket):
+    try:
+        require_same_origin(websocket, allow_missing=False)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
     account = await asyncio.to_thread(websocket_session_user, websocket)
     if account is None:
         await websocket.close(code=4401)
@@ -96,7 +102,7 @@ async def realtime_socket(websocket: WebSocket):
             if not isinstance(payload, dict):
                 continue
             actions = await asyncio.to_thread(
-                handle_event, account.id, account.session_version, payload, connection_id
+                handle_event, account.id, account.session_version, payload, connection_id, dict(websocket.cookies)
             )
             closing = False
             for action in actions:

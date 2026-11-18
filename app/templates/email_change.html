@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -27,6 +29,7 @@
             <p>Email hiện tại của <b>{{ target.name }}</b>: <b>{{ target.email }}</b></p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/prepare" class="account-edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% if target.id != user.id %}<input type="hidden" name="account_id" value="{{ target.id }}">{% endif %}
                 {% if project_id is not none %}<input type="hidden" name="project_id" value="{{ project_id }}">{% endif
                 %}
@@ -56,6 +59,7 @@
             <p>Kiểm tra địa chỉ rồi xác nhận để nhận mã qua email mới.</p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/confirm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}">
                 <div class="row" style="justify-content:space-between;margin-top:18px">
                     <a class="btn ghost" href="{{ back_path }}">Hủy</a>
@@ -67,6 +71,7 @@
             <p>Mã xác nhận 6 số đã được gửi tới <b>{{ masked_email }}</b>. Email chỉ được thay đổi sau khi mã này hợp lệ.</p>
             {% if error %}<div class="alert" style="margin:16px 0">{{ error }}</div>{% endif %}
             <form method="post" action="/account/email-change/verify" class="account-edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="verification_token" value="{{ verification_token }}">
                 <label>
                     Mã xác nhận<input name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus

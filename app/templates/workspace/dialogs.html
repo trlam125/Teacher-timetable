@@ -1,5 +1,6 @@
 <dialog id="renameProject" data-app-zoom>
     <form method="post" action="/projects/{{ p.id }}/rename" class="modal-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <h2>Đổi tên bộ thời khóa biểu</h2>
         <label>
             Tên bộ TKB

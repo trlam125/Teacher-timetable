@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -53,7 +55,7 @@
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <script src="/static/btn-tame-ape.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
@@ -62,7 +64,7 @@
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
     <link rel="stylesheet" href="/static/admin-users.css?v=3">
-    <script src="/static/admin-users.js?v=1" defer></script>
+    <script src="/static/admin-users.js?v=2" defer></script>
     <script src="/static/profile-avatar.js?v=2" defer></script>
 </head>
 
@@ -100,6 +102,7 @@
             </div>
             <form method="post" action="/admin/schools/create" class="row school-create-form"
                 style="align-items:end;gap:10px;flex-wrap:wrap">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label class="school-create-field">
                     <span>Tên trường</span>
                     <input name="name" maxlength="200" required placeholder="Ví dụ: THPT A">
@@ -121,6 +124,7 @@
                 </div>
                 {% for school in schools %}
                 <form method="post" action="/admin/schools/{{ school.id }}/rename" class="school-rename-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <label for="school-name-{{ school.id }}">Tên trường</label>
                     <input id="school-name-{{ school.id }}" name="name" value="{{ school.name }}" maxlength="200"
                         required aria-label="Tên trường {{ school.name }}">
@@ -160,6 +164,7 @@
                     <div class="avatar-interactive-wrap">
                         <form method="post" action="/admin/users/{{ account.id }}/avatar" enctype="multipart/form-data"
                             class="avatar-upload-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <label class="profile-avatar profile-avatar-lg avatar-clickable"
                                 title="Bấm để đổi avatar cho {{ account.name }}"
                                 aria-label="Bấm để đổi avatar cho {{ account.name }}" tabindex="0">
@@ -179,10 +184,11 @@
                         </form>
                         {% if account.avatar_url %}
                         <form method="post" action="/admin/users/{{ account.id }}/avatar" class="avatar-delete-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <input type="hidden" name="remove_avatar" value="true">
                             <button type="submit" class="avatar-delete-btn" title="Xóa avatar"
                                 aria-label="Xóa avatar của {{ account.name }}"
-                                onclick="return confirm('Bạn có chắc muốn xóa avatar của {{ account.name }}?')">
+                                data-confirm-message="Bạn có chắc muốn xóa avatar của {{ account.name }}?">
                                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
                                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
                                     aria-hidden="true">
@@ -246,6 +252,7 @@
                             <h3>Trường được truy cập <span class="school-assignment-summary-meta">{{ assigned_ids | length }} đã chọn</span></h3>
                             <form method="post" action="/admin/users/{{ account.id }}/schools"
                                 class="account-edit-form school-assignment-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <div class="school-assignment-intro">
                                     <div class="school-assignment-intro-icon" aria-hidden="true">
                                         <svg viewBox="0 0 24 24">
@@ -286,6 +293,7 @@
                         <section class="admin-dialog-section">
                             <h3>Thông tin tài khoản</h3>
                             <form method="post" action="/admin/users/{{ account.id }}/update" class="account-edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <label>
                                     Họ tên<input name="name" value="{{ account.name }}" required>
                                 </label>
@@ -304,6 +312,7 @@
                             </form>
                             <form method="post" action="/account/email-change/prepare" class="account-edit-form"
                                 style="margin-top:16px">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <input type="hidden" name="account_id" value="{{ account.id }}">
                                 <label>
                                     Email hiện tại<input type="email" value="{{ account.email }}" disabled>
@@ -326,6 +335,7 @@
                         <section class="admin-dialog-section account-management-actions">
                             {% if user.role == "super_admin" and account.role == "teacher" %}
                             <form method="post" action="/admin/users/{{ account.id }}/promote-admin">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button class="btn ghost wide">
                                     Nâng lên
                                     quản trị viên
@@ -335,6 +345,7 @@
                             {% if account.id != user.id %}
                             <form method="post" action="/admin/users/{{ account.id }}/delete"
                                 data-confirm-account-delete>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button class="btn btn-tame-ape btn-tame-ape-danger wide" type="submit"><span class="btn__text">Xóa
                                         tài khoản</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                             height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -369,6 +380,7 @@
                 {% if system_incident_logs %}
                 <form method="post" action="/admin/system-logs/clear"
                     onsubmit="event.preventDefault(); window.OperationStatus.confirm('Xóa toàn bộ nhật ký sự cố hệ thống?', {title: 'Xóa nhật ký sự cố', confirmText: 'Xóa nhật ký'}).then(ok => { if (ok) this.submit(); });">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button class="btn btn-tame-ape btn-tame-ape-danger" type="submit"><span class="btn__text">Xóa
                             nhật ký</span><span class="btn__icon"><svg xmlns="http://www.w3.org/2000/svg" width="20"
                                 height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

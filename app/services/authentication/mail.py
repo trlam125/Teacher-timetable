@@ -157,6 +157,14 @@ def send_email_message(
     return _send_email_via_smtp(recipient, subject, body, html_body=html_body)
 
 
+def send_device_login_otp_email(recipient: str, otp: str, device_label: str) -> bool:
+    text = (f"Mã xác minh đăng nhập Smart TKB: {otp}\n\n"
+            f"Thiết bị: {device_label}\n"
+            "Mã có hiệu lực 10 phút. Không chia sẻ mã này với người khác.\n"
+            "Nếu không phải bạn đăng nhập, hãy bỏ qua email và đổi mật khẩu.")
+    return send_email_message(recipient, "Xác minh thiết bị đăng nhập Smart TKB", text)
+
+
 def _render_email_html(title: str, preheader: str, content_html: str) -> str:
     escaped_title = html.escape(title)
     escaped_preheader = html.escape(preheader)

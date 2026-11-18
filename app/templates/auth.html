@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -28,7 +30,7 @@
     <script src="/static/auth-panda.js?v=1" defer></script>
     <script src="/static/visual-captcha.js?v=1" defer></script>
     <script src="/static/auth-effects.js?v=1" defer></script>
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <script src="/static/auth-slide.js?v=1" defer></script>
 </head>
 
@@ -74,6 +76,8 @@
                 method="post"
                 action="{{'/register/verify' if mode=='register_otp' else ('/register' if mode=='register' else '/login')}}"
                 autocomplete="off">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
                 <div class="panda" aria-hidden="true">
                     <span class="panda-ear panda-ear-left"></span><span class="panda-ear panda-ear-right"></span>
                     <div class="panda-face">

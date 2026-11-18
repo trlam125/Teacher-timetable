@@ -31,6 +31,33 @@ class User(Base):
     last_seen: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
 
 
+class AccountDevice(Base):
+    """Two trusted browsers per account; session secrets are stored only as hashes."""
+    __tablename__ = "account_devices"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    browser_hash: Mapped[str] = mapped_column(String(64))
+    label: Mapped[str] = mapped_column(String(120))
+    verified_at: Mapped[int] = mapped_column(Integer)
+    last_used_at: Mapped[int] = mapped_column(Integer)
+    session_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    session_expires_at: Mapped[int] = mapped_column(Integer, default=0)
+    __table_args__ = (UniqueConstraint("user_id", "browser_hash", name="uq_account_browser"),)
+
+
+class DeviceLoginChallenge(Base):
+    __tablename__ = "device_login_challenges"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    browser_hash: Mapped[str] = mapped_column(String(64))
+    session_version: Mapped[int] = mapped_column(Integer)
+    otp_hash: Mapped[str] = mapped_column(String(64))
+    label: Mapped[str] = mapped_column(String(120))
+    expires_at: Mapped[int] = mapped_column(Integer, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class ScheduleAuditLimitProfile(Base):
     """Saved manual thresholds, isolated by signed-in user (not by project)."""
     __tablename__ = "schedule_audit_limit_profiles"

@@ -4,15 +4,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import hashlib
 import secrets
-import time
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.logging_config import logger
 from app.models import User
+from app.database import SessionLocal
 from app.services.authentication.captcha import captcha_is_valid, new_captcha
 from app.services.authentication.credentials import pwd, reset_signer
 from app.services.authentication.mail import (
@@ -24,6 +24,8 @@ from app.services.authentication.sessions import (
     db_session,
     development_reset_links_enabled,
     public_base_url,
+    invalidate_credential_state,
+    lock_account,
 )
 from app.services.authentication.verification import reset_account_for_token
 from app.services.web import templates
@@ -31,6 +33,20 @@ from app.settings import MIN_PASSWORD_LENGTH, RESET_TOKEN_TTL_SECONDS
 
 
 router = APIRouter()
+
+
+def _deliver_reset_email(recipient: str, reset_url: str, account_id: int, expected_hash: str):
+    """Do not expose SMTP latency/failure as an account-existence oracle."""
+    try:
+        sent = send_password_reset_email(recipient, reset_url)
+    except Exception:
+        sent = False
+    if not sent:
+        from sqlalchemy import update
+        with SessionLocal() as db:
+            db.execute(update(User).where(User.id == account_id, User.reset_token_hash == expected_hash)
+                       .values(reset_token_hash=None, reset_token_expires_at=None))
+            db.commit()
 
 
 @router.get("/forgot-password", response_class=HTMLResponse)
@@ -53,6 +69,7 @@ def forgot_password_page(request: Request):
 @router.post("/forgot-password", response_class=HTMLResponse)
 def forgot_password(
     request: Request,
+    background_tasks: BackgroundTasks,
     email: str = Form(...),
     not_robot: Optional[str] = Form(None),
     captcha_answer: str = Form(...),
@@ -129,22 +146,8 @@ def forgot_password(
         select(User).where(func.lower(func.trim(User.email)) == normalized_email)
     )
     logger.info("[forgot:%s] account_match=%s", reset_log_id, account is not None)
-    if account is None:
-        fresh_challenge, fresh_token = new_captcha()
-        return templates.TemplateResponse(
-            "forgot_password.html",
-            {
-                "request": request,
-                "captcha_challenge": fresh_challenge,
-                "captcha_token": fresh_token,
-                "error": "Email này chưa được đăng ký trong hệ thống.",
-                "submitted": False,
-                "dev_reset_link": None,
-            },
-            status_code=400,
-        )
-
     if account:
+        account = lock_account(db, account.id)
         nonce = secrets.token_urlsafe(32)
         account.reset_token_hash = hashlib.sha256(nonce.encode()).hexdigest()
         account.reset_token_expires_at = (
@@ -153,54 +156,11 @@ def forgot_password(
         db.commit()
         token = reset_signer.dumps({"uid": account.id, "nonce": nonce})
         reset_url = f"{base_url}/reset-password/{token}"
-        email_sent = False
         if email_configured:
-            mail_started_at = time.monotonic()
-            logger.info("[forgot:%s] sending reset email via configured transport", reset_log_id)
-            try:
-                email_sent = send_password_reset_email(account.email.strip(), reset_url)
-                elapsed = time.monotonic() - mail_started_at
-                if email_sent:
-                    logger.info(
-                        "[forgot:%s] reset email accepted by transport in %.2fs",
-                        reset_log_id,
-                        elapsed,
-                    )
-                else:
-                    logger.error(
-                        "[forgot:%s] reset email transport returned False after %.2fs",
-                        reset_log_id,
-                        elapsed,
-                    )
-            except Exception as exc:
-                email_sent = False
-                elapsed = time.monotonic() - mail_started_at
-                logger.exception(
-                    "[forgot:%s] reset email raised after %.2fs: %s",
-                    reset_log_id,
-                    elapsed,
-                    exc,
-                )
-
-        if allow_local_link and not email_sent:
+            background_tasks.add_task(_deliver_reset_email, account.email.strip(), reset_url,
+                                      account.id, account.reset_token_hash)
+        if allow_local_link:
             dev_reset_link = reset_url
-        elif email_configured and not email_sent:
-            account.reset_token_hash = None
-            account.reset_token_expires_at = None
-            db.commit()
-            fresh_challenge, fresh_token = new_captcha()
-            return templates.TemplateResponse(
-                "forgot_password.html",
-                {
-                    "request": request,
-                    "captcha_challenge": fresh_challenge,
-                    "captcha_token": fresh_token,
-                    "error": "Ch\u01b0a th\u1ec3 g\u1eedi li\u00ean k\u1ebft \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u. Vui l\u00f2ng th\u1eed l\u1ea1i sau.",
-                    "submitted": False,
-                    "dev_reset_link": None,
-                },
-                status_code=503,
-            )
     fresh_challenge, fresh_token = new_captcha()
     return templates.TemplateResponse(
         "forgot_password.html",
@@ -243,7 +203,7 @@ def reset_password(
     password_confirm: str = Form(...),
     db: Session = Depends(db_session),
 ):
-    account = reset_account_for_token(token, db)
+    account = reset_account_for_token(token, db, lock=True)
     error = None
     if not account:
         error = (
@@ -267,9 +227,7 @@ def reset_password(
         )
 
     account.password_hash = pwd.hash(password)
-    account.session_version += 1
-    account.reset_token_hash = None
-    account.reset_token_expires_at = None
+    invalidate_credential_state(account)
     db.commit()
     return templates.TemplateResponse(
         "reset_password.html",

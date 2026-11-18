@@ -19,8 +19,12 @@ from sqlalchemy.orm import Session
 from app.models import Project, TeacherPreference, User
 from app.scheduling.rules import valid_slots
 from app.services.authentication.credentials import pwd
+from app.services.authentication.rate_limits import verify_sensitive_password
 from app.services.authentication.permissions import user_can_access_school, user_schools
-from app.services.authentication.sessions import current_user, db_session, set_session_cookie
+from app.services.authentication.sessions import (
+    current_user, db_session, set_session_cookie, invalidate_credential_state,
+    lock_account, require_live_session,
+)
 from app.services.avatars import prepare_avatar_change
 from app.services.entities.schemas import PreferenceReviewIn
 from app.services.preferences import preference_payload, teacher_own_preference_payload
@@ -198,6 +202,10 @@ def update_teacher_password(
 ):
     if user.role != "teacher":
         raise HTTPException(403, "Tài khoản giáo viên không hợp lệ")
+    user = lock_account(db, user.id)
+    if not user:
+        raise HTTPException(401)
+    user = require_live_session(request, db)
     project = db.get(Project, project_id) if project_id is not None else None
     if project_id is not None and (
         not project or project.deleted_at is not None or not user_can_access_school(user, project.school_id, db)
@@ -211,7 +219,7 @@ def update_teacher_password(
         "success": None,
         **chatbot_ui_context(project),
     }
-    if not pwd.verify(current_password, user.password_hash):
+    if not verify_sensitive_password(request, user, current_password):
         context["error"] = "Mật khẩu hiện tại không đúng."
         return templates.TemplateResponse(
             "teacher_account.html", context, status_code=400
@@ -233,12 +241,11 @@ def update_teacher_password(
         )
 
     user.password_hash = pwd.hash(new_password)
-    user.session_version += 1
-    db.commit()
+    invalidate_credential_state(user)
     context["user"] = user
     context["success"] = "Mật khẩu đã được thay đổi thành công."
     response = templates.TemplateResponse("teacher_account.html", context)
-    set_session_cookie(response, user)
+    set_session_cookie(response, user, request, db)
     return response
 
 

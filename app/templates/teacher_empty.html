@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -36,7 +38,7 @@
     <link rel="stylesheet" href="/static/preferences.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=2">
     <script src="/static/profile-avatar.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/user-menu.css?v=1">

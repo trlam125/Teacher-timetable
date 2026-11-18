@@ -4,6 +4,7 @@ from __future__ import annotations
 from app.database import SessionLocal
 from app.models import ChatMessage, School, User
 from app.services.authentication.permissions import user_can_access_school, user_school_ids
+from app.services.authentication.sessions import session_user
 from .manager import realtime_manager
 from .utils import (
     _payload_school_id, _utc_now_iso, presence_recipients_for_user,
@@ -32,7 +33,7 @@ def offline_context(user_id):
         return account, presence_recipients_for_user(db, account)
 
 
-def handle_event(user_id, session_version, payload, connection_id):
+def handle_event(user_id, session_version, payload, connection_id, session_cookies=None):
     """Return transport actions containing detached values, after closing the session."""
     event = str(payload.get("type") or "").strip()
     if event not in {"activity", "room_join", "typing", "chat_send", "chat_edit", "chat_delete"}:
@@ -47,8 +48,8 @@ def handle_event(user_id, session_version, payload, connection_id):
         return [("send", data)]
 
     with SessionLocal() as db:
-        current = db.get(User, user_id)
-        if current is None or current.session_version != session_version:
+        current = session_user(session_cookies or {}, db)
+        if current is None or current.id != user_id or current.session_version != session_version:
             return [("close", 4401)]
         if event == "activity":
             # This function runs in a worker, including these persistence helpers.

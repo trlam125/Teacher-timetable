@@ -126,6 +126,26 @@ http://127.0.0.1:8000
 
 ## Tài khoản
 
+### Xác minh thiết bị và phiên đăng nhập
+
+- Mỗi tài khoản giữ tối đa **2 trình duyệt/thiết bị đã xác minh**. Máy mới phải đăng nhập đúng rồi nhập OTP gửi đến email tài khoản; đăng nhập Google cũng áp dụng bước này.
+- Khi đã có 2 thiết bị, sau khi xác minh OTP, người dùng chọn thiết bị cần đăng xuất trước khi thêm máy mới. Máy bị chọn mất quyền truy cập cả HTTP và chat WebSocket.
+- OTP có hiệu lực 10 phút, tối đa 5 lần nhập sai; gửi lại sau 60 giây. Việc gửi mã bị giới hạn theo tài khoản và địa chỉ kết nối. Cần cấu hình SMTP hoặc mail proxy đang dùng; không có chế độ bỏ qua OTP trên production.
+- Nhận diện bằng cookie bảo mật của trình duyệt, không dựa vào địa chỉ IP. Trình duyệt khác, chế độ riêng tư hoặc xóa cookie được xem là máy mới. Hai thiết bị có thể dùng chung một địa chỉ mạng.
+- Đăng xuất thu hồi phiên hiện tại ở máy chủ, giữ thiết bị đã xác minh để lần sau chỉ cần nhập thông tin đăng nhập. Đổi email hoặc mật khẩu thu hồi các phiên và liên kết reset cũ.
+- Khi cập nhật phiên bản này, **khởi động lại backend** để tạo bảng `account_devices` và `device_login_challenges` qua bootstrap hiện có. Các cookie phiên cũ không có mã phiên thiết bị sẽ không được chấp nhận; người dùng cần đăng nhập và xác minh lại. Dữ liệu TKB được giữ nguyên.
+- Kiểm thử đồng thời dùng PostgreSQL tạm trong CI, tách khỏi database ứng dụng. Không cấu hình `AUTH_TEST_DATABASE_URL` trỏ tới dữ liệu vận hành.
+- Đăng xuất hoặc bấm **Hủy xác minh** xóa phiên OTP đang dở ở máy chủ. OTP đã xác minh nhưng còn chờ chọn thiết bị cũng bị hủy; các cookie sao chép của phiên xác minh đó không dùng tiếp được sau khi hủy hoàn tất.
+- Các yêu cầu thay đổi dữ liệu (POST/PUT/PATCH/DELETE) yêu cầu CSRF token gắn với trình duyệt, áp dụng cả form, upload và JSON API. Giao diện gửi token tự động; API client riêng phải lấy token từ trang và gửi `X-CSRF-Token` cùng cookie. WebSocket yêu cầu Origin của website. Cần cấu hình `APP_BASE_URL` đúng origin công khai khi dùng reverse proxy.
+
+### Giới hạn tệp tải lên
+
+- Bộ đọc PDF dùng `pypdf==7.1.0`, theo [bản phát hành trên PyPI](https://pypi.org/project/pypdf/7.1.0/). Cập nhật dependencies rồi khởi động lại backend để dùng phiên bản mới.
+- Trước khi nạp XLSX/XLSM, kiểm tra dữ liệu giải nén (80 MiB cho kiểm tra TKB; 30 MiB cho Excel chatbot), tối đa 2.048 thành phần ZIP, mỗi thành phần 16 MiB. Phần XML được nhận diện theo nội dung, kể cả khi đổi tên hoặc đuôi file nội bộ.
+- Giới hạn cứng: 20 sheet, 5.000 hàng/sheet, 512 cột và tổng 500.000 ô; có thêm giới hạn độ sâu/node XML, shared strings, styles và lượng văn bản. Bảng quá lớn hoặc chỉ định dạng tới hàng/cột rất xa cũng có thể bị từ chối. Chatbot vẫn lấy tối đa 5 sheet, 1.000 hàng và 50 cột theo luồng cũ.
+- Giới hạn ký tự sau khi giải tham chiếu shared strings được tính chung qua các sheet. XLS/CSV cũng có giới hạn đầu ra; mỗi worker chỉ chạy đồng thời 2 tác vụ đọc tài liệu.
+- Đây là các giới hạn ở tầng ứng dụng, không thay thế quota RAM/CPU của worker và kiểm thử tải trong môi trường triển khai.
+
 Hệ thống hỗ trợ hai nhóm người dùng chính:
 
 - **Admin:** quản lý dữ liệu và thời khóa biểu.

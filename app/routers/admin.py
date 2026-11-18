@@ -33,7 +33,10 @@ from app.services.authentication.permissions import (
     user_greeting_name,
     user_school_ids,
 )
-from app.services.authentication.sessions import current_user, db_session, set_session_cookie
+from app.services.authentication.sessions import (
+    current_user, db_session, set_session_cookie, invalidate_credential_state,
+    lock_account, require_live_session,
+)
 from app.services.avatars import prepare_avatar_change
 from app.services.profiles import normalize_profile_url
 from app.services.projects import chatbot_ui_context
@@ -284,6 +287,7 @@ def update_account_avatar(
 @router.post("/admin/users/{account_id}/update")
 def update_account(
     account_id: int,
+    request: Request,
     name: str = Form(""),
     password: str = Form(""),
     profile_url: str = Form(""),
@@ -294,7 +298,8 @@ def update_account(
 ):
     if not is_admin(user):
         raise HTTPException(403, "Chỉ quản trị viên được quản lý tài khoản")
-    account = db.get(User, account_id)
+    account = lock_account(db, account_id)
+    user = require_live_session(request, db)
     if not account or not admin_can_manage_account(user, account, db):
         raise HTTPException(404, "Không tìm thấy tài khoản trong phạm vi quản lý")
     try:
@@ -320,11 +325,12 @@ def update_account(
         account.avatar_url, account.avatar_image = avatar_change
     if password_changed:
         account.password_hash = pwd.hash(clean_password)
-        account.session_version += 1
-    db.commit()
+        invalidate_credential_state(account)
     response = RedirectResponse("/admin/users", 303)
     if account.id == user.id and password_changed:
-        set_session_cookie(response, account)
+        set_session_cookie(response, account, request, db)
+    else:
+        db.commit()
     return response
 
 

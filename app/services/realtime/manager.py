@@ -13,7 +13,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 import psycopg
 
-from .utils import _utc_now_iso
+from .utils import _utc_now_iso, websocket_session_user
 from app.config import DATABASE_URL
 from app.database import SessionLocal, engine
 from app.logging_config import logger
@@ -359,10 +359,8 @@ class RealtimeConnectionManager:
     ) -> None:
         """Deliver to local sockets concurrently.
 
-        Session revocation is checked by each socket loop (on incoming events and
-        every SESSION_CHECK_INTERVAL_SECONDS while idle), so broadcasting must not
-        re-query every connected account. A slow client is isolated by a timeout
-        instead of blocking delivery to every socket behind it.
+        Revalidate each target before delivery so a revoked device cannot receive
+        private broadcasts while its socket is waiting for the next idle check.
         """
         with self._lock:
             targets = [
@@ -378,17 +376,19 @@ class RealtimeConnectionManager:
         async def send_one(
             uid: int, cid: str, ws: WebSocket, send_lock: asyncio.Lock | None
         ):
+            async def checked_send():
+                account = await asyncio.to_thread(websocket_session_user, ws)
+                if account is None or account.id != uid:
+                    await asyncio.wait_for(ws.close(code=4401), timeout=self.SEND_TIMEOUT_SECONDS)
+                    return (uid, cid)
+                await asyncio.wait_for(ws.send_json(payload), timeout=self.SEND_TIMEOUT_SECONDS)
+                return None
             try:
                 if send_lock is None:
-                    await asyncio.wait_for(
-                        ws.send_json(payload), timeout=self.SEND_TIMEOUT_SECONDS
-                    )
+                    return await checked_send()
                 else:
                     async with send_lock:
-                        await asyncio.wait_for(
-                            ws.send_json(payload), timeout=self.SEND_TIMEOUT_SECONDS
-                        )
-                return None
+                        return await checked_send()
             except Exception:
                 return (uid, cid)
 

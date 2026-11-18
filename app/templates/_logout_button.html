@@ -1,5 +1,7 @@
-<button class="logoutButton" type="button" aria-label="Đăng xuất" data-logout-url="/logout"
-  onclick="window.triggerAnimatedLogout ? window.triggerAnimatedLogout(this) : window.location.href='/logout'">
+<form method="post" action="/logout" style="display:contents">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+<button class="logoutButton" type="submit" aria-label="Đăng xuất" data-logout-url="/logout">
   <span class="button-text">Đăng xuất</span>
   <span class="door-scene" aria-hidden="true">
     <svg class="doorway" viewBox="0 0 100 100">
@@ -42,3 +44,4 @@
     </svg>
   </span>
 </button>
+</form>

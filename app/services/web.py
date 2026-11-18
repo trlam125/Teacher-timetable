@@ -13,9 +13,16 @@ class ApplicationTemplates(Jinja2Templates):
     """Keep existing route calls while using Starlette's request-first API."""
 
     def TemplateResponse(self, name, context, **kwargs):
-        return super().TemplateResponse(
+        from app.services.authentication.csrf import CSRF_COOKIE, CSRF_TTL, form_token, secure_cookies
+        context = dict(context)
+        nonce, context["csrf_token"] = form_token(context["request"])
+        response = super().TemplateResponse(
             request=context["request"], name=name, context=context, **kwargs
         )
+        response.set_cookie(CSRF_COOKIE, nonce, max_age=CSRF_TTL, httponly=True,
+                            secure=secure_cookies(), samesite="lax")
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
 
 templates = ApplicationTemplates(directory="app/templates")

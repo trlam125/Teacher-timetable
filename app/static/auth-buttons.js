@@ -171,7 +171,8 @@
 
             // 6) Success mark pops up
             loginBtn.classList.add('success');
-            if (btnText) btnText.textContent = 'Đã đăng nhập';
+            if (btnText) btnText.textContent = new URL(response.url, window.location.origin).pathname === '/auth/device'
+              ? 'Xác minh thiết bị' : 'Đã đăng nhập';
             await sleep(350);
 
             // Navigate to destination
@@ -192,7 +193,13 @@
             isSubmitting = false;
 
             // Extract error message from HTML response if available
-            let errorMessage = 'Email hoặc mật khẩu không đúng';
+            let errorMessage = response?.networkError
+              ? 'Không kết nối được máy chủ. Hãy kiểm tra mạng rồi thử lại.'
+              : ({403: 'Phiên biểu mẫu đã hết hạn. Hãy tải lại trang rồi đăng nhập.',
+                  429: 'Bạn đã thử quá nhiều lần. Vui lòng đợi rồi thử lại.',
+                  503: 'Chưa gửi được mã xác minh thiết bị. Vui lòng thử lại sau.',
+                  401: 'Phiên xác thực không còn hợp lệ. Hãy tải lại trang rồi đăng nhập.'}[response?.status]
+                  || 'Email hoặc mật khẩu không đúng');
             if (response && typeof response.text === 'function') {
               try {
                 const text = await response.text();
@@ -413,9 +420,9 @@
     updateLogoutButtonState(button, 'falling3');
     await sleep(parseInt(logoutButtonStates['falling3']['--walking-duration'], 10) || 300);
 
-    // 7) Redirect to logout route
-    const logoutUrl = button.dataset.logoutUrl || '/logout';
-    window.location.href = logoutUrl;
+    // Revoke the server-side session through the CSRF-protected form.
+    if (button.form) HTMLFormElement.prototype.submit.call(button.form);
+    else window.location.href = '/logout';
   }
 
   function initLogoutButtons() {

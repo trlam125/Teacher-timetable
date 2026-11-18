@@ -3,16 +3,15 @@ from __future__ import annotations
 from app.models import User
 from app.services.authentication.captcha import new_captcha
 from app.services.authentication.credentials import pwd, signer
-from app.services.authentication.permissions import is_admin
-from app.services.authentication.navigation import after_login_redirect
+from app.services.authentication.csrf import require_form_token
+from app.services.authentication.devices import begin_login
 from app.services.authentication.rate_limits import (
     clear_rate_limit_bucket,
     client_rate_limit_key,
     rate_limit_blocked,
     rate_limit_exceeded,
 )
-from app.services.authentication.sessions import db_session, set_session_cookie
-from app.services.realtime.utils import _utc_now_iso
+from app.services.authentication.sessions import db_session
 from app.services.web import templates
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
@@ -61,8 +60,10 @@ def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
+    csrf_token: str = Form(""),
     db: Session = Depends(db_session),
 ):
+    require_form_token(request, csrf_token)
     normalized_email = email.lower().strip()
     ip_key = client_rate_limit_key(request)
     if rate_limit_blocked(
@@ -101,13 +102,4 @@ def login(
     # Chỉ lỗi đăng nhập mới được tính vào rate-limit. Đăng nhập đúng xóa bucket
     # theo email để các lần đăng nhập hợp lệ không tự khóa tài khoản.
     clear_rate_limit_bucket("login_email", normalized_email)
-    destination = (
-        "/teacher"
-        if user.role == "teacher"
-        else ("/projects" if is_admin(user) else "/logout")
-    )
-    user.last_seen = _utc_now_iso()
-    db.commit()
-    res = after_login_redirect(request, destination)
-    set_session_cookie(res, user)
-    return res
+    return begin_login(request, db, user)

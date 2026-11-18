@@ -23,6 +23,11 @@
   });
 
   document.addEventListener("submit", event => {
+    if (event.target.matches(".avatar-delete-form")) {
+      const button = event.target.querySelector("[data-confirm-message]");
+      if (button && !window.confirm(button.dataset.confirmMessage)) event.preventDefault();
+      return;
+    }
     if (!event.target.matches("[data-confirm-account-delete]")) return;
     event.preventDefault();
     if (deleteConfirmation.open) return;

@@ -21,8 +21,11 @@ from app.services.authentication.credentials import (
 )
 from app.services.authentication.mail import send_email_change_otp_email
 from app.services.authentication.permissions import admin_can_manage_account
-from app.services.authentication.rate_limits import rate_limit_exceeded
-from app.services.authentication.sessions import current_user, db_session, set_session_cookie
+from app.services.authentication.rate_limits import rate_limit_exceeded, verify_sensitive_password
+from app.services.authentication.sessions import (
+    current_user, db_session, set_session_cookie, invalidate_credential_state,
+    lock_account, require_live_session,
+)
 from app.services.authentication.verification import (
     email_change_back_path,
     email_change_confirmation_data,
@@ -88,7 +91,7 @@ def prepare_email_change(
         context["error"] = "Email mới phải khác email hiện tại."
         return templates.TemplateResponse("email_change.html", context, status_code=400)
     if target.id == user.id and (
-        not current_password or not pwd.verify(current_password, target.password_hash)
+        not verify_sensitive_password(request, target, current_password)
     ):
         context["error"] = "Vui lòng nhập đúng mật khẩu hiện tại trước khi đổi email."
         return templates.TemplateResponse("email_change.html", context, status_code=400)
@@ -336,10 +339,15 @@ def verify_email_change(
             },
             status_code=409,
         )
+    target = lock_account(db, target.id)
+    if not target:
+        raise HTTPException(401)
+    user = require_live_session(request, db)
+    if target.id != user.id and not admin_can_manage_account(user, target, db):
+        raise HTTPException(403, "Bạn không còn quyền đổi email tài khoản này")
     target.email = verification.new_email
-    target.session_version += 1
+    invalidate_credential_state(target)
     db.delete(verification)
-    db.commit()
     response = templates.TemplateResponse(
         "email_change.html",
         {
@@ -352,5 +360,7 @@ def verify_email_change(
         },
     )
     if target.id == user.id:
-        set_session_cookie(response, target)
+        set_session_cookie(response, target, request, db)
+    else:
+        db.commit()
     return response

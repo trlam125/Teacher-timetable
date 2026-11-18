@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -36,7 +38,7 @@
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
     <script src="/static/profile-avatar.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
@@ -79,6 +81,7 @@
             <div class="avatar-interactive-wrap">
                 <form method="post" action="/teacher/account/avatar" enctype="multipart/form-data"
                     class="avatar-upload-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
                     <label class="profile-avatar profile-avatar-lg avatar-clickable" title="Bấm để đổi avatar"
                         aria-label="Bấm để đổi avatar" tabindex="0">
@@ -98,6 +101,7 @@
                 </form>
                 {% if user.avatar_url %}
                 <form method="post" action="/teacher/account/avatar" class="avatar-delete-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
                     <input type="hidden" name="remove_avatar" value="true">
                     <button type="submit" class="avatar-delete-btn" title="Xóa avatar" aria-label="Xóa avatar"
@@ -112,6 +116,7 @@
                 {% endif %}
             </div>
             <form method="post" action="/teacher/account/profile">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
                 <label>
                     Link Facebook cá nhân
@@ -122,6 +127,7 @@
             </form>
         </section>
         <form class="panel account-form" method="post" action="/teacher/account/password">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
             <h2>Đổi mật khẩu</h2>
             <p class="muted">Nhập mật khẩu hiện tại để xác nhận trước khi đặt mật khẩu mới.</p>

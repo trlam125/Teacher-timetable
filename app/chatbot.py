@@ -18,6 +18,7 @@ from xml.etree import ElementTree
 from openpyxl import load_workbook
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+from app.services.upload_limits import UploadLimitError, MAX_TEXT_CHARS, bounded_document_parser, ensure_workbook_safe
 
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -237,6 +238,7 @@ def _parse_pdf(filename: str, content: bytes) -> dict[str, Any]:
     }
 
 
+@bounded_document_parser(ChatbotError)
 def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
     """Đọc bảng vào cấu trúc giới hạn; không lưu file người dùng lên máy chủ."""
     if not filename:
@@ -247,26 +249,33 @@ def parse_uploaded_table(filename: str, content: bytes) -> dict[str, Any]:
     lower_name = filename.lower()
     if lower_name.endswith(".xlsx"):
         try:
+            ensure_workbook_safe(content, max_bytes=MAX_DOCX_UNCOMPRESSED_BYTES)
             workbook = load_workbook(
-                io.BytesIO(content), read_only=True, data_only=True
+                io.BytesIO(content), read_only=True, data_only=True, keep_links=False
             )
+        except UploadLimitError as exc:
+            raise ChatbotError(str(exc)) from exc
         except Exception as exc:
             raise ChatbotError(
                 "Không thể đọc tệp Excel. Hãy kiểm tra lại định dạng .xlsx."
             ) from exc
 
         sheets: list[dict[str, Any]] = []
+        remaining_chars = MAX_TEXT_CHARS
         try:
             for worksheet in workbook.worksheets[:MAX_SHEETS]:
                 rows: list[list[str]] = []
                 truncated = False
                 for row_index, row in enumerate(
-                    worksheet.iter_rows(max_col=MAX_COLUMNS, values_only=True), start=1
+                    worksheet.iter_rows(max_row=MAX_ROWS_PER_SHEET + 1, max_col=MAX_COLUMNS, values_only=True), start=1
                 ):
                     if row_index > MAX_ROWS_PER_SHEET:
                         truncated = True
                         break
                     values = [_cell_value(value) for value in row]
+                    remaining_chars -= sum(len(value) for value in values)
+                    if remaining_chars < 0:
+                        raise ChatbotError("Tệp Excel có quá nhiều nội dung văn bản để đọc an toàn.")
                     while values and not values[-1]:
                         values.pop()
                     if values:

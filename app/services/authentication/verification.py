@@ -92,10 +92,13 @@ def registration_otp_context(
     }
 
 
-def reset_account_for_token(token: str, db: Session) -> Optional[User]:
+def reset_account_for_token(token: str, db: Session, *, lock: bool = False) -> Optional[User]:
     try:
         data = reset_signer.loads(token, max_age=RESET_TOKEN_TTL_SECONDS)
-        account = db.get(User, int(data["uid"]))
+        query = select(User).where(User.id == int(data["uid"]))
+        if lock:
+            query = query.with_for_update().execution_options(populate_existing=True)
+        account = db.scalar(query)
         nonce_hash = hashlib.sha256(str(data["nonce"]).encode()).hexdigest()
         if not account or not account.reset_token_hash:
             return None

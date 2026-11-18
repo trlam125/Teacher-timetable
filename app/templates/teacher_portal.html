@@ -2,6 +2,8 @@
 <html lang="vi">
 
 <head>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script src="/static/request-security.js?v=1"></script>
     <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg?v=1">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -27,7 +29,7 @@
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
     <link rel="stylesheet" href="/static/auth-buttons.css?v=1">
-    <script src="/static/auth-buttons.js?v=1" defer></script>
+    <script src="/static/auth-buttons.js?v=2" defer></script>
     <script src="/static/btn-tame-ape.js?v=2" defer></script>
     <link rel="stylesheet" href="/static/calendar-widget.css?v=1">
     <script src="/static/calendar-widget.js?v=1" defer></script>
@@ -111,6 +113,7 @@
             </div>
             <form class="preference-form" method="post" action="/teacher/preferences"
                 onsubmit="return prepareTeacherPreferenceSubmit()">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="project_id" value="{{ p.id }}">
                 <input type="hidden" id="preferredSlotsInput" name="preferred_slots" value="[]">
                 <input type="hidden" id="unavailableSlotsInput" name="unavailable_slots" value="[]">
