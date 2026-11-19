@@ -35,9 +35,15 @@ jobs:
       - name: Check application syntax
         run: python -m compileall -q app
       - name: Run offline regression tests
+        if: ${{ hashFiles('tests/**/test*.py') != '' }}
         env:
           AUTH_TEST_DATABASE_URL: postgresql+psycopg://auth_test:disposable-ci-password@127.0.0.1:5432/smart_tkb_auth_tests
         run: python -m unittest discover -s tests -v
+      - name: Report missing regression tests
+        if: ${{ hashFiles('tests/**/test*.py') == '' }}
+        run: |
+          echo "::notice::No test*.py files found under tests/; regression tests skipped."
+          echo "Regression tests skipped: this checkout contains no test*.py files under tests/." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
