@@ -49,29 +49,21 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
-  // A second presentation safeguard for responses from older deployments.
-  // The backend remains the source of truth for the complete language policy.
+  // Public reply formatting: the backend performs semantic checks and is
+  // authoritative. On stale/old clients only remove known display artifacts;
+  // never invent an explanation for an unknown internal key.
   function publicTeacherAnswer(content) {
-    const names = {
-      max_two_consecutive: "tối đa 2 tiết liền nhau của cùng một môn trong một lớp, tính riêng từng buổi",
-      duplicate_assignments: "phân công trùng lặp",
-      coverage_checks: "kết quả kiểm tra phân công",
-      current_assignments: "danh sách phân công hiện tại",
-      scheduled_lessons: "các tiết đã xếp trên thời khóa biểu",
-      block_mode: "chế độ xếp tiết",
-      teacher_id: "giáo viên",
-      class_id: "lớp học",
-      check: "kiểm tra",
-      slot: "thời điểm",
-      day: "thứ trong tuần",
-      session: "buổi học",
-      period: "tiết học",
-    };
     return String(content ?? "")
-      .replace(/\s*\(\s*(?:optimization suggestions|suggested improvements|improvement suggestions)\s*\)/gi, "")
-      .replace(/\b(?:optimization suggestions|suggested improvements|improvement suggestions)\b/gi, "gợi ý cải thiện")
-      .replace(/\b(max_two_consecutive|duplicate_assignments|coverage_checks|current_assignments|scheduled_lessons|block_mode|teacher_id|class_id|check|slot|day|session|period)\b/gi, (word) => names[word.toLowerCase()] || word)
       .replace(/@@INLINE_?\d+@@/gi, "")
+      .replace(/\s*\(\s*(?:optimization suggestions|suggested improvements|improvement suggestions)\s*\)/gi, "")
+      .replace(/\b(?:optimization suggestions|suggested improvements)\b/gi, "gợi ý cải thiện")
+      .replace(/\bcheck\b/gi, "kiểm tra")
+      .replace(/\bslot\b/gi, "thời điểm")
+      .replace(/\bday\b/gi, "thứ trong tuần")
+      .replace(/\bsession\b/gi, "buổi học")
+      .replace(/\bone class\b/gi, "một lớp")
+      .replace(/\bfree\b/gi, "xếp tiết linh hoạt")
+      .replace(/\bnull\s*\/\s*empty\b/gi, "")
       .replace(/`([^`\n]{1,80})`/g, "$1");
   }
 
