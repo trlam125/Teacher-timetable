@@ -519,8 +519,8 @@ def _normalize_assistant_markdown(answer: str) -> str:
     return "\n".join(normalized).strip()
 
 
-NVIDIA_FALLBACK_MODELS = ("openai/gpt-oss-20b",)
-NVIDIA_MAX_OUTPUT_TOKENS = 8192
+NVIDIA_FALLBACK_MODELS = ("nvidia/nemotron-3.5-lightning-30b-a3b",)
+NVIDIA_MAX_OUTPUT_TOKENS = 4096
 # Frontend waits 150 seconds. Keep the whole backend failover chain below that
 # so the browser does not abort while the server is still calling NVIDIA.
 NVIDIA_TOTAL_TIMEOUT_SECONDS = 135.0
@@ -538,7 +538,18 @@ NVIDIA_TRUNCATION_WARNING = (
 
 
 def _configured_model_chain() -> list[str]:
-    return list(dict.fromkeys((nvidia_primary_model(), *NVIDIA_FALLBACK_MODELS)))
+    """Use current hosted models; allow fallback changes without a code deploy.
+
+    Setting NVIDIA_FALLBACK_MODELS to an empty value explicitly disables
+    fallback. Model names are comma-separated and de-duplicated.
+    """
+    configured = os.getenv("NVIDIA_FALLBACK_MODELS")
+    fallbacks = (
+        NVIDIA_FALLBACK_MODELS
+        if configured is None
+        else tuple(model.strip() for model in configured.split(",") if model.strip())
+    )
+    return list(dict.fromkeys((nvidia_primary_model(), *fallbacks)))
 
 
 def _model_chain_from(preferred_model: str | None) -> list[str]:
@@ -581,9 +592,13 @@ def _same_model_retryable(exc: ChatbotError) -> bool:
     if exc.code == "nvidia_rate_limit":
         return True
     if exc.code == "nvidia_http":
+        # 404/410 may mean the hosted model is gone, so try another model,
+        # not the same non-working model again.
         return exc.provider_status in {408, 429, 500, 502, 503, 504}
+    if exc.code == "nvidia_network":
+        # A full 45-second timeout should not be spent twice before fallback.
+        return not (exc.diagnostic or "").startswith("Hết thời gian chờ")
     return exc.code in {
-        "nvidia_network",
         "nvidia_invalid_response",
         "nvidia_empty_response",
         "nvidia_empty_text",
@@ -643,10 +658,14 @@ def _call_nvidia_model(
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": NVIDIA_MAX_OUTPUT_TOKENS,
+        "max_tokens": _env_int("NVIDIA_MAX_OUTPUT_TOKENS", NVIDIA_MAX_OUTPUT_TOKENS, 256, 8192),
         "stream": False,
     }
-    if model in {NVIDIA_DEFAULT_MODEL, "nvidia/nemotron-3-super-120b-a12b"}:
+    if model in {
+        NVIDIA_DEFAULT_MODEL,
+        "nvidia/nemotron-3-super-120b-a12b",
+        "nvidia/nemotron-3.5-lightning-30b-a3b",
+    }:
         payload["chat_template_kwargs"] = {"enable_thinking": False}
     request = Request(
         "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -679,9 +698,14 @@ def _call_nvidia_model(
                 provider_status=exc.code,
                 model_name=model,
             ) from exc
-        retryable = exc.code in {404, 408, 429, 500, 502, 503, 504}
+        # 404/410 cannot be fixed by retrying this model but should trigger
+        # the next configured model. Other non-retryable HTTP errors still stop.
+        retryable = exc.code in {404, 410, 408, 429, 500, 502, 503, 504}
         raise ChatbotError(
-            f"NVIDIA trả về lỗi HTTP {exc.code}.",
+            f"NVIDIA trả về lỗi HTTP {exc.code}." + (
+                " Mô hình/endpoint hoặc quyền truy cập có thể không còn khả dụng."
+                if exc.code == 410 else ""
+            ),
             code="nvidia_http",
             provider_status=exc.code,
             model_name=model,
