@@ -19,12 +19,12 @@
     <script src="/static/brand-motion.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/schedule/schedule-base.css?v=1">
     <script src="/static/operation-status.js?v=3" defer></script>
-    <script src="/static/appbar-datetime.js?v=1" defer></script>
+    <script src="/static/appbar-datetime.js?v=2" defer></script>
     <link rel="preload" href="/static/x.gif?v=1" as="image">
     <link rel="preload" href="/static/tick.gif?v=1" as="image">
     <link rel="stylesheet" href="/static/effects.css?v=1">
     <link rel="stylesheet" href="/static/front.css?v=1">
-    <link rel="stylesheet" href="/static/preferences.css?v=1">
+    <link rel="stylesheet" href="/static/preferences.css?v=3">
     <link rel="stylesheet" href="/static/schedule/schedule-editor.css?v=7">
     <link rel="stylesheet" href="/static/chatbot.css?v=1">
     <link rel="stylesheet" href="/static/realtime-chat.css?v=1">
@@ -71,6 +71,20 @@
                 </label>
             </div>
         </div>
+        <section id="teacherToday" class="panel teacher-today" aria-labelledby="teacher-today-title"
+            data-user-id="{{ user.id }}" data-user-name="{{ user.name }}">
+            <header class="teacher-today-header">
+                <div>
+                    <h2 id="teacher-today-title">Lịch dạy hôm nay</h2>
+                    <time id="teacherTodayDate" class="muted" datetime="{{ today.isoformat() }}">{{ days[today.weekday()] }}, {{ today.strftime('%d/%m/%Y') }}</time>
+                </div>
+                <div class="teacher-today-filter">
+                    <label for="teacherTodaySelect">Giáo viên</label>
+                    <select id="teacherTodaySelect" disabled><option value="">Chọn giáo viên</option></select>
+                </div>
+            </header>
+            <div id="teacherTodayResult" class="teacher-today-results" aria-live="polite"></div>
+        </section>
         <div class="panel">
             <div class="row" style="gap:12px;
                             align-items:end;
@@ -239,7 +253,8 @@
     <script src="/static/schedule/schedule-placement.js?v=8"></script>
     <script src="/static/app-preferences.js?v=8"></script>
     {% include "_realtime_chat_popup.html" %}
-    <script src="/static/schedule/schedule-live.js?v=2"></script>
+    <script src="/static/teacher-today.js?v=2"></script>
+    <script src="/static/schedule/schedule-live.js?v=4"></script>
     {% if chatbot_project_id %}
     {% include "_chatbot_popup.html" %}
     {% endif %}

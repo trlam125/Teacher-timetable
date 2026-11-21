@@ -63,7 +63,7 @@
     <link rel="stylesheet" href="/static/user-menu.css?v=1">
     <script src="/static/user-menu.js?v=1" defer></script>
     <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
-    <link rel="stylesheet" href="/static/admin-users.css?v=4">
+    <link rel="stylesheet" href="/static/admin-users.css?v=5">
     <script src="/static/admin-users.js?v=2" defer></script>
     <script src="/static/profile-avatar.js?v=2" defer></script>
 </head>
@@ -426,6 +426,7 @@
                             </td>
                             <td data-label="Sự cố">
                                 <p class="log-summary">{{ log.summary }}</p>
+                                <span class="log-secondary">{{ log.error_code }}{% if log.provider_status is not none %} · HTTP {{ log.provider_status }}{% endif %}</span>
                             </td>
                             <td class="log-action">
                                 <button type="button" class="admin-detail-link" data-admin-dialog="incident-detail-{{ loop.index }}"
@@ -438,6 +439,7 @@
                 </table>
             </div>
             {% for log in system_incident_logs %}
+            {% set ai = log.ai_details %}
             <dialog id="incident-detail-{{ loop.index }}" class="admin-detail-dialog incident-detail-dialog" aria-labelledby="incident-detail-title-{{ loop.index }}">
                 <div class="admin-dialog-content">
                     <header class="admin-dialog-header">
@@ -450,9 +452,39 @@
                     <dl class="incident-metadata">
                         <div><dt>Thời khóa biểu</dt><dd>{{ log.project_name or ('Thời khóa biểu số ' ~ log.project_id if log.project_id else '—') }}</dd></div>
                         <div><dt>Tài khoản</dt><dd>{{ log.user_name or 'Không xác định' }}{% if log.user_email %}<span class="log-secondary">{{ log.user_email }}</span>{% endif %}</dd></div>
-                        <div><dt>Nội dung liên quan</dt><dd>{{ log.source_label }}</dd></div>
+                        <div><dt>Mã lỗi</dt><dd><code>{{ log.error_code }}</code></dd></div>
+                        {% if log.provider_status is not none %}
+                        <div><dt>Phản hồi từ nhà cung cấp AI</dt><dd>HTTP {{ log.provider_status }}</dd></div>
+                        {% endif %}
+                        {% if ai.model %}<div><dt>Mô hình gặp lỗi</dt><dd>{{ ai.model }}</dd></div>{% endif %}
+                        {% if ai.response_model %}<div><dt>Mô hình đã trả lời</dt><dd>{{ ai.response_model }}</dd></div>{% endif %}
+                        {% if ai.attempt_count is defined and ai.attempt_count is not none %}
+                        <div><dt>Số lượt gọi API của mô hình</dt><dd>{{ ai.attempt_count }}</dd></div>
+                        {% endif %}
+                        {% if ai.reference %}<div><dt>Mã tra cứu yêu cầu</dt><dd><code>{{ ai.reference }}</code></dd></div>{% endif %}
+                        {% if ai.exception_type %}<div><dt>Loại ngoại lệ</dt><dd><code>{{ ai.exception_type }}</code></dd></div>{% endif %}
                     </dl>
                     <p class="incident-summary">{{ log.summary }}</p>
+                    {% if ai.retry_failures %}
+                    <h3 class="incident-subheading">Các lần xử lý gặp lỗi</h3>
+                    <ol class="incident-attempts">
+                        {% for failure in ai.retry_failures %}
+                        <li>
+                            <code>{{ failure.code }}</code>{% if failure.provider_status is not none %} · HTTP {{ failure.provider_status }}{% endif %}
+                            <p>{{ failure.message }}</p>
+                            {% if failure.diagnostic %}<p>{{ failure.diagnostic }}</p>{% endif %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% elif log.technical_message %}
+                    <p class="incident-diagnostic">{{ log.technical_message }}</p>
+                    {% endif %}
+                    {% if log.scheduler_details %}
+                    <details class="incident-diagnostic">
+                        <summary>Dữ liệu chẩn đoán bộ xếp lịch</summary>
+                        <pre>{{ log.scheduler_details }}</pre>
+                    </details>
+                    {% endif %}
                 </div>
             </dialog>
             {% endfor %}

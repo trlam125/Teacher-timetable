@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from sqlalchemy import delete, select
 
@@ -11,12 +12,27 @@ from app.scheduling.solver.diagnostics import scheduler_runtime_diagnostics
 
 
 AI_INCIDENT_MESSAGES = {
-    "auth": "Trợ lý AI chưa thể kết nối. Hãy liên hệ người quản lý.",
+    "auth": "Nhà cung cấp AI từ chối xác thực hoặc quyền truy cập.",
     "blocked": "Trợ lý AI không thể xử lý nội dung này.",
     "deadline": "Trợ lý AI mất quá nhiều thời gian để trả lời. Hãy thử lại.",
-    "network": "Mất kết nối với trợ lý AI. Hãy thử lại.",
+    "empty_response": "Nhà cung cấp AI không trả về câu trả lời.",
+    "empty_text": "Câu trả lời của AI không có nội dung văn bản.",
+    "invalid_response": "Nhà cung cấp AI trả về dữ liệu sai định dạng.",
+    "network": "Không kết nối được tới nhà cung cấp AI.",
+    "no_model": "Không có mô hình AI khả dụng.",
     "rate_limit": "Trợ lý AI đang bận. Hãy thử lại sau.",
 }
+AI_HTTP_MESSAGES = {
+    400: "Nhà cung cấp AI từ chối yêu cầu vì dữ liệu gửi đi không hợp lệ.",
+    404: "Nhà cung cấp AI không tìm thấy mô hình hoặc điểm truy cập.",
+    408: "Nhà cung cấp AI không xử lý yêu cầu trong thời gian cho phép.",
+    500: "Nhà cung cấp AI gặp lỗi nội bộ.",
+    502: "Cổng kết nối của nhà cung cấp AI nhận được phản hồi lỗi.",
+    503: "Dịch vụ của nhà cung cấp AI tạm thời không khả dụng.",
+    504: "Cổng kết nối của nhà cung cấp AI chờ phản hồi quá lâu.",
+}
+LEGACY_MODEL_PREFIX = re.compile(r"^\[model=([^\]\r\n]{1,200})\]\s*")
+LEGACY_EXCEPTION_PREFIX = re.compile(r"^([A-Za-z_][A-Za-z0-9_]{0,100}):")
 
 
 def record_system_incident(
@@ -59,24 +75,56 @@ def record_scheduler_incident(db, context, outcome):
 
 
 def incident_log_view(row):
-    """Adapt old plain-text AI entries and new structured scheduler entries."""
-    summary, separator, details = row.error_message.partition("\n\n")
+    """Read both historical messages and structured incident diagnostics."""
+    message, separator, details = row.error_message.partition("\n\n")
     code = row.error_code or "system_error"
     source = "Bộ xếp lịch" if code.startswith("scheduler_") else (
         "Smart TKB" if code.startswith("system_") else "Trợ lý AI"
     )
+    summary = message
+    technical_message = ""
+    metadata = {}
     provider, _, reason = code.partition("_")
-    if provider in {"gemini", "nvidia"}:
-        summary = AI_INCIDENT_MESSAGES.get(reason, "Trợ lý AI chưa thể trả lời. Hãy thử lại sau.")
-    elif code == "missing_api_key":
-        summary = "Trợ lý AI hiện chưa sẵn sàng. Hãy liên hệ người quản lý."
-    elif code == "internal_error":
-        summary = "Trợ lý AI chưa thể trả lời. Hãy thử lại sau."
+    if source == "Trợ lý AI":
+        if separator:
+            try:
+                decoded = json.loads(details)
+                if isinstance(decoded, dict):
+                    metadata = decoded
+            except json.JSONDecodeError:
+                pass
+        legacy_model = LEGACY_MODEL_PREFIX.match(message)
+        if legacy_model:
+            metadata.setdefault("model", legacy_model[1])
+            message = message[legacy_model.end():]
+
+        summary = message
+        if provider in {"gemini", "nvidia"}:
+            summary = AI_INCIDENT_MESSAGES.get(reason, "Trợ lý AI chưa thể trả lời. Hãy thử lại sau.")
+            if reason == "http" and row.provider_status is not None:
+                summary = AI_HTTP_MESSAGES.get(
+                    row.provider_status, f"Nhà cung cấp AI trả về HTTP {row.provider_status}.",
+                )
+            # Older Gemini entries could include provider-controlled text.
+            if provider == "gemini" and reason in {"http", "blocked"}:
+                message = summary
+        elif code == "missing_api_key":
+            summary = "Trợ lý AI chưa được cấu hình khóa API."
+        elif code == "internal_error":
+            summary = "Trợ lý AI gặp lỗi nội bộ."
+            legacy_exception = LEGACY_EXCEPTION_PREFIX.match(message)
+            if legacy_exception:
+                metadata.setdefault("exception_type", legacy_exception[1])
+            message = ""
+        if message != summary:
+            technical_message = message
     return {
         "id": row.id, "created_at": row.created_at,
         "project_id": row.project_id, "project_name": row.project_name,
         "user_name": row.user_name, "user_email": row.user_email,
         "error_code": code, "provider_status": row.provider_status,
         "source_label": source, "summary": summary,
-        "details": details if separator else "",
+        "technical_message": technical_message,
+        "ai_details": metadata,
+        "scheduler_details": details if source == "Bộ xếp lịch" else "",
     }

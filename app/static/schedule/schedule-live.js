@@ -101,6 +101,7 @@
     data = { ...data, lessons: [], assignments: [], teachers: [], classes: [], subjects: [], grades: [] };
     document.getElementById("scheduleGrid").innerHTML = "";
     document.getElementById("unscheduledTray")?.replaceChildren();
+    window.dispatchEvent(new CustomEvent("schedule-data-updated", { detail: { revoked: true } }));
     announce(message);
   }
 
@@ -123,6 +124,7 @@
     requestAnimationFrame(() => restoreRefreshScrollState(scroll));
     knownRevision = payload.revision;
     pending = false;
+    window.dispatchEvent(new Event("schedule-data-updated"));
     announce("Thời khóa biểu đã được cập nhật.", true);
   }
 

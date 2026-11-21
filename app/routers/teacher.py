@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 import json
 
@@ -39,7 +40,7 @@ from app.services.projects import (
 )
 from app.services.realtime.utils import _utc_now_iso
 from app.services.web import bounded_text, templates
-from app.settings import DAYS, MIN_PASSWORD_LENGTH
+from app.settings import DAYS, MIN_PASSWORD_LENGTH, VIETNAM_TZ
 
 router = APIRouter()
 
@@ -75,6 +76,7 @@ def teacher_portal(
             "p": project,
             "data": public_project_data(db, project),
             "days": DAYS,
+            "today": datetime.now(VIETNAM_TZ).date(),
             "teacher_projects": projects,
             "preference_history": preference_history,
             "current_preference": current_preference,

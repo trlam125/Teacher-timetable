@@ -6,6 +6,8 @@ import json
 import os
 import random
 import re
+import socket
+import ssl
 import time
 import zipfile
 from datetime import date, datetime
@@ -55,6 +57,7 @@ class ChatbotError(RuntimeError):
         retry_with_fallback: bool = False,
         attempts: list[dict[str, Any]] | None = None,
         provider_call_count: int = 0,
+        diagnostic: str | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -63,6 +66,7 @@ class ChatbotError(RuntimeError):
         self.retry_with_fallback = retry_with_fallback
         self.attempts = attempts or []
         self.provider_call_count = max(0, int(provider_call_count))
+        self.diagnostic = diagnostic
 
 
 def _cell_value(value: Any) -> str:
@@ -611,6 +615,24 @@ def _request_timeout(deadline: float, model: str) -> float:
     return max(0.5, min(NVIDIA_REQUEST_TIMEOUT_SECONDS, remaining))
 
 
+def _network_diagnostic(exc: URLError | TimeoutError, timeout_seconds: float) -> str:
+    cause = exc.reason if isinstance(exc, URLError) else exc
+    if isinstance(cause, TimeoutError):
+        return f"Hết thời gian chờ kết nối hoặc đọc phản hồi (ngưỡng {timeout_seconds:g} giây)."
+    if isinstance(cause, socket.gaierror):
+        return "Không phân giải được tên miền NVIDIA (lỗi DNS)."
+    if isinstance(cause, ssl.SSLCertVerificationError):
+        return "Không xác minh được chứng chỉ TLS của NVIDIA."
+    if isinstance(cause, ssl.SSLError):
+        return "Gặp lỗi TLS khi kết nối NVIDIA."
+    if isinstance(cause, ConnectionRefusedError):
+        return "Kết nối tới NVIDIA bị từ chối."
+    if isinstance(cause, ConnectionError):
+        return "Kết nối tới NVIDIA bị ngắt."
+    cause_type = type(cause).__name__ if isinstance(cause, OSError) else type(exc).__name__
+    return f"Lỗi khi mở kết nối tới NVIDIA ({cause_type})."
+
+
 def _call_nvidia_model(
     model: str,
     api_key: str,
@@ -671,6 +693,7 @@ def _call_nvidia_model(
             code="nvidia_network",
             model_name=model,
             retry_with_fallback=True,
+            diagnostic=_network_diagnostic(exc, timeout_seconds),
         ) from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ChatbotError(
@@ -678,6 +701,11 @@ def _call_nvidia_model(
             code="nvidia_invalid_response",
             model_name=model,
             retry_with_fallback=True,
+            diagnostic=(
+                "Nội dung phản hồi không giải mã được theo UTF-8."
+                if isinstance(exc, UnicodeDecodeError)
+                else "Nội dung phản hồi không phải JSON hợp lệ."
+            ),
         ) from exc
 
     choices = result.get("choices") if isinstance(result, dict) else None
@@ -845,6 +873,7 @@ def ask_nvidia(
     for model_index, model in enumerate(models):
         last_error: ChatbotError | None = None
         calls_for_model = 0
+        retry_failures = []
         for retry_index in range(retries_per_model):
             try:
                 answer, provider_calls = _generate_complete_answer(
@@ -858,6 +887,12 @@ def ask_nvidia(
             except ChatbotError as exc:
                 calls_for_model += max(0, int(getattr(exc, "provider_call_count", 0)))
                 last_error = exc
+                retry_failures.append({
+                    "code": exc.code,
+                    "provider_status": exc.provider_status,
+                    "message": str(exc),
+                    "diagnostic": exc.diagnostic,
+                })
                 can_retry_same_model = (
                     exc.retry_with_fallback
                     and _same_model_retryable(exc)
@@ -873,11 +908,10 @@ def ask_nvidia(
 
         attempts.append(
             {
+                **retry_failures[-1],
                 "model": model,
-                "code": str(last_error.code),
-                "provider_status": last_error.provider_status,
-                "message": str(last_error),
                 "attempt_count": calls_for_model,
+                "retry_failures": retry_failures,
             }
         )
         has_next = model_index + 1 < len(models)

@@ -27,10 +27,7 @@
     return baseServerEpochMs + (performance.now() - basePerformanceMs);
   }
 
-  function formatVietnamDateTime(epochMs) {
-    // Shift the authoritative UTC epoch to UTC+7, then read it through UTC getters.
-    // This keeps the result independent from the user's device timezone.
-    const date = new Date(epochMs + VIETNAM_OFFSET_MS);
+  function formatVietnamDateTime(date) {
     const weekday = WEEKDAYS[date.getUTCDay()];
     const day = pad(date.getUTCDate());
     const month = pad(date.getUTCMonth() + 1);
@@ -123,6 +120,7 @@
     if (!appbars.length) return;
 
     const targets = appbars.map(ensureDateTimeElement);
+    let displayedDate = null;
 
     function update() {
       const epochMs = currentServerEpochMs();
@@ -133,10 +131,17 @@
         return;
       }
 
-      const text = formatVietnamDateTime(epochMs);
+      // Shift to Vietnam time before using UTC getters, independent of device time zone.
+      const date = new Date(epochMs + VIETNAM_OFFSET_MS);
+      const text = formatVietnamDateTime(date);
       targets.forEach((target) => {
         target.textContent = text;
       });
+      const dateKey = date.toISOString().slice(0, 10);
+      if (dateKey !== displayedDate) {
+        displayedDate = dateKey;
+        window.dispatchEvent(new CustomEvent('vietnam-date-changed', { detail: dateKey }));
+      }
     }
 
     update();

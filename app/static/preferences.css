@@ -11,6 +11,74 @@
   max-width: 1250px;
 }
 
+.teacher-today {
+  margin-block-end: 18px;
+}
+
+.teacher-today-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.teacher-today-header h2 {
+  margin: 0 0 4px;
+}
+
+.teacher-today-filter {
+  display: grid;
+  gap: 4px;
+  width: min(100%, 19rem);
+}
+
+.teacher-today-filter select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.teacher-today-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  column-gap: 24px;
+}
+
+.teacher-today-session {
+  margin: 16px 0 0;
+  font-size: 0.95rem;
+}
+
+.teacher-today-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teacher-today-list li {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.teacher-today-list small {
+  display: block;
+}
+
+.teacher-today-period {
+  font-weight: 600;
+  color: var(--primary2);
+}
+
+.teacher-today-message {
+  margin: 12px 0 0;
+}
+
 .preference-form {
   display: grid;
   gap: 18px;

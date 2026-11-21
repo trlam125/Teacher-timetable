@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from uuid import uuid4
 
 from fastapi import (
     Depends,
@@ -130,19 +131,31 @@ def chatbot_reply(
             "Ngữ cảnh tệp của cuộc trò chuyện quá lớn. Hãy xóa cuộc trò chuyện và chỉ đính kèm các tệp cần thiết.",
         )
 
-    def persist_chatbot_failure(
-        error_code: str, error_message: str, provider_status: int | None = None
-    ) -> None:
+    reference = uuid4().hex[:12].upper()
+
+    def persist_chatbot_failures(failures, *, response_model=None):
+        if not failures:
+            return
         try:
-            record_system_incident(
-                db, project_id=p.id, project_name=p.name,
-                actor={"id": user.id, "name": user.name, "email": user.email},
-                error_code=error_code, message=error_message, provider_status=provider_status,
-            )
+            actor = {"id": user.id, "name": user.name, "email": user.email}
+            for failure in failures:
+                record_system_incident(
+                    db, project_id=p.id, project_name=p.name, actor=actor,
+                    error_code=failure["code"], message=failure["message"],
+                    provider_status=failure.get("provider_status"),
+                    details={
+                        "reference": reference,
+                        "model": failure.get("model"),
+                        "response_model": response_model,
+                        "attempt_count": failure.get("attempt_count"),
+                        "retry_failures": failure.get("retry_failures"),
+                        "exception_type": failure.get("exception_type"),
+                    },
+                )
             db.commit()
         except Exception:
             db.rollback()
-            logger.exception("Could not persist chatbot error log for project %s", pid)
+            logger.exception("Could not persist chatbot incident %s for project %s", reference, pid)
 
     try:
         answer, model_used, fallback_failures = ask_nvidia(
@@ -152,37 +165,25 @@ def chatbot_reply(
             document_context or None,
             preferred_model=preferred_model.strip() or None,
         )
-        for failure in fallback_failures:
-            persist_chatbot_failure(
-                str(failure.get("code") or "chatbot_error"),
-                f"[model={failure.get('model') or 'unknown'}] {failure.get('message') or ''}",
-                failure.get("provider_status"),
-            )
+        if fallback_failures:
+            logger.info("Chatbot incident %s for project %s: answered after fallback", reference, pid)
+            persist_chatbot_failures(fallback_failures, response_model=model_used)
     except ChatbotError as exc:
-        logger.warning("Chatbot request failed for project %s: %s", pid, exc)
-        attempts = list(getattr(exc, "attempts", []) or [])
-        if attempts:
-            for failure in attempts:
-                persist_chatbot_failure(
-                    str(failure.get("code") or "chatbot_error"),
-                    f"[model={failure.get('model') or 'unknown'}] {failure.get('message') or ''}",
-                    failure.get("provider_status"),
-                )
-        else:
-            model_name = getattr(exc, "model_name", None)
-            prefix = f"[model={model_name}] " if model_name else ""
-            persist_chatbot_failure(
-                str(getattr(exc, "code", "chatbot_error")),
-                f"{prefix}{exc}",
-                getattr(exc, "provider_status", None),
-            )
+        logger.warning("Chatbot incident %s for project %s: %s", reference, pid, exc.code)
+        persist_chatbot_failures(exc.attempts or [{
+            "code": exc.code,
+            "message": str(exc),
+            "model": exc.model_name,
+            "provider_status": exc.provider_status,
+        }])
         raise HTTPException(503, "Không thể kết nối tới chatbot. Vui lòng thử lại sau.")
     except Exception as exc:
-        logger.exception("Unexpected chatbot failure for project %s", pid)
-        persist_chatbot_failure(
-            "internal_error",
-            f"{type(exc).__name__}: {exc}",
-        )
+        logger.exception("Unexpected chatbot incident %s for project %s", reference, pid)
+        persist_chatbot_failures([{
+            "code": "internal_error",
+            "message": "Trợ lý AI chưa thể trả lời. Hãy thử lại sau.",
+            "exception_type": type(exc).__name__,
+        }])
         raise HTTPException(503, "Không thể kết nối tới chatbot. Vui lòng thử lại sau.")
     return {
         "answer": answer,
