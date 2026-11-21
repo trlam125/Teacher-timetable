@@ -417,9 +417,18 @@ SYSTEM_INSTRUCTION = """Bạn là trợ lý phân công giảng dạy và thời
 
 Nhiệm vụ:
 - Phân tích phân công hiện tại, thời khóa biểu đã xếp và bảng người dùng đính kèm.
-- Kiểm tra đủ lớp, môn, số tiết theo định mức khối; đúng chuyên môn; khóa lịch, tiết tránh và mâu thuẫn nhìn thấy trong dữ liệu. Không áp dụng giới hạn tải tuần, tối đa tiết/ngày của giáo viên hoặc tối đa tiết liên tiếp của môn.
+- Kiểm tra đủ lớp, môn, số tiết theo định mức khối; đúng chuyên môn; khóa lịch, tiết tránh và mâu thuẫn nhìn thấy trong dữ liệu. Không tự đặt ra giới hạn tải tuần hoặc tối đa tiết/ngày của giáo viên nếu hệ thống không có quy định đó. Riêng chế độ tối đa 2 tiết liền nhau của một môn trong một lớp, tính riêng từng buổi, chỉ áp dụng khi phân công có cấu hình tương ứng; không đánh đồng với số tiết dạy liên tục của giáo viên.
 - Đề xuất phương án cụ thể, ưu tiên danh sách gạch đầu dòng dễ đọc trên màn hình nhỏ. Với phân công giáo viên, mỗi giáo viên là một mục theo mẫu: **Tên giáo viên** — Môn: ... — Lớp: ... — Số tiết/tuần: ... — Lý do: ...
 - Phân biệt rõ yêu cầu bắt buộc, giả định và gợi ý tối ưu.
+
+Quy tắc trình bày dành cho giáo viên và người dùng thông thường:
+- Chỉ dùng tiếng Việt tự nhiên, dễ hiểu; không đưa mã lập trình, tên trường JSON, tên biến, khóa kiểm tra, mã ràng buộc, tên API hoặc ký hiệu xử lý giao diện vào câu trả lời. Ví dụ không viết `max_two_consecutive`, `duplicate_assignments`, `coverage_checks`, `current_assignments`, `scheduled_lessons`, `block_mode`, `teacher_id`, `@@INLINE_0@@`. Hãy diễn giải ý nghĩa bằng tiếng Việt.
+- `max_two_consecutive` là chế độ giới hạn tối đa hai tiết liền nhau **của cùng một môn trong cùng một lớp, tính riêng từng buổi**. Đây KHÔNG PHẢI quy tắc giới hạn giáo viên dạy tối đa hai tiết liên tiếp; không được suy diễn thành lỗi tải giáo viên.
+- Với dữ liệu kiểm tra, danh sách trùng lặp rỗng nghĩa là chưa phát hiện phân công trùng. Không được gọi một khóa kỹ thuật hay một mục kiểm tra rỗng là một vấn đề đang tồn tại.
+- Chỉ kết luận có vi phạm nếu xác định được đối tượng, các tiết/ngày cụ thể và quy tắc áp dụng. Nếu chỉ là khả năng cần lưu ý, viết rõ đó là gợi ý kiểm tra, không khẳng định lịch đã sai.
+- Không đưa ra các nhận định như giáo viên bị mệt, giáo viên quá tải hoặc môn học phân bố sai nếu dữ liệu và quy định cụ thể không hỗ trợ kết luận; khi cần thì chỉ gợi ý rà soát.
+- Trợ lý này CHỈ phục vụ giáo viên và người sử dụng phổ thông về phân công giảng dạy, thời khóa biểu và thao tác trên ứng dụng. Không cung cấp mã nguồn, hướng dẫn lập trình, tên biến, cấu trúc dữ liệu hay chi tiết kỹ thuật, kể cả khi được yêu cầu trực tiếp. Nếu câu hỏi nằm ngoài phạm vi này, từ chối ngắn gọn, lịch sự và hướng dẫn người dùng hỏi về chức năng thời khóa biểu.
+- Nếu người dùng hỏi ý nghĩa một quy tắc của thời khóa biểu, giải thích bằng ngôn ngữ nghiệp vụ, không trích dẫn mã nội bộ.
 
 Quy tắc về độ đầy đủ của câu trả lời:
 - Ưu tiên đầy đủ thông tin liên quan trước, ngắn gọn sau. Chỉ tóm tắt hoặc rút gọn khi người dùng yêu cầu rõ như “tóm tắt”, “ngắn gọn”, “chỉ nêu ý chính”.
@@ -517,6 +526,54 @@ def _normalize_assistant_markdown(answer: str) -> str:
         normalized.append(f"{prefix}{content}" if content else prefix.rstrip())
 
     return "\n".join(normalized).strip()
+
+
+# Only replace a small whitelist of application-internal identifiers in
+# ordinary teacher-facing replies. Do not invent explanations for unknown keys
+# or modify actual project data, model prompts, or the diagnostic logs.
+_TEACHER_FRIENDLY_TERMS = {
+    "max_two_consecutive": "tối đa 2 tiết liền nhau của cùng một môn trong một lớp, tính riêng từng buổi",
+    "duplicate_assignments": "phân công trùng lặp",
+    "coverage_checks": "kết quả kiểm tra phân công",
+    "current_assignments": "danh sách phân công hiện tại",
+    "scheduled_lessons": "các tiết đã xếp trên thời khóa biểu",
+    "required_double": "bắt buộc xếp tiết đôi",
+    "preferred_double": "ưu tiên xếp tiết đôi",
+    "globally_blocked_slots": "các tiết bị khóa chung",
+    "block_mode": "chế độ xếp tiết",
+}
+_PROGRAMMING_REQUEST_PATTERN = re.compile(
+    r"(?:\b(?:python|javascript|typescript|sql|json|html|css|api|debug|code|backend|frontend|" 
+    r"source\s+code|code\s+review|endpoint|framework)\b"
+    r"|mã\s+nguồn|đoạn\s+mã|viết\s+(?:mã|code|chương trình)|lập\s+trình"
+    r"|sửa\s+(?:lỗi\s+)?code|tên\s+(?:biến|trường\s+dữ\s+liệu)"
+    r"|cấu\s+trúc\s+(?:mã\s+nguồn|cơ\s+sở\s+dữ\s+liệu))",
+    re.IGNORECASE,
+)
+_TEACHER_SUPPORT_SCOPE_MESSAGE = (
+    "Trợ lý này hỗ trợ phân công giảng dạy, thời khóa biểu và cách sử dụng "
+    "các chức năng của hệ thống. Bạn có thể hỏi về lịch dạy, số tiết, "
+    "lớp học, giáo viên hoặc cách sắp xếp thời khóa biểu."
+)
+
+
+def _is_programming_request(question: str) -> bool:
+    """Detect requests for developer help, not everyday timetable questions."""
+    return bool(_PROGRAMMING_REQUEST_PATTERN.search(str(question or "")))
+
+
+def _humanize_assistant_markdown(answer: str, question: str = "") -> str:
+    """Translate internal scheduling names for every user, with no developer mode."""
+    text = str(answer or "")
+    for internal, description in _TEACHER_FRIENDLY_TERMS.items():
+        token = re.compile(
+            rf"(?<![A-Za-z0-9_])`?{re.escape(internal)}`?(?![A-Za-z0-9_])",
+            re.IGNORECASE,
+        )
+        text = token.sub(description, text)
+    # Remove broken frontend placeholder tokens if an upstream model echoes one.
+    text = re.sub(r"@@INLINE_?\d+@@", "", text, flags=re.IGNORECASE)
+    return text
 
 
 NVIDIA_FALLBACK_MODELS = ("nvidia/nemotron-3.5-lightning-30b-a3b",)
@@ -847,6 +904,11 @@ def ask_nvidia(
     uploaded_table: list[dict[str, Any]] | None = None,
     preferred_model: str | None = None,
 ) -> tuple[str, str, list[dict[str, Any]]]:
+    # Public-facing assistant: programming requests never reach the AI provider.
+    # Return no model identifier so the UI keeps its currently selected model.
+    if _is_programming_request(message):
+        return _TEACHER_SUPPORT_SCOPE_MESSAGE, "", []
+
     api_key = nvidia_api_key()
     if not api_key:
         raise ChatbotError(
@@ -907,7 +969,8 @@ def ask_nvidia(
                     deadline,
                 )
                 calls_for_model += provider_calls
-                return _normalize_assistant_markdown(answer), model, attempts
+                friendly_answer = _humanize_assistant_markdown(answer, message)
+                return _normalize_assistant_markdown(friendly_answer), model, attempts
             except ChatbotError as exc:
                 calls_for_model += max(0, int(getattr(exc, "provider_call_count", 0)))
                 last_error = exc

@@ -63,7 +63,11 @@
     let source = String(text ?? "");
     const protectedParts = [];
     const protect = (html) => {
-      const token = `@@INLINE_${protectedParts.length}@@`;
+      // Private-use markers cannot be mistaken for Markdown emphasis markers.
+      // The previous @@INLINE_0@@ tokens were broken when two inline code
+      // snippets appeared in the same sentence: _0@@ ... @@INLINE_ matched
+      // the italic regex below and leaked internal placeholders into the UI.
+      const token = `\uE000${protectedParts.length}\uE001`;
       protectedParts.push(html);
       return token;
     };
@@ -88,7 +92,7 @@
     safe = safe.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, "$1<em>$2</em>");
 
     protectedParts.forEach((html, index) => {
-      safe = safe.replaceAll(`@@INLINE_${index}@@`, html);
+      safe = safe.replaceAll(`\uE000${index}\uE001`, html);
     });
     return safe;
   }

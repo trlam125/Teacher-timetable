@@ -190,5 +190,5 @@ def chatbot_reply(
         "files_analyzed": len(uploaded_tables),
         "document_context": document_context,
         "model_used": model_used,
-        "fallback_used": model_used != nvidia_primary_model(),
+        "fallback_used": bool(model_used) and model_used != nvidia_primary_model(),
     }
