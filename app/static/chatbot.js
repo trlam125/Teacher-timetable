@@ -49,6 +49,32 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
 
+  // A second presentation safeguard for responses from older deployments.
+  // The backend remains the source of truth for the complete language policy.
+  function publicTeacherAnswer(content) {
+    const names = {
+      max_two_consecutive: "tối đa 2 tiết liền nhau của cùng một môn trong một lớp, tính riêng từng buổi",
+      duplicate_assignments: "phân công trùng lặp",
+      coverage_checks: "kết quả kiểm tra phân công",
+      current_assignments: "danh sách phân công hiện tại",
+      scheduled_lessons: "các tiết đã xếp trên thời khóa biểu",
+      block_mode: "chế độ xếp tiết",
+      teacher_id: "giáo viên",
+      class_id: "lớp học",
+      check: "kiểm tra",
+      slot: "thời điểm",
+      day: "thứ trong tuần",
+      session: "buổi học",
+      period: "tiết học",
+    };
+    return String(content ?? "")
+      .replace(/\s*\(\s*(?:optimization suggestions|suggested improvements|improvement suggestions)\s*\)/gi, "")
+      .replace(/\b(?:optimization suggestions|suggested improvements|improvement suggestions)\b/gi, "gợi ý cải thiện")
+      .replace(/\b(max_two_consecutive|duplicate_assignments|coverage_checks|current_assignments|scheduled_lessons|block_mode|teacher_id|class_id|check|slot|day|session|period)\b/gi, (word) => names[word.toLowerCase()] || word)
+      .replace(/@@INLINE_?\d+@@/gi, "")
+      .replace(/`([^`\n]{1,80})`/g, "$1");
+  }
+
   function setConnectionState(connected) {
     const status = popupStatus || pageStatus;
     if (!status) return;
@@ -541,7 +567,7 @@
       !extraClass.includes("error") &&
       !extraClass.includes("chat-loading")
     ) {
-      body.innerHTML = renderMarkdown(content);
+      body.innerHTML = renderMarkdown(publicTeacherAnswer(content));
     } else {
       body.textContent = content;
     }
@@ -713,10 +739,11 @@
       if (result.model_used) activeModel = String(result.model_used);
       if (Array.isArray(result.document_context))
         documentContext = result.document_context;
-      addMessage("assistant", result.answer);
+      const visibleAnswer = publicTeacherAnswer(result.answer);
+      addMessage("assistant", visibleAnswer);
       history.push(
         { role: "user", content: prompt },
-        { role: "assistant", content: result.answer },
+        { role: "assistant", content: visibleAnswer },
       );
       if (history.length > 8) history.splice(0, history.length - 8);
     } catch (error) {

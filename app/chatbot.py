@@ -422,10 +422,12 @@ Nhiệm vụ:
 - Phân biệt rõ yêu cầu bắt buộc, giả định và gợi ý tối ưu.
 
 Quy tắc trình bày dành cho giáo viên và người dùng thông thường:
-- Chỉ dùng tiếng Việt tự nhiên, dễ hiểu; không đưa mã lập trình, tên trường JSON, tên biến, khóa kiểm tra, mã ràng buộc, tên API hoặc ký hiệu xử lý giao diện vào câu trả lời. Ví dụ không viết `max_two_consecutive`, `duplicate_assignments`, `coverage_checks`, `current_assignments`, `scheduled_lessons`, `block_mode`, `teacher_id`, `@@INLINE_0@@`. Hãy diễn giải ý nghĩa bằng tiếng Việt.
+- Chỉ dùng tiếng Việt phổ thông trong TOÀN BỘ câu trả lời, gồm tiêu đề, danh sách và chú thích. Không viết kèm tiêu đề tiếng Anh trong ngoặc; không dùng từ tiếng Anh thông dụng thay tiếng Việt (ví dụ: check, slot, day, session, optimization suggestions, hot). Chỉ giữ nguyên tên riêng và tên sản phẩm chính thức nếu thật sự cần.
+- Không trích dẫn mã lập trình, tên trường dữ liệu, tên biến, khóa kiểm tra, mã ràng buộc, tên API hoặc ký hiệu xử lý giao diện. Chuyển tất cả thành diễn giải nghiệp vụ bằng tiếng Việt; không để tên kỹ thuật trong dấu nháy hoặc dấu backtick. Không tiết lộ từ ngữ nội bộ kể cả khi chúng có trong dữ liệu đầu vào.
 - `max_two_consecutive` là chế độ giới hạn tối đa hai tiết liền nhau **của cùng một môn trong cùng một lớp, tính riêng từng buổi**. Đây KHÔNG PHẢI quy tắc giới hạn giáo viên dạy tối đa hai tiết liên tiếp; không được suy diễn thành lỗi tải giáo viên.
 - Với dữ liệu kiểm tra, danh sách trùng lặp rỗng nghĩa là chưa phát hiện phân công trùng. Không được gọi một khóa kỹ thuật hay một mục kiểm tra rỗng là một vấn đề đang tồn tại.
 - Chỉ kết luận có vi phạm nếu xác định được đối tượng, các tiết/ngày cụ thể và quy tắc áp dụng. Nếu chỉ là khả năng cần lưu ý, viết rõ đó là gợi ý kiểm tra, không khẳng định lịch đã sai.
+- Hai giáo viên khác nhau ĐƯỢC dạy các lớp khác nhau cùng một thời điểm. Chỉ gọi là trùng lịch dạy nếu CHÍNH CÙNG MỘT giáo viên bị xếp vào hai lớp trở lên tại cùng thứ, buổi và tiết; hoặc CÙNG MỘT lớp có nhiều môn tại đúng cùng thời điểm. Không suy diễn trùng lịch chỉ từ việc hai giáo viên có giờ dạy trùng nhau.
 - Không đưa ra các nhận định như giáo viên bị mệt, giáo viên quá tải hoặc môn học phân bố sai nếu dữ liệu và quy định cụ thể không hỗ trợ kết luận; khi cần thì chỉ gợi ý rà soát.
 - Trợ lý này CHỈ phục vụ giáo viên và người sử dụng phổ thông về phân công giảng dạy, thời khóa biểu và thao tác trên ứng dụng. Không cung cấp mã nguồn, hướng dẫn lập trình, tên biến, cấu trúc dữ liệu hay chi tiết kỹ thuật, kể cả khi được yêu cầu trực tiếp. Nếu câu hỏi nằm ngoài phạm vi này, từ chối ngắn gọn, lịch sự và hướng dẫn người dùng hỏi về chức năng thời khóa biểu.
 - Nếu người dùng hỏi ý nghĩa một quy tắc của thời khóa biểu, giải thích bằng ngôn ngữ nghiệp vụ, không trích dẫn mã nội bộ.
@@ -528,9 +530,9 @@ def _normalize_assistant_markdown(answer: str) -> str:
     return "\n".join(normalized).strip()
 
 
-# Only replace a small whitelist of application-internal identifiers in
-# ordinary teacher-facing replies. Do not invent explanations for unknown keys
-# or modify actual project data, model prompts, or the diagnostic logs.
+# User-facing rendering uses a deterministic safety net in addition to the
+# model's Vietnamese-only instructions. Keep these replacements narrow enough
+# to preserve teacher names, class names and timetable values.
 _TEACHER_FRIENDLY_TERMS = {
     "max_two_consecutive": "tối đa 2 tiết liền nhau của cùng một môn trong một lớp, tính riêng từng buổi",
     "duplicate_assignments": "phân công trùng lặp",
@@ -541,9 +543,37 @@ _TEACHER_FRIENDLY_TERMS = {
     "preferred_double": "ưu tiên xếp tiết đôi",
     "globally_blocked_slots": "các tiết bị khóa chung",
     "block_mode": "chế độ xếp tiết",
+    "teacher_id": "giáo viên",
+    "class_id": "lớp học",
+    "subject_id": "môn học",
+    "assignment_id": "phân công giảng dạy",
+    "invalid_slot": "thời điểm không hợp lệ",
+    "days_per_week": "số ngày học trong tuần",
+    "sessions_per_day": "số buổi học trong ngày",
+    "periods_per_session": "số tiết học trong mỗi buổi",
+    "periods_per_day": "số tiết học mỗi ngày",
+    "school_name": "tên trường",
+    "project_data": "dữ liệu thời khóa biểu",
+    "check": "kiểm tra",
+    "slot": "thời điểm",
+    "day": "thứ trong tuần",
+    "session": "buổi học",
+    "period": "tiết học",
+    "teacher": "giáo viên",
+    "subject": "môn học",
+    "assignment": "phân công",
+    "workload": "khối lượng giảng dạy",
 }
+_TEACHER_FRIENDLY_PHRASES = (
+    (re.compile(r"\s*\(\s*(?:optimization\s+suggestions|suggested\s+improvements|"
+                r"improvement\s+suggestions|recommendations\s+for\s+optimization)\s*\)", re.I), ""),
+    (re.compile(r"\b(?:optimization\s+suggestions|suggested\s+improvements|"
+                r"improvement\s+suggestions)\b", re.I), "gợi ý cải thiện"),
+    (re.compile(r"\b(?:teacher\s+hot|hot\s+teacher)\b", re.I), "giáo viên có lịch dạy dày"),
+    (re.compile(r"giáo\s+viên\s+(?:[\u201c\u201d\u0027]?)hot(?:[\u201c\u201d\u0027]?)", re.I), "giáo viên có lịch dạy dày"),
+)
 _PROGRAMMING_REQUEST_PATTERN = re.compile(
-    r"(?:\b(?:python|javascript|typescript|sql|json|html|css|api|debug|code|backend|frontend|" 
+    r"(?:\b(?:python|javascript|typescript|sql|json|html|css|api|debug|code|backend|frontend|"
     r"source\s+code|code\s+review|endpoint|framework)\b"
     r"|mã\s+nguồn|đoạn\s+mã|viết\s+(?:mã|code|chương trình)|lập\s+trình"
     r"|sửa\s+(?:lỗi\s+)?code|tên\s+(?:biến|trường\s+dữ\s+liệu)"
@@ -558,20 +588,36 @@ _TEACHER_SUPPORT_SCOPE_MESSAGE = (
 
 
 def _is_programming_request(question: str) -> bool:
-    """Detect requests for developer help, not everyday timetable questions."""
+    """Detect developer-help requests rather than timetable operations."""
     return bool(_PROGRAMMING_REQUEST_PATTERN.search(str(question or "")))
 
 
 def _humanize_assistant_markdown(answer: str, question: str = "") -> str:
-    """Translate internal scheduling names for every user, with no developer mode."""
+    """Render known internal names as Vietnamese on *every* response."""
     text = str(answer or "")
+    for pattern, replacement in _TEACHER_FRIENDLY_PHRASES:
+        text = pattern.sub(replacement, text)
+    # A word boundary prevents turning e.g. Monday into a translated "day".
     for internal, description in _TEACHER_FRIENDLY_TERMS.items():
         token = re.compile(
             rf"(?<![A-Za-z0-9_])`?{re.escape(internal)}`?(?![A-Za-z0-9_])",
             re.IGNORECASE,
         )
         text = token.sub(description, text)
-    # Remove broken frontend placeholder tokens if an upstream model echoes one.
+    # Unknown snake_case keys must not reach public-facing teacher replies.
+    # Use a neutral description rather than inventing the semantics of a key.
+    text = re.sub(
+        r"(?<![A-Za-z0-9_])`?[a-z][a-z0-9]*(?:_[a-z0-9]+)+`?(?![A-Za-z0-9_])",
+        "thông tin liên quan",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Avoid visually presenting a plain class/môn name as developer code.
+    text = re.sub(
+        r"`([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ0-9 .-]{0,60})`",
+        r"\1",
+        text,
+    )
     text = re.sub(r"@@INLINE_?\d+@@", "", text, flags=re.IGNORECASE)
     return text
 
@@ -930,7 +976,11 @@ def ask_nvidia(
     turns = [
         (
             "assistant" if item.get("role") == "assistant" else "user",
-            str(item.get("content", "")).strip()[:8_000],
+            (
+                _humanize_assistant_markdown(str(item.get("content", "")))
+                if item.get("role") == "assistant"
+                else str(item.get("content", ""))
+            ).strip()[:8_000],
         )
         for item in history[-8:]
     ]
