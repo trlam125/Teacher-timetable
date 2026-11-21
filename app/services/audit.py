@@ -11,12 +11,12 @@ from app.schedule_audit.parsing import strict_audit_int
 def read_schedule_upload(file: UploadFile) -> tuple[str, bytes]:
     filename = (file.filename or "").strip()
     if not filename:
-        raise HTTPException(400, "Hãy chọn file thời khóa biểu cần kiểm tra.")
+        raise HTTPException(400, "Hãy chọn tệp thời khóa biểu cần kiểm tra.")
     content = file.file.read(MAX_SCHEDULE_AUDIT_FILE_BYTES + 1)
     if not content:
-        raise HTTPException(400, "File tải lên đang rỗng.")
+        raise HTTPException(400, "Tệp đã chọn đang trống. Hãy chọn tệp khác.")
     if len(content) > MAX_SCHEDULE_AUDIT_FILE_BYTES:
-        raise HTTPException(413, "File quá lớn. Giới hạn kiểm tra là 15 MB.")
+        raise HTTPException(413, "Hãy chọn tệp có dung lượng tối đa 15 MB.")
     return filename, content
 
 

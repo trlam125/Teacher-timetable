@@ -10,6 +10,15 @@ from app.settings import MAX_SYSTEM_INCIDENT_LOGS
 from app.scheduling.solver.diagnostics import scheduler_runtime_diagnostics
 
 
+AI_INCIDENT_MESSAGES = {
+    "auth": "Trợ lý AI chưa thể kết nối. Hãy liên hệ người quản lý.",
+    "blocked": "Trợ lý AI không thể xử lý nội dung này.",
+    "deadline": "Trợ lý AI mất quá nhiều thời gian để trả lời. Hãy thử lại.",
+    "network": "Mất kết nối với trợ lý AI. Hãy thử lại.",
+    "rate_limit": "Trợ lý AI đang bận. Hãy thử lại sau.",
+}
+
+
 def record_system_incident(
     db, *, error_code, message, project_id=None, project_name="", actor=None,
     provider_status=None, details=None,
@@ -56,6 +65,13 @@ def incident_log_view(row):
     source = "Bộ xếp lịch" if code.startswith("scheduler_") else (
         "Smart TKB" if code.startswith("system_") else "Trợ lý AI"
     )
+    provider, _, reason = code.partition("_")
+    if provider in {"gemini", "nvidia"}:
+        summary = AI_INCIDENT_MESSAGES.get(reason, "Trợ lý AI chưa thể trả lời. Hãy thử lại sau.")
+    elif code == "missing_api_key":
+        summary = "Trợ lý AI hiện chưa sẵn sàng. Hãy liên hệ người quản lý."
+    elif code == "internal_error":
+        summary = "Trợ lý AI chưa thể trả lời. Hãy thử lại sau."
     return {
         "id": row.id, "created_at": row.created_at,
         "project_id": row.project_id, "project_name": row.project_name,

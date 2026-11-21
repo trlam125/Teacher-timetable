@@ -254,19 +254,19 @@ function renderScheduleAudit(report, ai = scheduleAuditAiAnalysis, preserveScrol
     hasWeeklyDifferences = weeklyDifferences > 0,
     aiMarked = Number(ai?.summary?.marked_cells || 0);
   const statusTitle = hasConflict
-    ? `Phát hiện ${conflicts} xung đột trong thời khóa biểu`
+    ? `Phát hiện ${conflicts} trường hợp trùng lịch`
     : hasOtherIssues
-      ? `Không có ô bị trùng, nhưng còn ${nonCellIssues.length} cảnh báo/lỗi dữ liệu`
+      ? `Có ${nonCellIssues.length} mục dữ liệu cần xem lại`
       : hasWeeklyDifferences
-        ? `Không trùng lịch, nhưng có ${weeklyDifferences} mục lệch số tiết cần đối chiếu`
+        ? `Có ${weeklyDifferences} mục chênh lệch số tiết`
         : "Không phát hiện ô bị trùng";
   box.innerHTML = `
     <div class="schedule-audit-view-head ${hasConflict || hasOtherIssues || hasWeeklyDifferences ? "has-error" : "clean"}">
       <div class="schedule-audit-view-summary">
         <span class="schedule-audit-status-icon">${hasConflict || hasOtherIssues || hasWeeklyDifferences ? "!" : "✓"}</span>
-        <div><h2>${statusTitle}</h2><p>${esc(report.filename || "File")} · Đã đọc ${Number(summary.recognized_lessons || 0)} tiết · ${Number(summary.classes || 0)} lớp · ${Number(summary.teachers || 0)} giáo viên.</p></div>
+        <div><h2>${statusTitle}</h2><p>${esc(report.filename || "Tệp thời khóa biểu")} · ${Number(summary.recognized_lessons || 0)} tiết · ${Number(summary.classes || 0)} lớp · ${Number(summary.teachers || 0)} giáo viên</p></div>
       </div>
-      <div class="schedule-audit-view-legend"><span class="legend-conflict"></span><b>Đỏ = lỗi rule</b>${hasConflict ? `<small>${affected} ô</small>` : ""}${ai ? `<span class="legend-ai-warning"></span><b>Cam/vàng = AI</b><small>${aiMarked} ô</small>` : ""}</div>
+      <div class="schedule-audit-view-legend"><span class="legend-conflict"></span><b>Đỏ · Trùng lịch</b>${hasConflict ? `<small>${affected} ô</small>` : ""}${ai ? `<span class="legend-ai-warning"></span><b>Cam hoặc vàng · Nhận xét của AI</b><small>${aiMarked} ô</small>` : ""}</div>
     </div>
     ${renderScheduleAuditDataIssues(nonCellIssues)}
     <div class="schedule-audit-tabs" role="tablist" aria-label="Chế độ xem thời khóa biểu">
@@ -287,7 +287,7 @@ function renderScheduleAuditError(message) {
   const box = $("#scheduleAuditResult");
   if (!box) return;
   hideScheduleAuditBottomScroller();
-  box.innerHTML = `<div class="schedule-audit-report-head has-error"><div><span class="schedule-audit-status-icon">!</span></div><div><h2>Không thể kiểm tra file</h2><p>${esc(message || "Đã xảy ra lỗi khi đọc thời khóa biểu.")}</p></div></div>`;
+  box.innerHTML = `<div class="schedule-audit-report-head has-error"><div><span class="schedule-audit-status-icon">!</span></div><div><h2>Chưa kiểm tra được tệp</h2><p>${esc(message || "Hãy kiểm tra lại tệp thời khóa biểu.")}</p></div></div>`;
 }
 function scheduleAuditCellLocation(cellKey, report) {
   const [slotRaw, classRaw] = String(cellKey || "").split(":"),
@@ -314,13 +314,13 @@ function renderScheduleAuditAiLoading() {
   if (!box) return;
   box.hidden = false;
   box.innerHTML =
-    '<div class="schedule-audit-ai-loading"><span></span><div><b>AI đang phân tích thời khóa biểu…</b><small>Rule thường vẫn giữ nguyên; AI chỉ bổ sung nhận xét.</small></div></div>';
+    '<div class="schedule-audit-ai-loading"><span></span><div><b>AI đang phân tích thời khóa biểu…</b></div></div>';
 }
 function renderScheduleAuditAiError(message) {
   const box = $("#scheduleAuditAiResult");
   if (!box) return;
   box.hidden = false;
-  box.innerHTML = `<div class="schedule-audit-ai-head error"><div><span class="schedule-audit-ai-icon">!</span></div><div><h2>AI chưa thể phân tích</h2><p>${esc(message || "Không thể kết nối tới AI.")}</p><small>Phần kiểm tra rule thường phía dưới vẫn sử dụng bình thường.</small></div></div>`;
+  box.innerHTML = `<div class="schedule-audit-ai-head error"><div><span class="schedule-audit-ai-icon">!</span></div><div><h2>Phân tích bằng AI</h2><p>${esc(message || "Chưa thể phân tích. Hãy thử lại sau.")}</p><small>Bạn vẫn có thể dùng nút Kiểm tra để xem các tiết trùng lịch.</small></div></div>`;
 }
 function renderScheduleAuditAiResult(report, ai) {
   const box = $("#scheduleAuditAiResult");
@@ -332,8 +332,8 @@ function renderScheduleAuditAiResult(report, ai) {
   box.innerHTML = `
     <div class="schedule-audit-ai-head ${issues.length ? "has-findings" : "clean"}">
       <div><span class="schedule-audit-ai-icon">✦</span></div>
-      <div class="schedule-audit-ai-copy"><div class="schedule-audit-ai-title-row"><h2>Phân tích bằng AI</h2></div><p>${esc(ai?.overview || "Đã phân tích thời khóa biểu.")}</p><small>AI là lớp kiểm tra bổ sung theo heuristic; lỗi rule cứng vẫn được ưu tiên.</small></div>
-      <div class="schedule-audit-ai-counts"><b>${Number(summary.total || issues.length)}</b><span>điểm cần xem</span>${hasWarnings ? `<small>${Number(summary.warnings || 0)} cảnh báo</small>` : ""}</div>
+      <div class="schedule-audit-ai-copy"><div class="schedule-audit-ai-title-row"><h2>Phân tích bằng AI</h2></div><p>${esc(ai?.overview || "Đã phân tích thời khóa biểu.")}</p></div>
+      ${issues.length ? `<div class="schedule-audit-ai-counts"><b>${Number(summary.total || issues.length)}</b><span>điểm cần xem</span>${hasWarnings ? `<small>${Number(summary.warnings || 0)} cảnh báo</small>` : ""}</div>` : ""}
     </div>
     ${issues.length
       ? `<div class="schedule-audit-ai-issues">${issues
@@ -341,10 +341,10 @@ function renderScheduleAuditAiResult(report, ai) {
           const locations = (issue.cell_keys || [])
             .map((key) => scheduleAuditCellLocation(key, report))
             .filter(Boolean);
-          return `<article class="schedule-audit-ai-issue ${issue.severity === "warning" ? "warning" : "suggestion"}"><div class="schedule-audit-ai-issue-mark">${issue.severity === "warning" ? "!" : "✦"}</div><div><div class="schedule-audit-ai-issue-title"><b>${esc(issue.title || "Cần xem lại")}</b><span>${esc(scheduleAuditAiCategoryLabel(issue.category))}</span></div>${issue.message ? `<p>${esc(issue.message)}</p>` : ""}${issue.suggestion ? `<small><b>Gợi ý:</b> ${esc(issue.suggestion)}</small>` : ""}${locations.length ? `<div class="schedule-audit-ai-locations">${locations.map((location) => `<span>${esc(location)}</span>`).join("")}</div>` : '<div class="schedule-audit-ai-global">Nhận xét toàn cục</div>'}</div></article>`;
+          return `<article class="schedule-audit-ai-issue ${issue.severity === "warning" ? "warning" : "suggestion"}"><div class="schedule-audit-ai-issue-mark">${issue.severity === "warning" ? "!" : "✦"}</div><div><div class="schedule-audit-ai-issue-title"><b>${esc(issue.title || "Cần xem lại")}</b><span>${esc(scheduleAuditAiCategoryLabel(issue.category))}</span></div>${issue.message ? `<p>${esc(issue.message)}</p>` : ""}${issue.suggestion ? `<small><b>Gợi ý:</b> ${esc(issue.suggestion)}</small>` : ""}${locations.length ? `<div class="schedule-audit-ai-locations">${locations.map((location) => `<span>${esc(location)}</span>`).join("")}</div>` : '<div class="schedule-audit-ai-global">Nhận xét chung</div>'}</div></article>`;
         })
         .join("")}</div>`
-      : '<div class="schedule-audit-ai-empty">✓ AI không phát hiện bất thường đáng chú ý ngoài các kiểm tra rule hiện có.</div>'
+      : ""
     }`;
 }
 function renderScheduleAuditWifiLoader() {

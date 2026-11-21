@@ -77,14 +77,14 @@
             </div>
         </section>
         <section class="panel account-form" style="margin-bottom:18px">
-            <h2>Hồ sơ và avatar</h2>
+            <h2>Hồ sơ và ảnh đại diện</h2>
             <div class="avatar-interactive-wrap">
                 <form method="post" action="/teacher/account/avatar" enctype="multipart/form-data"
                     class="avatar-upload-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
-                    <label class="profile-avatar profile-avatar-lg avatar-clickable" title="Bấm để đổi avatar"
-                        aria-label="Bấm để đổi avatar" tabindex="0">
+                    <label class="profile-avatar profile-avatar-lg avatar-clickable" title="Đổi ảnh đại diện"
+                        aria-label="Đổi ảnh đại diện" tabindex="0">
                         {% with avatar_user=user %}{% include "_profile_avatar_content.html" %}{% endwith %}
                         <span class="avatar-overlay" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
@@ -104,8 +104,8 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
                     <input type="hidden" name="remove_avatar" value="true">
-                    <button type="submit" class="avatar-delete-btn" title="Xóa avatar" aria-label="Xóa avatar"
-                        onclick="return confirm('Bạn có chắc muốn xóa avatar này?')">
+                    <button type="submit" class="avatar-delete-btn" title="Xóa ảnh đại diện" aria-label="Xóa ảnh đại diện"
+                        onclick="return confirm('Xóa ảnh đại diện này?')">
                         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
                             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -119,7 +119,7 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 {% if p %}<input type="hidden" name="project_id" value="{{ p.id }}">{% endif %}
                 <label>
-                    Link Facebook cá nhân
+                    Liên kết Facebook cá nhân
                     <input type="url" name="profile_url" value="{{ user.profile_url or '' }}" maxlength="2048"
                         placeholder="https://facebook.com/...">
                 </label>

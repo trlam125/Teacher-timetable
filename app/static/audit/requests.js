@@ -46,7 +46,7 @@ async function runScheduleAudit() {
       if (runId === scheduleAuditRunId && result === scheduleAuditLastReport) {
         initScheduleAuditWorkloadLimits(result);
         scheduleAuditWorkloadError = loadError.message || "Không thể tải định mức đã lưu.";
-        scheduleAuditLimitsNotice = "Không thể xác minh dữ liệu đã lưu. Chưa thay thế hoặc xóa ngưỡng nào.";
+        scheduleAuditLimitsNotice = "Hãy tải lại trang để mở định mức đã lưu.";
         renderScheduleAudit(result, null);
       }
     }
@@ -104,7 +104,7 @@ async function runScheduleAuditAI() {
     if (runId !== scheduleAuditAiRunId) return;
     if (!response.ok || !result.ok) {
       renderScheduleAuditAiError(
-        auditErrorMessage(result, response.status, "Chưa thể phân tích bằng AI. Hãy thử lại sau."),
+        auditErrorMessage(result, response.status, "Chưa thể phân tích. Hãy thử lại sau."),
       );
       return;
     }
@@ -123,7 +123,7 @@ async function runScheduleAuditAI() {
   } catch (error) {
     if (runId === scheduleAuditAiRunId)
       renderScheduleAuditAiError(
-        "Không thể kết nối tới chức năng phân tích AI. Hãy thử lại sau.",
+        "Mất kết nối khi phân tích. Hãy thử lại.",
       );
   } finally {
     if (runId === scheduleAuditAiRunId && button) {

@@ -139,7 +139,7 @@ def create_project(
     else:
         return redirect_with_notice(
             "/projects",
-            "Tài khoản chưa được gán trường để tạo thời khóa biểu",
+            "Hãy liên hệ quản trị viên hệ thống để được cấp quyền tạo thời khóa biểu cho trường.",
             open_create=1,
         )
 

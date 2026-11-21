@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Smart TKB</string>
-    <string name="connection_error_title">Không thể kết nối máy chủ</string>
-    <string name="connection_error_message">Hãy kiểm tra Internet, URL APK đã cấu hình và máy chủ FastAPI.</string>
+    <string name="connection_error_title">Chưa thể mở Smart TKB</string>
+    <string name="connection_error_message">Hãy kiểm tra kết nối mạng rồi bấm Thử lại.</string>
+    <string name="download_error">Chưa tải được tệp. Hãy thử lại.</string>
     <string name="retry">Thử lại</string>
 </resources>

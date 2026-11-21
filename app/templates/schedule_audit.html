@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="/static/style.css?v=11">
     <link rel="stylesheet" href="/static/brand-motion.css?v=1">
     <script src="/static/brand-motion.js?v=1" defer></script>
-    <link rel="stylesheet" href="/static/schedule-audit.css?v=10">
+    <link rel="stylesheet" href="/static/schedule-audit.css?v=11">
     <script src="/static/operation-status.js?v=3" defer></script>
     <script src="/static/appbar-datetime.js?v=1" defer></script>
     <link rel="preload" href="/static/x.gif?v=1" as="image">
@@ -58,8 +58,8 @@
                 <div>
                     <h1>Kiểm tra thời khóa biểu từ tệp</h1>
                     <p>
-                        Kiểm tra trùng lịch và thừa, thiếu tiết theo định mức.
-                        Các ràng buộc riêng của project như tiết tránh, tiết ghim và chế độ xếp tiết chưa được đối chiếu tại đây.
+                        Kiểm tra trùng lịch và đối chiếu số tiết theo định mức trong tệp.
+                        Để kiểm tra tiết tránh, tiết ghim và cách xếp tiết, hãy mở bộ thời khóa biểu của trường.
                     </p>
                 </div>
             </div>
@@ -68,7 +68,7 @@
                     <div class="schedule-audit-upload-copy">
                         <div class="schedule-audit-icon" aria-hidden="true">✓</div>
                         <div>
-                            <h2>Chọn file cần kiểm tra</h2>
+                            <h2>Chọn tệp cần kiểm tra</h2>
                             <p>
                                 Excel <b>.xlsx, .xlsm, .xls</b>, Word <b>.docx</b>, CSV hoặc TSV.
                             </p>
@@ -78,7 +78,7 @@
                         tabindex="0" role="button">
                         <input id="scheduleAuditFile" type="file" accept=".xlsx,.xlsm,.xls,.docx,.csv,.tsv" hidden>
                         <span class="schedule-audit-import-icon" aria-hidden="true">⇪</span>
-                        <span class="schedule-audit-drop-title">Kéo thả file vào đây</span>
+                        <span class="schedule-audit-drop-title">Bấm để chọn tệp hoặc kéo thả vào đây</span>
                         <span id="scheduleAuditDropHint" class="schedule-audit-drop-hint" hidden></span>
                         <span id="scheduleAuditFileName" class="schedule-audit-file-name" hidden></span>
                         <div class="schedule-audit-drop-loader" aria-hidden="true">
@@ -101,9 +101,8 @@
                     </label>
                     <div class="schedule-audit-upload-actions">
                         <div id="scheduleAuditFileActions" class="schedule-audit-file-actions" hidden>
-                            <span>✓ File đã
-                                sẵn sàng</span><button class="schedule-audit-clear" type="button"
-                                onclick="clearScheduleAuditFile()">Bỏ file</button>
+                            <button class="schedule-audit-clear" type="button"
+                                onclick="clearScheduleAuditFile()">Bỏ tệp đã chọn</button>
                         </div>
                         <div class="schedule-audit-action-buttons">
                             <button id="scheduleAuditButton" class="btn schedule-audit-button" type="button"
@@ -120,22 +119,22 @@
                 {% include "_schedule_audit_formats.html" %}
                 <div id="scheduleAuditAiResult" class="schedule-audit-ai-result" hidden></div>
                 <div id="scheduleAuditResult" class="schedule-audit-result schedule-audit-viewer-result">
-                    <div class="empty-state">Chọn một file thời khóa biểu để hiển thị và kiểm tra.</div>
+                    <div class="empty-state">Kết quả kiểm tra sẽ hiển thị tại đây.</div>
                 </div>
             </div>
         </section>
     </main>
     <script src="/static/subject-catalog.js?v=1"></script>
-    <script src="/static/schedule-audit.js?v=3"></script>
+    <script src="/static/schedule-audit.js?v=4"></script>
     <script src="/static/audit/viewport.js?v=2"></script>
-    <script src="/static/audit/upload.js?v=8"></script>
+    <script src="/static/audit/upload.js?v=9"></script>
     <script src="/static/audit/data.js?v=2"></script>
     <script src="/static/audit/editing.js?v=5"></script>
     <script src="/static/audit/workload.js?v=13"></script>
-    <script src="/static/audit/saved-limits.js?v=7"></script>
-    <script src="/static/audit/rendering.js?v=7"></script>
-    <script src="/static/audit/requests.js?v=6"></script>
-    <script src="/static/audit/events.js?v=2"></script>
+    <script src="/static/audit/saved-limits.js?v=8"></script>
+    <script src="/static/audit/rendering.js?v=8"></script>
+    <script src="/static/audit/requests.js?v=7"></script>
+    <script src="/static/audit/events.js?v=3"></script>
     {% include "_realtime_chat_popup.html" %}
     {% if chatbot_project_id %}
     {% include "_chatbot_popup.html" %}

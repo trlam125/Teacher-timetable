@@ -7,8 +7,8 @@ def normalize_profile_url(value: str) -> str:
     if not value:
         return ""
     if len(value) > 2048:
-        raise ValueError("URL hồ sơ Facebook không được dài quá 2048 ký tự.")
-    message = "URL hồ sơ Facebook không hợp lệ."
+        raise ValueError("Liên kết Facebook quá dài. Hãy dán liên kết đến trang cá nhân của bạn.")
+    message = "Liên kết Facebook không hợp lệ. Hãy kiểm tra lại đường dẫn."
     if any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value) or "\\" in value:
         raise ValueError(message)
     try:

@@ -108,7 +108,7 @@ import {
 
   function updateOnlineText(count) {
     if (!activeSchoolId) {
-      onlineText.textContent = "Chưa được gán trường";
+      onlineText.textContent = "Chưa có trường";
       return;
     }
     const safeCount = Number.isFinite(Number(count)) ? Number(count) : roomOnlineUsers.size;
@@ -172,13 +172,13 @@ import {
       if (!schools.length) {
         const option = document.createElement("option");
         option.value = "";
-        option.textContent = "Chưa được gán trường";
+        option.textContent = "Chưa có trường";
         schoolSelect.appendChild(option);
         schoolSelect.disabled = true;
         activeSchoolId = null;
         activeSchoolName = "";
         resetRoomView();
-        messages.innerHTML = '<div class="general-chat-empty">Tài khoản chưa được gán trường nên chưa thể sử dụng chat chung.</div>';
+        messages.innerHTML = '<div class="general-chat-empty">Hãy liên hệ quản trị viên để được cấp quyền nhắn tin trong nhóm của trường.</div>';
         updateOnlineText(0);
         input.disabled = true;
         sendButton.disabled = true;

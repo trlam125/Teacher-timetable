@@ -37,7 +37,7 @@ if (scheduleAuditDropzone) {
     const files = Array.from(event.dataTransfer?.files || []);
     if (files.length > 1) {
       clearScheduleAuditFile(false);
-      renderScheduleAuditError("Mỗi lần chỉ kiểm tra 1 file.");
+      renderScheduleAuditError("Hãy chọn một tệp mỗi lần kiểm tra.");
       return;
     }
     const file = files[0];

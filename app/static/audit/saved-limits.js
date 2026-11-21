@@ -145,15 +145,14 @@ function promptWeeklyCatalogReplace(changes, removedCount, conflicts = []) {
     overlay.id = "weeklyCatalogDialog";
     overlay.className = "weekly-catalog-overlay";
     overlay.innerHTML = `<div class="weekly-catalog-dialog" role="dialog" aria-modal="true" aria-labelledby="weeklyCatalogTitle">
-      <h2 id="weeklyCatalogTitle">TKB mới khác dữ liệu định mức đã lưu</h2>
-      <p>Hệ thống đã kiểm tra trùng lịch của file mới. Danh sách lớp, môn hoặc giáo viên có thay đổi:</p>
+      <h2 id="weeklyCatalogTitle">Cập nhật định mức theo thời khóa biểu mới?</h2>
       <div class="weekly-catalog-diff">${detail}</div>
       ${conflicts.length ? `<p class="weekly-catalog-warning"><b>Cùng một môn đang có nhiều mức tiết khác nhau (${conflicts.length}):</b> ${conflicts.slice(0, 10).map(esc).join("; ")}. Kiểm tra trước khi xác nhận.</p>` : ""}
-      <p><b>Nếu xác nhận thay thế:</b> giữ nguyên số tiết đã nhập của mục còn tồn tại, thêm mục mới với ngưỡng trống và xóa hoặc gộp ${removedCount} dòng định mức không còn phù hợp (bao gồm tên môn trùng).</p>
-      <p class="weekly-catalog-warning">Hãy bảo đảm TKB mới đã có đủ các lớp và môn trước khi tiếp tục. Chỉ số tiết đã khai báo được cập nhật; danh sách chính của trường không bị xóa.</p>
+      <p>Khi cập nhật, số tiết của các mục còn dùng sẽ được giữ lại. Bạn cần nhập số tiết cho mục mới.${removedCount ? ` Hệ thống sẽ xóa hoặc gộp ${removedCount} dòng định mức cũ.` : ""}</p>
+      <p class="weekly-catalog-warning">Hãy kiểm tra tệp đã có đủ lớp và môn trước khi cập nhật định mức.</p>
       <div class="weekly-catalog-actions">
-        <button type="button" class="btn ghost" data-decision="keep">Giữ ngưỡng cũ</button>
-        <button type="button" class="btn" data-decision="replace">Xác nhận thay thế và xóa mục cũ</button>
+        <button type="button" class="btn ghost" data-decision="keep">Giữ định mức cũ</button>
+        <button type="button" class="btn" data-decision="replace">Cập nhật định mức</button>
       </div>
     </div>`;
     let completed = false;
@@ -263,7 +262,7 @@ async function clearAllScheduleAuditWorkloadLimits() {
   const message = `Xóa toàn bộ định mức đã khai báo?\n\n` +
     `• ${enteredClasses} ô số tiết theo khối/môn\n` +
     `• ${enteredAssignments} phân công giáo viên đã nhập tiết\n\n` +
-    `Dữ liệu sẽ bị xóa khỏi tài khoản. Danh sách môn, lớp và giáo viên nhận diện từ TKB vẫn được giữ để nhập lại. File TKB và kết quả kiểm tra trùng lịch không bị xóa.`;
+    `Các số tiết đã lưu trong tài khoản sẽ bị xóa. Bạn có thể nhập lại theo danh sách trong tệp thời khóa biểu.`;
   if (!window.confirm(message)) return;
   const cleared = weeklyMakeLimitDraft(report);
   const revision = scheduleAuditSavedProfile?.revision || 0;

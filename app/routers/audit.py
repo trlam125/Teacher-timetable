@@ -75,7 +75,7 @@ def standalone_audit_schedule_file(
         return JSONResponse(
             {
                 "ok": False,
-                "message": "Không thể phân tích file thời khóa biểu này. Hãy kiểm tra lại cấu trúc file.",
+                "message": "Hãy đối chiếu tệp với mẫu thời khóa biểu rồi thử lại.",
             },
             status_code=500,
         )
@@ -133,7 +133,7 @@ def save_schedule_audit_limits(
         catalog = clean_import_catalog(payload.get("catalog"))
         revision = payload.get("revision", 0)
         if type(revision) is not int or revision < 0:
-            raise ValueError("Phiên bản định mức không hợp lệ.")
+            raise ValueError("Hãy mở lại tệp để tải bảng định mức trước khi lưu.")
     except (ValueError, TypeError) as exc:
         return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
     from sqlalchemy import select
@@ -144,7 +144,7 @@ def save_schedule_audit_limits(
     current = profile.revision if profile else 0
     if revision != current:
         return JSONResponse({"ok": False,
-                             "message": "Bảng định mức đã thay đổi ở phiên làm việc khác. Hãy import lại trước khi lưu."},
+                             "message": "Bảng định mức đã thay đổi. Hãy mở lại tệp để tải định mức mới nhất."},
                             status_code=409)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     if profile is None:
@@ -160,7 +160,7 @@ def save_schedule_audit_limits(
     except IntegrityError:
         db.rollback()
         return JSONResponse({"ok": False,
-                             "message": "Bảng ngưỡng vừa được lưu ở nơi khác. Vui lòng import lại."},
+                             "message": "Bảng định mức đã thay đổi. Hãy mở lại tệp để tải định mức mới nhất."},
                             status_code=409)
     except Exception:
         db.rollback()
@@ -232,7 +232,7 @@ def standalone_ai_audit_schedule_file(
                 return JSONResponse(
                     {
                         "ok": False,
-                        "message": "Dữ liệu chỉnh sửa không khớp với file thời khóa biểu gốc.",
+                        "message": "Các chỉnh sửa không khớp với tệp gốc. Hãy mở lại đúng tệp thời khóa biểu.",
                     },
                     status_code=400,
                 )
@@ -241,7 +241,7 @@ def standalone_ai_audit_schedule_file(
                 return JSONResponse(
                     {
                         "ok": False,
-                        "message": "Không thể đối chiếu dữ liệu chỉnh sửa với file thời khóa biểu gốc.",
+                        "message": "Chưa thể đối chiếu các chỉnh sửa. Hãy mở lại tệp gốc rồi thử lại.",
                     },
                     status_code=500,
                 )
@@ -252,7 +252,7 @@ def standalone_ai_audit_schedule_file(
     else:
         if file is None:
             return JSONResponse(
-                {"ok": False, "message": "Hãy chọn file thời khóa biểu cần phân tích."},
+                {"ok": False, "message": "Hãy chọn tệp thời khóa biểu cần phân tích."},
                 status_code=400,
             )
         filename, content = read_schedule_upload(file)
@@ -269,7 +269,7 @@ def standalone_ai_audit_schedule_file(
             return JSONResponse(
                 {
                     "ok": False,
-                    "message": "Không thể đọc file thời khóa biểu trước khi gửi sang AI.",
+                    "message": "Chưa đọc được tệp thời khóa biểu. Hãy kiểm tra lại tệp.",
                 },
                 status_code=500,
             )
@@ -286,10 +286,15 @@ def standalone_ai_audit_schedule_file(
     except ChatbotError as exc:
         logger.warning("AI schedule audit failed: %s", exc)
         status_code = 400 if exc.code == "context_too_large" else 503
+        messages = {
+            "context_too_large": str(exc),
+            "missing_api_key": "Tính năng AI hiện chưa sẵn sàng. Hãy liên hệ người quản lý.",
+            "nvidia_rate_limit": "Tính năng AI đang bận. Hãy thử lại sau.",
+        }
         return JSONResponse(
             {
                 "ok": False,
-                "message": str(exc),
+                "message": messages.get(exc.code, "Chưa thể phân tích thời khóa biểu. Hãy thử lại sau."),
                 "code": exc.code,
             },
             status_code=status_code,
@@ -299,7 +304,7 @@ def standalone_ai_audit_schedule_file(
         return JSONResponse(
             {
                 "ok": False,
-                "message": "Không thể kết nối AI để phân tích thời khóa biểu. Kiểm tra thường vẫn hoạt động bình thường.",
+                "message": "Chưa thể phân tích thời khóa biểu. Hãy thử lại sau.",
             },
             status_code=503,
         )

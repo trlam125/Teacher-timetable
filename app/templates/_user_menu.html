@@ -40,7 +40,7 @@
         {% endif %}
         {% if user and user.role %}
         <span class="user-avatar-dropdown-role">
-          {{ 'Super Admin' if user.role == 'super_admin' else ('Quản trị viên' if user.role in ['admin', 'manager'] else
+          {{ 'Quản trị viên hệ thống' if user.role == 'super_admin' else ('Quản trị viên' if user.role in ['admin', 'manager'] else
           'Giáo viên') }}
         </span>
         {% endif %}

@@ -25,7 +25,7 @@ def ensure_xml_safe(content: bytes) -> None:
 
     def reject(*_args):
         raise UploadLimitError(
-            "Cấu trúc XML trong tệp Word vượt giới hạn đọc an toàn hoặc chứa DTD/entity không được phép."
+            "Không thể đọc nội dung này trong tệp Word. Hãy lưu lại tệp hoặc chia tài liệu thành các tệp nhỏ hơn."
         )
 
     def start_namespace(prefix, uri):
@@ -83,4 +83,4 @@ def ensure_xml_safe(content: bytes) -> None:
             parser.Parse(content[offset:offset + 64 * 1024], False)
         parser.Parse(b"", True)
     except expat.ExpatError as exc:
-        raise UploadLimitError("Cấu trúc XML trong tệp Word không hợp lệ.") from exc
+        raise UploadLimitError("Không đọc được nội dung tệp Word. Hãy mở và lưu lại tệp dưới dạng .docx.") from exc

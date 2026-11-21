@@ -151,7 +151,7 @@ def update_teacher_avatar(
     if avatar_change is not None:
         user.avatar_url, user.avatar_image = avatar_change
         db.commit()
-    context["success"] = "Đã cập nhật avatar thành công." if not remove_avatar else "Đã xóa avatar thành công."
+    context["success"] = "Đã đổi ảnh đại diện." if not remove_avatar else "Đã xóa ảnh đại diện."
     return templates.TemplateResponse("teacher_account.html", context)
 
 

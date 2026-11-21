@@ -31,26 +31,26 @@
         { target: '.page-title', title: 'Quản lý các bộ thời khóa biểu', text: 'Đây là nơi tạo và quản lý các phương án thời khóa biểu của trường.' },
         { target: '.project-create-btn', title: 'Tạo bộ thời khóa biểu mới', text: 'Bấm “Tạo mới” để khai báo tên bộ, trường, số ngày học, số buổi và số tiết mỗi buổi.' },
         { target: '.project-grid', title: 'Danh sách các bộ hiện có', text: 'Mỗi thẻ là một bộ thời khóa biểu độc lập. Bạn có thể mở, đổi tên, nhân bản hoặc xóa bộ tại đây.' },
-        { target: '.project-card .row', title: 'Thao tác nhanh với một bộ', text: 'Mở bộ để cấu hình dữ liệu và xếp lịch; nhân bản khi muốn tạo một phương án mới từ dữ liệu hiện có.' },
-        { target: 'a[href="/schedule-audit"]', title: 'Kiểm tra TKB từ tệp', text: 'Dùng chức năng này khi bạn có file thời khóa biểu bên ngoài và muốn kiểm tra lỗi hoặc xung đột.' }
+        { target: '.project-card .row', title: 'Mở hoặc nhân bản', text: 'Bấm “Mở” để xếp lịch. Bấm “Nhân bản” để thử phương án mới từ bộ thời khóa biểu này.' },
+        { target: 'a[href="/schedule-audit"]', title: 'Kiểm tra thời khóa biểu từ tệp', text: 'Mở tệp thời khóa biểu để kiểm tra trùng lịch và đối chiếu số tiết.' }
       ]
     },
     users: {
       label: 'Quản lý tài khoản',
       steps: [
         { target: '.page-title', title: 'Quản lý người dùng và trường', text: 'Trang này tập trung các thao tác quản trị tài khoản giáo viên, quản trị viên và trường học.' },
-        { target: '.school-create-form', title: 'Tạo trường', text: 'Tạo trường mới trước khi gán quản trị viên hoặc tạo bộ thời khóa biểu cho trường đó.' },
+        { target: '.school-create-form', title: 'Tạo trường', text: 'Thêm trường trước khi cấp quyền quản lý hoặc tạo thời khóa biểu cho trường đó.' },
         { target: 'main .panel', title: 'Quản lý danh sách trường', text: 'Bạn có thể xem và đổi tên các trường đã thêm.' },
-        { target: '.project-grid', title: 'Quản lý tài khoản', text: 'Mỗi thẻ tài khoản cho phép xem trạng thái, gán trường và cập nhật quyền hoặc thông tin cần thiết.' },
+        { target: '.project-grid', title: 'Quản lý tài khoản', text: 'Mở tài khoản để cập nhật thông tin và cấp quyền truy cập theo trường.' },
         { target: '#system-logs', title: 'Lịch sử lỗi', text: 'Bạn có thể xem các lần trợ lý gặp lỗi, xếp lịch chưa thành công hoặc còn thiếu tiết tại đây.' }
       ]
     },
     audit: {
       label: 'Kiểm tra TKB từ tệp',
       steps: [
-        { target: '#audit .section-head', title: 'Kiểm tra thời khóa biểu từ file', text: 'Kiểm tra trùng lịch và số tiết từ tệp thời khóa biểu.' },
-        { target: '#scheduleAuditDropzone', title: 'Chọn file cần kiểm tra', text: 'Kéo thả hoặc bấm vào vùng này để chọn file Excel, Word, CSV hoặc TSV.' },
-        { target: '.schedule-audit-upload-card', title: 'Chạy kiểm tra', text: 'Chọn “Kiểm tra” để xem các lỗi trong thời khóa biểu.' },
+        { target: '#audit .section-head', title: 'Kiểm tra thời khóa biểu từ tệp', text: 'Trang này kiểm tra trùng lịch và đối chiếu số tiết theo định mức.' },
+        { target: '#scheduleAuditDropzone', title: 'Chọn tệp thời khóa biểu', text: 'Bấm vào vùng này để chọn tệp Excel, Word, CSV hoặc TSV.' },
+        { target: '.schedule-audit-upload-card', title: 'Kiểm tra thời khóa biểu', text: 'Bấm “Kiểm tra” để xem các tiết trùng lịch.' },
         { target: '#scheduleAuditAiResult', title: 'Phân tích bằng AI', text: 'Xem giải thích và gợi ý của trợ lý tại đây.' },
         { target: '#scheduleAuditResult', title: 'Kết quả kiểm tra', text: 'Xem thời khóa biểu và các lỗi cần sửa tại đây.' }
       ]
@@ -102,7 +102,7 @@
       label: 'Phân công',
       steps: [
         { target: '#assignments .section-head', title: 'Phân công giảng dạy', text: 'Mỗi phân công xác định giáo viên, lớp, môn và số tiết phải dạy trong một tuần.' },
-        { target: '#assignments .section-head .btn', title: 'Thêm phân công', text: 'Bấm vào đây để tạo một phân công mới. Hệ thống sẽ dùng các phân công này làm đầu vào khi xếp lịch.' },
+        { target: '#assignments .section-head .btn', title: 'Thêm phân công', text: 'Thêm giáo viên, lớp, môn và số tiết để xếp thời khóa biểu.' },
         { target: '.assignment-explanation', title: 'Hiểu đúng số tiết', text: 'Số tiết/tuần là số tiết của một môn tại một lớp. Cột Tiết/tuần hiển thị số tiết đã quy định theo khối; khi chọn một khối, chỉ hiển thị con số.' },
         { target: '.assignment-filter-panel', title: 'Lọc và kiểm tra phân công', text: 'Lọc theo lớp, môn, giáo viên hoặc trạng thái để nhanh chóng tìm các phân công cần xử lý.' },
         { target: '#assignmentCompletenessSummary', title: 'Kiểm tra độ đầy đủ', text: 'Khu vực này đối chiếu phân công hiện tại với chương trình chuẩn của lớp và khối.' },
@@ -114,7 +114,7 @@
       steps: [
         { target: '#constraints .section-head', title: 'Ngày nghỉ / tiết tránh', text: 'Các ô được đánh dấu sẽ không được xếp tiết vào.' },
         { target: '#constraintType', title: 'Chọn loại đối tượng', text: 'Chọn đang thiết lập tiết tránh cho giáo viên hay cho lớp.' },
-        { target: '#constraintEntity', title: 'Chọn giáo viên hoặc lớp', text: 'Chọn đúng đối tượng cần cấu hình trước khi đánh dấu các ô không thể học hoặc dạy.' },
+        { target: '#constraintEntity', title: 'Chọn giáo viên hoặc lớp', text: 'Chọn người hoặc lớp cần đặt tiết tránh.' },
         { target: '#constraintGrid', title: 'Đánh dấu tiết cần tránh', text: 'Bấm vào các ô thời gian không được phép xếp lịch cho đối tượng đang chọn.' },
         { target: '.constraint-toolbar .btn', title: 'Lưu ràng buộc', text: 'Nhớ lưu sau khi thay đổi. Nếu rời trang khi chưa lưu, các thay đổi có thể bị bỏ.' }
       ]

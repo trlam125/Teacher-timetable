@@ -166,8 +166,8 @@
                             class="avatar-upload-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <label class="profile-avatar profile-avatar-lg avatar-clickable"
-                                title="Bấm để đổi avatar cho {{ account.name }}"
-                                aria-label="Bấm để đổi avatar cho {{ account.name }}" tabindex="0">
+                                title="Đổi ảnh đại diện của {{ account.name }}"
+                                aria-label="Đổi ảnh đại diện của {{ account.name }}" tabindex="0">
                                 {% with avatar_user=account %}{% include "_profile_avatar_content.html" %}{% endwith %}
                                 <span class="avatar-overlay" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
@@ -186,9 +186,9 @@
                         <form method="post" action="/admin/users/{{ account.id }}/avatar" class="avatar-delete-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <input type="hidden" name="remove_avatar" value="true">
-                            <button type="submit" class="avatar-delete-btn" title="Xóa avatar"
-                                aria-label="Xóa avatar của {{ account.name }}"
-                                data-confirm-message="Bạn có chắc muốn xóa avatar của {{ account.name }}?">
+                            <button type="submit" class="avatar-delete-btn" title="Xóa ảnh đại diện"
+                                aria-label="Xóa ảnh đại diện của {{ account.name }}"
+                                data-confirm-message="Xóa ảnh đại diện của {{ account.name }}?">
                                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
                                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
                                     aria-hidden="true">
@@ -207,7 +207,7 @@
                 </td>
                 <td data-label="Vai trò" class="account-role">
                     {% if account.role == "teacher" %}<span class="pill">Giáo viên</span>
-                    {% elif account.role == "super_admin" %}<span class="pill approved-pill">Super admin</span>
+                    {% elif account.role == "super_admin" %}<span class="pill approved-pill">Quản trị viên hệ thống</span>
                     {% else %}<span class="pill approved-pill">Quản trị viên</span>{% endif %}
                 </td>
                 <td data-label="Trạng thái">
@@ -224,7 +224,7 @@
                 </td>
                 <td data-label="Trường học">
                 <p class="account-schools">
-                    {{ school_names_by_account.get(account.id, []) | join(' · ') if assigned_ids else 'Chưa được gán trường' }}
+                    {{ school_names_by_account.get(account.id, []) | join(' · ') if assigned_ids else 'Chưa có trường' }}
                 </p>
                 </td>
                 <td class="account-action">
@@ -282,8 +282,7 @@
                                     </label>
                                     {% endif %}
                                     {% endfor %}
-                                    {% if not ns.has_school %}<p class="muted">Tài khoản quản trị hiện chưa có trường nào để
-                                        gán.</p>{% endif %}
+                                    {% if not ns.has_school %}<p class="muted">Chưa có trường nào để chọn.</p>{% endif %}
                                 </div>
                                 <div class="row end school-assignment-actions"><button class="btn ghost" type="submit" {% if not
                                         ns.has_school %}disabled{% endif %}>Lưu lựa chọn</button></div>
@@ -298,7 +297,7 @@
                                     Họ tên<input name="name" value="{{ account.name }}" required>
                                 </label>
                                 <label>
-                                    Link Facebook cá nhân
+                                    Liên kết Facebook cá nhân
                                     <input type="url" name="profile_url" value="{{ account.profile_url or '' }}"
                                         maxlength="2048" placeholder="https://facebook.com/...">
                                 </label>
@@ -374,7 +373,7 @@
             <div class="section-head system-logs-heading">
                 <div>
                     <h2 style="margin:0 0 6px">Lịch sử lỗi</h2>
-                    <p>Sự cố trợ lý AI và bộ xếp lịch · Giờ Việt Nam (UTC+7)</p>
+                    <p>Sự cố của trợ lý AI và bộ xếp lịch · Giờ Việt Nam</p>
                     <p class="system-logs-count">{{ system_incident_log_count }} sự cố · Hiển thị tối đa 100 lần gần nhất · Lưu tối đa {{ system_incident_log_limit }} sự cố</p>
                 </div>
                 {% if system_incident_logs %}

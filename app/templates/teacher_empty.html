@@ -58,11 +58,7 @@
     <main class="container preference-page">
         <div class="section-head">
             <div>
-                <span class="eyebrow">CHỈ XEM</span>
                 <h1>Thời khóa biểu</h1>
-                <p>{% if not teacher_schools %}Tài khoản của bạn chưa được gán trường nên chưa thể xem bất kỳ thời khóa
-                    biểu nào.{% else %}Chưa có bộ thời khóa biểu nào thuộc trường được gán cho tài khoản của bạn.{%
-                    endif %}</p>
             </div>
             <div class="row" style="align-items:end;flex-wrap:wrap">
                 <label class="project-switcher">
@@ -91,8 +87,7 @@
                     </select>
                 </label>
             </div>
-            <div class="empty-state">{% if not teacher_schools %}Vui lòng liên hệ quản trị viên để được gán trường trong
-                Quản lý tài khoản.{% else %}Hiện chưa có thời khóa biểu nào trong phạm vi trường của bạn.{% endif %}
+            <div class="empty-state">{% if not teacher_schools %}Hãy liên hệ quản trị viên để được cấp quyền xem thời khóa biểu của trường.{% else %}Trường của bạn chưa có thời khóa biểu.{% endif %}
             </div>
         </div>
     </main>

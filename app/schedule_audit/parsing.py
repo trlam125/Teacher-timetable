@@ -146,7 +146,7 @@ def _read_excel_tables(
             raise ScheduleAuditParseError(str(exc)) from exc
         except Exception as exc:
             raise ScheduleAuditParseError(
-                "Không đọc được file Excel. Hãy kiểm tra file có bị hỏng không."
+                "Không đọc được tệp Excel. Hãy mở tệp trong Excel và thử lưu lại dưới dạng .xlsx."
             ) from exc
         tables: list[tuple[str, list[list[str]]]] = []
         try:
@@ -160,7 +160,7 @@ def _read_excel_tables(
         except UploadLimitError as exc:
             raise ScheduleAuditParseError(str(exc)) from exc
         except Exception as exc:
-            raise ScheduleAuditParseError("Không đọc được dữ liệu trong file Excel. Hãy kiểm tra lại file.") from exc
+            raise ScheduleAuditParseError("Không đọc được bảng trong tệp Excel. Hãy kiểm tra lại tệp.") from exc
         finally:
             workbook.close()
         return tables
@@ -169,12 +169,12 @@ def _read_excel_tables(
         import xlrd  # type: ignore
     except ImportError as exc:
         raise ScheduleAuditParseError(
-            "File .xls cần thư viện xlrd. Hãy chạy lại pip install -r requirements.txt hoặc lưu file thành .xlsx."
+            "Chưa đọc được tệp .xls. Hãy lưu tệp dưới dạng .xlsx rồi thử lại."
         ) from exc
     try:
         book = xlrd.open_workbook(file_contents=content, on_demand=True, formatting_info=True, ragged_rows=True)
     except Exception as exc:
-        raise ScheduleAuditParseError("Không đọc được file Excel .xls.") from exc
+        raise ScheduleAuditParseError("Không đọc được tệp .xls. Hãy mở tệp trong Excel và lưu lại dưới dạng .xlsx.") from exc
     tables = []
     try:
         if book.nsheets > MAX_SHEETS:
@@ -194,7 +194,7 @@ def _read_excel_tables(
     except UploadLimitError as exc:
         raise ScheduleAuditParseError(str(exc)) from exc
     except Exception as exc:
-        raise ScheduleAuditParseError("Không đọc được dữ liệu trong file Excel .xls.") from exc
+        raise ScheduleAuditParseError("Không đọc được bảng trong tệp .xls. Hãy thử lưu tệp dưới dạng .xlsx.") from exc
     finally:
         book.release_resources()
     return tables
@@ -206,7 +206,7 @@ def _decode_delimited(content: bytes) -> str:
             return content.decode(encoding)
         except UnicodeDecodeError:
             continue
-    raise ScheduleAuditParseError("Không nhận diện được bảng mã của file CSV/TSV.")
+    raise ScheduleAuditParseError("Không đọc được chữ trong tệp CSV hoặc TSV. Hãy thử lưu bảng dưới dạng Excel (.xlsx).")
 
 
 def _read_delimited_table(
@@ -225,7 +225,7 @@ def _read_delimited_table(
     except UploadLimitError as exc:
         raise ScheduleAuditParseError(str(exc)) from exc
     except csv.Error as exc:
-        raise ScheduleAuditParseError("File CSV/TSV có ô quá dài hoặc cấu trúc không hợp lệ.") from exc
+        raise ScheduleAuditParseError("Tệp CSV hoặc TSV có nội dung quá dài trong một ô hoặc bố cục không hợp lệ.") from exc
     return [("Dữ liệu", rows)]
 
 
@@ -260,7 +260,7 @@ def _read_docx_tables(content: bytes) -> list[tuple[str, list[list[str]]]]:
         root = ET.fromstring(xml)
     except ET.ParseError as exc:
         raise ScheduleAuditParseError(
-            "Nội dung XML của tài liệu Word không hợp lệ."
+            "Không đọc được nội dung tệp Word. Hãy mở và lưu lại tệp dưới dạng .docx."
         ) from exc
 
     body = root.find("w:body", namespace)

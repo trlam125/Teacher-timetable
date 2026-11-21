@@ -128,7 +128,7 @@ def create_school_from_account_management(
     db: Session = Depends(db_session),
 ):
     if not is_super_admin(user):
-        raise HTTPException(403, "Chỉ super admin được tạo trường")
+        raise HTTPException(403, "Chỉ quản trị viên hệ thống được tạo trường.")
     clean_name = bounded_text(name, "Tên trường", 200)
     existing = db.scalar(
         select(School).where(func.lower(School.name) == clean_name.lower())
@@ -148,7 +148,7 @@ def rename_school_from_account_management(
     db: Session = Depends(db_session),
 ):
     if not is_super_admin(user):
-        raise HTTPException(403, "Chỉ super admin được sửa tên trường")
+        raise HTTPException(403, "Chỉ quản trị viên hệ thống được đổi tên trường.")
 
     school = db.get(School, school_id)
     if not school:
@@ -199,17 +199,17 @@ def update_account_schools(
     if is_super_admin(user):
         if account.role not in {"admin", "teacher"}:
             raise HTTPException(
-                403, "Super admin chỉ gán trường cho quản trị viên và giáo viên"
+                403, "Chỉ có thể cấp quyền truy cập trường cho quản trị viên và giáo viên."
             )
         allowed_ids = set(db.scalars(select(School.id)).all())
     else:
         if account.role != "teacher":
-            raise HTTPException(403, "Quản trị viên chỉ được gán trường cho giáo viên")
+            raise HTTPException(403, "Quản trị viên chỉ có thể cấp quyền truy cập trường cho giáo viên.")
         if not admin_can_manage_account(user, account, db):
             raise HTTPException(403, "Giáo viên nằm ngoài phạm vi trường bạn quản lý")
         allowed_ids = user_school_ids(user, db)
         if not allowed_ids:
-            raise HTTPException(403, "Tài khoản quản trị viên chưa được gán trường")
+            raise HTTPException(403, "Tài khoản của bạn chưa có quyền quản lý trường nào.")
 
     requested_ids = {int(value) for value in school_ids}
     if not requested_ids.issubset(allowed_ids):
@@ -254,7 +254,7 @@ def clear_system_incident_logs(
     db: Session = Depends(db_session),
 ):
     if not is_super_admin(user):
-        raise HTTPException(403, "Chỉ super admin được xóa nhật ký sự cố hệ thống")
+        raise HTTPException(403, "Chỉ quản trị viên hệ thống được xóa lịch sử lỗi.")
     db.execute(delete(SystemIncidentLog))
     db.commit()
     return RedirectResponse("/admin/users#system-logs", 303)
@@ -380,7 +380,7 @@ def promote_teacher_to_admin(
 ):
     if not is_super_admin(user):
         raise HTTPException(
-            403, "Chỉ super admin được nâng giáo viên lên quản trị viên"
+            403, "Chỉ quản trị viên hệ thống được cấp quyền quản trị viên cho giáo viên."
         )
     account = db.get(User, account_id)
     if not account:

@@ -1,11 +1,11 @@
 "use strict";
 function scheduleAuditFileValidationError(file) {
-  if (!file) return "Hãy chọn file thời khóa biểu trước khi kiểm tra.";
+  if (!file) return "Hãy chọn tệp thời khóa biểu trước khi kiểm tra.";
   if (file.size > SCHEDULE_AUDIT_MAX_BYTES)
     return "Tệp quá lớn (tối đa 15 MB). Hãy chọn tệp nhỏ hơn.";
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (!SCHEDULE_AUDIT_ALLOWED_EXTENSIONS.includes(ext))
-    return "Định dạng tệp chưa được hỗ trợ. Hãy chọn tệp Excel, Word hoặc CSV (.xlsx, .xlsm, .xls, .docx, .csv, .tsv).";
+    return "Hãy chọn tệp Excel (.xlsx, .xlsm, .xls), Word (.docx), CSV hoặc TSV.";
   return "";
 }
 function setScheduleAuditFile(file) {
@@ -18,14 +18,14 @@ function setScheduleAuditFile(file) {
   if (name)
     name.textContent = file
       ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(file.size >= 1024 * 1024 ? 2 : 3)} MB`
-      : "Chưa chọn file";
+      : "Chưa chọn tệp";
   if (drop) {
     drop.classList.toggle("has-file", !!file);
     drop.setAttribute(
       "aria-label",
       file
-        ? `${file.name} đã sẵn sàng. Bấm để chọn file khác.`
-        : "Kéo thả file thời khóa biểu vào đây hoặc bấm để chọn file.",
+        ? `${file.name}. Bấm để chọn tệp khác.`
+        : "Bấm để chọn tệp thời khóa biểu hoặc kéo thả vào đây.",
     );
   }
   if (actions) actions.hidden = !file;
@@ -79,7 +79,7 @@ function clearScheduleAuditFile(resetResult = true) {
   if (drop) drop.classList.remove("is-analyzing", "is-dragging");
   if (resetResult && box)
     box.innerHTML =
-      '<div class="empty-state">Chọn một file thời khóa biểu để hiển thị và kiểm tra.</div>';
+      '<div class="empty-state">Kết quả kiểm tra sẽ hiển thị tại đây.</div>';
   hideScheduleAuditBottomScroller();
 }
 function selectScheduleAuditFile(file, { autoRun = true } = {}) {

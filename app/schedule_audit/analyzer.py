@@ -39,7 +39,7 @@ def analyze_standalone_schedule_file(
     raw_lessons, parse_warnings, detection = parse_tables_standalone(tables)
     if not raw_lessons:
         raise ScheduleAuditParseError(
-            "Không tìm thấy tiết học nào có thể đọc được. File cần có thông tin Thứ/Tiết và lớp, môn hoặc giáo viên tương ứng."
+            "Chưa tìm thấy tiết học trong tệp. Hãy kiểm tra thứ, tiết và thông tin lớp, môn hoặc giáo viên tương ứng."
         )
     project = infer_standalone_project(tables, raw_lessons)
 

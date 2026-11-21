@@ -186,7 +186,7 @@
   function setWaitingCopy() {
     const elapsed = Date.now() - STARTED_AT;
     if (elapsed > 15000) {
-      text.textContent = "Đang khởi động máy chủ ...";
+      text.textContent = "Smart TKB đang khởi động. Bạn có thể chờ thêm một chút.";
     }
     if (elapsed > SHOW_RETRY_AFTER_MS) retry.hidden = false;
   }
@@ -211,7 +211,7 @@
         retry.hidden = true;
         document.body.classList.add("is-ready");
         title.textContent = "Smart TKB đã sẵn sàng!";
-        text.textContent = "Đang chuyển tiếp tới ứng dụng...";
+        text.textContent = "Đang mở ứng dụng…";
         if (quoteEl) {
           quoteEl.textContent = "🎉 Chúc Thầy Cô và các bạn có buổi làm việc tuyệt vời!";
         }

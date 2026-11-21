@@ -136,7 +136,7 @@ def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
                 document_info = archive.getinfo("word/document.xml")
             except KeyError as exc:
                 raise ChatbotError(
-                    "Tệp Word không có nội dung document.xml hợp lệ."
+                    "Không tìm thấy nội dung trong tệp Word. Hãy mở và lưu lại tệp dưới dạng .docx."
                 ) from exc
             if document_info.file_size > MAX_DOCX_XML_BYTES:
                 raise ChatbotError("Nội dung văn bản trong tệp Word quá lớn.")
@@ -154,7 +154,7 @@ def _parse_docx(filename: str, content: bytes) -> dict[str, Any]:
     except UploadLimitError as exc:
         raise ChatbotError(str(exc)) from exc
     except ElementTree.ParseError as exc:
-        raise ChatbotError("Cấu trúc XML trong tệp Word không hợp lệ.") from exc
+        raise ChatbotError("Không đọc được nội dung tệp Word. Hãy mở và lưu lại tệp dưới dạng .docx.") from exc
     body = root.find(f"{W}body")
     if body is None:
         raise ChatbotError("Tệp Word không có phần nội dung chính.")

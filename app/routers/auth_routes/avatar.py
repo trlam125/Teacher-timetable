@@ -19,9 +19,9 @@ def account_avatar(
 ):
     account = db.get(User, account_id)
     if not account or (account.id != user.id and not admin_can_manage_account(user, account, db)):
-        raise HTTPException(404, "Không tìm thấy avatar")
+        raise HTTPException(404, "Không tìm thấy ảnh đại diện.")
     if not account.avatar_image:
-        raise HTTPException(404, "Không tìm thấy avatar")
+        raise HTTPException(404, "Không tìm thấy ảnh đại diện.")
     return Response(
         content=account.avatar_image,
         media_type="image/png",

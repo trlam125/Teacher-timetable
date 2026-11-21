@@ -14,11 +14,11 @@ async function readAuditResponse(response) {
   }
 }
 function auditFriendlyError(status) {
-  if (status === 413) return "Tệp quá lớn. Hãy chọn tệp nhỏ hơn 15 MB.";
+  if (status === 413) return "Hãy chọn tệp có dung lượng tối đa 15 MB.";
   if (status === 400 || status === 422) return "Không đọc được nội dung tệp. Hãy kiểm tra định dạng và thử lại.";
   if (status === 401) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (status === 409) return "Dữ liệu đã thay đổi. Hãy kiểm tra rồi thử lại.";
-  if (status >= 500) return "Hệ thống đang gặp sự cố khi kiểm tra. Hãy kiểm tra dữ liệu đã lưu và thử lại sau.";
+  if (status >= 500) return "Chưa thể kiểm tra lúc này. Hãy thử lại sau.";
   return "Không thể kiểm tra lúc này. Hãy thử lại.";
 }
 function auditErrorMessage(result, status, fallback) {

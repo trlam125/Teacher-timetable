@@ -49,7 +49,6 @@
 .otp-resend-details summary { min-height: 44px; align-content: center; color: var(--primary); cursor: pointer; }
 .otp-resend-details summary:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
 .otp-resend-details .visual-captcha { margin: 12px 0; }
-.auth-device-note { margin: 16px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 @media (max-width: 540px) {
   .auth-register_otp.auth-scene { padding: 72px 16px 24px; }
 }

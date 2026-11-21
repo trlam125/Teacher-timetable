@@ -296,8 +296,8 @@ public class MainActivity extends Activity {
             DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
             manager.enqueue(request);
             Toast.makeText(this, "Đang tải xuống: " + fileName, Toast.LENGTH_LONG).show();
-        } catch (Exception exception) {
-            Toast.makeText(this, "Không thể tải tệp: " + exception.getMessage(), Toast.LENGTH_LONG).show();
+        } catch (Exception ignored) {
+            Toast.makeText(this, R.string.download_error, Toast.LENGTH_LONG).show();
         } finally {
             pendingDownload = null;
         }

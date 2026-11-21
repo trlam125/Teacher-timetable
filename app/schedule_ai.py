@@ -26,6 +26,7 @@ Mục tiêu:
 - Không lặp lại các lỗi cứng đã có trong rule_conflicts như trùng giáo viên, trùng lớp hoặc trùng phòng, trừ khi cần nhắc ngắn gọn để giải thích một bất thường khác.
 - Hai tiết liên tiếp của cùng một môn là bình thường và KHÔNG được tự động coi là lỗi. Chỉ cảnh báo khi mức độ dồn/lặp thực sự đáng chú ý.
 - Khi nghi parser nhận sai, đối chiếu raw_text với subject và teacher, chú ý tiếng Việt, tên đệm như "Văn", các tiền tố "Cô", "Thầy" và các viết tắt môn học.
+- Viết nhận xét bằng tiếng Việt dễ hiểu cho giáo viên. Dùng tên lớp, môn, giáo viên và tiết học để chỉ rõ nội dung cần xem lại.
 
 Bắt buộc trả về đúng MỘT JSON object, không Markdown, không code fence, theo dạng:
 {
@@ -273,7 +274,7 @@ def analyze_schedule_with_nvidia(
     context_json = json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     if len(context_json) > AI_AUDIT_CONTEXT_LIMIT:
         raise ChatbotError(
-            "Thời khóa biểu quá lớn để gửi cho AI trong một lần. Kiểm tra rule thường vẫn có thể sử dụng bình thường.",
+            "Thời khóa biểu quá lớn để phân tích bằng AI. Hãy chia lịch thành các tệp nhỏ hơn.",
             code="context_too_large",
         )
     messages = [

@@ -240,7 +240,6 @@
                     {% if mode in ["login", "register"] %}
                     {% include "_social_login.html" %}
                     {% endif %}
-                    {% if mode == 'login' %}<p class="auth-device-note">Bạn có thể đăng nhập trên nhiều máy và sử dụng tối đa 2 máy cùng lúc. Khi đăng nhập máy mới, máy ít dùng gần đây nhất sẽ được đăng xuất nếu đã đủ 2 máy.</p>{% endif %}
                     {% if mode=="login" %}
                     <p>Chưa có tài khoản? <a href="/register" data-auth-switch="register">Đăng ký</a></p>
                     {% else %}

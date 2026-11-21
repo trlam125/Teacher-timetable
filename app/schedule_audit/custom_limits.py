@@ -50,7 +50,7 @@ def _periods(value: Any) -> float | None:
 
 def validate_limits(limits: Any) -> dict[str, list[dict[str, Any]]]:
     if not isinstance(limits, dict):
-        raise ValueError('Định mức phải là một đối tượng JSON hợp lệ.')
+        raise ValueError('Không đọc được bảng định mức. Hãy mở lại tệp và kiểm tra số tiết đã nhập.')
     clean = {section: [] for section in SECTIONS}
     for section in SECTIONS:
         rows = limits.get(section, [])
@@ -208,7 +208,7 @@ def check_custom_weekly_workload(viewer: dict[str, Any], raw_limits: Any) -> dic
             'Mỗi ô định mức chỉ có một số tiết bắt buộc; để trống là chưa khai báo.',
             'Tổng số tiết mỗi giáo viên được tự cộng từ các phân công lớp/môn; không nhập tổng riêng.',
             'Nếu còn phân công chưa nhập hoặc có tiết chưa được gán định mức, tổng giáo viên là Chưa xác minh.',
-            'Chỉ kiểm tra những lớp có trong file TKB đã import.',
+            'Chọn lớp có trong tệp thời khóa biểu.',
             'KHTN và KHTN(S) (tương tự LSĐL và LSĐL(Đ)) là các nhãn môn độc lập.',
         ],
     }

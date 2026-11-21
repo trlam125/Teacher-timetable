@@ -1120,7 +1120,7 @@ async function handleExportExcel(event, link) {
       }
       exportBtn.dataset.state = "done";
       exportBtn.removeAttribute("aria-busy");
-      exportBtn.setAttribute("aria-label", "Xuất file hoàn tất");
+      exportBtn.setAttribute("aria-label", "Đã xuất tệp Excel");
       const labelEl = exportBtn.querySelector(".button-label");
       if (labelEl) labelEl.textContent = exportBtn.dataset.doneText || "Hoàn tất";
 
