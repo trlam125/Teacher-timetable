@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Optional
-import os
 
 from fastapi import (
     Depends,
@@ -21,7 +20,7 @@ from app.services.authentication.permissions import user_greeting_name
 from app.services.authentication.sessions import current_user, db_session
 from app.services.projects import chatbot_project_for_user, chatbot_ui_context
 from app.services.web import templates
-from app.settings import DAYS
+from app.settings import DAYS, nvidia_api_key
 
 router = APIRouter()
 
@@ -40,9 +39,7 @@ def standalone_schedule_audit_page(
             "user": user,
             "greeting_name": user_greeting_name(user),
             "days": DAYS,
-            "ai_enabled": bool(os.getenv("GEMINI_API_KEY", "").strip()),
-            "ai_primary_model": os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip()
-            or "gemini-3.7-flash",
+            "ai_enabled": bool(nvidia_api_key()),
             **chatbot_ui_context(chatbot_project),
         },
     )
@@ -211,7 +208,7 @@ def standalone_ai_audit_schedule_file(
     user: User = Depends(current_user),
 ):
     from app.chatbot import ChatbotError
-    from app.schedule_ai import analyze_schedule_with_gemini
+    from app.schedule_ai import analyze_schedule_with_nvidia
     from app.schedule_audit import (
         ScheduleAuditParseError,
         analyze_standalone_schedule_file,
@@ -278,7 +275,7 @@ def standalone_ai_audit_schedule_file(
             )
 
     try:
-        ai_result, model_used, fallback_failures = analyze_schedule_with_gemini(report)
+        ai_result, model_used, fallback_failures = analyze_schedule_with_nvidia(report)
         return {
             "ok": True,
             "report": report,

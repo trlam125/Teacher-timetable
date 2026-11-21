@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from typing import Optional
-import os
 import re
 
 from fastapi import HTTPException
@@ -38,6 +37,7 @@ from app.services.schedule_live import schedule_revision
 from app.services.schedule_operations.blocks import fixed_coverage_slots
 from app.services.schedule_operations.validation import schedule_ui_validation_report
 from app.services.web import bounded_text
+from app.settings import nvidia_api_key, nvidia_primary_model
 from app.subject_catalog import subject_sort_key
 
 
@@ -67,9 +67,8 @@ def chatbot_ui_context(project: Project | None) -> dict:
     return {
         "chatbot_project_id": project.id if project else None,
         "chatbot_project_name": project.name if project else "",
-        "chatbot_enabled": bool(os.getenv("GEMINI_API_KEY", "").strip()),
-        "chatbot_primary_model": os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip()
-        or "gemini-3.7-flash",
+        "chatbot_enabled": bool(nvidia_api_key()),
+        "chatbot_primary_model": nvidia_primary_model(),
     }
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 
 from fastapi import (
     Depends,
@@ -20,7 +19,7 @@ from app.models import User
 from app.services.authentication.sessions import current_user, db_session
 from app.services.projects import chatbot_project_data_for_user, chatbot_ui_context
 from app.services.web import templates
-from app.settings import MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS
+from app.settings import MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS, nvidia_primary_model
 from app.services.system_incidents import record_system_incident
 
 router = APIRouter()
@@ -61,7 +60,7 @@ def chatbot_reply(
         MAX_UPLOAD_BYTES,
         MAX_UPLOAD_FILES,
         ChatbotError,
-        ask_gemini,
+        ask_nvidia,
         parse_uploaded_table,
     )
 
@@ -146,7 +145,7 @@ def chatbot_reply(
             logger.exception("Could not persist chatbot error log for project %s", pid)
 
     try:
-        answer, model_used, fallback_failures = ask_gemini(
+        answer, model_used, fallback_failures = ask_nvidia(
             clean_message,
             history,
             chatbot_data,
@@ -190,8 +189,5 @@ def chatbot_reply(
         "files_analyzed": len(uploaded_tables),
         "document_context": document_context,
         "model_used": model_used,
-        "fallback_used": model_used
-        != (
-            os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
-        ),
+        "fallback_used": model_used != nvidia_primary_model(),
     }

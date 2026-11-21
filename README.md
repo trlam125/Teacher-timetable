@@ -41,6 +41,15 @@ Khởi động lại ứng dụng sau khi cập nhật để tự tạo bảng l
 - **Frontend:** HTML, CSS, JavaScript, Jinja2
 - **Server:** Uvicorn
 
+## Cấu hình trợ lý AI
+
+Chatbot và chức năng **Phân tích bằng AI** dùng chung khóa NVIDIA API ở backend.
+Thêm `NVIDIA_API_KEY` vào `.env` hoặc biến môi trường của máy chủ, rồi khởi động
+lại backend. [Tạo khóa trên NVIDIA Build](https://build.nvidia.com/settings/api-keys)
+
+Mô hình mặc định là `google/gemma-4-31b-it` trên endpoint miễn phí của NVIDIA.
+Có thể đổi qua `NVIDIA_MODEL`. [Gemma 4 31B trên NVIDIA Build](https://build.nvidia.com/google/gemma-4-31b-it/build)
+
 ## Cấu trúc và kiểm tra mã
 
 - `app/routers/`: xử lý các trang và yêu cầu từ giao diện.

@@ -49,7 +49,7 @@ function friendlyRequestError(status) {
 function friendlyServerDetail(value, status = 500) {
   const message = String(value || "").trim();
   // Không đưa lỗi lập trình hoặc thông tin máy chủ lên giao diện người dùng.
-  const internalPattern = /(?:Traceback|SQLAlchemy|psycopg|ProgrammingError|IntegrityError|OperationalError|GEMINI_API_KEY|\bHTTP\s*\d{3}\b|\bJSON\b|\bUvicorn\b|<html|database_schema|database_integrity|database_unavailable)/i;
+  const internalPattern = /(?:Traceback|SQLAlchemy|psycopg|ProgrammingError|IntegrityError|OperationalError|NVIDIA_API_KEY|\bHTTP\s*\d{3}\b|\bJSON\b|\bUvicorn\b|<html|database_schema|database_integrity|database_unavailable)/i;
   const visible = !message || internalPattern.test(message)
     ? friendlyRequestError(status)
     : message;

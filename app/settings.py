@@ -12,6 +12,7 @@ ADMIN_ROLES = frozenset({"admin", "super_admin"})
 MAX_SYSTEM_INCIDENT_LOGS = 500
 MAX_CHATBOT_DOCUMENT_CONTEXT_CHARS = 350_000
 MAX_SCHEDULE_AUDIT_FILE_BYTES = 15 * 1024 * 1024
+NVIDIA_DEFAULT_MODEL = "google/gemma-4-31b-it"
 VIETNAM_TZ = timezone(timedelta(hours=7), name="UTC+7")
 
 DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
@@ -49,3 +50,11 @@ SEED_DEMO_DATA = os.getenv("SEED_DEMO_DATA", "false").strip().lower() in {
     "true",
     "yes",
 }
+
+
+def nvidia_api_key() -> str:
+    return os.getenv("NVIDIA_API_KEY", "").strip()
+
+
+def nvidia_primary_model() -> str:
+    return os.getenv("NVIDIA_MODEL", "").strip() or NVIDIA_DEFAULT_MODEL

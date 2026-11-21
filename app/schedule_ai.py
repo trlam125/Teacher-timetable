@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 from typing import Any
 
 from app.chatbot import (
     ChatbotError,
-    GEMINI_MAX_OUTPUT_TOKENS,
-    GEMINI_TOTAL_TIMEOUT_SECONDS,
-    _call_gemini_model,
-    _configured_model_chain,
+    NVIDIA_TOTAL_TIMEOUT_SECONDS,
+    _call_nvidia_model,
     _env_int,
+    _model_chain_from,
     _request_timeout,
     _same_model_retryable,
     _sleep_with_backoff,
 )
+from app.settings import nvidia_api_key
 
 AI_AUDIT_SYSTEM_INSTRUCTION = """
 Bạn là bộ kiểm tra thời khóa biểu trường học. Bạn nhận dữ liệu thời khóa biểu đã được parser đọc từ file import và phải tìm các bất thường mà rule cứng khó phát hiện.
@@ -155,27 +154,6 @@ def _compact_audit_context(report: dict[str, Any]) -> tuple[dict[str, Any], set[
     return context, allowed_keys
 
 
-def _build_ai_payload(context_json: str) -> bytes:
-    return json.dumps(
-        {
-            "systemInstruction": {"parts": [{"text": AI_AUDIT_SYSTEM_INSTRUCTION}]},
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"text": "DỮ LIỆU THỜI KHÓA BIỂU (JSON):\n" + context_json}
-                    ],
-                }
-            ],
-            "generationConfig": {
-                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
-                "responseMimeType": "application/json",
-            },
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
-
-
 def _extract_json_object(answer: str) -> dict[str, Any]:
     text = str(answer or "").strip()
     if text.startswith("```"):
@@ -189,7 +167,7 @@ def _extract_json_object(answer: str) -> dict[str, Any]:
         if start < 0 or end <= start:
             raise ChatbotError(
                 "AI trả về kết quả không đúng định dạng JSON.",
-                code="gemini_invalid_response",
+                code="nvidia_invalid_response",
                 retry_with_fallback=True,
             )
         try:
@@ -197,13 +175,13 @@ def _extract_json_object(answer: str) -> dict[str, Any]:
         except json.JSONDecodeError as exc:
             raise ChatbotError(
                 "AI trả về kết quả không đúng định dạng JSON.",
-                code="gemini_invalid_response",
+                code="nvidia_invalid_response",
                 retry_with_fallback=True,
             ) from exc
     if not isinstance(parsed, dict):
         raise ChatbotError(
             "AI trả về kết quả không đúng cấu trúc cần thiết.",
-            code="gemini_invalid_response",
+            code="nvidia_invalid_response",
             retry_with_fallback=True,
         )
     return parsed
@@ -280,14 +258,14 @@ def _sanitize_ai_result(raw: dict[str, Any], allowed_keys: set[str]) -> dict[str
     }
 
 
-def analyze_schedule_with_gemini(
+def analyze_schedule_with_nvidia(
     report: dict[str, Any],
     preferred_model: str | None = None,
 ) -> tuple[dict[str, Any], str, list[dict[str, Any]]]:
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    api_key = nvidia_api_key()
     if not api_key:
         raise ChatbotError(
-            "Chức năng AI chưa được cấu hình GEMINI_API_KEY trên máy chủ.",
+            "Chức năng AI chưa được cấu hình NVIDIA_API_KEY trên máy chủ.",
             code="missing_api_key",
         )
 
@@ -298,19 +276,16 @@ def analyze_schedule_with_gemini(
             "Thời khóa biểu quá lớn để gửi cho AI trong một lần. Kiểm tra rule thường vẫn có thể sử dụng bình thường.",
             code="context_too_large",
         )
-    payload = _build_ai_payload(context_json)
+    messages = [
+        {"role": "system", "content": AI_AUDIT_SYSTEM_INSTRUCTION},
+        {"role": "user", "content": "DỮ LIỆU THỜI KHÓA BIỂU (JSON):\n" + context_json},
+    ]
 
-    models = _configured_model_chain()
-    if preferred_model and preferred_model in models and preferred_model != models[0]:
-        models = [
-            models[0],
-            preferred_model,
-            *[model for model in models[1:] if model != preferred_model],
-        ]
-    retries_per_model = _env_int("GEMINI_ATTEMPTS_PER_MODEL", 2, 1, 4)
+    models = _model_chain_from(preferred_model)
+    retries_per_model = _env_int("NVIDIA_ATTEMPTS_PER_MODEL", 2, 1, 4)
     # Keep the same provider deadline budget as the chatbot without coupling the
     # audit endpoint to the chatbot's conversation/history behavior.
-    deadline = time.monotonic() + GEMINI_TOTAL_TIMEOUT_SECONDS
+    deadline = time.monotonic() + NVIDIA_TOTAL_TIMEOUT_SECONDS
     attempts: list[dict[str, Any]] = []
 
     for model_index, model in enumerate(models):
@@ -318,23 +293,17 @@ def analyze_schedule_with_gemini(
         calls_for_model = 0
         for retry_index in range(retries_per_model):
             try:
-                raw_result = _call_gemini_model(
+                timeout_seconds = _request_timeout(deadline, model)
+                calls_for_model += 1
+                answer, _ = _call_nvidia_model(
                     model,
                     api_key,
-                    payload,
-                    timeout_seconds=_request_timeout(deadline, model),
+                    messages,
+                    timeout_seconds=timeout_seconds,
                 )
-                calls_for_model += 1
-                if isinstance(raw_result, tuple):
-                    answer = str(raw_result[0] or "")
-                else:
-                    answer = str(raw_result or "")
                 parsed = _extract_json_object(answer)
                 return _sanitize_ai_result(parsed, allowed_keys), model, attempts
             except ChatbotError as exc:
-                calls_for_model += (
-                    1 if getattr(exc, "provider_call_count", 0) == 0 else 0
-                )
                 exc.model_name = exc.model_name or model
                 last_error = exc
                 can_retry_same = (
@@ -365,7 +334,7 @@ def analyze_schedule_with_gemini(
         _sleep_with_backoff(0, deadline=deadline)
 
     raise ChatbotError(
-        "Không có model Gemini khả dụng để phân tích thời khóa biểu.",
-        code="gemini_no_model",
+        "Không có model NVIDIA khả dụng để phân tích thời khóa biểu.",
+        code="nvidia_no_model",
         attempts=attempts,
     )

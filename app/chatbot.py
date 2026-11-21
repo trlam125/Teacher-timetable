@@ -11,7 +11,6 @@ import zipfile
 from datetime import date, datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
@@ -23,6 +22,7 @@ from app.services.upload_limits import (
     ensure_archive_safe, ensure_workbook_safe,
 )
 from app.services.xml_limits import ensure_xml_safe
+from app.settings import NVIDIA_DEFAULT_MODEL, nvidia_api_key, nvidia_primary_model
 
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -515,38 +515,26 @@ def _normalize_assistant_markdown(answer: str) -> str:
     return "\n".join(normalized).strip()
 
 
-GEMINI_FALLBACK_MODELS = (
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-2.5-flash",
-)
-GEMINI_MAX_OUTPUT_TOKENS = 8192
+NVIDIA_FALLBACK_MODELS = ("openai/gpt-oss-20b",)
+NVIDIA_MAX_OUTPUT_TOKENS = 8192
 # Frontend waits 150 seconds. Keep the whole backend failover chain below that
-# so the browser does not abort while the server is still calling Gemini.
-GEMINI_TOTAL_TIMEOUT_SECONDS = 135.0
-GEMINI_REQUEST_TIMEOUT_SECONDS = 45.0
-GEMINI_DEADLINE_RESERVE_SECONDS = 2.0
-GEMINI_MAX_CONTINUATIONS = 2
-GEMINI_CONTINUE_PROMPT = (
+# so the browser does not abort while the server is still calling NVIDIA.
+NVIDIA_TOTAL_TIMEOUT_SECONDS = 135.0
+NVIDIA_REQUEST_TIMEOUT_SECONDS = 45.0
+NVIDIA_DEADLINE_RESERVE_SECONDS = 2.0
+NVIDIA_MAX_CONTINUATIONS = 2
+NVIDIA_CONTINUE_PROMPT = (
     "Tiếp tục chính xác từ phần câu trả lời vừa bị cắt. Chỉ viết phần còn thiếu, "
     "không lặp lại nội dung đã trả lời, vẫn giữ đầy đủ tất cả kết quả liên quan."
 )
-GEMINI_TRUNCATION_WARNING = (
+NVIDIA_TRUNCATION_WARNING = (
     "> ⚠️ Câu trả lời vẫn quá dài và đã chạm giới hạn đầu ra sau nhiều phần. "
     "Hãy nhắn “tiếp tục” hoặc chia nhỏ yêu cầu để xem phần còn lại."
 )
 
 
 def _configured_model_chain() -> list[str]:
-    primary = (
-        os.getenv("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
-    )
-    models: list[str] = []
-    for model in [primary, *GEMINI_FALLBACK_MODELS]:
-        clean = model.strip()
-        if clean and clean not in models:
-            models.append(clean)
-    return models
+    return list(dict.fromkeys((nvidia_primary_model(), *NVIDIA_FALLBACK_MODELS)))
 
 
 def _model_chain_from(preferred_model: str | None) -> list[str]:
@@ -586,77 +574,66 @@ def _env_float(name: str, default: float, minimum: float, maximum: float) -> flo
 
 
 def _same_model_retryable(exc: ChatbotError) -> bool:
-    if exc.code == "gemini_rate_limit":
+    if exc.code == "nvidia_rate_limit":
         return True
-    if exc.code == "gemini_http":
+    if exc.code == "nvidia_http":
         return exc.provider_status in {408, 429, 500, 502, 503, 504}
     return exc.code in {
-        "gemini_network",
-        "gemini_invalid_response",
-        "gemini_empty_response",
-        "gemini_empty_text",
+        "nvidia_network",
+        "nvidia_invalid_response",
+        "nvidia_empty_response",
+        "nvidia_empty_text",
     }
 
 
 def _sleep_with_backoff(retry_index: int, *, deadline: float | None = None) -> None:
-    base = _env_float("GEMINI_RETRY_BASE_SECONDS", 0.8, 0.0, 10.0)
-    maximum = _env_float("GEMINI_RETRY_MAX_SECONDS", 4.0, 0.0, 30.0)
+    base = _env_float("NVIDIA_RETRY_BASE_SECONDS", 0.8, 0.0, 10.0)
+    maximum = _env_float("NVIDIA_RETRY_MAX_SECONDS", 4.0, 0.0, 30.0)
     delay = min(maximum, base * (2 ** max(0, retry_index)))
     if delay <= 0:
         return
     delay += random.uniform(0.0, delay * 0.25)
     if deadline is not None:
-        remaining = deadline - time.monotonic() - GEMINI_DEADLINE_RESERVE_SECONDS
+        remaining = deadline - time.monotonic() - NVIDIA_DEADLINE_RESERVE_SECONDS
         delay = min(delay, max(0.0, remaining))
     if delay > 0:
         time.sleep(delay)
 
 
 def _request_timeout(deadline: float, model: str) -> float:
-    remaining = deadline - time.monotonic() - GEMINI_DEADLINE_RESERVE_SECONDS
+    remaining = deadline - time.monotonic() - NVIDIA_DEADLINE_RESERVE_SECONDS
     if remaining <= 0:
         raise ChatbotError(
             "Chatbot đã vượt quá thời gian xử lý tối đa. Hãy thử lại sau.",
-            code="gemini_deadline",
+            code="nvidia_deadline",
             model_name=model,
         )
-    return max(0.5, min(GEMINI_REQUEST_TIMEOUT_SECONDS, remaining))
+    return max(0.5, min(NVIDIA_REQUEST_TIMEOUT_SECONDS, remaining))
 
 
-def _build_gemini_payload(contents: list[dict[str, Any]]) -> bytes:
-    # Do not send sampling controls such as temperature/topP/topK. New Gemini
-    # Flash models may ignore or reject those legacy parameters; the only output
-    # control needed here is the token budget.
-    return json.dumps(
-        {
-            "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
-            "contents": contents,
-            "generationConfig": {
-                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
-            },
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
-
-
-def _call_gemini_model(
+def _call_nvidia_model(
     model: str,
     api_key: str,
-    payload: bytes,
+    messages: list[dict[str, str]],
     *,
-    timeout_seconds: float = GEMINI_REQUEST_TIMEOUT_SECONDS,
+    timeout_seconds: float = NVIDIA_REQUEST_TIMEOUT_SECONDS,
 ) -> tuple[str, str | None]:
-    endpoint = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{quote(model, safe='')}:generateContent"
-    )
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": NVIDIA_MAX_OUTPUT_TOKENS,
+        "stream": False,
+    }
+    if model in {NVIDIA_DEFAULT_MODEL, "nvidia/nemotron-3-super-120b-a12b"}:
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
     request = Request(
-        endpoint,
-        data=payload,
+        "https://integrate.api.nvidia.com/v1/chat/completions",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         method="POST",
         headers={
+            "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
-            "x-goog-api-key": api_key,
+            "Authorization": f"Bearer {api_key}",
         },
     )
 
@@ -664,93 +641,81 @@ def _call_gemini_model(
         with urlopen(request, timeout=timeout_seconds) as response:
             result = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        detail = ""
-        try:
-            error_data = json.loads(exc.read().decode("utf-8"))
-            detail = str(error_data.get("error", {}).get("message", ""))
-        except Exception:
-            pass
+        exc.close()
         if exc.code == 429:
             raise ChatbotError(
-                "API Gemini đã hết hạn mức tạm thời. Hãy thử lại sau.",
-                code="gemini_rate_limit",
+                "API NVIDIA đã hết hạn mức tạm thời. Hãy thử lại sau.",
+                code="nvidia_rate_limit",
                 provider_status=exc.code,
                 model_name=model,
                 retry_with_fallback=True,
             ) from exc
         if exc.code in (401, 403):
             raise ChatbotError(
-                "Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập API.",
-                code="gemini_auth",
+                "NVIDIA từ chối API key. Hãy kiểm tra key và quyền truy cập API.",
+                code="nvidia_auth",
                 provider_status=exc.code,
                 model_name=model,
             ) from exc
         retryable = exc.code in {404, 408, 429, 500, 502, 503, 504}
         raise ChatbotError(
-            f"Gemini trả về lỗi {exc.code}: {detail or 'không có chi tiết'}",
-            code="gemini_http",
+            f"NVIDIA trả về lỗi HTTP {exc.code}.",
+            code="nvidia_http",
             provider_status=exc.code,
             model_name=model,
             retry_with_fallback=retryable,
         ) from exc
     except (URLError, TimeoutError) as exc:
         raise ChatbotError(
-            "Không thể kết nối Gemini. Hãy kiểm tra mạng và thử lại.",
-            code="gemini_network",
+            "Không thể kết nối NVIDIA. Hãy kiểm tra mạng và thử lại.",
+            code="nvidia_network",
             model_name=model,
             retry_with_fallback=True,
         ) from exc
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ChatbotError(
-            "Gemini trả về dữ liệu không hợp lệ.",
-            code="gemini_invalid_response",
+            "NVIDIA trả về dữ liệu không hợp lệ.",
+            code="nvidia_invalid_response",
             model_name=model,
             retry_with_fallback=True,
         ) from exc
 
-    candidates = result.get("candidates") or []
-    if not candidates:
-        block_reason = result.get("promptFeedback", {}).get("blockReason")
-        if block_reason:
-            raise ChatbotError(
-                f"Yêu cầu bị Gemini từ chối: {block_reason}.",
-                code="gemini_blocked",
-                model_name=model,
-            )
+    choices = result.get("choices") if isinstance(result, dict) else None
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         raise ChatbotError(
-            "Gemini không trả về câu trả lời.",
-            code="gemini_empty_response",
+            "NVIDIA không trả về câu trả lời.",
+            code="nvidia_empty_response",
             model_name=model,
             retry_with_fallback=True,
         )
 
-    candidate = candidates[0]
-    parts = candidate.get("content", {}).get("parts", [])
-    answer = "\n".join(str(part.get("text", "")) for part in parts if part.get("text"))
-    if not answer.strip():
+    choice = choices[0]
+    message = choice.get("message")
+    finish_reason = choice.get("finish_reason")
+    if finish_reason == "content_filter" or (
+        isinstance(message, dict) and message.get("refusal")
+    ):
         raise ChatbotError(
-            "Gemini không trả về nội dung văn bản.",
-            code="gemini_empty_text",
+            "Yêu cầu bị NVIDIA từ chối.",
+            code="nvidia_blocked",
+            model_name=model,
+        )
+    answer = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(answer, str) or not answer.strip():
+        raise ChatbotError(
+            "NVIDIA không trả về nội dung văn bản.",
+            code="nvidia_empty_text",
             model_name=model,
             retry_with_fallback=True,
         )
-    finish_reason = str(candidate.get("finishReason") or "").strip() or None
-    return answer, finish_reason
-
-
-def _coerce_gemini_result(value: Any) -> tuple[str, str | None]:
-    """Keep custom callers compatible with the former plain-string return."""
-    if isinstance(value, tuple) and len(value) == 2:
-        text, finish_reason = value
-        return str(text or ""), str(finish_reason).strip() if finish_reason else None
-    return str(value or ""), None
+    return answer, finish_reason if isinstance(finish_reason, str) else None
 
 
 def _join_answer_chunks(chunks: list[str], *, truncated: bool = False) -> str:
     # Continuations are generated from the exact previous model text. Preserve
-    # boundary whitespace whenever Gemini returns it. If both sides touch with
+    # boundary whitespace whenever NVIDIA returns it. If both sides touch with
     # no whitespace, a lowercase continuation is most likely the remainder of a
-    # token/word cut by MAX_TOKENS (for example ``Ph`` + ``ân``). Otherwise put
+    # token/word cut by the output limit (for example ``Ph`` + ``ân``). Otherwise put
     # the chunks on separate lines so independently complete sections do not run
     # together.
     answer = ""
@@ -767,9 +732,9 @@ def _join_answer_chunks(chunks: list[str], *, truncated: bool = False) -> str:
     answer = answer.strip()
     if truncated:
         answer = (
-            f"{answer}\n\n{GEMINI_TRUNCATION_WARNING}"
+            f"{answer}\n\n{NVIDIA_TRUNCATION_WARNING}"
             if answer
-            else GEMINI_TRUNCATION_WARNING
+            else NVIDIA_TRUNCATION_WARNING
         )
     return answer
 
@@ -777,15 +742,15 @@ def _join_answer_chunks(chunks: list[str], *, truncated: bool = False) -> str:
 def _generate_complete_answer(
     model: str,
     api_key: str,
-    base_contents: list[dict[str, Any]],
+    base_messages: list[dict[str, str]],
     deadline: float,
 ) -> tuple[str, int]:
-    """Generate one answer and automatically continue when Gemini hits MAX_TOKENS."""
-    contents = list(base_contents)
+    """Continue the answer when NVIDIA reaches the output token limit."""
+    messages = list(base_messages)
     chunks: list[str] = []
     provider_calls = 0
 
-    for continuation_index in range(GEMINI_MAX_CONTINUATIONS + 1):
+    for continuation_index in range(NVIDIA_MAX_CONTINUATIONS + 1):
         try:
             timeout_seconds = _request_timeout(deadline, model)
         except ChatbotError:
@@ -793,12 +758,11 @@ def _generate_complete_answer(
                 return _join_answer_chunks(chunks, truncated=True), provider_calls
             raise
 
-        payload = _build_gemini_payload(contents)
         try:
-            raw_result = _call_gemini_model(
+            answer, finish_reason = _call_nvidia_model(
                 model,
                 api_key,
-                payload,
+                messages,
                 timeout_seconds=timeout_seconds,
             )
         except ChatbotError as exc:
@@ -806,45 +770,35 @@ def _generate_complete_answer(
             raise
 
         provider_calls += 1
-        answer, finish_reason = _coerce_gemini_result(raw_result)
-        if not answer.strip():
-            exc = ChatbotError(
-                "Gemini không trả về nội dung văn bản.",
-                code="gemini_empty_text",
-                model_name=model,
-                retry_with_fallback=True,
-                provider_call_count=provider_calls,
-            )
-            raise exc
         chunks.append(answer)
 
-        if (finish_reason or "").upper() != "MAX_TOKENS":
+        if finish_reason != "length":
             return _join_answer_chunks(chunks), provider_calls
 
-        if continuation_index >= GEMINI_MAX_CONTINUATIONS:
+        if continuation_index >= NVIDIA_MAX_CONTINUATIONS:
             return _join_answer_chunks(chunks, truncated=True), provider_calls
 
-        contents.extend(
+        messages.extend(
             [
-                {"role": "model", "parts": [{"text": answer}]},
-                {"role": "user", "parts": [{"text": GEMINI_CONTINUE_PROMPT}]},
+                {"role": "assistant", "content": answer},
+                {"role": "user", "content": NVIDIA_CONTINUE_PROMPT},
             ]
         )
 
     return _join_answer_chunks(chunks, truncated=True), provider_calls
 
 
-def ask_gemini(
+def ask_nvidia(
     message: str,
     history: list[dict[str, str]],
     project_data: dict[str, Any],
     uploaded_table: list[dict[str, Any]] | None = None,
     preferred_model: str | None = None,
 ) -> tuple[str, str, list[dict[str, Any]]]:
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    api_key = nvidia_api_key()
     if not api_key:
         raise ChatbotError(
-            "Chatbot chưa được cấu hình GEMINI_API_KEY trên máy chủ.",
+            "Chatbot chưa được cấu hình NVIDIA_API_KEY trên máy chủ.",
             code="missing_api_key",
         )
 
@@ -859,32 +813,34 @@ def ask_gemini(
             code="context_too_large",
         )
 
-    contents: list[dict[str, Any]] = []
-    for item in history[-8:]:
-        role = "model" if item.get("role") == "assistant" else "user"
-        text = str(item.get("content", "")).strip()[:8_000]
-        if text:
-            contents.append({"role": role, "parts": [{"text": text}]})
-    contents.append(
-        {
-            "role": "user",
-            "parts": [
-                {
-                    "text": (
-                        "DỮ LIỆU HỆ THỐNG (JSON):\n"
-                        f"{context_json}\n\n"
-                        "YÊU CẦU CỦA NGƯỜI DÙNG:\n"
-                        f"{message}"
-                    )
-                }
-            ],
-        }
+    turns = [
+        (
+            "assistant" if item.get("role") == "assistant" else "user",
+            str(item.get("content", "")).strip()[:8_000],
+        )
+        for item in history[-8:]
+    ]
+    prompt = (
+        "DỮ LIỆU HỆ THỐNG (JSON):\n"
+        f"{context_json}\n\n"
+        "YÊU CẦU CỦA NGƯỜI DÙNG:\n"
+        f"{message}"
     )
+    turns.append(("user", prompt))
+    messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+    # Nemotron requires alternating turns starting and ending with a user message.
+    for role, text in turns:
+        if not text or (role == "assistant" and len(messages) == 1):
+            continue
+        if messages[-1]["role"] == role:
+            messages[-1]["content"] += "\n\n" + text
+        else:
+            messages.append({"role": role, "content": text})
 
     attempts: list[dict[str, Any]] = []
     models = _model_chain_from(preferred_model)
-    retries_per_model = _env_int("GEMINI_ATTEMPTS_PER_MODEL", 2, 1, 4)
-    deadline = time.monotonic() + GEMINI_TOTAL_TIMEOUT_SECONDS
+    retries_per_model = _env_int("NVIDIA_ATTEMPTS_PER_MODEL", 2, 1, 4)
+    deadline = time.monotonic() + NVIDIA_TOTAL_TIMEOUT_SECONDS
 
     for model_index, model in enumerate(models):
         last_error: ChatbotError | None = None
@@ -894,7 +850,7 @@ def ask_gemini(
                 answer, provider_calls = _generate_complete_answer(
                     model,
                     api_key,
-                    contents,
+                    messages,
                     deadline,
                 )
                 calls_for_model += provider_calls
@@ -934,7 +890,7 @@ def ask_gemini(
         _sleep_with_backoff(0, deadline=deadline)
 
     raise ChatbotError(
-        "Không có model Gemini khả dụng.",
-        code="gemini_no_model",
+        "Không có model NVIDIA khả dụng.",
+        code="nvidia_no_model",
         attempts=attempts,
     )

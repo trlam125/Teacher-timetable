@@ -39,9 +39,7 @@
 
   let requestVersion = 0;
   let activeController = null;
-  let activeModel =
-    String(window.CHATBOT_PRIMARY_MODEL || "gemini-3.7-flash").trim() ||
-    "gemini-3.7-flash";
+  let activeModel = String(window.CHATBOT_PRIMARY_MODEL || "").trim();
 
   const escapeHtml = (value) =>
     String(value)
