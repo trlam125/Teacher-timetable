@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>AI Studio · Smart TKB</title>
+  <link rel="icon" type="image/svg+xml" href="/static/brand-logo.svg">
+  <link rel="stylesheet" href="/static/design-tokens.css?v=1">
+  <link rel="stylesheet" href="/static/style.css?v=11">
+  <link rel="stylesheet" href="/static/user-menu.css?v=1">
+  <link rel="stylesheet" href="/static/profile-avatar.css?v=3">
+  <link rel="stylesheet" href="/static/ai-slides/studio.css?v=1">
+  <script src="/static/request-security.js?v=1"></script>
+  <script src="/static/user-menu.js?v=1" defer></script>
+</head>
+<body class="studio-page" data-owner="{{ user.id }}" data-role="{{ user.role }}">
+<header class="appbar">
+  <a class="appbar-brand" href="{{ '/teacher' if user.role == 'teacher' else '/projects' }}"><img src="/static/brand-logo.svg" alt=""><span>Smart TKB</span></a>
+  <span class="studio-app-title">AI Studio</span><div class="spacer"></div>
+  {% include "_user_menu.html" %}
+</header>
+<main class="studio-shell">
+  <aside class="studio-library">
+    <button type="button" id="new-deck" class="btn primary">Tạo bài giảng</button>
+    <h2>Bài giảng của tôi</h2>
+    <div id="deck-list"><p>Đang tải thư viện…</p></div>
+    <button type="button" id="show-books" class="studio-text-button">Sách trên thiết bị này</button>
+    <div id="book-list" hidden></div>
+    {% if user.role in ['admin', 'super_admin'] %}
+    <button type="button" id="show-usage" class="studio-text-button">Hạn mức và lịch sử AI</button>
+    {% endif %}
+  </aside>
+  <section class="studio-workspace">
+    <div id="studio-message" role="status" aria-live="polite" hidden></div>
+    <div id="create-pane">
+      <header class="studio-heading"><h1>Chuẩn bị bài giảng tiếp theo</h1><p>Chọn nội dung bài học, xem dàn ý và tạo PowerPoint có thể chỉnh sửa.</p></header>
+      <p id="configuration-notice" class="studio-notice" hidden></p>
+      <form id="lesson-form">
+        <fieldset class="studio-modes"><legend>Cách bắt đầu</legend>
+          <label><input type="radio" name="input_mode" value="manual"><span><strong>Nhập thủ công</strong><small>Bắt đầu từ chủ đề của bạn</small></span></label>
+          <label><input type="radio" name="input_mode" value="document"><span><strong>Từ tài liệu</strong><small>Chọn bài và trang cần dùng</small></span></label>
+          <label><input type="radio" name="input_mode" value="hybrid" checked><span><strong>Kết hợp</strong><small>Tài liệu cùng yêu cầu riêng</small></span></label>
+        </fieldset>
+        <section class="studio-form-section" id="source-section">
+          <h2>Nguồn bài học</h2>
+          <label class="studio-upload" for="document-file"><strong>Chọn PDF, Word hoặc văn bản</strong><span>Sách PDF được đọc trên thiết bị. Chọn trang trước khi gửi AI.</span><input id="document-file" type="file" accept=".pdf,.docx,.txt"></label>
+          <div id="pdf-picker" hidden>
+            <p id="document-name"></p><label>Mục lục có sẵn<select id="book-toc"><option value="">Chọn khoảng trang bên dưới</option></select></label>
+            <div class="studio-fields"><label>Từ trang PDF<input type="number" id="page-first" min="1" value="1"></label><label>Đến trang PDF<input type="number" id="page-last" min="1" value="1"></label></div>
+            <div class="studio-actions"><button id="extract-pages" type="button" class="btn">Đọc trang đã chọn</button><button id="save-book" type="button" class="btn ghost">Lưu sách trên thiết bị</button></div>
+          </div>
+          <details><summary>Dán thêm nội dung</summary><label for="pasted-source">Văn bản làm nguồn tham khảo</label><textarea id="pasted-source" rows="4" maxlength="40000"></textarea><button id="add-paste" type="button" class="btn ghost">Thêm văn bản</button></details>
+          <div id="source-list"></div>
+          <p id="source-count" class="muted">Chưa chọn tài liệu. Bạn có thể bắt đầu bằng tên bài.</p>
+        </section>
+        <section class="studio-form-section">
+          <h2>Thông tin bài học</h2>
+          <div class="studio-fields">
+            <label>Môn học<input name="subject" required maxlength="80" placeholder="Ví dụ Vật lí"></label>
+            <label>Khối / lớp<input name="grade" required maxlength="40" placeholder="Ví dụ Lớp 9"></label>
+          </div>
+          <label>Tên bài / chủ đề<input name="lesson_title" required maxlength="240" placeholder="Nội dung bạn sẽ dạy"></label>
+          <div class="studio-fields">
+            <label>Thời lượng (phút)<input name="duration_minutes" type="number" min="10" max="240" value="45" required></label>
+            <label>Số slide<input name="slide_count" type="number" min="5" max="30" value="15" required></label>
+            <label>Trình độ<select name="level"><option value="foundation">Cần củng cố</option><option value="standard" selected>Phổ thông</option><option value="advanced">Khá giỏi</option></select></label>
+            <label>Bám sát nguồn<select name="grounding"><option value="balanced">Cân bằng, giáo viên rà soát</option><option value="strict">Chỉ theo tài liệu đã chọn</option></select></label>
+          </div>
+          <details><summary>Mục tiêu và yêu cầu riêng</summary>
+            <label>Mục tiêu học tập<textarea name="objectives" rows="3" maxlength="3000"></textarea></label>
+            <label>Nội dung bắt buộc<textarea name="must_include" rows="3" maxlength="3000"></textarea></label>
+            <label>Điều cần tránh<textarea name="avoid" rows="2" maxlength="1500"></textarea></label>
+            <fieldset id="field-locks"><legend>Giữ cố định các thông tin</legend>
+              <label><input type="checkbox" value="lesson_title" checked>Tên bài</label><label><input type="checkbox" value="duration_minutes" checked>Thời lượng</label><label><input type="checkbox" value="objectives">Mục tiêu</label>
+            </fieldset>
+          </details>
+          <div class="studio-fields">
+            <label>Phong cách<select name="theme"><option value="science">Khoa học sáng</option><option value="primary">Tiểu học</option><option value="geography">Địa lí</option><option value="history">Lịch sử</option></select></label>
+            <label>Hiệu ứng<select name="motion"><option value="gentle">Tự động nhẹ</option><option value="minimal">Tối giản</option><option value="none">Không hiệu ứng</option></select></label>
+          </div>
+        </section>
+        <label class="studio-consent"><input type="checkbox" id="cloud-consent"><span>Tôi đồng ý gửi thông tin bài học và các đoạn nguồn hiển thị ở trên tới OpenRouter để AI xử lý. Tôi có quyền sử dụng tài liệu và đã loại thông tin cá nhân không cần thiết.</span></label>
+        <label class="studio-consent"><input type="checkbox" id="training-consent"><span>Cho phép provider miễn phí có thể dùng nội dung để huấn luyện mô hình. Tôi chỉ dùng tài liệu được phép chia sẻ cho mục đích này.</span></label>
+        <div class="studio-actions"><button class="btn primary" type="submit">Tạo dàn ý bằng AI</button><button class="btn ghost" id="save-draft" type="button">Lưu bản nháp</button></div>
+      </form>
+    </div>
+    <div id="deck-pane" hidden>
+      <header class="studio-heading"><h1 id="deck-title"></h1><p id="deck-status"></p></header>
+      <div class="studio-actions">
+        <button id="continue-deck" type="button" class="btn primary">Tiếp tục tạo bài</button>
+        <button id="edit-input" type="button" class="btn ghost">Sửa thông tin bài</button>
+        <button id="export-pptx" type="button" class="btn primary" hidden>Tải PowerPoint</button>
+        <button id="export-notes" type="button" class="btn ghost" hidden>Tải ghi chú</button>
+        <button id="export-json" type="button" class="btn ghost">Sao lưu bài giảng</button>
+        <button id="undo-deck" type="button" class="btn ghost">Hoàn tác</button>
+        <button id="show-deck-log" type="button" class="btn ghost">Nhật ký xử lý</button>
+        <button id="delete-deck" type="button" class="studio-text-button">Xóa bài</button>
+      </div>
+      <p id="motion-notice" class="studio-notice" hidden></p>
+      <div id="deck-log" class="studio-notice" hidden aria-live="polite"></div>
+      <div id="outline-review" hidden></div>
+      <div class="studio-editor">
+        <nav id="slide-list" aria-label="Các slide"></nav>
+        <div>
+          <div id="slide-preview" class="studio-slide" aria-label="Bản xem trước"></div>
+          <p id="preview-caption" class="muted">Bản xem trước bố cục. Phông chữ có thể thay đổi khi mở trong PowerPoint.</p>
+          <form id="slide-form" hidden>
+            <label>Tiêu đề<input id="slide-title" maxlength="160" required></label>
+            <label>Nội dung, mỗi dòng một ý<textarea id="slide-bullets" rows="5"></textarea></label>
+            <label>Ghi chú giáo viên<textarea id="slide-notes" rows="3" maxlength="2200"></textarea></label>
+            <button class="btn" type="submit">Lưu slide</button>
+          </form>
+          <form id="ai-edit-form" hidden>
+            <label>Yêu cầu sửa slide đang chọn<input id="edit-instruction" maxlength="2000" placeholder="Ví dụ thêm một ví dụ gần gũi với học sinh" required></label>
+            <button class="btn ghost" type="submit">Đề xuất thay đổi bằng AI (1 lượt)</button>
+          </form>
+          <div id="edit-proposal" hidden></div>
+        </div>
+      </div>
+    </div>
+    <div id="usage-pane" hidden><h1>Hạn mức và lịch sử AI</h1><p id="quota-description"></p><div id="usage-list"></div></div>
+  </section>
+</main>
+<script type="module" src="/static/ai-slides/dist/studio.js"></script>
+</body>
+</html>

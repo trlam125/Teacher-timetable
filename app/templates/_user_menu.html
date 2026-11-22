@@ -48,6 +48,9 @@
     </div>
     <div class="user-avatar-dropdown-divider"></div>
     <div class="user-avatar-dropdown-list">
+      {% if ai_studio_enabled() and user and user.role in ['teacher', 'admin', 'super_admin'] %}
+      <a class="user-avatar-dropdown-item" href="/ai-studio" role="menuitem">AI Studio · Tạo bài giảng</a>
+      {% endif %}
       {% if user and user.role in ['super_admin', 'admin', 'manager'] %}
       <a class="user-avatar-dropdown-item" href="/admin/users" role="menuitem">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"

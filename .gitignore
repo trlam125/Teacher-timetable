@@ -45,6 +45,8 @@ __pycache__/
 pip-wheel-metadata/
 build/
 dist/
+!app/static/ai-slides/dist/
+!app/static/ai-slides/dist/**
 
 # Python test, type-checker and lint caches
 .pytest_cache/

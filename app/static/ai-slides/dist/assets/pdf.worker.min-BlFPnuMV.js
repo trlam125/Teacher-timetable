@@ -1,0 +1,1 @@
+var e=`/static/ai-slides/dist/pdf.worker.min-CIqJB0yW.mjs`;export{e as default};

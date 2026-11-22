@@ -1,0 +1,78 @@
+{
+  "__vite-browser-external": {
+    "file": "assets/__vite-browser-external-CobD5bNO.js",
+    "name": "__vite-browser-external",
+    "src": "__vite-browser-external",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-pP25SEvz.js"
+    ]
+  },
+  "_rolldown-runtime-pP25SEvz.js": {
+    "file": "assets/rolldown-runtime-pP25SEvz.js",
+    "name": "rolldown-runtime"
+  },
+  "node_modules/mammoth/mammoth.browser.js": {
+    "file": "assets/mammoth.browser-X_yBz_Mp.js",
+    "name": "mammoth.browser",
+    "src": "node_modules/mammoth/mammoth.browser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-pP25SEvz.js"
+    ]
+  },
+  "node_modules/pdfjs-dist/build/pdf.mjs": {
+    "file": "assets/pdf-YwugTw7Y.js",
+    "name": "pdf",
+    "src": "node_modules/pdfjs-dist/build/pdf.mjs",
+    "isDynamicEntry": true
+  },
+  "node_modules/pdfjs-dist/build/pdf.worker.min.mjs": {
+    "file": "pdf.worker.min-CIqJB0yW.mjs",
+    "src": "node_modules/pdfjs-dist/build/pdf.worker.min.mjs"
+  },
+  "node_modules/pdfjs-dist/build/pdf.worker.min.mjs?url": {
+    "file": "assets/pdf.worker.min-BlFPnuMV.js",
+    "name": "pdf.worker.min",
+    "src": "node_modules/pdfjs-dist/build/pdf.worker.min.mjs?url",
+    "isDynamicEntry": true,
+    "assets": [
+      "pdf.worker.min-CIqJB0yW.mjs"
+    ]
+  },
+  "src/app.js": {
+    "file": "studio.js",
+    "name": "studio",
+    "src": "src/app.js",
+    "isEntry": true,
+    "imports": [
+      "_rolldown-runtime-pP25SEvz.js"
+    ],
+    "dynamicImports": [
+      "node_modules/pdfjs-dist/build/pdf.mjs",
+      "node_modules/pdfjs-dist/build/pdf.worker.min.mjs?url",
+      "node_modules/mammoth/mammoth.browser.js",
+      "src/pptx/export.js"
+    ]
+  },
+  "src/pptx/export.js": {
+    "file": "assets/export-DibL2KhD.js",
+    "name": "export",
+    "src": "src/pptx/export.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-pP25SEvz.js",
+      "src/app.js"
+    ],
+    "dynamicImports": [
+      "__vite-browser-external",
+      "src/pptx/motion.js"
+    ]
+  },
+  "src/pptx/motion.js": {
+    "file": "assets/motion-BeiIkERe.js",
+    "name": "motion",
+    "src": "src/pptx/motion.js",
+    "isDynamicEntry": true
+  }
+}

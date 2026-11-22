@@ -1,0 +1,21 @@
+{
+  "name": "smart-tkb-ai-studio",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "node --test test/*.test.js",
+    "spike": "node scripts/motion-spike.js"
+  },
+  "dependencies": {
+    "@office-kit/pptx": "0.30.0",
+    "jszip": "3.10.1",
+    "mammoth": "1.13.0",
+    "pdfjs-dist": "6.5.438",
+    "pptxgenjs": "4.0.1"
+  },
+  "devDependencies": {
+    "vite": "8.3.8"
+  },
+  "overrides": { "image-size": "2.1.0" }
+}

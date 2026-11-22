@@ -7,6 +7,8 @@ from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.errors import register_exception_handlers
+from app.routers.ai_slides import router as ai_slides_router, studio_exception_handler
+from app.services.ai_slides.provider import StudioError
 from app.routers.admin import router as admin_router
 from app.routers.audit import router as audit_router
 from app.routers.auth import router as auth_router
@@ -65,6 +67,8 @@ def create_app() -> FastAPI:
     )
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     register_exception_handlers(app)
+    app.add_exception_handler(StudioError, studio_exception_handler)
+    app.include_router(ai_slides_router)
     app.include_router(system_router)
     app.include_router(auth_router)
     app.include_router(social_auth_router)

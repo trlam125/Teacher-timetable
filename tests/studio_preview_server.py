@@ -1,0 +1,99 @@
+"""Loopback-only disposable harness for headless E2E. Never imported by app."""
+import os
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+os.environ.update(
+    DATABASE_URL="postgresql+psycopg://localhost/offline_studio_preview",
+    SECRET_KEY="local-headless-test-placeholder",
+    APP_ENV="development", APP_BASE_URL="", AI_SLIDES_ENABLED="true",
+    AI_SLIDES_OPENROUTER_API_KEY="fixture-provider-never-sent",
+    AI_SLIDES_PRIMARY_MODEL="fixture/test:free",
+    AI_SLIDES_MAX_REQUESTS_PER_USER_DAY="100",
+    AI_SLIDES_MAX_REQUESTS_SERVER_DAY="200",
+)
+
+from fastapi import Depends, FastAPI
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.routers import ai_slides
+from app.services.ai_slides.models import StudioBase
+from app.services.authentication.csrf import verify_request_csrf
+
+root = Path(__file__).resolve().parents[1]
+engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+StudioBase.metadata.create_all(engine)
+factory = sessionmaker(engine, expire_on_commit=False)
+app = FastAPI(dependencies=[Depends(verify_request_csrf)])
+app.include_router(ai_slides.router)
+app.add_exception_handler(ai_slides.provider.StudioError, ai_slides.studio_exception_handler)
+app.mount("/static", StaticFiles(directory=root / "app/static"))
+app.dependency_overrides[ai_slides.current_user] = lambda: SimpleNamespace(
+    id=1, role="super_admin", name="Tài khoản kiểm thử", avatar_url="", email="test@example.test",
+)
+
+
+def session():
+    with factory() as db:
+        yield db
+
+
+async def model():
+    return "fixture/test:free"
+
+
+async def generate(model_id, schema, payload):
+    profile = payload["profile"]
+    if payload["task"] == "edit":
+        slide = {**payload["slide"]}
+        slide["bullets"] = ["Ví dụ đã được sửa trong kiểm thử."]
+        return schema.model_validate(slide), {}
+    count = profile["slide_count"]
+    duration, extra = divmod(profile["duration_minutes"] * 60, count)
+    source_ids = [source["id"] for source in profile["sources"]][:12]
+    kinds = ["cover", "hook", "concept", "quiz", "summary"]
+    slides = []
+    for index in range(count):
+        kind = kinds[index % len(kinds)]
+        slide = {
+            "id": f"s{index+1:03d}", "title": profile["lesson_title"] + f" — phần {index+1}",
+            "kind": kind, "duration_seconds": duration + (index < extra), "source_ids": source_ids,
+        }
+        if payload["task"] == "author":
+            slide.update(
+                bullets=["Ở nhiệt độ không đổi, I = U/R.", "Kiểm tra đơn vị trước khi tính."],
+                speaker_notes="Ghi chú giáo viên phục vụ kiểm thử.", teacher_action="Đặt câu hỏi.",
+                student_action="Nêu dự đoán.",
+            )
+            if kind == "quiz":
+                slide.update(question="6 / 3 bằng bao nhiêu?", options=["2 A", "18 A"],
+                             correct_option=0, explanation="I = 6 / 3 = 2 A.")
+        slides.append(slide)
+    if payload["task"] == "author":
+        slides = []
+        for outline in payload["blueprint"]["slides"]:
+            slide = {**outline, "bullets": ["Ở nhiệt độ không đổi, I = U/R.", "Kiểm tra đơn vị trước khi tính."],
+                     "speaker_notes": "Ghi chú giáo viên phục vụ kiểm thử.", "teacher_action": "Đặt câu hỏi.",
+                     "student_action": "Nêu dự đoán."}
+            if slide["kind"] == "quiz":
+                slide.update(question="6 / 3 bằng bao nhiêu?", options=["2 A", "18 A"],
+                             correct_option=0, explanation="I = 6 / 3 = 2 A.")
+            slides.append(slide)
+    value = {"lesson_title": profile["lesson_title"], "slides": slides}
+    if payload["task"] == "plan":
+        value.update(objectives=["Hiểu bài học."], warnings=[])
+    return schema.model_validate(value), {}
+
+
+app.dependency_overrides[ai_slides.db_session] = session
+ai_slides.provider.eligible_model = model
+ai_slides.provider.generate = generate
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8766, log_level="warning")

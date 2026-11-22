@@ -1,0 +1,402 @@
+import asyncio
+import os
+import time
+import unittest
+from copy import deepcopy
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+from fastapi import Depends, FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+
+PROFILE = {
+    "input_mode": "manual", "subject": "Vật lí", "grade": "Lớp 9",
+    "lesson_title": "Định luật Ôm", "duration_minutes": 45, "slide_count": 5,
+    "consent": True, "locked_fields": ["lesson_title", "duration_minutes"],
+}
+
+
+def fixture_blueprint():
+    return {
+        "lesson_title": PROFILE["lesson_title"], "objectives": ["Nêu được I = U/R."],
+        "slides": [{
+            "id": f"s{number:03d}", "kind": kind, "title": title,
+            "duration_seconds": 540, "source_ids": [],
+        } for number, (kind, title) in enumerate([
+            ("cover", "Định luật Ôm"), ("hook", "Điều gì làm thay đổi dòng điện?"),
+            ("concept", "Mối quan hệ U, I, R"), ("quiz", "Kiểm tra hiểu bài"),
+            ("summary", "Vận dụng"),
+        ], 1)],
+        "warnings": [],
+    }
+
+
+def fixture_manifest():
+    from app.services.ai_slides.schemas import Manifest
+    blueprint = fixture_blueprint()
+    slides = deepcopy(blueprint["slides"])
+    for slide in slides:
+        slide.update(bullets=["Ở nhiệt độ không đổi, I = U/R.", "Đơn vị U là V, I là A và R là Ω."],
+                     speaker_notes="Hỏi học sinh về điều kiện áp dụng.")
+        if slide["kind"] == "quiz":
+            slide.update(question="U = 6 V, R = 3 Ω. I bằng bao nhiêu?", options=["2 A", "18 A"],
+                         correct_option=0, explanation="I = 6 / 3 = 2 A.")
+    return Manifest.model_validate({"lesson_title": PROFILE["lesson_title"], "slides": slides})
+
+
+class StudioTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with patch.dict(os.environ, {
+            "SECRET_KEY": "offline-studio-test-placeholder",
+            "DATABASE_URL": "postgresql+psycopg://localhost/offline_studio_test",
+            "APP_ENV": "development", "APP_BASE_URL": "",
+        }):
+            from app.routers import ai_slides
+            from app.services.authentication.csrf import verify_request_csrf
+        cls.routes = ai_slides
+        cls.csrf = staticmethod(verify_request_csrf)
+
+    def setUp(self):
+        from app.services.ai_slides.models import StudioBase
+        self.env = self.enterContext(patch.dict(os.environ, {
+            "AI_SLIDES_ENABLED": "true", "AI_SLIDES_MAX_REQUESTS_PER_USER_DAY": "8",
+            "AI_SLIDES_MAX_REQUESTS_SERVER_DAY": "40",
+        }))
+        self.engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
+        self.addCleanup(self.engine.dispose)
+        StudioBase.metadata.create_all(self.engine)
+        self.session_factory = sessionmaker(self.engine, expire_on_commit=False)
+        self.user = SimpleNamespace(id=1, role="teacher", name="Test Teacher", avatar_url="", email="teacher@example.test")
+        self.app = FastAPI(dependencies=[Depends(self.csrf)])
+        self.app.include_router(self.routes.router)
+        self.app.add_exception_handler(self.routes.provider.StudioError, self.routes.studio_exception_handler)
+        self.app.dependency_overrides[self.routes.current_user] = lambda: self.user
+        self.app.dependency_overrides[self.routes.db_session] = self.session
+        self.client = self.enterContext(TestClient(self.app, base_url="https://testserver"))
+        page = self.client.get("/ai-studio")
+        self.assertEqual(page.status_code, 200)
+        token = page.text.split('name="csrf-token" content="', 1)[1].split('"', 1)[0]
+        self.client.headers["X-CSRF-Token"] = token
+
+    def session(self):
+        with self.session_factory() as db:
+            yield db
+
+    def create(self, **overrides):
+        response = self.client.post("/api/ai-slides/decks", json={**PROFILE, **overrides})
+        self.assertEqual(response.status_code, 201, response.text[:500])
+        return response.json()
+
+    def call_step(self, deck, kind, key="test-request-key-001"):
+        return self.client.post(f"/api/ai-slides/decks/{deck['id']}/{kind}", headers={
+            "If-Match": str(deck["version"]), "Idempotency-Key": key,
+        })
+
+    def test_auth_roles_flag_and_csrf_are_enforced(self):
+        self.client.headers.pop("X-CSRF-Token")
+        self.assertEqual(self.client.post("/api/ai-slides/decks", json=PROFILE).status_code, 403)
+        self.user.role = "guest"
+        self.assertEqual(self.client.get("/ai-studio").status_code, 403)
+        self.user.role = "admin"
+        self.assertEqual(self.client.get("/ai-studio").status_code, 200)
+        self.user.role = "super_admin"
+        self.assertEqual(self.client.get("/ai-studio").status_code, 200)
+        with patch.dict(os.environ, {"AI_SLIDES_ENABLED": "false"}):
+            self.assertEqual(self.client.get("/ai-studio").status_code, 404)
+
+    def test_ownership_applies_to_read_edit_history_delete(self):
+        deck = self.create()
+        self.user.id = 2
+        base = f"/api/ai-slides/decks/{deck['id']}"
+        self.assertEqual(self.client.get(base).status_code, 404)
+        self.assertEqual(self.client.get(base + "/revisions").status_code, 404)
+        self.assertEqual(self.client.get(base + "/steps").status_code, 404)
+        self.assertEqual(self.client.patch(base + "/input-profile", headers={"If-Match": "1"}, json=PROFILE).status_code, 404)
+        self.assertEqual(self.client.delete(base, headers={"If-Match": "1"}).status_code, 404)
+
+    def test_no_cloud_or_saved_sources_without_consent(self):
+        deck = self.create(consent=False)
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock) as model:
+            self.assertEqual(self.call_step(deck, "plan").status_code, 422)
+            model.assert_not_called()
+        source = {"id": "src-01", "name": "Test", "text": "Test source"}
+        self.assertEqual(self.client.post("/api/ai-slides/decks", json={
+            **PROFILE, "sources": [source], "consent": False,
+        }).status_code, 422)
+
+    def test_two_steps_persist_and_idempotency_does_not_repeat_provider(self):
+        from app.services.ai_slides.schemas import Blueprint
+        deck = self.create()
+        with (
+            patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"),
+            patch.object(self.routes.provider, "generate", new_callable=AsyncMock, side_effect=[
+                (Blueprint.model_validate(fixture_blueprint()), {}),
+                (fixture_manifest(), {}),
+            ]) as generate,
+        ):
+            planned = self.call_step(deck, "plan")
+            self.assertEqual(planned.status_code, 200, planned.text[:500])
+            replay = self.call_step(deck, "plan")
+            self.assertEqual(replay.status_code, 200)
+            self.assertEqual(generate.call_count, 1)
+            authored = self.call_step(planned.json(), "author", key="test-author-key-001")
+            self.assertEqual(authored.status_code, 200, authored.text[:500])
+            saved = self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()
+            self.assertEqual(saved["status"], "ready")
+            self.assertEqual(len(saved["manifest"]["slides"]), 5)
+            self.assertEqual(saved["version"], 3)
+
+    def test_failure_preserves_blueprint_and_consumes_quota(self):
+        from app.services.ai_slides.models import Deck, Quota, Step
+        deck = self.create()
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = fixture_blueprint()
+            row.status = "planned"
+            db.commit()
+        with (
+            patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"),
+            patch.object(self.routes.provider, "generate", new_callable=AsyncMock,
+                         side_effect=self.routes.provider.StudioError("AI_TIMEOUT", "Timeout")),
+        ):
+            response = self.call_step(deck, "author")
+            self.assertEqual(response.status_code, 503)
+            self.assertIsNotNone(response.json()["step_id"])
+        history = self.client.get(f"/api/ai-slides/decks/{deck['id']}/steps").json()
+        self.assertEqual(history[0]["error_code"], "AI_TIMEOUT")
+        self.assertEqual(history[0]["error_message"], "Timeout")
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            self.assertIsNotNone(row.blueprint)
+            self.assertIsNone(row.active_token)
+            self.assertEqual(db.scalars(select(Step)).one().error_code, "AI_TIMEOUT")
+            self.assertTrue(all(quota.requests == 1 for quota in db.scalars(select(Quota))))
+
+    def test_author_batches_resume_after_failure_and_replay_without_duplicate_slides(self):
+        from app.services.ai_slides.models import Deck
+        from app.services.ai_slides.schemas import SlideBatch
+        deck = self.create(slide_count=15)
+        outline = fixture_blueprint()
+        slides = []
+        for index in range(15):
+            slide = deepcopy(fixture_manifest().model_dump()["slides"][index % 5])
+            slide.update(id=f"s{index+1:03d}", title=f"Hoạt động {index+1}", duration_seconds=180)
+            slides.append(slide)
+        outline["slides"] = [{key: slide[key] for key in ("id", "title", "kind", "duration_seconds", "source_ids")} for slide in slides]
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = outline
+            row.status = "planned"
+            db.commit()
+        batches = [SlideBatch.model_validate({"lesson_title": PROFILE["lesson_title"], "slides": slides[index:index+5]}) for index in (0, 5, 10)]
+        with (
+            patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"),
+            patch.object(self.routes.provider, "generate", new_callable=AsyncMock, side_effect=[
+                (batches[0], {}), self.routes.provider.StudioError("AI_TIMEOUT", "Timeout"),
+                (batches[1], {}), (batches[2], {}),
+            ]) as generate,
+        ):
+            first = self.call_step(deck, "author", "author-batch-0001")
+            self.assertEqual(first.status_code, 200, first.text)
+            self.assertEqual(first.json()["status"], "authoring")
+            self.assertEqual(self.call_step(deck, "author", "author-batch-0001").status_code, 200)
+            self.assertEqual(generate.call_count, 1)
+            self.assertEqual(self.call_step(first.json(), "author", "author-batch-0002").status_code, 503)
+            resumed = self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()
+            self.assertEqual(len(resumed["manifest"]["slides"]), 5)
+            second = self.call_step(resumed, "author", "author-batch-0003")
+            self.assertEqual(second.status_code, 200, second.text)
+            final = self.call_step(second.json(), "author", "author-batch-0004")
+            self.assertEqual(final.status_code, 200, final.text)
+            self.assertEqual(final.json()["status"], "ready")
+            self.assertEqual(len({slide["id"] for slide in final.json()["manifest"]["slides"]}), 15)
+            self.assertEqual(generate.call_args_list[2].args[2]["blueprint"]["slides"][0]["id"], "s006")
+
+    def test_provider_total_deadline_and_training_choice(self):
+        import httpx
+        import json
+        from app.services.ai_slides import provider
+        from app.services.ai_slides.schemas import Blueprint
+        client_type = httpx.AsyncClient
+
+        async def respond(request):
+            body = json.loads(request.content)
+            self.assertEqual(body["provider"]["data_collection"], "allow")
+            self.assertEqual(body["provider"]["max_price"], {"prompt": 0, "completion": 0})
+            await asyncio.sleep(0.05)
+            return httpx.Response(200, json={})
+
+        def client(**kwargs):
+            return client_type(transport=httpx.MockTransport(respond), **kwargs)
+
+        with (
+            patch.object(provider, "settings", return_value=SimpleNamespace(timeout=0.01, api_key="test")),
+            patch.object(provider.httpx, "AsyncClient", side_effect=client),
+        ):
+            with self.assertRaises(provider.StudioError) as error:
+                asyncio.run(provider.generate("fixture/free:free", Blueprint, {"profile": {"training_consent": True}}))
+        self.assertEqual(error.exception.code, "AI_TIMEOUT")
+
+    def test_active_lease_blocks_other_keys_and_quota_overflow_rolls_back(self):
+        from app.services.ai_slides.models import Deck, Quota
+        deck = self.create()
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.active_token = "other-request"
+            row.lease_until = time.time() + 120
+            db.commit()
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock) as model:
+            self.assertEqual(self.call_step(deck, "plan").status_code, 409)
+            model.assert_not_called()
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.lease_until = time.time() - 1
+            db.commit()
+        from app.services.ai_slides.state import reserve_quota
+        with patch.dict(os.environ, {"AI_SLIDES_MAX_REQUESTS_PER_USER_DAY": "1"}):
+            with self.session_factory() as db:
+                reserve_quota(db, 1)
+                db.commit()
+            with self.session_factory() as db:
+                with self.assertRaises(self.routes.provider.StudioError):
+                    reserve_quota(db, 1)
+                db.rollback()
+                self.assertTrue(all(row.requests == 1 for row in db.scalars(select(Quota))))
+
+    def test_stale_version_rejected_and_restore_creates_new_revision(self):
+        deck = self.create()
+        base = f"/api/ai-slides/decks/{deck['id']}"
+        changed = self.client.patch(base + "/input-profile", headers={"If-Match": "1"},
+                                    json={**PROFILE, "theme": "history"})
+        self.assertEqual(changed.status_code, 200)
+        self.assertEqual(self.client.patch(base + "/input-profile", headers={"If-Match": "1"}, json=PROFILE).status_code, 409)
+        restored = self.client.post(base + "/restore", headers={"If-Match": "2"}, json={"version": 1})
+        self.assertEqual(restored.status_code, 200)
+        self.assertEqual(restored.json()["version"], 3)
+        self.assertEqual(restored.json()["profile"]["theme"], "science")
+
+    def test_provider_price_gate_fails_closed(self):
+        from app.services.ai_slides.provider import is_free
+        self.assertTrue(is_free({"id": "test:free", "pricing": {"prompt": "0", "completion": "0"}}))
+        for model in [
+            {"id": "test", "pricing": {"prompt": "0", "completion": "0"}},
+            {"id": "test:free", "pricing": {"prompt": "0.01", "completion": "0"}},
+            {"id": "test:free", "pricing": {"prompt": "0", "completion": "0", "request": "1"}},
+            {"id": "test:free", "pricing": {"prompt": "0"}},
+        ]:
+            self.assertFalse(is_free(model))
+
+    def test_provider_catalog_and_request_use_the_studio_key_and_strict_schema(self):
+        import httpx
+        from app.services.ai_slides import provider
+        from app.services.ai_slides.schemas import Blueprint
+        client_type = httpx.AsyncClient
+        calls = []
+
+        def respond(request):
+            calls.append(request)
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{
+                    "id": "fixture/free:free", "pricing": {"prompt": "0", "completion": "0"},
+                    "supported_parameters": ["structured_outputs"],
+                }]})
+            self.assertEqual(request.headers["Authorization"], "Bearer studio-test-key")
+            import json
+            body = json.loads(request.content)
+            self.assertEqual(body["model"], "fixture/free:free")
+            self.assertTrue(body["provider"]["require_parameters"])
+            schema = body["response_format"]["json_schema"]["schema"]
+            self.assertEqual(set(schema["required"]), set(schema["properties"]))
+            self.assertEqual(schema["properties"]["slides"]["minItems"], 5)
+            self.assertEqual(schema["properties"]["slides"]["maxItems"], 5)
+            self.assertEqual(schema["properties"]["lesson_title"]["enum"], [PROFILE["lesson_title"]])
+            return httpx.Response(200, json={"choices": [{"message": {
+                "content": json.dumps(fixture_blueprint()),
+            }}], "usage": {"prompt_tokens": 5, "completion_tokens": 10}})
+
+        def client(**kwargs):
+            return client_type(transport=httpx.MockTransport(respond), **kwargs)
+
+        async def exercise():
+            model = await provider.eligible_model()
+            return await provider.generate(model, Blueprint, {"task": "plan", "profile": PROFILE})
+
+        with (
+            patch.dict(os.environ, {
+                "AI_SLIDES_OPENROUTER_API_KEY": "studio-test-key",
+                "AI_SLIDES_PRIMARY_MODEL": "fixture/free:free", "AI_SLIDES_FALLBACK_MODELS": "",
+            }),
+            patch.object(provider.httpx, "AsyncClient", side_effect=client),
+        ):
+            result, usage = asyncio.run(exercise())
+        self.assertEqual(result.lesson_title, PROFILE["lesson_title"])
+        self.assertEqual(usage, {"input_tokens": 5, "output_tokens": 10})
+        self.assertEqual(len(calls), 2)
+
+    def test_source_scope_and_locked_title_validation(self):
+        from app.services.ai_slides.schemas import Blueprint, Profile
+        from app.services.ai_slides.state import validate_content
+        profile = Profile.model_validate(PROFILE).model_dump()
+        blueprint = fixture_blueprint()
+        blueprint["slides"][1]["source_ids"] = ["invented-source"]
+        with self.assertRaises(self.routes.provider.StudioError):
+            validate_content(Blueprint.model_validate(blueprint), profile)
+        blueprint = fixture_blueprint()
+        blueprint["lesson_title"] = "A different lesson"
+        with self.assertRaises(self.routes.provider.StudioError):
+            validate_content(Blueprint.model_validate(blueprint), profile)
+
+    def test_chart_video_and_repetitive_content_are_validated(self):
+        from pydantic import ValidationError
+        from app.services.ai_slides.schemas import Blueprint, Profile, Slide
+        from app.services.ai_slides.state import validate_content
+        slide = fixture_manifest().model_dump()["slides"][0]
+        with self.assertRaises(ValidationError):
+            Slide.model_validate({**slide, "kind": "chart"})
+        with self.assertRaises(ValidationError):
+            Slide.model_validate({**slide, "kind": "video", "resource_id": "ohm"})
+        with self.assertRaises(ValidationError):
+            Slide.model_validate({**slide, "kind": "chart", "chart_data": {
+                "labels": ["A", "B"], "values": [1, 2, 3], "series_name": "Sai số lượng", "data_origin": "example",
+            }})
+        self.assertEqual(Slide.model_validate({**slide, "question": None}).question, "")
+        blueprint = fixture_blueprint()
+        for item in blueprint["slides"]:
+            item["title"] = "Nội dung lặp"
+        with self.assertRaises(self.routes.provider.StudioError) as error:
+            validate_content(Blueprint.model_validate(blueprint), Profile.model_validate(PROFILE).model_dump())
+        self.assertEqual(error.exception.code, "AI_QUALITY_ERROR")
+
+    def test_strict_provider_schema_requires_nullable_and_default_fields(self):
+        from app.services.ai_slides.provider import strict_schema
+        from app.services.ai_slides.schemas import Manifest
+        schema = strict_schema(Manifest)
+
+        def check(node):
+            if isinstance(node, dict):
+                self.assertNotIn("default", node)
+                if node.get("type") == "object":
+                    self.assertFalse(node["additionalProperties"])
+                    self.assertEqual(set(node["required"]), set(node["properties"]))
+                for value in node.values():
+                    check(value)
+            elif isinstance(node, list):
+                for value in node:
+                    check(value)
+        check(schema)
+
+    def test_locked_objectives_are_validated_and_studio_metadata_is_isolated(self):
+        from app.models import Base
+        from app.services.ai_slides.schemas import Blueprint, Profile
+        from app.services.ai_slides.state import validate_content
+        profile = Profile.model_validate({
+            **PROFILE, "objectives": "Mục tiêu đã khóa", "locked_fields": ["objectives"],
+        }).model_dump()
+        with self.assertRaises(self.routes.provider.StudioError):
+            validate_content(Blueprint.model_validate(fixture_blueprint()), profile)
+        self.assertFalse(any(name.startswith("ai_slide_") for name in Base.metadata.tables))

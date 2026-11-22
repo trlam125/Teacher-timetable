@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Học liệu tương tác · Smart TKB</title><link rel="stylesheet" href="/static/ai-slides/studio.css?v=1">
+<style>body{margin:0;background:#f3f6fc;font-family:Arial,sans-serif;color:#172d4a}main{max-width:1040px;margin:30px auto;padding:24px}canvas{width:100%;background:white;border:1px solid #bdcbe0;border-radius:12px}label{display:block;margin:20px 0}input{width:100%}output{font-size:24px;font-weight:bold}button{padding:12px 20px;margin:10px 8px 10px 0}#map-regions{display:flex;flex-wrap:wrap;gap:10px}.map-illustration{background:#e5f1fa;min-height:350px;padding:30px;border-radius:12px}.map-illustration button{display:block;background:white;border:1px solid #708ca9;border-radius:8px;margin-left:var(--offset);min-width:150px}</style>
+</head><body><main data-simulation="{{ slug }}">
+<a href="/ai-studio">AI Studio</a>
+{% if slug == 'ohm' %}
+<h1>Định luật Ôm</h1><p>Mô phỏng đơn giản hóa ở nhiệt độ không đổi. Độ sáng chỉ có tính minh họa.</p>
+<canvas id="simulation-canvas" width="960" height="380" aria-label="Sơ đồ mạch điện và cường độ dòng điện"></canvas>
+<label>Hiệu điện thế U (V)<input id="voltage" type="range" min="0" max="24" step="0.5" value="6"></label>
+<label>Điện trở R (Ω)<input id="resistance" type="range" min="1" max="100" value="10"></label>
+<output id="simulation-output" aria-live="polite"></output>
+{% elif slug == 'pendulum' %}
+<h1>Con lắc đơn</h1><p>Xấp xỉ góc nhỏ, bỏ qua ma sát và khối lượng dây. T = 2π√(L/g).</p>
+<canvas id="simulation-canvas" width="960" height="420" aria-label="Chuyển động của con lắc đơn"></canvas>
+<label>Chiều dài L (m)<input id="length" type="range" min="0.2" max="3" step="0.1" value="1"></label>
+<label>Biên độ (độ)<input id="amplitude" type="range" min="1" max="10" value="7"></label>
+<button id="pause" type="button">Dừng chuyển động</button><output id="simulation-output" aria-live="polite"></output>
+{% else %}
+<h1>Khám phá địa hình Việt Nam</h1>
+<p>Đường bao đất liền khái quát từ Natural Earth 1:110m. Các điểm đánh dấu minh họa vị trí vùng, phần biển đảo chưa được thể hiện đầy đủ.</p>
+<canvas id="geography-canvas" width="960" height="620" aria-label="Bản đồ khái quát Việt Nam và các điểm vùng địa hình"></canvas>
+<div><button id="map-zoom-in" type="button">Phóng to</button><button id="map-zoom-out" type="button">Thu nhỏ</button></div>
+<div id="map-regions" aria-label="Chọn vùng trên bản đồ"></div><p id="region-description" aria-live="polite">Chọn một vùng để xem đặc điểm.</p>
+<p>Dữ liệu đường bao <a href="https://www.naturalearthdata.com/downloads/110m-cultural-vectors/110m-admin-0-countries/" rel="noopener noreferrer" target="_blank">Natural Earth, public domain</a>. Đây là học liệu địa hình khái quát.</p>
+{% endif %}
+<button id="reset" type="button">Đặt lại</button>
+</main><script src="/static/ai-slides/simulations.js?v=1" defer></script></body></html>

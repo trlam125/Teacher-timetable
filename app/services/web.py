@@ -26,6 +26,8 @@ class ApplicationTemplates(Jinja2Templates):
 
 
 templates = ApplicationTemplates(directory="app/templates")
+from app.services.ai_slides.config import settings as studio_settings
+templates.env.globals["ai_studio_enabled"] = lambda: studio_settings().enabled
 
 
 def redirect_with_notice(

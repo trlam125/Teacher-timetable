@@ -1,0 +1,22 @@
+[
+  {"subject":"Vật lí","grade":"Lớp 9","title":"Định luật Ôm","facts":"Ở nhiệt độ không đổi, I=U/R. Với U=6 V và R=3 Ω thì I=2 A."},
+  {"subject":"Vật lí","grade":"Lớp 12","title":"Chu kỳ con lắc đơn","facts":"Với góc nhỏ, bỏ qua ma sát, T=2π√(L/g). Tăng L lên 4 lần làm T tăng 2 lần."},
+  {"subject":"Vật lí","grade":"Lớp 6","title":"Khối lượng riêng","facts":"Khối lượng riêng ρ=m/V. Đơn vị SI là kg/m³. Vật có m=2 kg, V=0,001 m³ có ρ=2000 kg/m³."},
+  {"subject":"Vật lí","grade":"Lớp 9","title":"Điện trở mắc nối tiếp","facts":"Mạch nối tiếp có I như nhau qua các điện trở. R tương đương bằng tổng các điện trở. R1=2 Ω, R2=3 Ω cho R=5 Ω."},
+  {"subject":"Toán","grade":"Lớp 8","title":"Định lý Pythagore","facts":"Trong tam giác vuông, bình phương cạnh huyền bằng tổng bình phương hai cạnh góc vuông. Hai cạnh góc vuông 3 cm và 4 cm cho cạnh huyền 5 cm."},
+  {"subject":"Toán","grade":"Lớp 9","title":"Phương trình bậc hai","facts":"Với a khác 0, ax²+bx+c=0 có Δ=b²−4ac. Khi Δ>0 có hai nghiệm thực phân biệt. x²−5x+6=0 có nghiệm 2 và 3."},
+  {"subject":"Toán","grade":"Lớp 5","title":"Tỉ số phần trăm","facts":"25% bằng 25/100 bằng 1/4. 25% của 80 là 20. Phần trăm luôn cần xác định rõ đại lượng làm gốc."},
+  {"subject":"Toán","grade":"Lớp 7","title":"Số trung bình cộng","facts":"Trung bình cộng bằng tổng các giá trị chia cho số giá trị. Dãy 2,4,6 có trung bình cộng 4. Trung bình cộng có thể bị ảnh hưởng bởi giá trị rất lớn."},
+  {"subject":"Sinh học","grade":"Lớp 6","title":"Quang hợp","facts":"Cây dùng năng lượng ánh sáng để tổng hợp chất hữu cơ từ nước và carbon dioxide, đồng thời giải phóng oxygen. Diệp lục hấp thụ ánh sáng."},
+  {"subject":"Sinh học","grade":"Lớp 6","title":"Tế bào thực vật","facts":"Tế bào là đơn vị cấu trúc và chức năng cơ bản của cơ thể sống. Tế bào thực vật điển hình có thành tế bào, màng sinh chất, tế bào chất và nhân."},
+  {"subject":"Sinh học","grade":"Lớp 9","title":"Chuỗi thức ăn","facts":"Chuỗi thức ăn thể hiện quan hệ dinh dưỡng giữa sinh vật. Ví dụ minh họa: cỏ → châu chấu → ếch → rắn. Mũi tên đi từ thức ăn tới sinh vật ăn nó."},
+  {"subject":"Khoa học","grade":"Lớp 5","title":"Vòng tuần hoàn nước","facts":"Nước bốc hơi, hơi nước ngưng tụ tạo mây, nước trở lại mặt đất qua mưa hoặc tuyết. Năng lượng Mặt Trời thúc đẩy bốc hơi; nước không biến mất khỏi chu trình."},
+  {"subject":"Hóa học","grade":"Lớp 8","title":"Bảo toàn khối lượng","facts":"Trong hệ kín xảy ra phản ứng hóa học, tổng khối lượng các chất phản ứng bằng tổng khối lượng sản phẩm. 3 g chất A và 5 g chất B phản ứng hoàn toàn tạo 8 g sản phẩm trong hệ kín."},
+  {"subject":"Hóa học","grade":"Lớp 9","title":"Thang pH","facts":"Ở 25 °C, dung dịch trung tính có pH=7, acid có pH<7 và base có pH>7. Không nếm hoặc chạm vào hóa chất để xác định tính acid/base."},
+  {"subject":"Địa lí","grade":"Lớp 6","title":"Tọa độ địa lí","facts":"Vĩ độ thể hiện vị trí bắc hoặc nam của xích đạo. Kinh độ thể hiện vị trí đông hoặc tây so với kinh tuyến gốc. Tọa độ cần ghi cả độ và hướng."},
+  {"subject":"Địa lí","grade":"Lớp 8","title":"Khí hậu gió mùa","facts":"Gió mùa là gió đổi hướng theo mùa. Sự chênh lệch nhiệt giữa lục địa và đại dương góp phần tạo gió mùa. Không phải mọi nơi có gió mùa đều có cùng lượng mưa."},
+  {"subject":"Lịch sử","grade":"Lớp 8","title":"Cách mạng công nghiệp lần thứ nhất","facts":"Cách mạng công nghiệp lần thứ nhất khởi đầu ở Anh trong thế kỷ XVIII. Máy hơi nước và cơ giới hóa góp phần thay đổi sản xuất. Cần phân biệt nguyên nhân, quá trình và hệ quả."},
+  {"subject":"Ngữ văn","grade":"Lớp 6","title":"Ẩn dụ và so sánh","facts":"So sánh đối chiếu hai sự vật có nét tương đồng, thường có từ như. Ẩn dụ gọi tên sự vật bằng tên sự vật khác dựa trên tương đồng. Ví dụ tự tạo: Bạn ấy nhanh như gió là so sánh."},
+  {"subject":"Tiếng Anh","grade":"Lớp 6","title":"Thì hiện tại đơn","facts":"Hiện tại đơn diễn tả thói quen và sự thật chung. Với he/she/it, động từ thường thêm s hoặc es ở câu khẳng định. She goes to school every day là ví dụ đúng."},
+  {"subject":"Toán","grade":"Lớp 3","title":"Chu vi hình chữ nhật","facts":"Chu vi hình chữ nhật bằng hai lần tổng chiều dài và chiều rộng, cùng đơn vị đo. Hình dài 5 cm, rộng 3 cm có chu vi 16 cm. Chu vi khác diện tích."}
+]
