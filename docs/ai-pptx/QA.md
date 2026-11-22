@@ -34,8 +34,25 @@ Provider của bộ E2E dùng fixture riêng cho test. OpenRouter thật đã đ
 
 Bài Định luật Ôm 15 slide được soạn bằng API thật, có rà soát/sửa nội dung mẫu được ghi lại riêng. Các nhóm 5 slide mất khoảng 41–80 giây, timeout tổng 85 giây. Tệp live-ohm-basic.pptx có 19 slide gồm 4 trang phản hồi. Hai bản QA gentle/minimal có 14 timing trees và 19 transitions; không đồng nghĩa đã xác nhận playback.
 
-Chưa xác nhận cấu hình Render production hoặc DB production. Kiểm tra chỉ đọc DB Neon trong .env thấy PostgreSQL 18, khoảng 19 MiB, 43 bảng public và 0 bảng Studio. Migration chỉ được chạy trong DB kiểm thử riêng. Local SECRET_KEY chưa được cấu hình, Studio flag vẫn false; chưa khởi động ứng dụng thật trên DB này.
+Đã xác nhận website chính trên Render dùng Neon. Lần triển khai ban đầu đã sao lưu DB, tạo 5 bảng Studio riêng, rồi deploy `e4ff596`. Theo yêu cầu tách kiểm thử, service chính đã được đưa về nhánh main và commit `a5207d6`; các biến AI_SLIDES_* đã gỡ. Năm bảng Studio trên Neon đều có 0 dòng khi kiểm tra trước khi tạo môi trường preview riêng. Không có bài giảng thử được lưu vào DB chính.
 
 PowerPoint Desktop Slide Show chưa được kiểm tra. Native motion vẫn bị khóa ở capabilities.
 
 Đã có 15 bố cục riêng dùng cùng scene cho preview/PPTX, với sơ đồ chỉnh sửa được, biểu đồ native và SVG bản đồ. Ảnh headless cho bài thật đã được xem và sửa tương phản mạch điện trên cover. Chưa render trực tiếp bằng PowerPoint hoặc LibreOffice. Bản đồ dùng đường bao đất liền Natural Earth, không biểu diễn địa giới hành chính hoặc phạm vi biển đảo đầy đủ.
+
+## Kiểm thử preview Render riêng
+
+Service `teacher-timetable-ai-preview-lam.onrender.com` chạy commit ứng dụng `e4ff596`, gói Free, với DB Render Postgres `ai_studio_preview` riêng. Không sao chép dữ liệu người dùng hoặc thời khóa biểu từ website chính; không cấu hình mail hoặc key chatbot cũ cho preview. Tài khoản quản trị preview dùng thông tin xác thực riêng trong `.env.ai-preview` bị Git bỏ qua.
+
+Đã kiểm tra thực tế trên preview:
+
+- Đăng nhập bằng tài khoản giáo viên tạm; capabilities nhận đúng cấu hình AI; API từ chối thiếu đăng nhập và CSRF.
+- OpenRouter thật tạo dàn ý 5 slide trong 12,20 giây và soạn nội dung trong 48,13 giây ở lượt thành công. Lượt trước đó gặp AI_TIMEOUT ở giới hạn 85 giây; có log model, mã lỗi và mã lượt. Không tự retry vô hạn.
+- Browser headless mở bài đã lưu, xem nhật ký model và tải PPTX thực tế. Không có lỗi JavaScript chưa xử lý. Tài khoản/dữ liệu smoke tạm đã được xóa sau kiểm thử.
+- Ba kiểm tra tệp tải xuống đạt: tiêu đề slide đầu đúng manifest, metadata giữ tên bài, các XML hợp lệ và notes được giữ. Script smoke ban đầu nhầm slide đầu luôn là cover; đã sửa giả định và kiểm tra lại chính tệp tải xuống, không gọi AI lại để sửa test này.
+- Tài khoản quản trị preview đăng nhập đúng; sửa slide, reload và hoàn tác qua API thật; tải được bài mẫu đã rà soát.
+- Browser trên preview đọc PDF mẫu 150 trang, chọn bookmark và chỉ trích trang 35–36; màn hình 390 px không tràn ngang; mô phỏng Ôm đổi U cập nhật đúng I.
+
+Bài mẫu lưu cho quản trị preview đã rà soát thủ công: bỏ tham chiếu trang SGK không có nguồn, làm rõ sự phụ thuộc R theo nhiệt độ và quan hệ nghịch biến I–R. Bản AI thô còn trong artifact local để đối chiếu. Kết quả này xác nhận luồng phần mềm, không chứng minh mọi nội dung AI tạo đều đúng kiến thức. Giáo viên vẫn cần rà soát bài giảng.
+
+Báo cáo và artifact nằm trong `tmp/ai-studio-qa`: `preview-smoke-report.json`, `preview-smoke-timeout-report.json`, `preview-admin-browser-report.json`, `preview-smoke-export.pptx` và `preview-reviewed-export.pptx`. Thông tin triển khai và thời hạn DB xem DEPLOY_RENDER_FREE.md.

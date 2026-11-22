@@ -1,5 +1,21 @@
 # Triển khai AI Studio trên Render Free
 
+## Môi trường thử nghiệm riêng — 22/11/2026
+
+AI Studio được triển khai tại `https://teacher-timetable-ai-preview-lam.onrender.com`, service `srv-dc1g742fngtc73fiqae0`, gói Free tại Singapore, nhánh `codex/ai-slides-render-free`. Commit ứng dụng được deploy là `e4ff5968cc839bb5dfc5249310d2f853e2ef0f61`. Auto-deploy của preview được tắt để không tự chạy các commit chưa kiểm thử.
+
+DB preview `teacher-timetable-ai-preview-db` là Render Postgres Free riêng, tên database `ai_studio_preview`. Không sao chép dữ liệu thời khóa biểu hoặc người dùng từ website chính. DB này hết hạn ngày 22/12/2026 theo thông tin API Render. Kết nối bên ngoài chỉ mở cho IP của máy kiểm thử tại thời điểm tạo.
+
+Website chính `https://teacher-timetable-lam.onrender.com` đã được đưa về nhánh `main`, commit `a5207d63e4eeda633e6d3bc156c2301f9a673c06`. Các biến AI_SLIDES_* đã được gỡ khỏi service chính. Năm bảng Studio rỗng đã tạo trong lần deploy ban đầu còn trong DB Neon; không có dữ liệu bài giảng thử được ghi vào các bảng đó. Bản sao lưu trước migration nằm trong thư mục local bị Git bỏ qua `tmp/ai-studio-backups`.
+
+Tài khoản quản trị và DB preview dùng thông tin xác thực riêng, được lưu trong `.env.ai-preview` trên máy người triển khai và bị Git bỏ qua. Không lưu mật khẩu hoặc chuỗi kết nối trong tài liệu này. Preview không được cấu hình mail, Google OAuth hay key chatbot của website chính.
+
+Lệnh khởi động preview tạo metadata Studio riêng rồi chạy ứng dụng: `python -m app.services.ai_slides.migrate --apply && uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Bước bootstrap hiện hành tạo các bảng ứng dụng và quản trị viên trong DB preview mới. Không thay đổi start command của service chính.
+
+Tách service/DB không tách hạn mức Render của workspace. Các service Free dùng chung số giờ miễn phí, băng thông và pipeline; xem [giới hạn Render Free](https://render.com/docs/free). Key OpenRouter của Studio cũng dùng chung quota của tài khoản OpenRouter. Có thể suspend preview khi không kiểm thử để giảm sử dụng tài nguyên.
+
+Smoke test bằng OpenRouter thật đã tạo được bài 5 slide, hiển thị trong browser và tải PPTX. Đã kiểm tra thêm đăng nhập quản trị, sửa/lưu/hoàn tác, PDF 150 trang, mobile và mô phỏng. Một lượt trước đó gặp timeout provider; lượt thử lại hoàn tất. Chi tiết và giới hạn nằm trong QA.md. Hiệu ứng native vẫn chưa được bật trên UI vì chưa có xác nhận Slide Show bằng PowerPoint Desktop.
+
 ## Chuẩn bị
 
 Xác nhận DB production, dung lượng còn lại và backup. Cấu hình local hiện nhận diện Neon. Branch, build/start command và DB thực tế trên Render cần đối chiếu Dashboard trước khi triển khai.
