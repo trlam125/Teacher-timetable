@@ -73,3 +73,7 @@ Một review độc lập toàn delta của đợt bám nguồn phát hiện cá
 - Diff đề xuất hiển thị cả hoạt động giáo viên/học sinh và đáp án đúng; headless xác nhận hoạt động xuất hiện trước khi áp dụng.
 
 Kết quả cuối sau sửa: 84 ca SQLite/PostgreSQL, 9 ca Node, 39 nhóm headless đạt. Không phát hiện test hồi quy còn thất bại. Chứng cứ trước đó vẫn là 3 bộ AI thật/15 slide/32 bullet khớp nguồn; tình trạng provider mới được ghi riêng, không xóa lỗi hoặc nhận là live AI đang ổn định. Không có finding quan trọng nào trong review này được bỏ qua; không yêu cầu reviewer lặp lại toàn bộ diff.
+
+CI đúng commit `f5c6507` đạt và deploy `dep-dc1s7it9fdbs73bnqe6g` đã live trên preview riêng. Đã đưa **ba bộ tổng hợp do AI tạo ở benchmark trước đó** vào tài khoản giáo viên QA tạm, ở trạng thái dàn ý đã được rà soát. Cả 15 slide hiển thị đối chiếu nguồn hợp lệ trên API/UI; tải từng bộ qua nút thật được 5 slide/5 timing/5 transitions, XML parse được, không lỗi JavaScript và mobile không tràn ngang. Smoke này **không gọi AI**, không xác nhận provider đã phục hồi. Tài khoản/bài/revisions/device QA đã dọn. Artifact: preview-grounded-saved-export-report.json, preview-grounded-ohm/water/map.pptx, preview-grounded-evidence-mobile.png.
+
+Website chính được Render xác nhận giữ nguyên deploy/commit `a5207d6`; không thay DB/env chính. Các bước sửa/trích đoạn đã được cập nhật trên preview, còn hạn chế availability của provider và các phần V4 khác vẫn mở. Không chạy thêm retry AI tự động hoặc tăng timeout để nhận thành công giả.
