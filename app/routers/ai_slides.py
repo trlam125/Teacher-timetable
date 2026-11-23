@@ -12,7 +12,8 @@ from app.services.web import templates
 from app.services.ai_slides import provider
 from app.services.ai_slides.config import settings
 from app.services.ai_slides.models import Deck, Revision, Step, Usage
-from app.services.ai_slides.schemas import Blueprint, EditRequest, Instruction, Manifest, Profile, RestoreRequest, Slide, SlideBatch
+from app.services.ai_slides.schemas import Blueprint, EditRequest, Instruction, Manifest, OutlineUpdate, PresentationSettings, Profile, RestoreRequest, Slide, SlideBatch
+from app.services.ai_slides.review import content_review
 from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise, snapshot, validate_content, version_guard
 
 
@@ -42,6 +43,7 @@ def serialize(deck):
         "blueprint": deck.blueprint, "manifest": deck.manifest,
         "busy": bool(deck.active_token and deck.lease_until > time.time()),
         "error_code": deck.error_code, "updated_at": deck.updated_at,
+        "review": content_review(deck.manifest, deck.profile),
     }
 
 
@@ -129,6 +131,37 @@ def revisions(deck_id: str, user=Depends(studio_user), db: Session = Depends(db_
     return [{"version": row.version, "created_at": row.created_at} for row in db.scalars(
         select(Revision).where(Revision.deck_id == deck_id).order_by(Revision.version.desc()).limit(100),
     )]
+
+
+@router.patch("/api/ai-slides/decks/{deck_id}/outline")
+def update_outline(deck_id: str, payload: OutlineUpdate, if_match: str | None = Header(None),
+                   user=Depends(studio_user), db: Session = Depends(db_session)):
+    deck = edit_guard(db, deck_id, user.id, expected_version(if_match))
+    if not deck.blueprint:
+        raise HTTPException(409, "Hãy tạo dàn ý trước khi chỉnh sửa.")
+    if deck.manifest and not payload.discard_content:
+        raise HTTPException(409, "Bài đã có nội dung. Cần xác nhận soạn lại từ dàn ý đã chỉnh; có thể hoàn tác về bài cũ.")
+    try:
+        validate_content(payload.blueprint, deck.profile)
+    except provider.StudioError as error:
+        raise provider.StudioError(error.code, error.message, 422) from None
+    deck.blueprint = payload.blueprint.model_dump()
+    deck.manifest = None
+    deck.status = "needs_review" if payload.blueprint.warnings else "planned"
+    deck.error_code = None
+    revise(db, deck)
+    db.commit()
+    return serialize(deck)
+
+
+@router.patch("/api/ai-slides/decks/{deck_id}/presentation")
+def update_presentation(deck_id: str, payload: PresentationSettings, if_match: str | None = Header(None),
+                        user=Depends(studio_user), db: Session = Depends(db_session)):
+    deck = edit_guard(db, deck_id, user.id, expected_version(if_match))
+    deck.profile = {**deck.profile, **payload.model_dump()}
+    revise(db, deck)
+    db.commit()
+    return serialize(deck)
 
 
 @router.get("/api/ai-slides/decks/{deck_id}/steps")

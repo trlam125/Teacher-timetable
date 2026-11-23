@@ -117,6 +117,16 @@ class SlideBatch(Manifest):
     slides: list[Slide] = Field(min_length=1, max_length=5)
 
 
+class OutlineUpdate(StrictModel):
+    blueprint: Blueprint
+    discard_content: bool = False
+
+
+class PresentationSettings(StrictModel):
+    theme: Literal["science", "primary", "geography", "history"]
+    motion: Literal["gentle", "minimal", "none"]
+
+
 class EditRequest(StrictModel):
     slide: Slide
 

@@ -4,6 +4,7 @@ let pdfLibrary;
 let pdfDocument;
 let selectedFile;
 let fingerprint;
+let pageTextCache = new Map();
 
 async function pdfjs() {
   if (!pdfLibrary) {
@@ -15,6 +16,7 @@ async function pdfjs() {
 }
 
 export async function openDocument(file) {
+  pageTextCache = new Map();
   if (file.size > 100 * 1024 * 1024) throw new Error('Tệp lớn hơn 100 MB. Hãy chọn bản nhẹ hơn hoặc tách phần cần dùng.');
   selectedFile = file;
   const bytes = await file.arrayBuffer();
@@ -79,6 +81,31 @@ export async function extractPages(first, last, onProgress) {
   }
   if (sources.reduce((sum, source) => sum + source.text.length, 0) < 80) throw new Error('Các trang này có thể là bản scan. Hãy chọn PDF có lớp chữ hoặc nhập văn bản để kiểm tra.');
   return sources;
+}
+
+const searchText = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLocaleLowerCase('vi').replace(/\s+/g, ' ').trim();
+
+export async function searchPdf(query, onProgress) {
+  if (!pdfDocument) throw new Error('Hãy chọn sách PDF trước khi tìm.');
+  const needle = searchText(query);
+  if (needle.length < 3) throw new Error('Nhập ít nhất 3 ký tự để tìm trong sách.');
+  const document = pdfDocument;
+  const results = [];
+  for (let number = 1; number <= document.numPages; number += 1) {
+    let text = pageTextCache.get(number);
+    if (text === undefined) {
+      const page = await document.getPage(number);
+      const content = await page.getTextContent();
+      text = content.items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
+      // Bound per-page cache, independently of the excerpt sent to AI.
+      text = text.slice(0, 40000); pageTextCache.set(number, text); page.cleanup();
+    }
+    const index = searchText(text).indexOf(needle);
+    if (index >= 0) results.push({ page: number, snippet: text.slice(Math.max(0, index - 45), index + needle.length + 100) });
+    if (number % 10 === 0 || number === document.numPages) onProgress?.(number, document.numPages);
+    if (results.length >= 40) break;
+  }
+  return results;
 }
 
 function libraryDb() {

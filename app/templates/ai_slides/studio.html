@@ -46,6 +46,9 @@
           <label class="studio-upload" for="document-file"><strong>Chọn PDF, Word hoặc văn bản</strong><span>Sách PDF được đọc trên thiết bị. Chọn trang trước khi gửi AI.</span><input id="document-file" type="file" accept=".pdf,.docx,.txt"></label>
           <div id="pdf-picker" hidden>
             <p id="document-name"></p><label>Mục lục có sẵn<select id="book-toc"><option value="">Chọn khoảng trang bên dưới</option></select></label>
+            <label>Tìm bài trong nội dung PDF<input id="book-search-query" maxlength="120" placeholder="Ví dụ: định luật Ôm, bài 12…"></label>
+            <button id="search-book" type="button" class="btn ghost">Tìm trong sách trên thiết bị</button>
+            <div id="book-search-results" aria-live="polite" hidden></div>
             <div class="studio-fields"><label>Từ trang PDF<input type="number" id="page-first" min="1" value="1"></label><label>Đến trang PDF<input type="number" id="page-last" min="1" value="1"></label></div>
             <div class="studio-actions"><button id="extract-pages" type="button" class="btn">Đọc trang đã chọn</button><button id="save-book" type="button" class="btn ghost">Lưu sách trên thiết bị</button></div>
           </div>
@@ -89,6 +92,7 @@
       <div class="studio-actions">
         <button id="continue-deck" type="button" class="btn primary">Tiếp tục tạo bài</button>
         <button id="edit-input" type="button" class="btn ghost">Sửa thông tin bài</button>
+        <button id="edit-outline" type="button" class="btn ghost" hidden>Chỉnh dàn ý</button>
         <button id="export-pptx" type="button" class="btn primary" hidden>Tải PowerPoint</button>
         <button id="export-notes" type="button" class="btn ghost" hidden>Tải ghi chú</button>
         <button id="export-json" type="button" class="btn ghost">Sao lưu bài giảng</button>
@@ -99,6 +103,34 @@
       <p id="motion-notice" class="studio-notice" hidden></p>
       <div id="deck-log" class="studio-notice" hidden aria-live="polite"></div>
       <div id="outline-review" hidden></div>
+      <section id="outline-editor" class="studio-edit-panel" hidden aria-labelledby="outline-editor-heading">
+        <h2 id="outline-editor-heading">Chỉnh dàn ý trước khi soạn</h2>
+        <p>Thay đổi nội dung, thứ tự và thời lượng. Giữ số slide đã chọn; muốn đổi số slide, chọn Sửa thông tin bài.</p>
+        <form id="outline-form">
+          <label>Mục tiêu, mỗi dòng một ý<textarea id="outline-objectives" rows="3" required></textarea></label>
+          <p id="outline-lock-message" class="muted" hidden>Mục tiêu đang khóa. Muốn thay đổi, hãy sửa thông tin bài và bỏ khóa mục tiêu.</p>
+          <p id="outline-total" role="status" aria-live="polite"></p>
+          <div id="outline-rows"></div>
+          <label id="outline-discard-label" class="studio-consent" hidden><input id="outline-discard" type="checkbox"><span>Tôi đồng ý soạn lại nội dung từ dàn ý đã chỉnh. Bài hiện tại được giữ trong lịch sử để hoàn tác.</span></label>
+          <div class="studio-actions"><button class="btn primary" type="submit">Lưu dàn ý</button><button id="cancel-outline" class="btn ghost" type="button">Hủy chỉnh sửa</button></div>
+        </form>
+      </section>
+      <details class="studio-presentation"><summary>Giao diện và hiệu ứng của bài</summary>
+        <p>Đổi các thiết lập này không gọi AI và không xóa nội dung đã soạn.</p>
+        <form id="presentation-form">
+          <div class="studio-fields">
+            <label>Phong cách<select id="presentation-theme"><option value="science">Khoa học sáng</option><option value="primary">Tiểu học</option><option value="geography">Địa lí</option><option value="history">Lịch sử</option></select></label>
+            <label>Mức hiệu ứng<select id="presentation-motion"><option value="gentle">Tự động nhẹ</option><option value="minimal">Tối giản</option><option value="none">Không hiệu ứng</option></select></label>
+          </div>
+          <button class="btn" type="submit">Lưu giao diện</button>
+        </form>
+      </details>
+      <section id="content-review" class="studio-notice" hidden aria-labelledby="content-review-heading">
+        <h2 id="content-review-heading">Rà soát trước khi dạy</h2>
+        <p>Các kiểm tra dưới đây chỉ phát hiện một số dấu hiệu cần xem lại, không xác nhận kiến thức đúng hoặc nguồn đã được kiểm chứng.</p>
+        <div id="content-review-items"></div>
+        <label id="content-review-ack-label" class="studio-consent" hidden><input id="content-review-ack" type="checkbox"><span>Tôi đã rà soát các cảnh báo của phiên bản này trước khi tải bài.</span></label>
+      </section>
       <div class="studio-editor">
         <nav id="slide-list" aria-label="Các slide"></nav>
         <div>
@@ -108,6 +140,18 @@
             <label>Tiêu đề<input id="slide-title" maxlength="160" required></label>
             <label>Nội dung, mỗi dòng một ý<textarea id="slide-bullets" rows="5"></textarea></label>
             <label>Ghi chú giáo viên<textarea id="slide-notes" rows="3" maxlength="2200"></textarea></label>
+            <fieldset id="quiz-editor" hidden><legend>Câu hỏi trắc nghiệm</legend>
+              <label>Câu hỏi<textarea id="quiz-question" maxlength="400" rows="2"></textarea></label>
+              <label>Các phương án, mỗi dòng một ý<textarea id="quiz-options" rows="4"></textarea></label>
+              <label>Phương án đúng<select id="quiz-correct"></select></label>
+              <label>Giải thích<textarea id="quiz-explanation" maxlength="600" rows="2"></textarea></label>
+            </fieldset>
+            <fieldset id="chart-editor" hidden><legend>Dữ liệu biểu đồ</legend>
+              <label>Tên chuỗi dữ liệu<input id="chart-series" maxlength="80"></label>
+              <div class="studio-fields"><label>Kiểu biểu đồ<select id="chart-type"><option value="bar">Cột</option><option value="line">Đường</option></select></label><label>Loại số liệu<select id="chart-origin"><option value="example">Ví dụ minh họa</option><option value="source">Theo nguồn đã dẫn</option></select></label></div>
+              <label>Mỗi dòng: nhãn | giá trị<textarea id="chart-values" rows="5" placeholder="2 V | 1&#10;4 V | 2"></textarea></label>
+            </fieldset>
+            <label>Học liệu liên kết<select id="slide-resource"><option value="">Không gắn học liệu</option><option value="ohm">Mô phỏng định luật Ôm</option><option value="pendulum">Mô phỏng con lắc đơn</option><option value="vietnam-map">Bản đồ Việt Nam khái quát</option><option value="water-cycle-video">Video NASA: vòng tuần hoàn nước</option></select></label>
             <button class="btn" type="submit">Lưu slide</button>
           </form>
           <form id="ai-edit-form" hidden>

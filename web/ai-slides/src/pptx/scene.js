@@ -160,6 +160,7 @@ export function createScene(item, deck, index) {
       if (item.chart_data) {
         add('chart', { x: 0.9, y: 2.45, w: 7.3, h: 3.55 }, { data: item.chart_data });
         bullets.slice(0, 3).forEach((value, position) => bullet(value, position, 8.7, 2.65 + position * 1.05, 3.6, 0.95, 20));
+        if (item.chart_data.data_origin === 'example') text('Số liệu ví dụ minh họa', 0.9, 6.08, 7.3, 0.28, { fontSize: 11, color: theme.accent });
       } else list(1, 2.5, 11, 0.85);
       break;
     case 'quiz':

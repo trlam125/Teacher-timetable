@@ -10,10 +10,17 @@ Vào AI Studio từ menu tài khoản. Cổng giáo viên có thêm nút Tạo b
 2. Điền môn, lớp, tên bài, thời lượng và số slide. Khi chọn sách PDF, chọn bài từ bookmark hoặc nhập khoảng trang PDF.
 3. Xem lại từng đoạn nguồn. Có thể sửa văn bản trích xuất và bỏ thông tin cá nhân trước khi đồng ý gửi tới OpenRouter.
 4. Tạo dàn ý. Nếu có cảnh báo, kiểm tra và xác nhận trước khi soạn slide.
+   Chọn Chỉnh dàn ý để sửa mục tiêu, tiêu đề, loại slide, thứ tự, thời lượng và nguồn. Chỉnh dàn ý của bài đã có nội dung cần xác nhận soạn lại; bản cũ vẫn có trong Hoàn tác.
 5. Sửa nội dung slide, ghi chú hoặc yêu cầu AI đề xuất thay đổi. Xem thay đổi trước khi áp dụng.
 6. Tải PowerPoint, ghi chú hoặc JSON sao lưu. Mỗi lần xuất PPTX chạy trên thiết bị.
 
 Hoàn tác lấy dữ liệu từ lịch sử đã lưu trên tài khoản. Đổi nguồn tạo bản nháp mới, phiên bản cũ còn trong lịch sử. Sách được lưu trong IndexedDB chỉ có trên thiết bị đã chọn lưu.
+
+Trong bài đã soạn, mở Giao diện và hiệu ứng của bài để đổi theme/mức hiệu ứng mà không gọi AI hoặc xóa nội dung. Quiz có trường câu hỏi, phương án, đáp án và giải thích; biểu đồ có dữ liệu số, kiểu cột/đường và nhãn số liệu minh họa. Các học liệu chỉ chọn từ danh mục cho phép.
+
+Phần Rà soát trước khi dạy nêu các dấu hiệu cần kiểm tra, như tham chiếu sách/số trang chưa được xác minh hoặc ý quá dài. Khi có cảnh báo, cần đọc và xác nhận trước khi xuất PPTX/ghi chú. Đây là kiểm tra biên tập có giới hạn, không phải dịch vụ xác minh toàn bộ kiến thức.
+
+PDF không có bookmark vẫn có thể tìm theo từ khóa bằng Tìm bài trong nội dung PDF. Tìm kiếm chạy trên thiết bị, hiển thị tối đa 40 trang phù hợp; chỉ các trang được chọn và trích mới trở thành đoạn nguồn để gửi AI khi có consent.
 
 ## Trạng thái
 
@@ -21,9 +28,9 @@ Hoàn tác lấy dữ liệu từ lịch sử đã lưu trên tài khoản. Đ�
 
 OpenRouter thật đã tạo được bài Định luật Ôm 15 slide, có rà soát nội dung mẫu. Đã kiểm tra dàn ý 20 đề bài đa môn; xem BENCHMARK.md về hai vòng kiểm tra và giới hạn chấm tự động. Soạn theo nhóm 5 slide và lưu sau mỗi nhóm, hỗ trợ tiếp tục khi gặp lỗi. Nhật ký từng bài ghi bước, model, phiên bản và mã lỗi.
 
-Deployment Render, chất lượng sư phạm 20 bộ bài hoàn chỉnh và PowerPoint Desktop vẫn cần nghiệm thu. Native motion đang khóa trong capabilities. Tệp tải từ giao diện hiện tại dùng chế độ tương tác cơ bản; các tệp có native motion phục vụ QA được tạo riêng.
+Môi trường Render thử nghiệm đã được tách riêng service/DB; xem DEPLOY_RENDER_FREE.md. Website chính vẫn ở bản cũ. Chất lượng sư phạm 20 bộ bài hoàn chỉnh và PowerPoint Desktop vẫn cần nghiệm thu. Native motion đang khóa trong capabilities. Tệp tải từ giao diện hiện tại dùng chế độ tương tác cơ bản; các tệp có native motion phục vụ QA được tạo riêng.
 
-Đã có 15 bố cục riêng dùng chung scene giữa preview và PPTX, gồm sơ đồ mạch, con lắc, biểu đồ native và bản đồ khái quát. Các mở rộng V4 còn cần hoàn thiện gồm nhận diện metadata ngoài bookmark, trình giải quyết xung đột đa nguồn, chỉnh dàn ý trực tiếp, đổi theme sau khi soạn và QA thị giác PowerPoint. OCR, nhập PPTX cũ, giọng nói và batch toàn sách thuộc P2.
+Đã có 15 bố cục riêng dùng chung scene giữa preview và PPTX, gồm sơ đồ mạch, con lắc, biểu đồ native và bản đồ khái quát. Đã bổ sung chỉnh dàn ý trực tiếp, đổi theme sau khi soạn và tìm nội dung PDF. Các mở rộng V4 còn cần hoàn thiện gồm tự nhận diện bài/chương ngoài bookmark, trình giải quyết xung đột đa nguồn và QA thị giác PowerPoint. OCR, nhập PPTX cũ, giọng nói và batch toàn sách thuộc P2.
 
 ## Kiểm thử
 
@@ -43,6 +50,7 @@ Kiểm thử trình duyệt chạy headless, sử dụng server fixture chỉ bi
 .venv/Scripts/python.exe -B tests/studio_preview_server.py
 # Terminal test thứ hai
 .venv/Scripts/python.exe -B tests/studio_headless.py
+.venv/Scripts/python.exe -B tests/studio_editor_headless.py
 ```
 
 Python Playwright thuộc .venv của dự án. Trình duyệt kiểm thử được cài trong cache chuẩn, chạy headless.

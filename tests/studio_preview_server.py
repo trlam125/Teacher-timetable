@@ -83,6 +83,9 @@ async def generate(model_id, schema, payload):
             if slide["kind"] == "quiz":
                 slide.update(question="6 / 3 bằng bao nhiêu?", options=["2 A", "18 A"],
                              correct_option=0, explanation="I = 6 / 3 = 2 A.")
+            if slide["kind"] == "chart":
+                slide["chart_data"] = {"chart_type": "bar", "labels": ["2 V", "4 V"], "values": [1, 2],
+                                       "series_name": "I (A)", "data_origin": "example"}
             slides.append(slide)
     value = {"lesson_title": profile["lesson_title"], "slides": slides}
     if payload["task"] == "plan":

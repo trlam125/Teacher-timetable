@@ -97,6 +97,96 @@ class StudioTests(unittest.TestCase):
             "If-Match": str(deck["version"]), "Idempotency-Key": key,
         })
 
+    def seed_ready(self):
+        from app.services.ai_slides.models import Deck, Revision
+        from app.services.ai_slides.state import snapshot
+        deck = self.create()
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = fixture_blueprint()
+            row.manifest = fixture_manifest().model_dump()
+            row.status = "ready"
+            revision = db.scalar(select(Revision).where(Revision.deck_id == row.id, Revision.version == 1))
+            revision.snapshot = snapshot(row)
+            db.commit()
+        return self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()
+
+    def test_outline_edit_requires_explicit_reset_and_restores_previous_content(self):
+        deck = self.seed_ready()
+        url = f"/api/ai-slides/decks/{deck['id']}"
+        outline = fixture_blueprint()
+        outline["slides"][1]["title"] = "Khởi động đã chỉnh"
+        body = {"blueprint": outline}
+        self.assertEqual(self.client.patch(url + "/outline", headers={"If-Match": "1"}, json=body).status_code, 409)
+        updated = self.client.patch(url + "/outline", headers={"If-Match": "1"}, json={**body, "discard_content": True})
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertEqual(updated.json()["version"], 2)
+        self.assertIsNone(updated.json()["manifest"])
+        self.assertEqual(updated.json()["blueprint"]["slides"][1]["title"], "Khởi động đã chỉnh")
+        restored = self.client.post(url + "/restore", headers={"If-Match": "2"}, json={"version": 1})
+        self.assertEqual(restored.status_code, 200, restored.text)
+        # Initial fixture is deliberately persisted in revision for this scenario.
+        self.assertIsNotNone(restored.json()["manifest"])
+
+    def test_outline_edit_enforces_owner_version_duration_and_source_constraints(self):
+        from app.services.ai_slides.models import Deck
+        deck = self.create()
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = fixture_blueprint()
+            row.status = "planned"
+            db.commit()
+        url = f"/api/ai-slides/decks/{deck['id']}/outline"
+        payload = {"blueprint": fixture_blueprint()}
+        self.user.id = 2
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json=payload).status_code, 404)
+        self.user.id = 1
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "99"}, json=payload).status_code, 409)
+        bad = deepcopy(payload)
+        bad["blueprint"]["slides"][0]["duration_seconds"] = 0
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json=bad).status_code, 422)
+        bad = deepcopy(payload)
+        bad["blueprint"]["slides"][0]["source_ids"] = ["made-up"]
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json=bad).status_code, 422)
+        good = self.client.patch(url, headers={"If-Match": "1"}, json=payload)
+        self.assertEqual(good.status_code, 200, good.text)
+        self.assertEqual(good.json()["version"], 2)
+
+    def test_presentation_settings_preserve_content_and_never_call_provider(self):
+        deck = self.seed_ready()
+        url = f"/api/ai-slides/decks/{deck['id']}/presentation"
+        with patch.object(self.routes.provider, "generate", new_callable=AsyncMock) as generate:
+            response = self.client.patch(url, headers={"If-Match": "1"}, json={"theme": "history", "motion": "none"})
+            self.assertEqual(response.status_code, 200, response.text)
+            changed = response.json()
+            self.assertEqual(changed["manifest"], deck["manifest"])
+            self.assertEqual(changed["blueprint"], deck["blueprint"])
+            self.assertEqual(changed["status"], "ready")
+            self.assertEqual(changed["profile"]["theme"], "history")
+            self.assertEqual(changed["profile"]["motion"], "none")
+            self.assertEqual(changed["version"], 2)
+            generate.assert_not_called()
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json={"theme": "science", "motion": "gentle"}).status_code, 409)
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "2"}, json={"theme": "history", "motion": "none", "subject": "Đổi ngoài phạm vi"}).status_code, 422)
+
+    def test_content_review_reports_unverified_page_without_claiming_fact_check(self):
+        from app.services.ai_slides.review import content_review
+        manifest = fixture_manifest().model_dump()
+        manifest["slides"][1]["bullets"] = ["Làm bài tập SGK trang 999."]
+        issues = content_review(manifest, {**PROFILE, "sources": []})
+        self.assertTrue(any(row["code"] == "UNVERIFIED_REFERENCE" and row["slide_id"] == "s002" for row in issues))
+        manifest["slides"][1]["bullets"] = ["Kiểm tra đơn vị trước khi tính."]
+        self.assertFalse(any(row["code"] == "UNVERIFIED_REFERENCE" for row in content_review(manifest, {**PROFILE, "sources": []})))
+        for field, value in [("question", "Làm bài tập SGK trang 999."),
+                             ("options", ["Theo SGK trang 999.", "Phương án khác"]),
+                             ("teacher_action", "Mở sách trang 999."),
+                             ("student_action", "Đọc tài liệu trang 999.")]:
+            with self.subTest(field=field):
+                candidate = fixture_manifest().model_dump()
+                candidate["slides"][3][field] = value
+                self.assertTrue(any(row["code"] == "UNVERIFIED_REFERENCE" and row["slide_id"] == "s004"
+                                    for row in content_review(candidate, {**PROFILE, "sources": []})))
+
     def test_auth_roles_flag_and_csrf_are_enforced(self):
         self.client.headers.pop("X-CSRF-Token")
         self.assertEqual(self.client.post("/api/ai-slides/decks", json=PROFILE).status_code, 403)

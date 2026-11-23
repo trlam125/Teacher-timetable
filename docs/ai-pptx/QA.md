@@ -56,3 +56,15 @@ Service `teacher-timetable-ai-preview-lam.onrender.com` chạy commit ứng dụ
 Bài mẫu lưu cho quản trị preview đã rà soát thủ công: bỏ tham chiếu trang SGK không có nguồn, làm rõ sự phụ thuộc R theo nhiệt độ và quan hệ nghịch biến I–R. Bản AI thô còn trong artifact local để đối chiếu. Kết quả này xác nhận luồng phần mềm, không chứng minh mọi nội dung AI tạo đều đúng kiến thức. Giáo viên vẫn cần rà soát bài giảng.
 
 Báo cáo và artifact nằm trong `tmp/ai-studio-qa`: `preview-smoke-report.json`, `preview-smoke-timeout-report.json`, `preview-admin-browser-report.json`, `preview-smoke-export.pptx` và `preview-reviewed-export.pptx`. Thông tin triển khai và thời hạn DB xem DEPLOY_RENDER_FREE.md.
+
+## Đợt hoàn thiện editor — 23/11/2026
+
+Đã chạy đạt 40 ca backend trên SQLite và PostgreSQL kiểm thử riêng, 6 ca exporter Node cùng spike 5 slide, 14 nhóm browser hồi quy và 8 nhóm editor/search mới. Node chạy trong container `codex-skill-env`; browser chỉ chạy headless.
+
+Các ca mới kiểm tra sửa/reorder dàn ý và thời lượng được lưu sau reload; ràng buộc owner/version/nguồn; xác nhận rõ khi soạn lại bài đã có nội dung và hoàn tác phục hồi nội dung cũ. Đổi theme/mức hiệu ứng giữ nguyên manifest và dàn ý, không gọi provider. Có thể sửa câu hỏi/phương án/đáp án/giải thích quiz và kiểu/dữ liệu biểu đồ bằng tay. Slide đang chọn được giữ khi reload.
+
+Kiểm tra biên tập nêu tham chiếu sách/số trang chưa xác minh trong tiêu đề, bullets, notes, câu hỏi/phương án, giải thích và hoạt động GV/HS. Có test tái hiện trường bị bỏ sót trước khi sửa. Khi có cảnh báo, browser yêu cầu xác nhận rà soát trước khi tải PPTX/ghi chú. Đây không phải phép kiểm chứng độ đúng kiến thức hoặc nguồn gốc; không coi việc người dùng đánh dấu xác nhận là nguồn đã được xác minh.
+
+PDF mẫu 150 trang được tìm theo nội dung tại thiết bị, chọn được trang 35 mà không gửi toàn sách lên server. Search giới hạn cache mỗi trang 40.000 ký tự và kết quả tối đa 40 trang. Chưa có OCR hay tự suy luận tên bài/chương khi PDF không có lớp chữ.
+
+Artifact mới: `editor-headless-report.json`, `outline-editor-desktop.png`, `rich-editor-desktop.png`, `reviewed-editor-export.pptx` trong thư mục local `tmp/ai-studio-qa`. Đã xem ảnh dàn ý. Native motion vẫn chưa đạt gate PowerPoint Desktop.

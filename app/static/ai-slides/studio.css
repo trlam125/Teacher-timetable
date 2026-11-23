@@ -66,3 +66,16 @@
 @media(max-width:1000px) {.studio-shell{grid-template-columns:205px minmax(0,1fr)}.studio-workspace{padding:28px 22px}.studio-editor{grid-template-columns:1fr}#slide-list{display:flex;gap:8px;max-height:140px;overflow-x:auto}#slide-list button{min-width:130px;max-width:190px}.studio-modes{flex-direction:column;gap:8px}.studio-modes label{margin:0}}
 @media(max-width:650px) {.studio-shell{grid-template-columns:1fr}.studio-library{position:static;border-right:0;border-bottom:1px solid #d8e0ed;max-height:240px;padding:16px}.studio-library h2{margin:15px 0 7px}#deck-list{display:flex;gap:8px;overflow:auto}.studio-deck-link{min-width:170px}.studio-fields{grid-template-columns:1fr}.studio-form-section{padding:20px}.studio-workspace{padding:24px 16px}.studio-app-title{margin-left:12px;padding-left:12px}.studio-modes small{margin-top:2px}.studio-slide{aspect-ratio:auto;min-height:250px}}
 .studio-slide.scene-preview {min-height:0;}
+.studio-edit-panel,.studio-presentation {background:#fff;border:1px solid #c8d5e6;border-radius:10px;padding:20px;margin:20px 0;}
+.studio-edit-panel h2,#content-review h2 {font-size:20px;margin:0 0 12px;}
+#outline-editor {scroll-margin-top:90px;}
+.studio-outline-row {padding:18px 0;border-top:1px solid #dae3ef;}
+.studio-outline-row header {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.studio-outline-row header div {display:flex;gap:8px;}
+.studio-outline-row .studio-fields {grid-template-columns:minmax(0,1fr) 150px;}
+#outline-total {font-weight:600;padding:12px;background:#eef4fd;border-radius:6px;}
+#outline-total[data-error=true] {background:#fff0f0;color:#812727;}
+#book-search-results {padding:12px;margin:12px 0;max-height:360px;overflow:auto;border:1px solid #c8d5e6;border-radius:8px;}
+#book-search-results button {display:block;width:100%;text-align:left;padding:12px;margin-bottom:8px;background:#fff;border:1px solid #c8d5e6;border-radius:6px;white-space:normal;overflow-wrap:anywhere;}
+#content-review-items p {margin:12px 0;}#content-review-items button {margin-right:8px;}
+@media(max-width:650px) {.studio-outline-row .studio-fields{grid-template-columns:1fr}.studio-edit-panel,.studio-presentation{padding:15px}.studio-outline-row header{align-items:flex-start;flex-wrap:wrap}}
