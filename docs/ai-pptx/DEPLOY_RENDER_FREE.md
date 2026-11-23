@@ -2,7 +2,9 @@
 
 ## Môi trường thử nghiệm riêng — 22/11/2026
 
-AI Studio được triển khai tại `https://teacher-timetable-ai-preview-lam.onrender.com`, service `srv-dc1g742fngtc73fiqae0`, gói Free tại Singapore, nhánh `codex/ai-slides-render-free`. Ngày 23/11/2026 đã cập nhật commit ứng dụng `5ac5b2383ce59ebc160b6b40878143ace3074ab5` cho các editor và tìm kiếm PDF. Auto-deploy của preview được tắt để không tự chạy các commit chưa kiểm thử.
+AI Studio được triển khai tại `https://teacher-timetable-ai-preview-lam.onrender.com`, service `srv-dc1g742fngtc73fiqae0`, gói Free tại Singapore, nhánh `codex/ai-slides-render-free`. Ngày 23/11/2026 đã cập nhật commit ứng dụng `a923455f0cf48f737b0efb279c889d50f246fefe`: editor/tìm kiếm PDF và cờ native motion sau QA. Auto-deploy của preview được tắt để không tự chạy các commit chưa kiểm thử.
+
+AI_SLIDES_NATIVE_MOTION_ENABLED=true đã được đặt riêng trên preview sau khi người dùng xác nhận ba bộ Desktop QA. Kiểm thử tải trực tiếp trên preview đạt: bản native 19 slide có 14 timing trees và 19 Fade transitions; bản cơ bản và reduced-motion không có timing/transition. Website chính không được đặt cờ này và vẫn chạy bản cũ.
 
 DB preview `teacher-timetable-ai-preview-db` là Render Postgres Free riêng, tên database `ai_studio_preview`. Không sao chép dữ liệu thời khóa biểu hoặc người dùng từ website chính. DB này hết hạn ngày 22/12/2026 theo thông tin API Render. Kết nối bên ngoài chỉ mở cho IP của máy kiểm thử tại thời điểm tạo.
 
