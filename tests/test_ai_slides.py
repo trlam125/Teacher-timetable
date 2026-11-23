@@ -274,6 +274,36 @@ class StudioTests(unittest.TestCase):
             self.assertEqual(response.json()["code"], "GROUNDING_REPLAN_REQUIRED")
             model.assert_not_called()
 
+    def test_extractive_request_uses_its_own_prompt_without_free_authoring_rules(self):
+        import httpx
+        import json
+        from app.services.ai_slides import provider
+        from app.services.ai_slides.grounding import source_units
+        from app.services.ai_slides.schemas import GroundedPlan
+        profile = self.strict_profile()
+        units = source_units(profile)
+        original_client = httpx.AsyncClient
+        def respond(request):
+            body = json.loads(request.content)
+            system = body["messages"][0]["content"]
+            self.assertTrue(system.startswith(provider.EXTRACTIVE_PROMPT))
+            self.assertNotIn("Ghi chú mỗi slide khoảng 200-400", system)
+            data = json.loads(next(item["content"] for item in body["messages"] if item["role"] == "user"))
+            self.assertNotIn("cite_every_slide", data["output_contract"])
+            self.assertNotIn("alternatives", data["source_decisions"][0])
+            self.assertEqual(data["available_resources"], [])
+            raw = {"lesson_title": profile["lesson_title"], "objective_unit_ids": [units[0]["id"]], "warnings": [],
+                   "slides": [{**slot, "kind": kind, "unit_ids": [units[0]["id"]]} for slot, kind in zip(data["output_contract"]["slots"], ["cover", "hook", "concept", "quiz", "summary"])]}
+            return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(raw)}}]})
+        def client(**kwargs):
+            return original_client(transport=httpx.MockTransport(respond), **kwargs)
+        with patch.object(provider.httpx, "AsyncClient", side_effect=client), patch.dict(os.environ, {"AI_SLIDES_OPENROUTER_API_KEY": "mock-only"}):
+            result, _ = asyncio.run(provider.generate("fixture/selection:free", GroundedPlan, {
+                "task": "plan", "profile": profile, "grounding_contract": {"units": units},
+                "source_decisions": [{"field": "I", "selected": {"quote": "I=U/R"}, "alternatives": [{"quote": "I=U*R"}]}],
+            }))
+        self.assertEqual(len(result.slides), 5)
+
     def test_strict_full_flow_proof_manual_edit_undo_and_ai_edit(self):
         profile = self.strict_profile()
         deck = self.create(**profile)
