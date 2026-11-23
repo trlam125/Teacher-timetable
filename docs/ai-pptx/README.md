@@ -38,6 +38,8 @@ Các phần còn cần hoàn thiện gồm nhận diện thông tin mơ hồ b�
 
 Chế độ **Bám nguồn bằng trích đoạn** cho AI chọn đoạn, máy chủ đối chiếu rồi lấy nguyên văn; quiz điền đúng nguyên văn, không tự thêm số liệu/học liệu/sơ đồ kiến thức. Dưới preview có nguồn/trang/trích dẫn. Sửa tay làm mất trạng thái đối chiếu và cần rà soát; undo khôi phục bản cũ. Chế độ **Cân bằng** vẫn dành cho diễn đạt linh hoạt. Đây là đối chiếu văn bản, không kiểm chứng tính đúng hoặc đủ ngữ cảnh của nguồn. Dàn ý strict cũ có nút lập lại để dùng hợp đồng mới, giữ lịch sử hoàn tác.
 
+Luồng một nút mới đã được build/kiểm thử local: **Tạo PowerPoint bằng AI** tự đi từ dàn ý sang các nhóm nội dung hợp lệ; **Tạo dàn ý bằng AI** vẫn dừng để chỉnh trước. Cảnh báo/nguồn mâu thuẫn sẽ dừng để rà soát. Lỗi giữ các nhóm đã lưu; bấm tiếp tục chỉ soạn phần còn lại, không tự retry hoặc tự gọi inference khi reload. Giáo viên xem lại rồi chủ động tải tệp. Xem PROGRESS.md để biết commit nào thực sự đã lên preview.
+
 ## Kiểm thử
 
 Python dùng .venv hiện có. Bộ unittest dùng SQLite trong bộ nhớ. Khi có AUTH_TEST_DATABASE_URL trỏ DB kiểm thử riêng, cùng bộ API chạy thêm trên PostgreSQL, gồm kiểm thử tranh chấp khóa giữa hai yêu cầu.
@@ -55,11 +57,7 @@ Kiểm thử trình duyệt chạy headless, sử dụng server fixture chỉ bi
 # Terminal test thứ nhất
 .venv/Scripts/python.exe -B tests/studio_preview_server.py
 # Terminal test thứ hai
-.venv/Scripts/python.exe -B tests/studio_headless.py
-.venv/Scripts/python.exe -B tests/studio_editor_headless.py
-.venv/Scripts/python.exe -B tests/studio_motion_headless.py
-.venv/Scripts/python.exe -B tests/studio_sources_headless.py
-.venv/Scripts/python.exe -B tests/studio_grounding_headless.py
+.venv/Scripts/python.exe -B tests/run_studio_offline.py
 ```
 
 Python Playwright thuộc .venv của dự án. Trình duyệt kiểm thử được cài trong cache chuẩn, chạy headless.

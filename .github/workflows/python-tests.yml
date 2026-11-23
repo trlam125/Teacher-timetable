@@ -66,8 +66,4 @@ jobs:
           python tests/studio_preview_server.py &
           STUDIO_TEST_PID=$!
           trap 'kill "$STUDIO_TEST_PID" || true' EXIT
-          python tests/studio_headless.py
-          python tests/studio_editor_headless.py
-          python tests/studio_motion_headless.py
-          python tests/studio_sources_headless.py
-          python tests/studio_grounding_headless.py
+          python tests/run_studio_offline.py

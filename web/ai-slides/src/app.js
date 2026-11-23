@@ -1,5 +1,6 @@
 import { bookAction, discoverPdfLessons, extractPages, openDocument, searchPdf } from './documents.js';
 import { renderScene } from './pptx/preview.js';
+import { driveGeneration } from './generation.js';
 
 const $ = selector => document.querySelector(selector);
 const owner = document.body.dataset.owner;
@@ -15,6 +16,7 @@ let proposal = null;
 let proposalStepId = null;
 let outlineDraft = null;
 let reviewedVersion = '';
+let generationMode = 'automatic';
 const kindLabels = { cover: 'Trang mở đầu', objectives: 'Mục tiêu', hook: 'Khởi động', section: 'Chuyển phần', concept: 'Khái niệm', process: 'Quy trình', compare: 'So sánh', map: 'Bản đồ', experiment: 'Thí nghiệm / mô phỏng', example: 'Ví dụ', chart: 'Biểu đồ', quiz: 'Trắc nghiệm', video: 'Video', summary: 'Tổng kết', sources: 'Nguồn tài liệu' };
 const strictKinds = new Set(['cover', 'objectives', 'hook', 'section', 'concept', 'process', 'compare', 'example', 'quiz', 'summary', 'sources']);
 const statusLabels = { draft: 'Bản nháp', planned: 'Đã có dàn ý', authoring: 'Đang soạn, đã lưu một phần', needs_review: 'Cần xác nhận dàn ý', needs_source_review: 'Cần rà soát nguồn', ready: 'Sẵn sàng tải' };
@@ -210,6 +212,7 @@ function profile() {
     sources,
     consent: $('#cloud-consent').checked,
     training_consent: $('#training-consent').checked,
+    generation_mode: generationMode,
   };
 }
 
@@ -229,15 +232,34 @@ async function saveProfile() {
 }
 
 async function generate(kind) {
-  do {
-    message(kind === 'plan' ? 'AI đang xây dựng dàn ý…' : `AI đang soạn slide… Đã lưu ${deck.manifest?.slides?.length || 0}/${deck.profile.slide_count} slide.`);
-    deck = await api(`/decks/${deck.id}/${kind}`, {
-      method: 'POST', headers: { ...headers(), 'Idempotency-Key': crypto.randomUUID() },
+  let result;
+  try {
+    result = await driveGeneration(deck, {
+      firstStep: kind,
+      onProgress: (step, current) => message(step === 'plan' ? 'AI đang xây dựng dàn ý…' : `AI đang soạn slide… Đã lưu ${current.manifest?.slides?.length || 0}/${current.profile.slide_count} slide.`),
+      onDeck: current => { deck = current; showDeck(); },
+      request: (step, current) => api(`/decks/${current.id}/${step}`, {
+        method: 'POST', headers: { 'If-Match': String(current.version), 'Idempotency-Key': crypto.randomUUID() },
+      }),
     });
+  } catch (error) {
+    // Read the saved state once after an ambiguous timeout. Never retry inference.
+    try { deck = await api(`/decks/${deck.id}`); } catch { /* Keep the last confirmed snapshot. */ }
     showDeck();
-  } while (kind === 'author' && deck.status === 'authoring');
+    throw error;
+  }
   await refreshLibrary();
   showDeck();
+  const messages = {
+    ready: 'Đã soạn xong bài và lưu đầy đủ. Hãy xem lại nội dung trước khi tải PowerPoint.',
+    outline: 'Đã lưu dàn ý. Bạn có thể chỉnh lại trước khi soạn slide.',
+    needs_review: 'Đã lưu dàn ý. Hãy rà soát các lưu ý trước khi tiếp tục soạn.',
+    needs_source_review: 'Hãy rà soát thông tin nguồn trước khi tiếp tục gọi AI.',
+    needs_consent: 'Chọn Sửa thông tin bài để xác nhận đồng ý gửi dữ liệu tới AI.',
+    busy: 'Một lượt AI đang xử lý. Chọn lại bài từ thư viện để cập nhật; chưa gọi thêm lượt mới.',
+    needs_replan: 'Dàn ý cũ cần được lập lại theo chế độ trích đoạn trước khi soạn.',
+  };
+  message(messages[result.state] || 'Đã lưu tiến độ bài giảng.');
 }
 
 function showDeck() {
@@ -480,16 +502,21 @@ function fillQuizAnswers(selected = $('#quiz-correct').value) {
 }
 $('#quiz-options').oninput = () => fillQuizAnswers();
 
-form.onsubmit = event => {
-  event.preventDefault();
+function startLesson(mode) {
   run(async () => {
     if (!$('#cloud-consent').checked) throw new Error('Hãy đồng ý gửi thông tin bài học tới AI trước khi tạo.');
+    generationMode = mode;
     if (!await saveProfile()) return;
     showDeck();
     if (deck.source_analysis?.unresolved) { message('Đã lưu bản nháp. Hãy rà soát các thông tin khác nhau trước khi gọi AI.'); return; }
     await generate('plan');
   });
+}
+form.onsubmit = event => {
+  event.preventDefault();
+  startLesson('automatic');
 };
+$('#create-outline').onclick = () => startLesson('outline');
 $('#save-draft').onclick = () => run(async () => { if (await saveProfile()) { showDeck(); message('Đã lưu bản nháp.'); } });
 $('#recognize-source').onclick = () => run(recognizeSources);
 $('#source-review-form').onsubmit = event => {
@@ -515,12 +542,14 @@ $('#replan-grounded').onclick = () => {
 form.elements.grounding.onchange = () => { $('#grounding-help').hidden = form.elements.grounding.value !== 'strict'; };
 $('#new-deck').onclick = () => {
   deck = null; sources = []; editingInput = false; selectedSlide = 0; form.reset();
+  generationMode = 'automatic';
   localStorage.removeItem('studio-current-' + owner);
   renderSources(); showPane('create'); message('');
   form.elements.grounding.onchange();
 };
 $('#edit-input').onclick = () => {
   editingInput = true;
+  generationMode = deck.profile.generation_mode || 'outline';
   for (const [name, value] of Object.entries(deck.profile)) {
     if (name === 'input_mode') $(`input[name=input_mode][value="${value}"]`).checked = true;
     else if (form.elements[name]) form.elements[name].value = value;

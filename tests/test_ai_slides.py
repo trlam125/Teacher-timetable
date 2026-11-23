@@ -92,6 +92,12 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text[:500])
         return response.json()
 
+    def test_generation_mode_is_persisted_and_legacy_clients_keep_outline_behavior(self):
+        self.assertEqual(self.create()["profile"]["generation_mode"], "outline")
+        automatic = self.create(generation_mode="automatic")
+        loaded = self.client.get(f"/api/ai-slides/decks/{automatic['id']}")
+        self.assertEqual(loaded.json()["profile"]["generation_mode"], "automatic")
+
     def call_step(self, deck, kind, key="test-request-key-001"):
         return self.client.post(f"/api/ai-slides/decks/{deck['id']}/{kind}", headers={
             "If-Match": str(deck["version"]), "Idempotency-Key": key,

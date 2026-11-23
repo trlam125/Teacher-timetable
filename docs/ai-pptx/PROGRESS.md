@@ -77,3 +77,23 @@ Kết quả cuối sau sửa: 84 ca SQLite/PostgreSQL, 9 ca Node, 39 nhóm headl
 CI đúng commit `f5c6507` đạt và deploy `dep-dc1s7it9fdbs73bnqe6g` đã live trên preview riêng. Đã đưa **ba bộ tổng hợp do AI tạo ở benchmark trước đó** vào tài khoản giáo viên QA tạm, ở trạng thái dàn ý đã được rà soát. Cả 15 slide hiển thị đối chiếu nguồn hợp lệ trên API/UI; tải từng bộ qua nút thật được 5 slide/5 timing/5 transitions, XML parse được, không lỗi JavaScript và mobile không tràn ngang. Smoke này **không gọi AI**, không xác nhận provider đã phục hồi. Tài khoản/bài/revisions/device QA đã dọn. Artifact: preview-grounded-saved-export-report.json, preview-grounded-ohm/water/map.pptx, preview-grounded-evidence-mobile.png.
 
 Website chính được Render xác nhận giữ nguyên deploy/commit `a5207d6`; không thay DB/env chính. Các bước sửa/trích đoạn đã được cập nhật trên preview, còn hạn chế availability của provider và các phần V4 khác vẫn mở. Không chạy thêm retry AI tự động hoặc tăng timeout để nhận thành công giả.
+
+## Tiếp tục sau khi quyền mạng bị thu hồi — 23/11/2026 (chưa deploy)
+
+Đang bổ sung luồng tạo liền mạch theo mục 5.3 V4. Nút chính Tạo PowerPoint bằng AI tự gọi plan rồi các nhóm author khi không có cảnh báo; nút Tạo dàn ý giữ đường xem trước. generation_mode lưu trong profile JSON, API client cũ mặc định outline để giữ hành vi. Bộ điều phối dừng tại consent/source review/outline warning/busy/legacy strict, không tự retry inference, không tự gọi AI khi reload và không tự tải tệp. Sau lỗi chỉ đọc lại deck một lần, giữ các nhóm đã lưu để người dùng tiếp tục.
+
+Đã thêm test Node cho chuỗi 15 slide, chỉ dàn ý, cảnh báo/approval, consent/source/busy/legacy, lỗi giữa bài/resume và phản hồi không tăng tiến độ. Đã quan sát test fail khi module chưa tồn tại; sau triển khai 5/6 ca đạt, ca cuối chỉ sai hoa/thường trong assertion thông báo, đã sửa assertion nhưng chưa chạy lại bản cuối. Backend SQLite hiện 42/42 đạt, gồm lưu generation_mode và tương thích API cũ. Đã chuẩn bị 6 nhóm headless mới cho UI automatic/warning/resume và runner chặn mọi request trình duyệt ngoài loopback; CI được chuẩn bị chạy qua runner offline. Python syntax/diff được kiểm tra, chưa tính là browser QA đã đạt.
+
+Giới hạn thực thi hiện tại: ứng dụng báo thu hồi quyền mạng ngay khi bắt đầu kiểm tra model thay thế. Lệnh Docker ngoài sandbox bị từ chối; Docker trong sandbox không truy cập được named pipe. Không đi đường vòng để gọi mạng, không cài Node trên Windows. Chưa build bundle mới, chưa chạy lại Node/headless, chưa push/deploy hoặc kiểm tra giá/model hiện hành. Tất cả thay đổi của đợt này là mã local chưa hoàn tất, preview vẫn ở bản triển khai trước.
+
+Việc tiếp theo khi được phép: build/test offline qua codex-skill-env, chạy runner loopback và PostgreSQL QA, rà soát delta; sau khi quyền mạng được bật lại mới kiểm tra catalog zero-price, benchmark ứng viên có giới hạn lượt, CI và cập nhật preview riêng. Không chọn model dựa trên tên hoặc catalog cũ.
+
+## Hoàn thiện luồng một nút trên local — 23/11/2026
+
+Đã được phép dùng lại Docker cho build/test offline. Bản cuối đạt 15 ca Node (9 cũ + 6 bộ điều phối), build Vite thành công với dependencies hiện có, không npm install/download. Đã chép bundle mới vào dist. 86 ca backend SQLite/PostgreSQL đạt (DB QA riêng 127.0.0.1:18765), gồm generation_mode=automatic được lưu và client cũ mặc định outline. Không đổi schema DB.
+
+Toàn bộ 6 bộ headless chạy qua run_studio_offline.py đạt 45 nhóm (14+8+4+7+6+6); request HTTP/HTTPS ngoài loopback bị chặn. Sáu nhóm mới xác nhận tạo 15 slide qua một thao tác và ba batch; không gọi AI khi reload; giữ đường chỉ tạo dàn ý; cảnh báo dừng automation; chỉ tiếp tục sau bấm duyệt; lỗi batch thứ hai giữ 5 slide và không tự retry; resume chỉ soạn hai nhóm còn lại; mâu thuẫn nguồn chặn trước mọi inference. Không lỗi JavaScript/tràn ngang, đã xem ảnh mobile. Provider là fixture local; **không suy ra model thật đã phục hồi**.
+
+Luồng không tự tải PowerPoint khi vừa soạn xong: giáo viên xem/chỉnh rồi bấm tải, tránh tự phát hành nội dung chưa rà soát và hạn chế tải trình duyệt. Mở lại trang chỉ đọc trạng thái đã lưu; tiếp tục AI cần thao tác rõ ràng. Sau lỗi chỉ GET deck một lần, không retry inference, giữ version/idempotency mới cho từng bước. Engine có giới hạn số bước và dừng nếu tiến độ không tăng.
+
+Artifact local: workflow-headless-report.json, automatic-generation-mobile.png và các báo cáo hồi quy trong tmp/ai-studio-qa. Đã rà soát delta tạo bài/schema/CI/test và git diff --check sạch. Chưa xác nhận deploy của đợt này, chưa thay model/timeout/API key và chưa kiểm tra lại catalog ngoài mạng.

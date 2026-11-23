@@ -48,6 +48,7 @@ class RecognitionRequest(StrictModel):
 
 class Profile(StrictModel):
     input_mode: Literal["manual", "document", "hybrid"] = "hybrid"
+    generation_mode: Literal["outline", "automatic"] = "outline"
     subject: str = Field(min_length=1, max_length=80)
     grade: str = Field(min_length=1, max_length=40)
     lesson_title: str = Field(min_length=1, max_length=240)
