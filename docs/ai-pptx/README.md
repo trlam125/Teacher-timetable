@@ -28,7 +28,9 @@ PDF không có bookmark vẫn có thể tìm theo từ khóa bằng Tìm bài tr
 
 OpenRouter thật đã tạo được bài Định luật Ôm 15 slide, có rà soát nội dung mẫu. Đã kiểm tra dàn ý 20 đề bài đa môn; xem BENCHMARK.md về hai vòng kiểm tra và giới hạn chấm tự động. Soạn theo nhóm 5 slide và lưu sau mỗi nhóm, hỗ trợ tiếp tục khi gặp lỗi. Nhật ký từng bài ghi bước, model, phiên bản và mã lỗi.
 
-Môi trường Render thử nghiệm đã được tách riêng service/DB; xem DEPLOY_RENDER_FREE.md. Website chính vẫn ở bản cũ. Chất lượng sư phạm 20 bộ bài hoàn chỉnh và PowerPoint Desktop vẫn cần nghiệm thu. Native motion đang khóa trong capabilities. Tệp tải từ giao diện hiện tại dùng chế độ tương tác cơ bản; các tệp có native motion phục vụ QA được tạo riêng.
+Môi trường Render thử nghiệm đã được tách riêng service/DB; xem DEPLOY_RENDER_FREE.md. Website chính vẫn ở bản cũ. Ngày 23/11/2026 người dùng xác nhận ba tệp native QA chạy đúng trong PowerPoint Desktop; không cung cấp phiên bản Office hoặc ảnh/video. Có thể bật Appear/Fade và chuyển cảnh Fade bằng cờ AI_SLIDES_NATIVE_MOTION_ENABLED tại môi trường đã kiểm thử. Nút tải cho biết rõ có/không hiệu ứng; chế độ giảm chuyển động xuất bản không hiệu ứng. Có nút tải bản cơ bản khi engine native gặp lỗi.
+
+Chưa nghiệm thu chất lượng sư phạm 20 bộ bài hoàn chỉnh hoặc tương thích nhiều phiên bản Office. Việc xác nhận ba tệp không có nghĩa toàn bộ V4 đã hoàn thành.
 
 Đã có 15 bố cục riêng dùng chung scene giữa preview và PPTX, gồm sơ đồ mạch, con lắc, biểu đồ native và bản đồ khái quát. Đã bổ sung chỉnh dàn ý trực tiếp, đổi theme sau khi soạn và tìm nội dung PDF. Các mở rộng V4 còn cần hoàn thiện gồm tự nhận diện bài/chương ngoài bookmark, trình giải quyết xung đột đa nguồn và QA thị giác PowerPoint. OCR, nhập PPTX cũ, giọng nói và batch toàn sách thuộc P2.
 

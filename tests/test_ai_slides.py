@@ -169,6 +169,14 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json={"theme": "science", "motion": "gentle"}).status_code, 409)
         self.assertEqual(self.client.patch(url, headers={"If-Match": "2"}, json={"theme": "history", "motion": "none", "subject": "Đổi ngoài phạm vi"}).status_code, 422)
 
+    def test_native_motion_is_off_by_default_and_can_be_enabled_after_manual_qa(self):
+        with patch.dict(os.environ, {"AI_SLIDES_NATIVE_MOTION_ENABLED": "false"}):
+            self.assertFalse(self.client.get('/api/ai-slides/capabilities').json()['native_motion'])
+        with patch.dict(os.environ, {"AI_SLIDES_NATIVE_MOTION_ENABLED": "true"}):
+            capabilities = self.client.get('/api/ai-slides/capabilities').json()
+            self.assertTrue(capabilities['native_motion'])
+            self.assertIn('Appear', capabilities['native_motion_message'])
+
     def test_content_review_reports_unverified_page_without_claiming_fact_check(self):
         from app.services.ai_slides.review import content_review
         manifest = fixture_manifest().model_dump()

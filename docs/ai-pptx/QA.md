@@ -74,3 +74,11 @@ Artifact mới: `editor-headless-report.json`, `outline-editor-desktop.png`, `ri
 Nội dung mẫu provider vẫn có diễn đạt khái quát quá mức về dây kim loại và điều kiện nhiệt độ; có hướng dẫn xem video tùy chọn dù phạm vi yêu cầu không dùng video. Đây là hạn chế chất lượng AI, không được tính là nội dung đã nghiệm thu. Tệp smoke phục vụ kiểm tra phần mềm và bài trên tài khoản tạm đã bị xóa. Các cảnh báo heuristic hiện chưa phát hiện mọi sai kiến thức hoặc sai phạm vi bằng ngôn ngữ tự nhiên.
 
 Lượt chạy smoke trước đó dừng ở chờ người kiểm thử rà soát dàn ý, trước khi gọi author; đây là lỗi điều phối script QA, không phải lỗi ứng dụng. Lượt sau đã được rà soát và hoàn thành. Không tính lượt dừng này là một ca đầu ra thành công.
+
+## Bật native sau phản hồi Desktop — 23/11/2026
+
+Người dùng báo “Cả 3 tệp chạy đúng” cho ba bộ QA Ôm/khoa học nước/địa lí và checklist Slide Show, đối tượng hiện từng bước, chuyển cảnh, quiz/Notes, không repair warning. Đây là xác nhận thủ công do người dùng cung cấp; agent không điều khiển Desktop. Chưa có phiên bản Office hoặc ảnh/video. Không suy ra tương thích mọi Office.
+
+Đã bổ sung AI_SLIDES_NATIVE_MOTION_ENABLED mặc định false. Sau QA này có thể bật riêng preview. Bộ kiểm thử cuối đạt 42 ca backend SQLite/PostgreSQL, 6 ca exporter, 14 + 8 + 4 nhóm browser. Bốn nhóm mới tải từ nút UI thật và kiểm tra timing/transition có mặt trong bản native, vắng trong bản cơ bản/reduced motion, và basic fallback dùng được sau khi cố tình chặn motion bundle. Không sửa engine/tham số animation của các fixture đã được người dùng xác nhận.
+
+Artifact: `motion-headless-report.json`, `ui-native-motion.pptx`, `ui-basic-choice.pptx`, `ui-reduced-motion.pptx`, `ui-motion-fallback.pptx` trong `tmp/ai-studio-qa`.

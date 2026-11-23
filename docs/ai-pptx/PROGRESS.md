@@ -16,8 +16,8 @@ Trạng thái: API/UX hoàn tất; 40 ca backend SQLite/PostgreSQL, 6 ca exporte
 
 Quyết định: chỉnh dàn ý đã có nội dung yêu cầu `discard_content=true` rõ ràng, đồng thời giữ revision để hoàn tác. Không tự xóa slide đã soạn chỉ vì thay đổi theme.
 
-Giới hạn giữ nguyên: chưa thể nghiệm thu native motion trong PowerPoint Desktop khi không được điều khiển desktop; không tự bật gate này.
+Giới hạn kiểm chứng: agent không điều khiển Desktop. Có thể dùng kết quả kiểm thử thủ công do người dùng báo lại, ghi rõ nguồn bằng chứng và phần chưa được cung cấp.
 
 Rà soát độc lập phát hiện cảnh báo tham chiếu sách chưa quét câu hỏi và phương án quiz. Đã viết subtest tái hiện (4 trường câu hỏi/phương án/hoạt động giáo viên/hoạt động học sinh đều thất bại), rồi mở rộng kiểm tra cho toàn bộ các trường này. Test browser mới đưa tham chiếu trang SGK vào câu hỏi để kiểm tra đường xuất PPTX. Sau sửa, 40 ca backend và cả 22 nhóm headless đạt. Không có finding khác được báo; giới hạn review là source/diff, không xác minh kiến thức AI.
 
-Đã tạo ba bộ QA native motion khác môn bằng browser, kiểm tra XML/timing/targets: Ôm 19 slide, vòng tuần hoàn nước 10 slide, địa lí 10 slide (gồm feedback). File nằm trong `tmp/ai-studio-qa/native-desktop`; đã gửi yêu cầu người dùng kiểm tra thủ công PowerPoint Desktop. Chưa nhận kết quả nên gate trên UI vẫn tắt.
+Đã tạo ba bộ QA native motion khác môn bằng browser, kiểm tra XML/timing/targets: Ôm 19 slide, vòng tuần hoàn nước 10 slide, địa lí 10 slide (gồm feedback). File nằm trong `tmp/ai-studio-qa/native-desktop`. Người dùng xác nhận cả ba chạy đúng trên Desktop theo checklist; phiên bản Office/ảnh/video chưa được cung cấp. Đã bổ sung cờ môi trường bật native, default false, để bật riêng preview sau kiểm thử này. Bốn ca browser xác nhận tải native, tải cơ bản, reduced motion và engine-failure fallback đạt; backend tổng 42 ca đạt. Không thay đổi motion engine hoặc bố cục của ba fixture đã xác nhận.

@@ -25,15 +25,15 @@ The live-provider Ohm lesson was also exported by headless Chromium. Its basic e
 
 ## Release gate
 
-PowerPoint Desktop Slide Show has not been exercised. The user requested testing without controlling the computer. Automated structural results establish package content and preservation, while actual presentation playback remains unverified.
+The agent has not controlled or observed PowerPoint Desktop. On 2026-11-23, after receiving the three QA files below and a checklist covering incremental objects, Fade transitions, quiz/Notes and absence of repair warnings, the user reported: “Cả 3 tệp chạy đúng”. This is user-reported manual Desktop verification, separate from automated structural checks. The Office version and screenshots/video were not supplied; no particular Office release or universal compatibility is claimed.
 
-The public capabilities response therefore returns native_motion=false. The UI labels current downloads as basic interaction. Office Kit's motion adapter is available for fixtures and subsequent compatibility qualification.
+Native motion is controlled per environment by AI_SLIDES_NATIVE_MOTION_ENABLED, false by default. After that manual result, the preview may enable Appear/FadeIn and Fade transitions using the pinned PptxGenJS 4.0.1 / Office Kit 0.30.0 combination. Recheck the fixture packs before enabling it after dependency or exporter changes. The interface offers an explicit basic download, honors reduced-motion preferences, and explains an engine failure instead of silently delivering a basic file as animated.
 
 Morph, complex timing, imported PPTX content and arbitrary effect presets remain outside the active capability set.
 
 ## Three Desktop QA packs — 2026-11-23
 
-Generated in headless Chromium from the current browser exporter, native motion explicitly enabled for QA only. The public UI capability remains false.
+Generated in headless Chromium from the browser exporter with native motion explicitly enabled for QA. At generation time the public UI capability was false; it is now configurable after the user-reported result.
 
 | File under tmp/ai-studio-qa/native-desktop | Slides, including quiz feedback | Timing trees | Fade transitions | Shape targets |
 |---|---:|---:|---:|---:|
@@ -43,4 +43,8 @@ Generated in headless Chromium from the current browser exporter, native motion 
 
 All XML parts parsed and every animation target refers to an existing shape ID. The Ohm sample was previously reviewed; the water/geography samples are synthetic structural fixtures, not provider benchmark results. Geographic fixture explicitly describes the coarse land outline and incomplete island/administrative coverage.
 
-README.txt in that directory gives the manual steps: open each file with PowerPoint Desktop without repair warnings; use Slide Show and clicks to verify incremental objects within a slide and Fade between slides; test quiz return links and Notes; report PowerPoint version and any faults. The user has been asked for the outcome. No Desktop playback outcome has been received yet.
+README.txt in that directory gives the manual steps: open each file with PowerPoint Desktop without repair warnings; use Slide Show and clicks to verify incremental objects within a slide and Fade between slides; test quiz return links and Notes; report PowerPoint version and any faults. The user confirmed all three files run correctly. The version remains unreported.
+
+## Actual UI download regression checks
+
+Four headless cases pass: enabled QA flag writes timing/transition XML through the real download button; the explicit basic button writes neither; reduced-motion downloads have neither; deliberately blocking the motion-engine bundle shows an error and still permits an explicit basic download. These checks validate exporter wiring and failure handling, not additional Desktop versions.

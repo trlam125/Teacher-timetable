@@ -184,6 +184,8 @@ function showDeck() {
   $('#deck-status').textContent = `${statusLabels[deck.status] || deck.status} · Phiên bản ${deck.version}`;
   const ready = deck.status === 'ready' && Boolean(deck.manifest);
   $('#export-pptx').hidden = !ready;
+  $('#export-pptx').textContent = nativeMotionAllowed() ? 'Tải PowerPoint có hiệu ứng' : 'Tải PowerPoint';
+  $('#export-basic').hidden = !ready || !nativeMotionAllowed();
   $('#export-notes').hidden = !ready;
   $('#continue-deck').hidden = ready || deck.status === 'needs_review';
   $('#continue-deck').textContent = deck.status === 'authoring' ? `Tiếp tục soạn (${deck.manifest.slides.length}/${deck.profile.slide_count})` : deck.blueprint ? 'Soạn slide từ dàn ý' : 'Tiếp tục tạo dàn ý';
@@ -202,8 +204,11 @@ function showDeck() {
     });
     review.append(approve);
   }
-  $('#motion-notice').hidden = !ready || deck.profile.motion === 'none' || capabilities.native_motion;
-  $('#motion-notice').textContent = 'Bản PowerPoint tương tác cơ bản – không có hiệu ứng động đối tượng. ' + (capabilities.native_motion_message || '');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $('#motion-notice').hidden = !ready || deck.profile.motion === 'none' || (capabilities.native_motion && !reduced);
+  $('#motion-notice').textContent = capabilities.native_motion && reduced
+    ? 'Thiết bị đang bật giảm chuyển động. Bài sẽ được xuất không có hiệu ứng động đối tượng và chuyển cảnh.'
+    : 'Bản PowerPoint tương tác cơ bản – không có hiệu ứng động đối tượng. ' + (capabilities.native_motion_message || '');
   const slides = deck.manifest?.slides || deck.blueprint?.slides || [];
   const remembered = localStorage.getItem('studio-slide-' + deck.id);
   const rememberedIndex = slides.findIndex(slide => slide.id === remembered);
@@ -573,15 +578,30 @@ $('#delete-deck').onclick = () => {
     await refreshLibrary(); message('Đã xóa bài giảng.');
   });
 };
-$('#export-pptx').onclick = () => run(async () => {
+function nativeMotionAllowed() {
+  return Boolean(deck && capabilities.native_motion && deck.profile.motion !== 'none' && !matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+async function exportPowerPoint(nativeMotion) {
   requireContentReview();
   message('Đang tạo PowerPoint trên thiết bị…');
   await new Promise(resolve => setTimeout(resolve, 40));
   const { buildDeck, download } = await import('./pptx/export.js');
-  const bytes = await buildDeck(deck, { nativeMotion: capabilities.native_motion && !matchMedia('(prefers-reduced-motion: reduce)').matches, origin: location.origin });
+  let bytes;
+  try {
+    bytes = await buildDeck(deck, { nativeMotion, origin: location.origin });
+  } catch (error) {
+    if (!nativeMotion) throw error;
+    $('#motion-notice').hidden = false;
+    $('#motion-notice').textContent = 'Không tạo được tệp có hiệu ứng. Bạn có thể chọn Tải PowerPoint không hiệu ứng để lấy bản cơ bản, hoặc thử lại.';
+    $('#export-basic').hidden = false;
+    throw new Error('Chưa xuất được bản có hiệu ứng. Bạn có thể chọn Tải PowerPoint không hiệu ứng.');
+  }
   download(bytes, deck.title + '.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
-  message('Đã tạo tệp PowerPoint và gửi yêu cầu tải xuống trình duyệt.');
-});
+  message(nativeMotion ? 'Đã tạo PowerPoint có hiệu ứng Appear/Fade và chuyển cảnh Fade.' : 'Đã tạo PowerPoint không hiệu ứng và gửi yêu cầu tải xuống trình duyệt.');
+}
+$('#export-pptx').onclick = () => run(() => exportPowerPoint(nativeMotionAllowed()));
+$('#export-basic').onclick = () => run(() => exportPowerPoint(false));
 $('#export-json').onclick = () => run(async () => {
   const { download } = await import('./pptx/export.js');
   download(JSON.stringify(deck, null, 2), deck.title + '.json', 'application/json');

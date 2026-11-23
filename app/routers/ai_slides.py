@@ -74,8 +74,9 @@ def capabilities(user=Depends(studio_user)):
     config = settings()
     return {
         "ai_configured": bool(config.api_key and config.models),
-        "native_motion": False,
-        "native_motion_message": "Hiệu ứng đang được kiểm thử trên PowerPoint Desktop.",
+        "native_motion": config.native_motion,
+        "native_motion_message": ("Đã bật Appear/Fade và chuyển cảnh Fade theo bộ kiểm thử PowerPoint Desktop."
+                                  if config.native_motion else "Hiệu ứng chưa được bật tại môi trường này sau kiểm thử PowerPoint Desktop."),
         "requests_per_user_day": config.calls_per_user,
         "requests_per_site_day": config.calls_per_site,
         "max_slides": 30, "max_source_chars": 40000, "author_batch_size": 5,

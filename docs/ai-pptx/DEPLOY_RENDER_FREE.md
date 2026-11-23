@@ -14,7 +14,7 @@ Lệnh khởi động preview tạo metadata Studio riêng rồi chạy ứng d�
 
 Tách service/DB không tách hạn mức Render của workspace. Các service Free dùng chung số giờ miễn phí, băng thông và pipeline; xem [giới hạn Render Free](https://render.com/docs/free). Key OpenRouter của Studio cũng dùng chung quota của tài khoản OpenRouter. Có thể suspend preview khi không kiểm thử để giảm sử dụng tài nguyên.
 
-Smoke test bằng OpenRouter thật đã tạo được bài 5 slide, hiển thị trong browser và tải PPTX. Đã kiểm tra thêm đăng nhập quản trị, sửa/lưu/hoàn tác, PDF 150 trang, mobile và mô phỏng. Một lượt trước đó gặp timeout provider; lượt thử lại hoàn tất. Chi tiết và giới hạn nằm trong QA.md. Hiệu ứng native vẫn chưa được bật trên UI vì chưa có xác nhận Slide Show bằng PowerPoint Desktop.
+Smoke test bằng OpenRouter thật đã tạo được bài 5 slide, hiển thị trong browser và tải PPTX. Đã kiểm tra thêm đăng nhập quản trị, sửa/lưu/hoàn tác, PDF 150 trang, mobile và mô phỏng. Một lượt trước đó gặp timeout provider; lượt thử lại hoàn tất. Chi tiết và giới hạn nằm trong QA.md. Ngày 23/11/2026 người dùng xác nhận ba bộ fixture hiệu ứng chạy đúng trên PowerPoint Desktop; preview có thể bật native bằng AI_SLIDES_NATIVE_MOTION_ENABLED=true, các môi trường khác vẫn mặc định false.
 
 ## Chuẩn bị
 
@@ -41,6 +41,7 @@ Thiết lập các biến này trong môi trường triển khai.
 
 ```dotenv
 AI_SLIDES_ENABLED=false
+AI_SLIDES_NATIVE_MOTION_ENABLED=false
 AI_SLIDES_OPENROUTER_API_KEY=
 AI_SLIDES_PRIMARY_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
 AI_SLIDES_FALLBACK_MODELS=

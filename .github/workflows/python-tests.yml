@@ -68,3 +68,4 @@ jobs:
           trap 'kill "$STUDIO_TEST_PID" || true' EXIT
           python tests/studio_headless.py
           python tests/studio_editor_headless.py
+          python tests/studio_motion_headless.py

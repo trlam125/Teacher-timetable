@@ -11,6 +11,7 @@ os.environ.update(
     APP_ENV="development", APP_BASE_URL="", AI_SLIDES_ENABLED="true",
     AI_SLIDES_OPENROUTER_API_KEY="fixture-provider-never-sent",
     AI_SLIDES_PRIMARY_MODEL="fixture/test:free",
+    AI_SLIDES_NATIVE_MOTION_ENABLED="true",
     AI_SLIDES_MAX_REQUESTS_PER_USER_DAY="100",
     AI_SLIDES_MAX_REQUESTS_SERVER_DAY="200",
 )
