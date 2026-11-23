@@ -36,4 +36,10 @@ Rà soát độc lập phát hiện cảnh báo tham chiếu sách chưa quét c
 
 Kiểm thử local: 56 ca backend SQLite/PostgreSQL; 8 ca Node (6 exporter + 2 tiêu đề); 14 + 8 + 4 nhóm browser hồi quy; 7 nhóm nguồn mới. Đã xem ảnh rà soát nguồn trên mobile. Đã tái hiện lỗi thiếu API trước triển khai và các lỗi selector/đổi PDF bằng headless, sửa rồi chạy lại đạt.
 
-Giới hạn còn lại: nhận diện nội dung mơ hồ/mục tiêu bằng AI nhỏ, phân tích mâu thuẫn ngữ nghĩa, tách chính xác nhiều bài cùng trang và kiểm tra tri thức không nằm trong thuật toán này. V4 còn các yêu cầu khác (luồng tự động liền mạch, danh mục học liệu phong phú hơn, đánh giá nhiều bộ bài hoàn chỉnh); chưa đánh dấu hoàn thành toàn plan. Deploy/smoke preview của đợt này sẽ được ghi sau khi quan sát kết quả.
+Giới hạn còn lại: nhận diện nội dung mơ hồ/mục tiêu bằng AI nhỏ, phân tích mâu thuẫn ngữ nghĩa, tách chính xác nhiều bài cùng trang và kiểm tra tri thức không nằm trong thuật toán này. V4 còn các yêu cầu khác (luồng tự động liền mạch, danh mục học liệu phong phú hơn, đánh giá nhiều bộ bài hoàn chỉnh); chưa đánh dấu hoàn thành toàn plan.
+
+CI đúng commit `7fc95c4` đạt, đã deploy lên preview riêng (`dep-dc1r1tcs728c73d6sbc0`, live). Smoke nguồn tổng hợp trên preview xác nhận nhận diện/bằng chứng, chặn plan trước provider, lưu lựa chọn và hiển thị lại trong giao diện. Provider thật tạo dàn ý 8,45 giây; sau khi agent đọc cảnh báo/dàn ý cho mục đích kiểm thử phần mềm, đã soạn 5 slide trong 43,26 giây và tải PPTX qua nút UI. Cả 5 slide có timing/transition, toàn bộ XML parse được. Tài khoản/bài/steps/revisions/usage thử được dọn; lượt AI vẫn tính quota site.
+
+Đầu ra vẫn có ý ngoài nguồn ở chế độ strict: dụng cụ đo, ví dụ linh kiện ngoài phạm vi và bài tập SGK không có nguồn cụ thể. Phép thử này đạt về phần mềm/lựa chọn công thức ưu tiên, **chưa đạt nghiệm thu bám sát nguồn hoặc sư phạm**. Không dùng bộ bài smoke như bài đã được duyệt để dạy. Đây là việc cần giải quyết ở đợt chất lượng tiếp theo, không coi source review là bộ kiểm chứng kiến thức.
+
+Website chính giữ commit `a5207d6` và deploy ID cũ; kiểm tra HTTP /login=200, /ai-studio=404. Không thay env hay DB của website chính. Server fixture và cụm PostgreSQL kiểm thử local đã dừng; không điều khiển Desktop.

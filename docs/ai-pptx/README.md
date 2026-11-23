@@ -32,7 +32,9 @@ Môi trường Render thử nghiệm đã được tách riêng service/DB; xem 
 
 Chưa nghiệm thu chất lượng sư phạm 20 bộ bài hoàn chỉnh hoặc tương thích nhiều phiên bản Office. Việc xác nhận ba tệp không có nghĩa toàn bộ V4 đã hoàn thành.
 
-Đã có 15 bố cục riêng dùng chung scene giữa preview và PPTX, gồm sơ đồ mạch, con lắc, biểu đồ native và bản đồ khái quát. Đã bổ sung chỉnh dàn ý trực tiếp, đổi theme sau khi soạn và tìm nội dung PDF. Các mở rộng V4 còn cần hoàn thiện gồm tự nhận diện bài/chương ngoài bookmark, trình giải quyết xung đột đa nguồn và QA thị giác PowerPoint. OCR, nhập PPTX cũ, giọng nói và batch toàn sách thuộc P2.
+Đã có 15 bố cục riêng dùng chung scene giữa preview và PPTX, gồm sơ đồ mạch, con lắc, biểu đồ native và bản đồ khái quát. Đã bổ sung chỉnh dàn ý, đổi theme sau khi soạn, tìm nội dung và nhận diện tiêu đề bài/chương PDF không bookmark trên thiết bị. Môn/lớp/tên bài/thời lượng có thể nhận diện từ tiêu đề rõ ràng của đoạn đã chọn; chỉ tự điền ô trống có một gợi ý. Chỗ khác nhau giữa nguồn và thông tin giáo viên, hoặc một số công thức khác nhau, hiện bằng chứng để chọn trước khi gọi AI. Quyết định được lưu/hoàn tác và hết hiệu lực khi nguồn đổi.
+
+Các phần còn cần hoàn thiện gồm nhận diện thông tin mơ hồ bằng AI, mâu thuẫn bằng ngôn ngữ tự nhiên, tách nhiều bài chung trang, luồng tự động liền mạch, mở rộng học liệu và QA thị giác PowerPoint. Thuật toán nhận diện không xác minh tri thức. OCR, nhập PPTX cũ, giọng nói và batch toàn sách thuộc P2.
 
 ## Kiểm thử
 
@@ -53,6 +55,8 @@ Kiểm thử trình duyệt chạy headless, sử dụng server fixture chỉ bi
 # Terminal test thứ hai
 .venv/Scripts/python.exe -B tests/studio_headless.py
 .venv/Scripts/python.exe -B tests/studio_editor_headless.py
+.venv/Scripts/python.exe -B tests/studio_motion_headless.py
+.venv/Scripts/python.exe -B tests/studio_sources_headless.py
 ```
 
 Python Playwright thuộc .venv của dự án. Trình duyệt kiểm thử được cài trong cache chuẩn, chạy headless.
