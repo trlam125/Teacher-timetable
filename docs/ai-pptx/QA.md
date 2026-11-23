@@ -98,3 +98,13 @@ Thuật toán chỉ nhận diện tiêu đề rõ ràng và biểu thức ký hi
 Hạn chế thực tế quan sát: strict vẫn thêm dụng cụ đo/linh kiện không có trong excerpt và gợi bài tập SGK không xác định. Không tính là đầu ra bám sát nguồn đạt hoặc bài giảng đã nghiệm thu. Artifact: `preview-source-smoke-report.json`, `preview-source-plan.json`, `preview-source-deck.json`, `preview-source-smoke.pptx`, `preview-source-choice.png` tại tmp/ai-studio-qa. Chỉ là nguồn tổng hợp, không chứa tài liệu người dùng.
 
 Website chính vẫn commit `a5207d6`, /login=200, /ai-studio=404; không đổi DB/env chính. Chỉ service preview được deploy. Các lần chạy local và cloud đều dùng headless/HTTP/CLI, không điều khiển desktop.
+
+## Hợp đồng trích đoạn strict — 23/11/2026
+
+68 ca SQLite/PostgreSQL đạt, gồm từ chối mã trích đoạn giả/ngoài phạm vi, loại biểu thức đã bị giáo viên bỏ, giữ dàn ý khi lỗi, ghi log mã lỗi an toàn, literal quote/proof digest, legacy replan trước provider, sửa tay không tự nhận proof, đúng đề xuất AI mới được apply giữ proof và undo khôi phục proof. Chỉ JSON của deck/revision thay đổi; không đổi schema DB.
+
+9 ca Node đạt, gồm ca mới tái hiện/sửa sơ đồ tự thêm I=U/R từ tên bài khi strict. Các ca motion/links/notes và 15 layout vẫn đạt. 6 nhóm headless mới đạt, bộ 33 nhóm cũ vẫn đạt. Tệp tải từ UI có timing native, quiz thêm đúng số trang phản hồi theo số phương án. Đã xem ảnh mobile, không tràn ngang/lỗi JS. Artifact: grounding-headless-report.json, grounded-headless.pptx, grounding-evidence-mobile.png trong tmp/ai-studio-qa.
+
+Live benchmark: `tools/benchmark_ai_slides_grounding.py`, fixtures tổng hợp trong tests/fixtures/ai_slides_grounding.json. Ba bộ Ôm/nước/bản đồ, mỗi bộ 5 slide; 15 proof hợp lệ, 32 bullet literal. Hai ca author ban đầu bị chặn an toàn vì quiz fields trên slide thường, sau siết schema chỉ chạy lại hai ca thất bại và đạt. Không lặng lẽ bỏ nội dung sai để đánh dấu thành công. Tổng 8 calls, kết quả tại tmp/ai-studio-qa/grounding-live. Notes chỉ gồm các trích đoạn đã chọn; phần hướng dẫn lớp học có tập câu cố định. Không đánh giá đây là bản giảng dạy đã được nghiệm thu.
+
+Giới hạn: chứng minh đối chiếu văn bản, không chứng minh nguồn đúng, trích đoạn đủ ngữ cảnh hoặc phù hợp sư phạm. Phân đoạn dài có thể chia ở ranh giới từ; nguồn ngắn có thể lặp và cần giảm thời lượng/slide. Bài cũ hoặc chỉnh tay hiện cảnh báo. Chế độ Cân bằng vẫn cần giáo viên kiểm tra ý ngoài nguồn. Agent không điều khiển desktop.

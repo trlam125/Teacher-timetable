@@ -71,8 +71,9 @@
             <label>Thời lượng (phút)<input name="duration_minutes" type="number" min="10" max="240" value="45" required></label>
             <label>Số slide<input name="slide_count" type="number" min="5" max="30" value="15" required></label>
             <label>Trình độ<select name="level"><option value="foundation">Cần củng cố</option><option value="standard" selected>Phổ thông</option><option value="advanced">Khá giỏi</option></select></label>
-            <label>Bám sát nguồn<select name="grounding"><option value="balanced">Cân bằng, giáo viên rà soát</option><option value="strict">Chỉ theo tài liệu đã chọn</option></select></label>
+            <label>Bám sát nguồn<select name="grounding"><option value="balanced">Cân bằng, giáo viên rà soát</option><option value="strict">Bám nguồn bằng trích đoạn</option></select></label>
           </div>
+          <p id="grounding-help" class="muted" hidden>AI chọn trích đoạn; máy chủ đối chiếu và lấy nguyên văn từ nguồn. Câu hỏi là điền đúng nguyên văn. Không tự thêm số liệu, video hoặc mô phỏng. Chọn Cân bằng nếu muốn AI diễn đạt hoặc mở rộng; kiến thức vẫn cần giáo viên kiểm tra.</p>
           <details><summary>Mục tiêu và yêu cầu riêng</summary>
             <label>Mục tiêu học tập<textarea name="objectives" rows="3" maxlength="3000"></textarea></label>
             <label>Nội dung bắt buộc<textarea name="must_include" rows="3" maxlength="3000"></textarea></label>
@@ -96,6 +97,7 @@
       <header class="studio-heading"><h1 id="deck-title"></h1><p id="deck-status"></p></header>
       <div class="studio-actions">
         <button id="continue-deck" type="button" class="btn primary">Tiếp tục tạo bài</button>
+        <button id="replan-grounded" type="button" class="btn ghost" hidden>Lập lại dàn ý bám nguồn</button>
         <button id="edit-input" type="button" class="btn ghost">Sửa thông tin bài</button>
         <button id="edit-outline" type="button" class="btn ghost" hidden>Chỉnh dàn ý</button>
         <button id="export-pptx" type="button" class="btn primary" hidden>Tải PowerPoint</button>
@@ -149,6 +151,7 @@
         <div>
           <div id="slide-preview" class="studio-slide" aria-label="Bản xem trước"></div>
           <p id="preview-caption" class="muted">Bản xem trước bố cục. Phông chữ có thể thay đổi khi mở trong PowerPoint.</p>
+          <section id="slide-evidence" class="studio-notice" hidden aria-label="Đối chiếu trích đoạn"></section>
           <form id="slide-form" hidden>
             <label>Tiêu đề<input id="slide-title" maxlength="160" required></label>
             <label>Nội dung, mỗi dòng một ý<textarea id="slide-bullets" rows="5"></textarea></label>

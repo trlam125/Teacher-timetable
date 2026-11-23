@@ -12,9 +12,11 @@ let working = false;
 let editingInput = false;
 let activeDocument = null;
 let proposal = null;
+let proposalStepId = null;
 let outlineDraft = null;
 let reviewedVersion = '';
 const kindLabels = { cover: 'Trang mở đầu', objectives: 'Mục tiêu', hook: 'Khởi động', section: 'Chuyển phần', concept: 'Khái niệm', process: 'Quy trình', compare: 'So sánh', map: 'Bản đồ', experiment: 'Thí nghiệm / mô phỏng', example: 'Ví dụ', chart: 'Biểu đồ', quiz: 'Trắc nghiệm', video: 'Video', summary: 'Tổng kết', sources: 'Nguồn tài liệu' };
+const strictKinds = new Set(['cover', 'objectives', 'hook', 'section', 'concept', 'process', 'compare', 'example', 'quiz', 'summary', 'sources']);
 const statusLabels = { draft: 'Bản nháp', planned: 'Đã có dàn ý', authoring: 'Đang soạn, đã lưu một phần', needs_review: 'Cần xác nhận dàn ý', needs_source_review: 'Cần rà soát nguồn', ready: 'Sẵn sàng tải' };
 
 function element(tag, text, className) {
@@ -247,13 +249,17 @@ function showDeck() {
   $('#presentation-theme').value = deck.profile.theme;
   $('#presentation-motion').value = deck.profile.motion;
   $('#deck-status').textContent = `${statusLabels[deck.status] || deck.status} · Phiên bản ${deck.version}`;
+  $('#edit-instruction').placeholder = deck.profile.grounding === 'strict' ? 'Ví dụ chọn trích đoạn về công thức, đổi hoạt động đọc' : 'Ví dụ thêm một ví dụ gần gũi với học sinh';
+  $('#ai-edit-form button').textContent = deck.profile.grounding === 'strict' ? 'Chọn lại trích đoạn bằng AI (1 lượt)' : 'Đề xuất thay đổi bằng AI (1 lượt)';
   renderSourceReview();
   const ready = deck.status === 'ready' && Boolean(deck.manifest);
+  const legacyStrict = deck.profile.grounding === 'strict' && deck.blueprint && deck.blueprint.grounding_version !== 'extractive-v1';
+  $('#replan-grounded').hidden = !legacyStrict || deck.source_analysis?.unresolved;
   $('#export-pptx').hidden = !ready;
   $('#export-pptx').textContent = nativeMotionAllowed() ? 'Tải PowerPoint có hiệu ứng' : 'Tải PowerPoint';
   $('#export-basic').hidden = !ready || !nativeMotionAllowed();
   $('#export-notes').hidden = !ready;
-  $('#continue-deck').hidden = ready || deck.status === 'needs_review' || deck.source_analysis?.unresolved;
+  $('#continue-deck').hidden = ready || deck.status === 'needs_review' || deck.source_analysis?.unresolved || legacyStrict;
   $('#continue-deck').textContent = deck.status === 'authoring' ? `Tiếp tục soạn (${deck.manifest.slides.length}/${deck.profile.slide_count})` : deck.blueprint ? 'Soạn slide từ dàn ý' : 'Tiếp tục tạo dàn ý';
   const review = $('#outline-review');
   review.replaceChildren();
@@ -347,7 +353,9 @@ function renderOutlineRows() {
     titleLabel.append(title); row.append(titleLabel);
     const fields = element('div', '', 'studio-fields');
     const kindLabel = element('label', 'Mục đích slide'); const kind = element('select'); kind.name = 'outline_kind';
-    for (const [value, label] of Object.entries(kindLabels)) kind.append(new Option(label, value));
+    for (const [value, label] of Object.entries(kindLabels)) {
+      if (deck.profile.grounding !== 'strict' || strictKinds.has(value)) kind.append(new Option(label, value));
+    }
     kind.value = slide.kind; kindLabel.append(kind);
     const durationLabel = element('label', 'Thời lượng (giây)'); const duration = element('input');
     Object.assign(duration, { name: 'outline_seconds', type: 'number', min: '0', max: '1200', step: '1', required: true, value: String(slide.duration_seconds) });
@@ -428,6 +436,21 @@ $('#show-deck-log').onclick = () => run(async () => {
 function renderSlide(slide) {
   const preview = $('#slide-preview');
   preview.replaceChildren();
+  const evidence = $('#slide-evidence'); evidence.replaceChildren();
+  evidence.hidden = !slide || deck.profile.grounding !== 'strict' || !deck.manifest;
+  if (!evidence.hidden) {
+    const report = deck.grounding_report?.find(item => item.slide_id === slide.id);
+    evidence.append(element('strong', report?.verified ? 'Đã đối chiếu trích đoạn với nguồn' : 'Nội dung cần đối chiếu lại với nguồn'));
+    evidence.append(element('p', report?.verified ? 'Đây là đối chiếu văn bản, không xác nhận kiến thức trong tài liệu đúng.' : 'Slide có thể thuộc bản cũ hoặc đã sửa tay. Hãy kiểm tra từng ý trước khi tải.'));
+    const seen = new Set();
+    for (const citation of report?.citations || []) {
+      const key = citation.unit_id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const source = deck.profile.sources.find(item => item.id === citation.source_id);
+      evidence.append(element('p', `${source?.name || citation.source_id}${citation.page ? ' · trang PDF ' + citation.page : ''}`), element('blockquote', citation.quote));
+    }
+  }
   if (!slide) { preview.append(element('p', 'Bản nháp đã lưu. Tiếp tục tạo dàn ý khi AI được cấu hình.')); return; }
   renderScene(preview, slide, deck, selectedSlide);
   if (deck.manifest) {
@@ -478,17 +501,23 @@ $('#source-review-form').onsubmit = event => {
       return { conflict_id: section.dataset.conflict, evidence_id: selected.value };
     });
     deck = await api(`/decks/${deck.id}/source-review`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ resolutions, discard_content: $('#source-discard').checked }) });
-    showDeck(); await refreshLibrary(); message('Đã lưu thông tin ưu tiên. Bạn có thể tiếp tục tạo bài; kiến thức vẫn cần giáo viên kiểm tra.');
+    showDeck(); await refreshLibrary(); message(deck.source_analysis?.unresolved ? 'Đã lưu lựa chọn. Vẫn còn nguồn cần rà soát; hãy thu hẹp đoạn tài liệu.' : 'Đã lưu thông tin ưu tiên. Bạn có thể tiếp tục tạo bài; kiến thức vẫn cần giáo viên kiểm tra.');
   });
 };
 $('#continue-deck').onclick = () => run(async () => {
   if (!deck.profile.consent) throw new Error('Chọn Sửa thông tin bài để xác nhận đồng ý gửi dữ liệu tới AI.');
   await generate(deck.blueprint ? 'author' : 'plan');
 });
+$('#replan-grounded').onclick = () => {
+  if (!confirm('Lập lại dàn ý theo chế độ trích đoạn? Dàn ý và nội dung cũ được giữ trong lịch sử để hoàn tác.')) return;
+  run(async () => { await generate('plan'); });
+};
+form.elements.grounding.onchange = () => { $('#grounding-help').hidden = form.elements.grounding.value !== 'strict'; };
 $('#new-deck').onclick = () => {
   deck = null; sources = []; editingInput = false; selectedSlide = 0; form.reset();
   localStorage.removeItem('studio-current-' + owner);
   renderSources(); showPane('create'); message('');
+  form.elements.grounding.onchange();
 };
 $('#edit-input').onclick = () => {
   editingInput = true;
@@ -501,6 +530,7 @@ $('#edit-input').onclick = () => {
   $('#training-consent').checked = Boolean(deck.profile.training_consent);
   $('#field-locks').querySelectorAll('input').forEach(input => { input.checked = deck.profile.locked_fields.includes(input.value); });
   renderSources(); showPane('create');
+  form.elements.grounding.onchange();
   message('Lưu thay đổi thông tin nguồn sẽ tạo bản nháp mới. Có thể hoàn tác về bài cũ.');
 };
 
@@ -631,6 +661,7 @@ $('#ai-edit-form').onsubmit = event => {
       body: JSON.stringify({ instruction: $('#edit-instruction').value }),
     });
     proposal = response.proposal;
+    proposalStepId = response.step_id;
     const box = $('#edit-proposal');
     box.hidden = false;
     box.replaceChildren(element('h3', 'Xem thay đổi trước khi áp dụng'));
@@ -642,7 +673,7 @@ $('#ai-edit-form').onsubmit = event => {
     const apply = element('button', 'Áp dụng thay đổi', 'btn');
     apply.onclick = () => run(async () => {
       deck = await api(`/decks/${deck.id}/slides/${proposal.id}`, {
-        method: 'PATCH', headers: headers(), body: JSON.stringify({ slide: proposal }),
+        method: 'PATCH', headers: headers(), body: JSON.stringify({ slide: proposal, proposal_step_id: proposalStepId }),
       });
       showDeck();
     });

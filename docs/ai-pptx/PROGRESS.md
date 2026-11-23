@@ -43,3 +43,17 @@ CI đúng commit `7fc95c4` đạt, đã deploy lên preview riêng (`dep-dc1r1tc
 Đầu ra vẫn có ý ngoài nguồn ở chế độ strict: dụng cụ đo, ví dụ linh kiện ngoài phạm vi và bài tập SGK không có nguồn cụ thể. Phép thử này đạt về phần mềm/lựa chọn công thức ưu tiên, **chưa đạt nghiệm thu bám sát nguồn hoặc sư phạm**. Không dùng bộ bài smoke như bài đã được duyệt để dạy. Đây là việc cần giải quyết ở đợt chất lượng tiếp theo, không coi source review là bộ kiểm chứng kiến thức.
 
 Website chính giữ commit `a5207d6` và deploy ID cũ; kiểm tra HTTP /login=200, /ai-studio=404. Không thay env hay DB của website chính. Server fixture và cụm PostgreSQL kiểm thử local đã dừng; không điều khiển Desktop.
+
+## Bám nguồn bằng trích đoạn — 23/11/2026
+
+Đã thay hợp đồng strict từ soạn văn bản tự do sang chọn trích đoạn. Planner chọn mã trích đoạn, loại hoạt động và thời lượng; máy chủ dựng tiêu đề/mục tiêu và nội dung từ đoạn nguồn. Author/edit chọn mã cho ý chính/ghi chú; mã lạ, mã ngoài nguồn của slide hoặc biểu thức đã bị loại trong lựa chọn nguồn bị chặn. Không có bước AI bổ sung hoặc tăng lượt gọi. Chế độ Cân bằng giữ khả năng soạn diễn đạt tự do.
+
+Nội dung strict không tự thêm số liệu/chart, video, mô phỏng hoặc sơ đồ suy ra từ tên bài. Quiz là điền đúng nguyên văn trích đoạn; từ điền và phương án đều lấy trong nguồn. Hướng dẫn giáo viên/học sinh dùng tập câu hướng dẫn lớp học cố định, không thêm kiến thức. Giáo viên vẫn sửa tay/gắn học liệu được, nhưng slide đổi sẽ mất dấu đối chiếu và phải rà soát trước tải.
+
+Mỗi slide có bằng chứng nguồn/trang/quote và dấu vết nội dung. Đề xuất AI chỉ giữ bằng chứng khi áp dụng đúng đề xuất đã lưu, đúng deck/version; không nhận bằng chứng tự gửi qua PATCH thủ công. Undo khôi phục đúng snapshot. Bài strict cũ hiện cảnh báo chưa đối chiếu; muốn soạn tiếp theo hợp đồng mới phải chủ động Lập lại dàn ý bám nguồn. Không tự xóa bài cũ. Không cần thêm bảng/cột hay migration DB.
+
+Kiểm thử: 68 ca backend SQLite/PostgreSQL; 9 ca Node; 14 + 8 + 4 + 7 nhóm headless cũ, 6 nhóm mới cho nguồn/quiz/PPTX/manual edit/AI apply/undo/mobile. Đã xem ảnh bằng chứng nguồn trên mobile. Script QA mới ban đầu dùng sai phép đọc textarea và giả định 2 trang phản hồi quiz; đã sửa script theo giá trị và số phương án thực tế. Các lỗi source ref và sơ đồ tự thêm công thức có test tái hiện rồi đạt sau sửa.
+
+Live benchmark nguồn tổng hợp 3 môn: 3 dàn ý, 3 bộ hoàn chỉnh × 5 slide; 15/15 slide có đối chiếu, 32 ý chính lấy nguyên văn. Có 2 lượt author ban đầu bị chặn do model điền trường quiz vào slide thường; đã siết schema null/empty cho nhóm không quiz và chạy lại riêng 2 ca đạt. Tổng 8 requests thật cho benchmark, không gọi model trả phí. Chưa coi là nghiệm thu sư phạm 20 bộ bài; title/hoạt động dạng khung và câu hỏi điền nguyên văn là chủ đích của chế độ trích đoạn. Diễn đạt linh hoạt dùng Cân bằng và cần giáo viên rà soát.
+
+Đang chuẩn bị CI/deploy/smoke trên preview riêng; chỉ ghi nhận hoàn tất deploy sau khi quan sát live. V4 vẫn còn luồng tự động liền mạch, phân tích nguồn mơ hồ/ngữ nghĩa, học liệu mở rộng và đánh giá chất lượng rộng hơn.

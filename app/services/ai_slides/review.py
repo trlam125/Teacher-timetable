@@ -1,7 +1,8 @@
 """Conservative editorial warnings, not a factual verification service."""
 import re
+from .grounding import proof_valid
 
-PAGE_REFERENCE = re.compile(r"(?:sgk|sách|tài liệu).{0,90}\btrang\s*\d+", re.IGNORECASE)
+PAGE_REFERENCE = re.compile(r"(?:sgk|sách|tài liệu).{0,90}\btrang\s*\d+|(?:bài tập|đọc|xem|tham khảo).{0,35}(?:sgk|sách giáo khoa)", re.IGNORECASE)
 
 
 def content_review(manifest, profile):
@@ -17,6 +18,9 @@ def content_review(manifest, profile):
                           *slide.get("options", []), slide.get("explanation", ""),
                           slide.get("teacher_action", ""), slide.get("student_action", "")])
         base = {"slide_id": slide["id"]}
+        if profile.get("grounding") == "strict" and not proof_valid(slide, profile):
+            issues.append({**base, "code": "UNVERIFIED_GROUNDING", "severity": "warning",
+                           "message": "Slide chưa có đối chiếu trích đoạn hợp lệ, hoặc đã được chỉnh tay. Hãy kiểm tra từng ý với nguồn trước khi tải."})
         if PAGE_REFERENCE.search(text):
             issues.append({**base, "code": "UNVERIFIED_REFERENCE", "severity": "warning",
                            "message": "Có tham chiếu sách/số trang trong nội dung. Hãy đối chiếu nguồn gốc; hệ thống chưa xác minh tham chiếu này."})

@@ -74,9 +74,13 @@ def symbolic(text):
         return None
 
 
+def source_signature(profile):
+    return digest([profile.get("sources", []), {key: profile.get(key) for key in (*LABELS, "locked_fields")}])
+
+
 def analyze_sources(profile):
     sources = profile.get("sources", [])
-    signature = digest([sources, {key: profile.get(key) for key in (*LABELS, "locked_fields")}])
+    signature = source_signature(profile)
     metadata = {key: [] for key in LABELS}
     formulas = {}
     overflow = False

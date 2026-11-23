@@ -35,6 +35,18 @@ test('browser export retains editable text, Vietnamese notes and quiz targets', 
   assert.ok(quizRels.includes('https://example.test/ai-studio/simulations/ohm'));
 });
 
+test('strict excerpts do not acquire an automatic physics formula from the lesson title', () => {
+  const deck = fixture();
+  deck.title = 'Định luật Ôm'; deck.profile.grounding = 'strict';
+  for (const kind of ['cover', 'concept']) {
+    const item = { ...deck.manifest.slides[0], kind, bullets: ['Nguồn chỉ mô tả cách ghi số đo.'], resource_id: null };
+    assert.equal(createScene(item, deck, 0).objects.some(object => object.text === 'I = U / R'), false);
+    deck.profile.grounding = 'balanced';
+    assert.equal(createScene(item, deck, 0).objects.some(object => object.text === 'I = U / R'), true);
+    deck.profile.grounding = 'strict';
+  }
+});
+
 test('native motion changes timing while preserving package relationships', async () => {
   const staticBytes = await buildDeck(fixture(), { origin: 'https://example.test' });
   const animatedBytes = await buildDeck(fixture(), { origin: 'https://example.test', nativeMotion: true });

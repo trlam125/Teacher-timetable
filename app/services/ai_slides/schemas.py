@@ -85,6 +85,7 @@ class OutlineSlide(StrictModel):
     kind: Literal["cover", "objectives", "hook", "section", "concept", "process", "compare", "map", "experiment", "example", "chart", "quiz", "video", "summary", "sources"]
     duration_seconds: int = Field(ge=0, le=1200)
     source_ids: list[str] = Field(default_factory=list, max_length=12)
+    source_unit_ids: list[str] = Field(default_factory=list, max_length=5)
 
 
 class Blueprint(StrictModel):
@@ -92,6 +93,51 @@ class Blueprint(StrictModel):
     objectives: list[Annotated[str, Field(max_length=300)]] = Field(min_length=1, max_length=6)
     slides: list[OutlineSlide] = Field(min_length=5, max_length=30)
     warnings: list[Annotated[str, Field(max_length=500)]] = Field(default_factory=list, max_length=12)
+    grounding_version: Literal["extractive-v1"] | None = None
+
+
+class GroundedOutline(StrictModel):
+    id: str = Field(pattern=r"^s[0-9]{3}$")
+    kind: Literal["cover", "objectives", "hook", "section", "concept", "process", "compare", "example", "quiz", "summary", "sources"]
+    duration_seconds: int = Field(ge=0, le=1200)
+    unit_ids: list[str] = Field(min_length=1, max_length=5)
+
+
+class GroundedPlan(StrictModel):
+    lesson_title: str = Field(min_length=1, max_length=240)
+    objective_unit_ids: list[str] = Field(min_length=1, max_length=6)
+    slides: list[GroundedOutline] = Field(min_length=5, max_length=30)
+    warnings: list[Literal["SHORT_SOURCE", "UNCLEAR_SCOPE"]] = Field(default_factory=list, max_length=2)
+
+
+class GroundedChoice(StrictModel):
+    id: str = Field(pattern=r"^s[0-9]{3}$")
+    bullet_unit_ids: list[str] = Field(min_length=1, max_length=5)
+    notes_unit_ids: list[str] = Field(default_factory=list, max_length=5)
+    activity: Literal["discuss", "restate", "compare", "read"] = "discuss"
+    quiz_gap: str | None = Field(default=None, min_length=1, max_length=60)
+    quiz_distractors: list[Annotated[str, Field(min_length=1, max_length=60)]] = Field(default_factory=list, max_length=3)
+
+
+class GroundedBatch(StrictModel):
+    lesson_title: str = Field(min_length=1, max_length=240)
+    slides: list[GroundedChoice] = Field(min_length=1, max_length=5)
+
+
+class QuoteEvidence(StrictModel):
+    field: Literal["bullets", "speaker_notes", "question", "correct_option"]
+    index: int = Field(ge=0, le=5)
+    unit_id: str = Field(max_length=40)
+    source_id: str = Field(max_length=64)
+    quote: str = Field(min_length=1, max_length=300)
+    page: int | None = None
+
+
+class SourceProof(StrictModel):
+    version: Literal["extractive-v1"] = "extractive-v1"
+    source_signature: str = Field(pattern=r"^[a-f0-9]{24}$")
+    content_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    citations: list[QuoteEvidence] = Field(min_length=1, max_length=12)
 
 
 class ChartData(StrictModel):
@@ -109,6 +155,7 @@ class ChartData(StrictModel):
 
 
 class Slide(OutlineSlide):
+    source_unit_ids: list[str] = Field(default_factory=list, max_length=10)
     bullets: list[Annotated[str, Field(max_length=350)]] = Field(default_factory=list, max_length=5)
     speaker_notes: str = Field(default="", max_length=2200)
     teacher_action: str = Field(default="", max_length=400)
@@ -119,6 +166,7 @@ class Slide(OutlineSlide):
     explanation: str = Field(default="", max_length=600)
     resource_id: Literal["ohm", "pendulum", "water-cycle-video", "vietnam-map"] | None = None
     chart_data: ChartData | None = None
+    source_proof: SourceProof | None = None
 
     @field_validator("speaker_notes", "teacher_action", "student_action", "question", "explanation", mode="before")
     @classmethod
@@ -160,6 +208,7 @@ class PresentationSettings(StrictModel):
 
 class EditRequest(StrictModel):
     slide: Slide
+    proposal_step_id: str | None = Field(default=None, max_length=36)
 
 
 class Instruction(StrictModel):

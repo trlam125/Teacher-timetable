@@ -52,3 +52,17 @@ Xuất browser cho bài mẫu tạo 15 slide bài học và 4 trang phản hồi
 - Chưa có fallback đủ bằng chứng chất lượng để tự động thay primary.
 
 Kết luận sử dụng: phù hợp pilot có giáo viên rà soát, chưa đủ bằng chứng nghiệm thu đầy đủ V4.
+
+## Kiểm tra trích đoạn strict — 23/11/2026
+
+Thêm `tests/fixtures/ai_slides_grounding.json` và `tools/benchmark_ai_slides_grounding.py`. Đây là bộ kiểm tra nguồn gốc văn bản với dữ liệu tổng hợp, không phải bộ nghiệm thu sư phạm 20 bài. Model được kiểm tra catalog/pricing bằng provider riêng như đường chạy ứng dụng.
+
+Plan cả 3 ca đạt, lần lượt 8,66 / 6,13 / 10,90 giây. Author Ôm đạt 7,77 giây; nước và bản đồ bị chặn lần đầu vì điền trường quiz ở slide thường (9,37 / 8,49 giây). Sau siết schema, chỉ chạy lại 2 ca này: nước 6,23 giây, bản đồ 31,20 giây. Tổng 8 calls. Kết quả cuối 3 bộ × 5 slide, 15 proof hợp lệ, 32 bullet khớp nguyên văn; không có resource hoặc chart tự thêm. Bản đồ chọn ghi chú kiến thức rỗng nhưng vẫn có hướng dẫn giáo viên/học sinh cố định; đây là hạn chế độ sâu của bộ bài, không tính là notes phong phú.
+
+Mục tiêu được dựng từ trích đoạn, tiêu đề dùng tên bài và nhãn hoạt động; không dùng câu soạn tự do để giả nhận đã grounded. Tài liệu nguồn vẫn có thể sai/thiếu ngữ cảnh, và bộ bài còn cần đánh giá sư phạm.
+
+```powershell
+.venv/Scripts/python.exe -X utf8 -B tools/benchmark_ai_slides_grounding.py --live --phase plan
+# Đọc các dàn ý tổng hợp trong tmp/ai-studio-qa/grounding-live trước phase author.
+.venv/Scripts/python.exe -X utf8 -B tools/benchmark_ai_slides_grounding.py --live --phase author --reviewed ohm water map
+```

@@ -50,6 +50,28 @@ async def model():
 
 async def generate(model_id, schema, payload):
     profile = payload["profile"]
+    if payload.get("grounding_contract"):
+        import re
+        units = payload["grounding_contract"]["units"]
+        count = profile["slide_count"]
+        if payload["task"] == "plan":
+            duration, extra = divmod(profile["duration_minutes"] * 60, count)
+            kinds = ["cover", "hook", "concept", "quiz", "summary"]
+            return schema.model_validate({"lesson_title": profile["lesson_title"], "objective_unit_ids": [units[0]["id"]], "warnings": [],
+                "slides": [{"id": f"s{i+1:03d}", "kind": kinds[i % 5], "duration_seconds": duration + (i < extra), "unit_ids": [units[i % len(units)]["id"]]} for i in range(count)]}), {}
+        outlines = [payload["slide"]] if payload["task"] == "edit" else payload["blueprint"]["slides"]
+        choices = []
+        for outline in outlines:
+            allowed = [unit for unit in units if unit["source_id"] in outline["source_ids"]]
+            unit = max(allowed, key=lambda item: len(item["quote"]))
+            gap, distractors = None, []
+            if outline["kind"] == "quiz":
+                words = list(dict.fromkeys(re.findall(r"\b\w+\b", unit["quote"])))
+                gap = next(word for word in words if unit["quote"].count(word) == 1)
+                distractors = [word for word in words if word.casefold() != gap.casefold()][:2]
+            choices.append({"id": outline["id"], "bullet_unit_ids": [unit["id"]], "notes_unit_ids": [unit["id"]],
+                            "activity": "read", "quiz_gap": gap, "quiz_distractors": distractors})
+        return schema.model_validate(choices[0] if payload["task"] == "edit" else {"lesson_title": profile["lesson_title"], "slides": choices}), {}
     if payload["task"] == "edit":
         slide = {**payload["slide"]}
         slide["bullets"] = ["Ví dụ đã được sửa trong kiểm thử."]

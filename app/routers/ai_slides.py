@@ -4,6 +4,7 @@ from copy import deepcopy
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
@@ -11,9 +12,10 @@ from app.services.authentication.sessions import current_user, db_session
 from app.services.web import templates
 from app.services.ai_slides import provider
 from app.services.ai_slides.analysis import analyze_sources, resolved_claims, validated_resolutions
+from app.services.ai_slides.grounding import STAGES, VERSION as GROUNDING_VERSION, assemble_batch, assemble_plan, assemble_slide, proof_valid, source_units
 from app.services.ai_slides.config import settings
 from app.services.ai_slides.models import Deck, Revision, Step, Usage
-from app.services.ai_slides.schemas import Blueprint, EditRequest, Instruction, Manifest, OutlineUpdate, PresentationSettings, Profile, RecognitionRequest, RestoreRequest, Slide, SlideBatch, SourceReview
+from app.services.ai_slides.schemas import Blueprint, EditRequest, GroundedBatch, GroundedChoice, GroundedPlan, Instruction, Manifest, OutlineUpdate, PresentationSettings, Profile, RecognitionRequest, RestoreRequest, Slide, SlideBatch, SourceReview
 from app.services.ai_slides.review import content_review
 from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise, snapshot, validate_content, version_guard
 
@@ -47,6 +49,9 @@ def serialize(deck):
         "error_code": deck.error_code, "updated_at": deck.updated_at,
         "review": content_review(deck.manifest, deck.profile),
         "source_analysis": analysis,
+        "grounding_report": [{"slide_id": slide["id"], "verified": proof_valid(slide, deck.profile),
+                              "citations": (slide.get("source_proof") or {}).get("citations", []) if proof_valid(slide, deck.profile) else []}
+                             for slide in (deck.manifest or {}).get("slides", [])] if deck.profile.get("grounding") == "strict" else [],
     }
 
 
@@ -181,6 +186,8 @@ def update_outline(deck_id: str, payload: OutlineUpdate, if_match: str | None = 
         raise HTTPException(409, "Hãy tạo dàn ý trước khi chỉnh sửa.")
     if deck.manifest and not payload.discard_content:
         raise HTTPException(409, "Bài đã có nội dung. Cần xác nhận soạn lại từ dàn ý đã chỉnh; có thể hoàn tác về bài cũ.")
+    if deck.profile.get("grounding") == "strict" and any(slide.kind not in STAGES for slide in payload.blueprint.slides):
+        raise HTTPException(422, "Chế độ trích đoạn chưa tự tạo biểu đồ, bản đồ, video hoặc thí nghiệm. Hãy dùng loại nội dung khác hoặc chuyển sang Cân bằng.")
     try:
         validate_content(payload.blueprint, deck.profile)
     except provider.StudioError as error:
@@ -238,7 +245,21 @@ def edit_slide(deck_id: str, slide_id: str, payload: EditRequest, if_match: str 
     indices = [index for index, slide in enumerate(manifest["slides"]) if slide["id"] == slide_id]
     if not indices:
         raise HTTPException(404, "Không tìm thấy slide.")
-    manifest["slides"][indices[0]] = payload.slide.model_dump()
+    previous = manifest["slides"][indices[0]]
+    changed = payload.slide.model_dump()
+    # A caller cannot mint proof by sending it in a manual PATCH. Preserve only
+    # a pre-existing server proof when every content field is still identical.
+    changed["source_proof"] = previous.get("source_proof")
+    if not proof_valid(changed, deck.profile):
+        changed["source_proof"] = None
+    if payload.proposal_step_id:
+        proposal_step = db.get(Step, payload.proposal_step_id)
+        proposed = payload.slide.model_dump()
+        if (not proposal_step or proposal_step.deck_id != deck.id or proposal_step.state != "completed"
+                or proposal_step.input_version != deck.version or proposal_step.proposal != proposed):
+            raise HTTPException(409, "Đề xuất không còn khớp phiên bản bài giảng. Hãy yêu cầu AI đề xuất lại.")
+        changed = proposed
+    manifest["slides"][indices[0]] = changed
     validate_content(Manifest.model_validate(manifest), deck.profile)
     deck.manifest = manifest
     deck.error_code = None
@@ -266,7 +287,7 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
         same_kind = prior.kind == step_kind or (kind == "author" and prior.kind.startswith("author:"))
         if not same_kind or prior.input_version != version:
             raise provider.StudioError("STEP_CONFLICT", "Mã yêu cầu đã được dùng cho nội dung khác.", 409)
-        return {"proposal": prior.proposal, "version": version} if prior.proposal else serialize(deck)
+        return {"proposal": prior.proposal, "version": version, "step_id": prior.id} if prior.proposal else serialize(deck)
     if not deck.profile.get("consent"):
         raise provider.StudioError("CONSENT_REQUIRED", "Hãy đồng ý gửi thông tin bài học đã chọn tới AI.", 422)
     if analyze_sources(deck.profile)["unresolved"]:
@@ -276,6 +297,14 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
     if kind == "edit" and (deck.status != "ready" or not deck.manifest):
         raise provider.StudioError("STEP_CONFLICT", "Bài giảng chưa có nội dung để sửa.", 409)
     version_guard(deck, version)
+    strict = deck.profile.get("grounding") == "strict"
+    catalog = source_units(deck.profile) if strict else None
+    if strict and "objectives" in deck.profile.get("locked_fields", []) and deck.profile.get("objectives"):
+        locked = [line.strip() for line in deck.profile["objectives"].splitlines() if line.strip()]
+        if len(locked) > 6 or any(len(line) > 300 for line in locked):
+            raise provider.StudioError("TEACHER_CONSTRAINTS_INVALID", "Mục tiêu đã khóa cần tối đa 6 dòng, mỗi dòng tối đa 300 ký tự.", 422)
+    if strict and kind == "author" and deck.blueprint.get("grounding_version") != GROUNDING_VERSION:
+        raise provider.StudioError("GROUNDING_REPLAN_REQUIRED", "Dàn ý này có trước chế độ trích đoạn. Hãy lập lại dàn ý bám nguồn; bản cũ vẫn nằm trong lịch sử.", 422)
     cursor = len((deck.manifest or {}).get("slides", [])) if kind == "author" else 0
     if kind == "author":
         if cursor >= len(deck.blueprint["slides"]):
@@ -289,6 +318,8 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
     step.model = model_id
     db.commit()
     schema = {"plan": Blueprint, "author": SlideBatch, "edit": Slide}[kind]
+    if strict:
+        schema = {"plan": GroundedPlan, "author": GroundedBatch, "edit": GroundedChoice}[kind]
     profile = deepcopy(deck.profile)
     payload = {"task": kind, "profile": profile, "prompt_version": provider.PROMPT_VERSION}
     payload["source_decisions"] = resolved_claims(profile)
@@ -310,12 +341,31 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
             "title", "bullets", "speaker_notes", "teacher_action", "student_action",
             "question", "options", "correct_option", "explanation",
         ])
+        if strict:
+            catalog = [unit for unit in catalog if unit["source_id"] in matching[0]["source_ids"]]
+    if strict:
+        payload["grounding_contract"] = {"version": GROUNDING_VERSION, "units": catalog}
+        payload["profile"] = {**profile, "sources": [{key: source.get(key) for key in ("id", "name", "page", "role")} for source in profile["sources"]]}
     db.close()
     usage = {}
     try:
         result, usage = await provider.generate(model_id, schema, payload)
         deck = finish_guard(db, deck_id, token, version)
         step = db.get(Step, token)
+        if strict:
+            if kind == "plan":
+                result = assemble_plan(result, deck.profile, catalog)
+            elif kind == "author":
+                result = assemble_batch(result, deck.profile, payload["blueprint"], catalog)
+            else:
+                result = assemble_slide(result, deck.profile, payload["slide"], catalog)
+        elif kind == "plan":
+            result.grounding_version = None
+        elif kind == "author":
+            for slide in result.slides:
+                slide.source_proof = None
+        else:
+            result.source_proof = None
         if kind == "plan":
             validate_content(result, profile)
             deck.blueprint = result.model_dump()
@@ -345,7 +395,7 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
             step.proposal = proposed
             db.add(Usage(owner_id=user.id, deck_id=deck_id, step_id=token, model=model_id, status="proposal", **usage))
             db.commit()
-            return {"proposal": proposed, "version": deck.version}
+            return {"proposal": proposed, "version": deck.version, "step_id": token}
         deck.error_code = None
         revise(db, deck)
         step.state = "completed"
@@ -355,6 +405,10 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
         return serialize(deck)
     except Exception as error:
         db.rollback()
+        if isinstance(error, ValidationError):
+            paths = [".".join(map(str, item["loc"])) for item in error.errors(include_input=False)][:5]
+            error = provider.StudioError("AI_GROUNDING_ERROR" if strict else "AI_INVALID_JSON",
+                                         "Nội dung không khớp ràng buộc: " + ", ".join(paths) + ". Bản nháp được giữ.", 422)
         if not isinstance(error, provider.StudioError):
             logger.exception("Unexpected Studio failure step=%s deck=%s", token, deck_id)
         failure = error if isinstance(error, provider.StudioError) else provider.StudioError(

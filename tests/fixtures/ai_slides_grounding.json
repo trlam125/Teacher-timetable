@@ -1,0 +1,14 @@
+[
+  {
+    "id": "ohm", "subject": "Vật lí", "grade": "Lớp 9", "lesson_title": "Định luật Ôm", "duration_minutes": 45,
+    "text": "Ở nhiệt độ không đổi, cường độ dòng điện qua điện trở là I = U/R.\nU đo bằng V, R đo bằng Ω, I đo bằng A.\nKhi U = 6 V và R = 3 Ω thì cường độ dòng điện I = 2 A.\nKhi điện trở không đổi, cường độ dòng điện tỉ lệ thuận với hiệu điện thế.\nKhi hiệu điện thế không đổi, cường độ dòng điện tỉ lệ nghịch với điện trở.\nKết quả tính cần ghi đúng đơn vị của đại lượng cần tìm."
+  },
+  {
+    "id": "water", "subject": "Khoa học", "grade": "Lớp 5", "lesson_title": "Vòng tuần hoàn nước", "duration_minutes": 35,
+    "text": "Nước trên bề mặt có thể chuyển thành hơi nước qua quá trình bay hơi.\nHơi nước gặp lạnh có thể ngưng tụ thành các giọt nước nhỏ.\nMây gồm các giọt nước nhỏ hoặc tinh thể băng trong không khí.\nNước từ mây trở lại bề mặt qua các dạng giáng thủy như mưa.\nMột phần nước trên mặt đất chảy về sông, hồ và biển.\nMột phần nước thấm xuống đất và góp phần tạo nước ngầm.\nCây cũng đưa hơi nước vào không khí qua quá trình thoát hơi nước.\nSự chuyển động liên tục của nước giữa các nơi này tạo thành vòng tuần hoàn nước."
+  },
+  {
+    "id": "map", "subject": "Địa lí", "grade": "Lớp 6", "lesson_title": "Đọc bản đồ và tỉ lệ", "duration_minutes": 45,
+    "text": "Bản đồ biểu hiện thu nhỏ một phần hoặc toàn bộ bề mặt Trái Đất trên mặt phẳng.\nKí hiệu bản đồ biểu hiện các đối tượng địa lí.\nBảng chú giải giải thích ý nghĩa các kí hiệu được dùng trên bản đồ.\nTỉ lệ bản đồ cho biết mức độ thu nhỏ khoảng cách thực tế lên bản đồ.\nTrên bản đồ tỉ lệ 1:100000, khoảng cách 1 cm ứng với 1 km ngoài thực tế.\nKhi đo khoảng cách cần dùng đúng đơn vị trước khi tính theo tỉ lệ.\nMuốn xác định phương hướng cần đọc chỉ dẫn phương hướng trên bản đồ.\nCó thể phối hợp tên bản đồ, chú giải và tỉ lệ để đọc thông tin."
+  }
+]

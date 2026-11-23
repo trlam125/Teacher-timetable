@@ -70,6 +70,7 @@ export function createScene(item, deck, index) {
     text('T ≈ 2π√(L/g)', x - 1.9, y + 2.75, 4, 0.6, { fontSize: 27, bold: true, align: 'center' });
   }
   const bullets = item.bullets || [];
+  const automaticCircuit = deck.profile.grounding !== 'strict' && /ôm|điện/i.test(deck.title);
   if (item.kind === 'cover') {
     scene.background = theme.ink;
     box(8.6, 0, 4.75, 7.5, theme.accent);
@@ -77,7 +78,7 @@ export function createScene(item, deck, index) {
     text(item.title, 0.8, 1.7, 7.2, 2.45, { color: 'FFFFFF', fontSize: 39, bold: true });
     text(bullets.slice(0, 2).join('\n'), 0.85, 4.75, 6.7, 1.3, { color: 'E6F0F4', fontSize: 22, animate: true });
     text(`${deck.profile.grade} · ${deck.profile.duration_minutes || 45} phút`, 0.85, 6.55, 6.7, 0.4, { color: 'B9DAD9', fontSize: 16 });
-    if (/ôm|điện/i.test(deck.title)) circuit(9.05, 2.5, 3.2);
+    if (automaticCircuit) circuit(9.05, 2.5, 3.2);
     else {
       circle(9.5, 1.5, 2.2, theme.secondary);
       circle(9.35, 4.4, 0.45, 'FFFFFF');
@@ -108,7 +109,7 @@ export function createScene(item, deck, index) {
       scene.objects = scene.objects.filter(object => object.y !== 1.25);
       break;
     case 'concept': {
-      const illustrated = /ôm|điện/i.test(deck.title) || item.resource_id === 'ohm' || item.resource_id === 'pendulum';
+      const illustrated = automaticCircuit || item.resource_id === 'ohm' || item.resource_id === 'pendulum';
       if (illustrated) {
         list(0.85, 2.55, 6.3, 0.72, 21);
         box(7.7, 2.45, 4.7, 3.75, theme.tint);
@@ -146,7 +147,7 @@ export function createScene(item, deck, index) {
       list(0.85, 2.45, 6.15, 0.72, 21);
       box(7.7, 2.45, 4.7, 3.75, theme.tint);
       if (item.resource_id === 'pendulum') pendulum(10, 2.75);
-      else if (/ôm|điện/i.test(deck.title) || item.resource_id === 'ohm') circuit(8.2, 3.3, 3.5);
+      else if (automaticCircuit || item.resource_id === 'ohm') circuit(8.2, 3.3, 3.5);
       else text('Dự đoán\nQuan sát\nGiải thích', 8.1, 2.95, 3.8, 2.5, { fontSize: 27, bold: true, color: theme.accent, align: 'center' });
       break;
     case 'example':

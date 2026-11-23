@@ -214,6 +214,141 @@ class StudioTests(unittest.TestCase):
         self.assertIsNone(response.json()["blueprint"])
         self.assertEqual(response.json()["status"], "draft")
 
+    def strict_profile(self):
+        from app.services.ai_slides.schemas import Profile
+        return Profile.model_validate({**PROFILE, "grounding": "strict", "sources": [{
+            "id": "book", "name": "Nguồn tổng hợp", "page": 35,
+            "text": "Ở nhiệt độ không đổi, I = U/R. U đo bằng V, R đo bằng Ω, I đo bằng A.\nU = 6 V và R = 3 Ω thì I = 2 A.\nCường độ dòng điện tỉ lệ thuận với hiệu điện thế khi điện trở không đổi.",
+        }]}).model_dump()
+
+    def test_extractive_strict_assembly_has_only_literal_source_content_and_proof(self):
+        from app.services.ai_slides.grounding import source_units, assemble_batch, proof_valid
+        from app.services.ai_slides.schemas import GroundedBatch
+        profile = self.strict_profile()
+        units = source_units(profile)
+        outline = fixture_blueprint()
+        outline["slides"] = [outline["slides"][2]]
+        outline["slides"][0]["source_ids"] = ["book"]
+        choice = {"id": "s003", "bullet_unit_ids": [units[0]["id"]], "notes_unit_ids": [units[-1]["id"]],
+                  "activity": "discuss", "quiz_gap": None, "quiz_distractors": []}
+        batch = assemble_batch(GroundedBatch(lesson_title=profile["lesson_title"], slides=[choice]), profile, outline)
+        slide = batch.slides[0].model_dump()
+        self.assertEqual(slide["bullets"], [units[0]["quote"]])
+        self.assertTrue(proof_valid(slide, profile))
+        self.assertNotIn("SGK", slide["speaker_notes"])
+        slide["speaker_notes"] += " Diode có đặc tính khác."
+        self.assertFalse(proof_valid(slide, profile))
+
+    def test_extractive_unknown_ref_fails_and_excludes_rejected_formula(self):
+        from app.services.ai_slides.grounding import source_units, assemble_batch
+        from app.services.ai_slides.analysis import analyze_sources
+        from app.services.ai_slides.schemas import GroundedBatch
+        profile = self.strict_profile()
+        profile["sources"].append({"id": "bad", "name": "B", "page": None, "text": "I = U*R.", "role": "reference"})
+        conflict = analyze_sources(profile)["conflicts"][0]
+        chosen = next(item for item in conflict["evidence"] if item["source_id"] == "book")
+        profile["source_resolutions"] = [{"conflict_id": conflict["id"], "evidence_id": chosen["id"]}]
+        self.assertFalse(any(unit["source_id"] == "bad" for unit in source_units(profile)))
+        bad = GroundedBatch(lesson_title=profile["lesson_title"], slides=[{
+            "id": "s001", "bullet_unit_ids": ["u-fabricated"], "notes_unit_ids": [],
+            "activity": "discuss", "quiz_gap": None, "quiz_distractors": [],
+        }])
+        with self.assertRaises(self.routes.provider.StudioError) as caught:
+            assemble_batch(bad, profile, fixture_blueprint())
+        self.assertEqual(caught.exception.code, "AI_GROUNDING_ERROR")
+
+    def test_strict_legacy_or_manual_slide_has_grounding_warning(self):
+        from app.services.ai_slides.review import content_review
+        issues = content_review(fixture_manifest().model_dump(), self.strict_profile())
+        self.assertIn("UNVERIFIED_GROUNDING", {item["code"] for item in issues})
+
+    def test_strict_legacy_outline_requires_explicit_replan_before_provider(self):
+        from app.services.ai_slides.models import Deck
+        deck = self.seed_ready()
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.profile = self.strict_profile()
+            db.commit()
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock) as model:
+            response = self.call_step(deck, "author")
+            self.assertEqual(response.json()["code"], "GROUNDING_REPLAN_REQUIRED")
+            model.assert_not_called()
+
+    def test_strict_full_flow_proof_manual_edit_undo_and_ai_edit(self):
+        profile = self.strict_profile()
+        deck = self.create(**profile)
+        async def generate(model, schema, payload):
+            units = payload["grounding_contract"]["units"]
+            self.assertNotIn("text", payload["profile"]["sources"][0])
+            if payload["task"] == "plan":
+                return schema.model_validate({"lesson_title": profile["lesson_title"], "objective_unit_ids": [units[0]["id"]],
+                    "slides": [{"id": f"s{i+1:03d}", "kind": kind, "duration_seconds": 540, "unit_ids": [units[0]["id"]]}
+                               for i, kind in enumerate(["cover", "hook", "concept", "quiz", "summary"])], "warnings": []}), {}
+            outlines = [payload["slide"]] if payload["task"] == "edit" else payload["blueprint"]["slides"]
+            choices = [{"id": item["id"], "bullet_unit_ids": [units[0]["id"]], "notes_unit_ids": [units[-1]["id"]],
+                        "activity": "read", "quiz_gap": "U/R" if item["kind"] == "quiz" else None,
+                        "quiz_distractors": ["V", "Ω"] if item["kind"] == "quiz" else []} for item in outlines]
+            return schema.model_validate(choices[0] if payload["task"] == "edit" else {"lesson_title": profile["lesson_title"], "slides": choices}), {}
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"), \
+             patch.object(self.routes.provider, "generate", side_effect=generate):
+            planned = self.call_step(deck, "plan").json()
+            self.assertEqual(planned["blueprint"]["grounding_version"], "extractive-v1")
+            if planned["blueprint"]["warnings"]:
+                planned = self.client.post(f"/api/ai-slides/decks/{deck['id']}/approve-outline", headers={"If-Match": str(planned["version"])}).json()
+            response = self.call_step(planned, "author", "strict-author-001")
+            self.assertEqual(response.status_code, 200, response.text)
+            ready = response.json()
+            self.assertEqual(ready["status"], "ready")
+            self.assertTrue(all(row["verified"] for row in ready["grounding_report"]))
+            quiz = ready["manifest"]["slides"][3]
+            self.assertEqual(quiz["options"][quiz["correct_option"]], "U/R")
+            self.assertIn("_____", quiz["question"])
+            url = f"/api/ai-slides/decks/{deck['id']}"
+            proposal = self.client.post(url + "/slides/s001/propose", headers={"If-Match": str(ready["version"]), "Idempotency-Key": "strict-edit-001"}, json={"instruction": "Đổi hoạt động đọc trích đoạn"})
+            self.assertEqual(proposal.status_code, 200, proposal.text)
+            self.assertIsNotNone(proposal.json()["proposal"]["source_proof"])
+            forged = deepcopy(proposal.json()["proposal"])
+            forged["speaker_notes"] += " Nội dung ngoài đề xuất."
+            rejected = self.client.patch(url + "/slides/s001", headers={"If-Match": str(ready["version"])},
+                                         json={"slide": forged, "proposal_step_id": proposal.json()["step_id"]})
+            self.assertEqual(rejected.status_code, 409)
+            applied = self.client.patch(url + "/slides/s001", headers={"If-Match": str(ready["version"])},
+                                        json={"slide": proposal.json()["proposal"], "proposal_step_id": proposal.json()["step_id"]})
+            self.assertEqual(applied.status_code, 200, applied.text)
+            ready = applied.json()
+            self.assertTrue(all(item["verified"] for item in ready["grounding_report"]))
+            edited = deepcopy(ready["manifest"]["slides"][0])
+            edited["speaker_notes"] += " Kiến thức giáo viên tự bổ sung."
+            manual = self.client.patch(url + "/slides/s001", headers={"If-Match": str(ready["version"])}, json={"slide": edited})
+            self.assertEqual(manual.status_code, 200, manual.text)
+            self.assertIsNone(manual.json()["manifest"]["slides"][0]["source_proof"])
+            self.assertIn("UNVERIFIED_GROUNDING", {item["code"] for item in manual.json()["review"]})
+            restored = self.client.post(url + "/restore", headers={"If-Match": str(manual.json()["version"])}, json={"version": ready["version"]}).json()
+            self.assertTrue(all(row["verified"] for row in restored["grounding_report"]))
+
+    def test_strict_invalid_ai_selection_preserves_outline_and_safe_log(self):
+        profile = self.strict_profile()
+        deck = self.create(**profile)
+        from app.services.ai_slides.models import Deck
+        from app.services.ai_slides.schemas import GroundedBatch
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = {**fixture_blueprint(), "grounding_version": "extractive-v1"}
+            row.status = "planned"
+            db.commit()
+        bad = GroundedBatch(lesson_title=profile["lesson_title"], slides=[{"id": "s001", "bullet_unit_ids": ["u-fake"]}])
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"), \
+             patch.object(self.routes.provider, "generate", new_callable=AsyncMock, return_value=(bad, {})):
+            response = self.call_step(deck, "author")
+            self.assertEqual(response.json()["code"], "AI_GROUNDING_ERROR")
+        stored = self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()
+        self.assertIsNone(stored["manifest"])
+        self.assertIsNotNone(stored["blueprint"])
+        self.assertFalse(stored["busy"])
+        logs = self.client.get(f"/api/ai-slides/decks/{deck['id']}/steps").json()
+        self.assertEqual(logs[0]["error_code"], "AI_GROUNDING_ERROR")
+        self.assertNotIn(profile["sources"][0]["text"], logs[0]["error_message"])
+
     def test_outline_edit_requires_explicit_reset_and_restores_previous_content(self):
         deck = self.seed_ready()
         url = f"/api/ai-slides/decks/{deck['id']}"
