@@ -665,10 +665,11 @@ $('#ai-edit-form').onsubmit = event => {
     const box = $('#edit-proposal');
     box.hidden = false;
     box.replaceChildren(element('h3', 'Xem thay đổi trước khi áp dụng'));
-    for (const key of ['title', 'bullets', 'speaker_notes', 'question', 'options', 'explanation']) {
+    for (const key of ['title', 'bullets', 'speaker_notes', 'teacher_action', 'student_action', 'question', 'options', 'correct_option', 'explanation']) {
       if (JSON.stringify(proposal[key]) === JSON.stringify(original[key])) continue;
-      box.append(element('strong', ({ title: 'Tiêu đề', bullets: 'Nội dung', speaker_notes: 'Ghi chú', question: 'Câu hỏi', options: 'Phương án', explanation: 'Giải thích' })[key]));
-      box.append(element('p', 'Hiện tại — ' + String(original[key])), element('p', 'Đề xuất — ' + String(proposal[key])));
+      box.append(element('strong', ({ title: 'Tiêu đề', bullets: 'Nội dung', speaker_notes: 'Ghi chú', teacher_action: 'Hoạt động giáo viên', student_action: 'Hoạt động học sinh', question: 'Câu hỏi', options: 'Phương án', correct_option: 'Đáp án đúng', explanation: 'Giải thích' })[key]));
+      const display = value => key === 'correct_option' ? (value == null ? 'Chưa có' : String.fromCharCode(65 + value)) : String(value);
+      box.append(element('p', 'Hiện tại — ' + display(original[key])), element('p', 'Đề xuất — ' + display(proposal[key])));
     }
     const apply = element('button', 'Áp dụng thay đổi', 'btn');
     apply.onclick = () => run(async () => {

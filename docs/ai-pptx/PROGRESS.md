@@ -57,3 +57,19 @@ Kiểm thử: 68 ca backend SQLite/PostgreSQL; 9 ca Node; 14 + 8 + 4 + 7 nhóm h
 Live benchmark nguồn tổng hợp 3 môn: 3 dàn ý, 3 bộ hoàn chỉnh × 5 slide; 15/15 slide có đối chiếu, 32 ý chính lấy nguyên văn. Có 2 lượt author ban đầu bị chặn do model điền trường quiz vào slide thường; đã siết schema null/empty cho nhóm không quiz và chạy lại riêng 2 ca đạt. Tổng 8 requests thật cho benchmark, không gọi model trả phí. Chưa coi là nghiệm thu sư phạm 20 bộ bài; title/hoạt động dạng khung và câu hỏi điền nguyên văn là chủ đích của chế độ trích đoạn. Diễn đạt linh hoạt dùng Cân bằng và cần giáo viên rà soát.
 
 Đang chuẩn bị CI/deploy/smoke trên preview riêng; chỉ ghi nhận hoàn tất deploy sau khi quan sát live. V4 vẫn còn luồng tự động liền mạch, phân tích nguồn mơ hồ/ngữ nghĩa, học liệu mở rộng và đánh giá chất lượng rộng hơn.
+
+### Rà soát cuối và tình trạng provider
+
+CI của `f862799` và `3850f7c` đã đạt, cả hai đã lên preview riêng; main giữ nguyên. Hai lần planner trên preview (86,02 / 85,41 giây) timeout; lần sau xác nhận version/nội dung không đổi và lease được giải phóng. Tài khoản/dữ liệu tạm đã dọn sau mỗi lượt. Không tăng timeout hay đổi sang model trả phí.
+
+Đã tách prompt strict khỏi chỉ dẫn soạn tự do (v7) và thêm test kiểm tra request; đây là làm rõ hợp đồng, **chưa có bằng chứng nó sửa timeout**. Cùng ca nguồn mâu thuẫn trên local vẫn timeout. Một probe streaming giới hạn 85 giây nhận HTTP200 và 177 keepalive, không nhận event/nội dung. Ca Ôm đơn giản từng đạt cũng timeout ở lần đối chiếu mới (85,02 giây). Chưa xác định nguyên nhân cụ thể phía provider, không kết luận lỗi riêng của Render hoặc chỉ do dữ liệu mâu thuẫn.
+
+Một review độc lập toàn delta của đợt bám nguồn phát hiện các trường hợp biên. Đã sửa trong một lượt:
+
+- Loại các span công thức bị bỏ **trước khi** tách dòng/chunk; test newline và ranh giới 280 ký tự tái hiện thất bại rồi đạt. Cũng loại tiêu đề metadata bị giáo viên bỏ, giữ phần nội dung khác của nguồn.
+- Tiêu đề ngoài khung do giáo viên sửa và học liệu gắn tay không được tự nhận đã đối chiếu khi AI chọn lại nội dung. Giữ nguyên tiêu đề/học liệu và cảnh báo, không tự ghi đè. Test tiêu đề/attachment và API propose/apply đạt.
+- Đáp án nhiễu chỉ lấy từ nguồn được chọn cho slide, có quote evidence cho từng phương án. Test trước sửa cho phép nguồn ngoài slide, sau sửa bị chặn.
+- Dàn ý strict phải có trích đoạn khả dụng cho **mọi** slide trước khi lưu/reset, refresh mã trích đoạn khi đổi nguồn, giữ grounding_version do máy chủ đã lưu. Các slide/nguồn chưa hỗ trợ bị từ chối trước quota.
+- Diff đề xuất hiển thị cả hoạt động giáo viên/học sinh và đáp án đúng; headless xác nhận hoạt động xuất hiện trước khi áp dụng.
+
+Kết quả cuối sau sửa: 84 ca SQLite/PostgreSQL, 9 ca Node, 39 nhóm headless đạt. Không phát hiện test hồi quy còn thất bại. Chứng cứ trước đó vẫn là 3 bộ AI thật/15 slide/32 bullet khớp nguồn; tình trạng provider mới được ghi riêng, không xóa lỗi hoặc nhận là live AI đang ổn định. Không có finding quan trọng nào trong review này được bỏ qua; không yêu cầu reviewer lặp lại toàn bộ diff.

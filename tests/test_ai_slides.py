@@ -222,13 +222,14 @@ class StudioTests(unittest.TestCase):
         }]}).model_dump()
 
     def test_extractive_strict_assembly_has_only_literal_source_content_and_proof(self):
-        from app.services.ai_slides.grounding import source_units, assemble_batch, proof_valid
+        from app.services.ai_slides.grounding import source_units, assemble_batch, proof_valid, grounded_title
         from app.services.ai_slides.schemas import GroundedBatch
         profile = self.strict_profile()
         units = source_units(profile)
         outline = fixture_blueprint()
         outline["slides"] = [outline["slides"][2]]
         outline["slides"][0]["source_ids"] = ["book"]
+        outline["slides"][0]["title"] = grounded_title(profile, outline["slides"][0]["kind"], "s003")
         choice = {"id": "s003", "bullet_unit_ids": [units[0]["id"]], "notes_unit_ids": [units[-1]["id"]],
                   "activity": "discuss", "quiz_gap": None, "quiz_distractors": []}
         batch = assemble_batch(GroundedBatch(lesson_title=profile["lesson_title"], slides=[choice]), profile, outline)
@@ -238,6 +239,88 @@ class StudioTests(unittest.TestCase):
         self.assertNotIn("SGK", slide["speaker_notes"])
         slide["speaker_notes"] += " Diode có đặc tính khác."
         self.assertFalse(proof_valid(slide, profile))
+
+    def test_strict_ai_edit_does_not_certify_arbitrary_manual_title(self):
+        from app.services.ai_slides.grounding import assemble_slide, source_units, proof_valid
+        from app.services.ai_slides.schemas import GroundedChoice
+        profile = self.strict_profile()
+        units = source_units(profile)
+        outline = {**fixture_blueprint()["slides"][2], "title": "Mặt Trăng làm ra dòng điện", "source_ids": ["book"]}
+        choice = GroundedChoice(id=outline["id"], bullet_unit_ids=[units[0]["id"]])
+        result = assemble_slide(choice, profile, outline, units).model_dump()
+        self.assertEqual(result["title"], outline["title"])
+        self.assertFalse(proof_valid(result, profile))
+        from app.services.ai_slides.review import content_review
+        self.assertIn("UNVERIFIED_GROUNDING", {item["code"] for item in content_review({"slides": [result]}, profile)})
+
+    def test_strict_quiz_options_cannot_use_source_outside_slide_scope(self):
+        from app.services.ai_slides.grounding import assemble_slide, source_units
+        from app.services.ai_slides.schemas import GroundedChoice
+        profile = self.strict_profile()
+        profile["sources"].append({"id": "other", "name": "Ngoài phạm vi slide", "text": "Quang hợp.", "page": None})
+        units = source_units(profile)
+        outline = {**fixture_blueprint()["slides"][3], "source_ids": ["book"]}
+        choice = GroundedChoice(id="s004", bullet_unit_ids=[units[0]["id"]], quiz_gap="U/R", quiz_distractors=["Quang hợp"])
+        with self.assertRaises(self.routes.provider.StudioError):
+            assemble_slide(choice, profile, outline, units)
+
+    def test_rejected_formula_across_lines_or_chunks_is_not_selectable(self):
+        from app.services.ai_slides.grounding import source_units
+        from app.services.ai_slides.analysis import analyze_sources
+        for text in ["I =\nU * R.", "a " * 137 + "I = U * R."]:
+            with self.subTest(text=text[:30]):
+                profile = self.strict_profile()
+                profile["sources"].append({"id": "bad", "name": "B", "page": None, "text": text})
+                conflict = next(item for item in analyze_sources(profile)["conflicts"] if item["kind"] == "formula")
+                chosen = next(item for item in conflict["evidence"] if item["source_id"] == "book")
+                profile["source_resolutions"] = [{"conflict_id": conflict["id"], "evidence_id": chosen["id"]}]
+                eligible = [unit["quote"] for unit in source_units(profile) if unit["source_id"] == "bad"]
+                self.assertFalse(any("I =" in quote or "U * R" in quote for quote in eligible), eligible)
+
+    def test_strict_rejected_metadata_heading_is_not_selectable(self):
+        from app.services.ai_slides.analysis import analyze_sources
+        from app.services.ai_slides.grounding import source_units
+        profile = self.strict_profile()
+        profile["sources"][0]["text"] = "Lớp 10\n" + profile["sources"][0]["text"]
+        conflict = next(item for item in analyze_sources(profile)["conflicts"] if item["field"] == "grade")
+        teacher = next(item for item in conflict["evidence"] if item["teacher_field"] == "grade")
+        profile["source_resolutions"] = [{"conflict_id": conflict["id"], "evidence_id": teacher["id"]}]
+        self.assertFalse(any("Lớp 10" in item["quote"] for item in source_units(profile)))
+        self.assertTrue(any("I = U/R" in item["quote"] for item in source_units(profile)))
+
+    def test_strict_ai_edit_preserves_manual_resource_without_certifying_it(self):
+        from app.services.ai_slides.grounding import assemble_slide, source_units, grounded_title, proof_valid
+        from app.services.ai_slides.schemas import GroundedChoice
+        profile = self.strict_profile()
+        unit = source_units(profile)[0]
+        outline = {**fixture_blueprint()["slides"][2], "source_ids": ["book"], "title": grounded_title(profile, "concept", "s003"), "resource_id": "ohm"}
+        slide = assemble_slide(GroundedChoice(id="s003", bullet_unit_ids=[unit["id"]]), profile, outline, [unit]).model_dump()
+        self.assertEqual(slide["resource_id"], "ohm")
+        self.assertFalse(proof_valid(slide, profile))
+
+    def test_strict_outline_cannot_save_unusable_sources_or_change_server_version(self):
+        from app.services.ai_slides.models import Deck
+        deck = self.create(**self.strict_profile())
+        blueprint = fixture_blueprint()
+        for slide in blueprint["slides"]:
+            slide["source_ids"] = ["book"]
+        blueprint["grounding_version"] = "extractive-v1"
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = blueprint
+            row.manifest = fixture_manifest().model_dump()
+            row.status = "ready"
+            db.commit()
+        url = f"/api/ai-slides/decks/{deck['id']}/outline"
+        invalid = deepcopy(blueprint)
+        invalid["slides"][0]["source_ids"] = []
+        response = self.client.patch(url, headers={"If-Match": "1"}, json={"blueprint": invalid, "discard_content": True})
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertIsNotNone(self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()["manifest"])
+        blueprint["grounding_version"] = None
+        response = self.client.patch(url, headers={"If-Match": "1"}, json={"blueprint": blueprint, "discard_content": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["blueprint"]["grounding_version"], "extractive-v1")
 
     def test_extractive_unknown_ref_fails_and_excludes_rejected_formula(self):
         from app.services.ai_slides.grounding import source_units, assemble_batch
@@ -364,6 +447,8 @@ class StudioTests(unittest.TestCase):
         with self.session_factory() as db:
             row = db.get(Deck, deck["id"])
             row.blueprint = {**fixture_blueprint(), "grounding_version": "extractive-v1"}
+            for slide in row.blueprint["slides"]:
+                slide["source_ids"] = ["book"]
             row.status = "planned"
             db.commit()
         bad = GroundedBatch(lesson_title=profile["lesson_title"], slides=[{"id": "s001", "bullet_unit_ids": ["u-fake"]}])
@@ -378,6 +463,33 @@ class StudioTests(unittest.TestCase):
         logs = self.client.get(f"/api/ai-slides/decks/{deck['id']}/steps").json()
         self.assertEqual(logs[0]["error_code"], "AI_GROUNDING_ERROR")
         self.assertNotIn(profile["sources"][0]["text"], logs[0]["error_message"])
+
+    def test_strict_proposal_preserves_attachment_and_keeps_manual_title_unverified(self):
+        from app.services.ai_slides.models import Deck
+        from app.services.ai_slides.schemas import Manifest
+        from app.services.ai_slides.grounding import source_units
+        profile = self.strict_profile()
+        deck = self.create(**profile)
+        manifest = fixture_manifest().model_dump()
+        for slide in manifest["slides"]:
+            slide["source_ids"] = ["book"]
+        manifest["slides"][0].update(title="I = U * R", resource_id="ohm")
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.manifest = Manifest.model_validate(manifest).model_dump()
+            row.status = "ready"
+            db.commit()
+        unit = source_units(profile)[0]
+        async def select(model, schema, payload):
+            return schema.model_validate({"id": "s001", "bullet_unit_ids": [unit["id"]], "activity": "compare"}), {}
+        url = f"/api/ai-slides/decks/{deck['id']}"
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"), patch.object(self.routes.provider, "generate", side_effect=select):
+            response = self.client.post(url + "/slides/s001/propose", headers={"If-Match": "1", "Idempotency-Key": "attached-proposal-001"}, json={"instruction": "Đổi hoạt động so sánh"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["proposal"]["resource_id"], "ohm")
+        applied = self.client.patch(url + "/slides/s001", headers={"If-Match": "1"}, json={"slide": response.json()["proposal"], "proposal_step_id": response.json()["step_id"]})
+        self.assertEqual(applied.status_code, 200, applied.text)
+        self.assertFalse(applied.json()["grounding_report"][0]["verified"])
 
     def test_outline_edit_requires_explicit_reset_and_restores_previous_content(self):
         deck = self.seed_ready()

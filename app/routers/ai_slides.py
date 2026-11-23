@@ -188,6 +188,14 @@ def update_outline(deck_id: str, payload: OutlineUpdate, if_match: str | None = 
         raise HTTPException(409, "Bài đã có nội dung. Cần xác nhận soạn lại từ dàn ý đã chỉnh; có thể hoàn tác về bài cũ.")
     if deck.profile.get("grounding") == "strict" and any(slide.kind not in STAGES for slide in payload.blueprint.slides):
         raise HTTPException(422, "Chế độ trích đoạn chưa tự tạo biểu đồ, bản đồ, video hoặc thí nghiệm. Hãy dùng loại nội dung khác hoặc chuyển sang Cân bằng.")
+    if deck.profile.get("grounding") == "strict":
+        units = source_units(deck.profile)
+        for slide in payload.blueprint.slides:
+            eligible = [unit["id"] for unit in units if unit["source_id"] in slide.source_ids]
+            if not eligible:
+                raise HTTPException(422, f"Slide {slide.id} cần nguồn còn trích đoạn hợp lệ. Hãy chọn lại nguồn trước khi lưu dàn ý.")
+            slide.source_unit_ids = [unit_id for unit_id in slide.source_unit_ids if unit_id in eligible] or eligible[:5]
+    payload.blueprint.grounding_version = deck.blueprint.get("grounding_version")
     try:
         validate_content(payload.blueprint, deck.profile)
     except provider.StudioError as error:
@@ -305,6 +313,13 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
             raise provider.StudioError("TEACHER_CONSTRAINTS_INVALID", "Mục tiêu đã khóa cần tối đa 6 dòng, mỗi dòng tối đa 300 ký tự.", 422)
     if strict and kind == "author" and deck.blueprint.get("grounding_version") != GROUNDING_VERSION:
         raise provider.StudioError("GROUNDING_REPLAN_REQUIRED", "Dàn ý này có trước chế độ trích đoạn. Hãy lập lại dàn ý bám nguồn; bản cũ vẫn nằm trong lịch sử.", 422)
+    if strict and kind == "author" and any(not any(unit["source_id"] in slide["source_ids"] for unit in catalog) for slide in deck.blueprint["slides"]):
+        raise provider.StudioError("GROUNDING_OUTLINE_INVALID", "Một số slide chưa có trích đoạn hợp lệ. Hãy chỉnh nguồn trong dàn ý trước khi soạn.", 422)
+    selected_slide = next((slide for slide in (deck.manifest or {}).get("slides", []) if slide["id"] == slide_id), None) if kind == "edit" else None
+    if kind == "edit" and selected_slide is None:
+        raise provider.StudioError("SLIDE_NOT_FOUND", "Không tìm thấy slide.", 404)
+    if strict and kind == "edit" and (selected_slide["kind"] not in STAGES or not any(unit["source_id"] in selected_slide["source_ids"] for unit in catalog)):
+        raise provider.StudioError("GROUNDING_EDIT_UNSUPPORTED", "Slide này chưa hỗ trợ chọn lại trích đoạn bằng AI. Hãy chỉnh tay hoặc đổi loại/nguồn trước.", 422)
     cursor = len((deck.manifest or {}).get("slides", [])) if kind == "author" else 0
     if kind == "author":
         if cursor >= len(deck.blueprint["slides"]):

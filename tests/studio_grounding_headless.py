@@ -75,6 +75,8 @@ with sync_playwright() as p:
     page.locator('#edit-instruction').fill('Đổi hoạt động lớp thành đọc trích đoạn')
     page.locator('#ai-edit-form button').click()
     expect(page.locator('#edit-proposal')).to_be_visible()
+    expect(page.locator('#edit-proposal')).to_contain_text('Hoạt động giáo viên')
+    expect(page.locator('#edit-proposal')).to_contain_text('Hoạt động học sinh')
     page.locator('#edit-proposal button').click()
     expect(page.locator('#slide-evidence')).to_contain_text('Đã đối chiếu trích đoạn')
     page.reload()

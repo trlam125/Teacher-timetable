@@ -125,7 +125,7 @@ class GroundedBatch(StrictModel):
 
 
 class QuoteEvidence(StrictModel):
-    field: Literal["bullets", "speaker_notes", "question", "correct_option"]
+    field: Literal["bullets", "speaker_notes", "question", "correct_option", "options"]
     index: int = Field(ge=0, le=5)
     unit_id: str = Field(max_length=40)
     source_id: str = Field(max_length=64)
@@ -137,7 +137,7 @@ class SourceProof(StrictModel):
     version: Literal["extractive-v1"] = "extractive-v1"
     source_signature: str = Field(pattern=r"^[a-f0-9]{24}$")
     content_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
-    citations: list[QuoteEvidence] = Field(min_length=1, max_length=12)
+    citations: list[QuoteEvidence] = Field(min_length=1, max_length=16)
 
 
 class ChartData(StrictModel):

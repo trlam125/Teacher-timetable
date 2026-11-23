@@ -70,7 +70,7 @@ async def generate(model_id, schema, payload):
                 gap = next(word for word in words if unit["quote"].count(word) == 1)
                 distractors = [word for word in words if word.casefold() != gap.casefold()][:2]
             choices.append({"id": outline["id"], "bullet_unit_ids": [unit["id"]], "notes_unit_ids": [unit["id"]],
-                            "activity": "read", "quiz_gap": gap, "quiz_distractors": distractors})
+                            "activity": "compare" if payload["task"] == "edit" else "read", "quiz_gap": gap, "quiz_distractors": distractors})
         return schema.model_validate(choices[0] if payload["task"] == "edit" else {"lesson_title": profile["lesson_title"], "slides": choices}), {}
     if payload["task"] == "edit":
         slide = {**payload["slide"]}
