@@ -1,4 +1,4 @@
-import { bookAction, extractPages, openDocument, searchPdf } from './documents.js';
+import { bookAction, discoverPdfLessons, extractPages, openDocument, searchPdf } from './documents.js';
 import { renderScene } from './pptx/preview.js';
 
 const $ = selector => document.querySelector(selector);
@@ -15,7 +15,7 @@ let proposal = null;
 let outlineDraft = null;
 let reviewedVersion = '';
 const kindLabels = { cover: 'Trang mở đầu', objectives: 'Mục tiêu', hook: 'Khởi động', section: 'Chuyển phần', concept: 'Khái niệm', process: 'Quy trình', compare: 'So sánh', map: 'Bản đồ', experiment: 'Thí nghiệm / mô phỏng', example: 'Ví dụ', chart: 'Biểu đồ', quiz: 'Trắc nghiệm', video: 'Video', summary: 'Tổng kết', sources: 'Nguồn tài liệu' };
-const statusLabels = { draft: 'Bản nháp', planned: 'Đã có dàn ý', authoring: 'Đang soạn, đã lưu một phần', needs_review: 'Cần xác nhận dàn ý', ready: 'Sẵn sàng tải' };
+const statusLabels = { draft: 'Bản nháp', planned: 'Đã có dàn ý', authoring: 'Đang soạn, đã lưu một phần', needs_review: 'Cần xác nhận dàn ý', needs_source_review: 'Cần rà soát nguồn', ready: 'Sẵn sàng tải' };
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -90,6 +90,7 @@ async function refreshLibrary() {
 }
 
 function renderSources() {
+  $('#source-recognition').hidden = true;
   const list = $('#source-list');
   list.replaceChildren();
   const grouped = new Map();
@@ -110,7 +111,7 @@ function renderSources() {
       role.append(option);
     }
     role.value = first.role;
-    role.onchange = () => { items.forEach(source => { source.role = role.value; }); $('#cloud-consent').checked = false; };
+    role.onchange = () => { items.forEach(source => { source.role = role.value; }); $('#cloud-consent').checked = false; $('#source-recognition').hidden = true; };
     const remove = element('button', 'Bỏ nguồn này', 'studio-text-button');
     remove.type = 'button';
     remove.onclick = () => { sources = sources.filter(source => !items.includes(source)); $('#cloud-consent').checked = false; renderSources(); };
@@ -125,6 +126,7 @@ function renderSources() {
       excerpt.oninput = () => {
         source.text = excerpt.value;
         $('#cloud-consent').checked = false;
+        $('#source-recognition').hidden = true;
       };
       section.append(excerpt);
     }
@@ -132,6 +134,68 @@ function renderSources() {
   }
   const length = sources.reduce((sum, source) => sum + source.text.length, 0);
   $('#source-count').textContent = length ? `${sources.length} đoạn nguồn · ${length.toLocaleString('vi-VN')} / 40.000 ký tự` : 'Chưa chọn tài liệu. Bạn có thể bắt đầu bằng tên bài.';
+}
+
+const metadataLabels = { subject: 'Môn học', grade: 'Khối / lớp', lesson_title: 'Tên bài', duration_minutes: 'Thời lượng (phút)' };
+
+async function recognizeSources() {
+  if (!sources.length) throw new Error('Hãy đọc trang tài liệu hoặc thêm văn bản trước khi nhận diện.');
+  if (!$('#cloud-consent').checked) throw new Error('Hãy xem các đoạn đã chọn và đồng ý gửi tới máy chủ trước khi nhận diện.');
+  const hints = Object.fromEntries(Object.keys(metadataLabels).map(key => [key, form.elements[key].value.trim()]));
+  hints.duration_minutes = hints.duration_minutes ? Number(hints.duration_minutes) : null;
+  hints.locked_fields = [...$('#field-locks').querySelectorAll('input:checked')].map(input => input.value);
+  const original = JSON.stringify(sources);
+  const result = await api('/analyze-sources', { method: 'POST', body: JSON.stringify({ sources, hints, consent: true }) });
+  if (JSON.stringify(sources) !== original) throw new Error('Nguồn đã thay đổi trong khi nhận diện. Hãy kiểm tra và nhận diện lại.');
+  const box = $('#source-recognition'); box.replaceChildren(); box.hidden = false;
+  box.append(element('strong', 'Gợi ý từ tiêu đề rõ ràng trong nguồn'), element('p', 'Chỉ tự điền ô trống có một gợi ý. Thông tin đã nhập được giữ nguyên; mở nguồn để kiểm tra trích dẫn.'));
+  let count = 0;
+  for (const [field, items] of Object.entries(result.metadata)) {
+    if (items.length === 1 && !form.elements[field].value.trim()) form.elements[field].value = items[0].value;
+    for (const item of items) {
+      count += 1;
+      const row = element('article', '', 'studio-source');
+      row.append(element('strong', `${metadataLabels[field]}: ${item.value}`),
+        element('p', `${item.name}${item.page ? ' · trang PDF ' + item.page : ''}`), element('blockquote', item.quote));
+      const apply = element('button', 'Dùng gợi ý này', 'btn ghost'); apply.type = 'button';
+      apply.onclick = () => {
+        const locked = [...$('#field-locks').querySelectorAll('input:checked')].some(input => input.value === field);
+        if (locked && form.elements[field].value.trim()) { message('Thông tin này đang khóa. Bỏ khóa hoặc sửa trực tiếp trong biểu mẫu để thay đổi.', true); return; }
+        form.elements[field].value = item.value;
+        message('Đã dùng gợi ý. Kiểm tra thông tin bài trước khi lưu.');
+      };
+      row.append(apply); box.append(row);
+    }
+  }
+  if (!count) box.append(element('p', 'Chưa thấy tiêu đề rõ ràng. Hãy nhập môn, lớp và tên bài; không tự suy đoán từ nội dung.'));
+  if (result.metadata.lesson_title.length > 1) box.append(element('p', 'Phần đã chọn có nhiều tên bài. Chọn đúng bài hoặc thu hẹp nguồn trước khi soạn.'));
+  message('Đã nhận diện nguồn đã chọn. Không gọi AI, không dùng lượt.');
+}
+
+function renderSourceReview() {
+  const analysis = deck.source_analysis;
+  const box = $('#source-conflicts'); box.replaceChildren();
+  $('#source-review').hidden = !analysis?.conflicts.length && !analysis?.overflow;
+  $('#source-discard-label').hidden = !deck.blueprint && !deck.manifest;
+  $('#source-discard').checked = false;
+  if (analysis?.overflow) box.append(element('p', 'Có quá nhiều biểu thức hoặc thông tin khác nhau để rà soát trong một bài. Hãy thu hẹp các đoạn nguồn.'));
+  for (const conflict of analysis?.conflicts || []) {
+    const section = element('fieldset'); section.dataset.conflict = conflict.id;
+    section.append(element('legend', conflict.label));
+    for (const item of conflict.evidence) {
+      const label = element('label', '', 'studio-source-choice');
+      const radio = document.createElement('input'); radio.type = 'radio'; radio.name = 'conflict-' + conflict.id;
+      radio.value = item.id; radio.checked = item.id === conflict.selected_evidence_id;
+      radio.required = true;
+      // Non-matching metadata can only be changed in the lesson form, including locked fields.
+      radio.disabled = !item.selectable;
+      const detail = element('span');
+      detail.append(element('strong', item.name + (item.page ? ' · trang PDF ' + item.page : '')), element('blockquote', item.quote));
+      if (!item.selectable) detail.append(element('small', 'Muốn dùng giá trị này, sửa thông tin bài trước.'));
+      label.append(radio, detail); section.append(label);
+    }
+    box.append(section);
+  }
 }
 
 function profile() {
@@ -150,6 +214,7 @@ function profile() {
 function headers() { return { 'If-Match': String(deck.version) }; }
 
 async function saveProfile() {
+  if (sources.length && form.elements.input_mode.value !== 'manual' && ['subject', 'grade', 'lesson_title'].some(key => !form.elements[key].value.trim())) await recognizeSources();
   if (!form.reportValidity()) return false;
   if (sources.length && !$('#cloud-consent').checked) throw new Error('Hãy xem nguồn đã chọn và đồng ý trước khi lưu các đoạn này lên tài khoản.');
   const payload = profile();
@@ -182,16 +247,17 @@ function showDeck() {
   $('#presentation-theme').value = deck.profile.theme;
   $('#presentation-motion').value = deck.profile.motion;
   $('#deck-status').textContent = `${statusLabels[deck.status] || deck.status} · Phiên bản ${deck.version}`;
+  renderSourceReview();
   const ready = deck.status === 'ready' && Boolean(deck.manifest);
   $('#export-pptx').hidden = !ready;
   $('#export-pptx').textContent = nativeMotionAllowed() ? 'Tải PowerPoint có hiệu ứng' : 'Tải PowerPoint';
   $('#export-basic').hidden = !ready || !nativeMotionAllowed();
   $('#export-notes').hidden = !ready;
-  $('#continue-deck').hidden = ready || deck.status === 'needs_review';
+  $('#continue-deck').hidden = ready || deck.status === 'needs_review' || deck.source_analysis?.unresolved;
   $('#continue-deck').textContent = deck.status === 'authoring' ? `Tiếp tục soạn (${deck.manifest.slides.length}/${deck.profile.slide_count})` : deck.blueprint ? 'Soạn slide từ dàn ý' : 'Tiếp tục tạo dàn ý';
   const review = $('#outline-review');
   review.replaceChildren();
-  review.hidden = !deck.blueprint?.warnings?.length;
+  review.hidden = !deck.blueprint?.warnings?.length || deck.source_analysis?.unresolved;
   if (!review.hidden) {
     review.className = 'studio-notice';
     review.append(element('strong', 'Cần bạn kiểm tra trước khi soạn slide'));
@@ -397,10 +463,24 @@ form.onsubmit = event => {
     if (!$('#cloud-consent').checked) throw new Error('Hãy đồng ý gửi thông tin bài học tới AI trước khi tạo.');
     if (!await saveProfile()) return;
     showDeck();
+    if (deck.source_analysis?.unresolved) { message('Đã lưu bản nháp. Hãy rà soát các thông tin khác nhau trước khi gọi AI.'); return; }
     await generate('plan');
   });
 };
 $('#save-draft').onclick = () => run(async () => { if (await saveProfile()) { showDeck(); message('Đã lưu bản nháp.'); } });
+$('#recognize-source').onclick = () => run(recognizeSources);
+$('#source-review-form').onsubmit = event => {
+  event.preventDefault();
+  run(async () => {
+    const resolutions = [...$('#source-conflicts').querySelectorAll('fieldset')].map(section => {
+      const selected = section.querySelector('input:checked');
+      if (!selected) throw new Error('Hãy chọn thông tin ưu tiên cho từng điểm khác nhau.');
+      return { conflict_id: section.dataset.conflict, evidence_id: selected.value };
+    });
+    deck = await api(`/decks/${deck.id}/source-review`, { method: 'PATCH', headers: headers(), body: JSON.stringify({ resolutions, discard_content: $('#source-discard').checked }) });
+    showDeck(); await refreshLibrary(); message('Đã lưu thông tin ưu tiên. Bạn có thể tiếp tục tạo bài; kiến thức vẫn cần giáo viên kiểm tra.');
+  });
+};
 $('#continue-deck').onclick = () => run(async () => {
   if (!deck.profile.consent) throw new Error('Chọn Sửa thông tin bài để xác nhận đồng ý gửi dữ liệu tới AI.');
   await generate(deck.blueprint ? 'author' : 'plan');
@@ -438,7 +518,7 @@ async function readFile(file) {
     $('#page-last').max = activeDocument.pages;
     $('#book-toc').replaceChildren(new Option('Chọn khoảng trang bên dưới', ''));
     activeDocument.toc.forEach((item, index) => $('#book-toc').append(new Option(item.title + ' · trang PDF ' + item.page, String(index))));
-    message(activeDocument.toc.length ? 'Chọn bài trong mục lục hoặc nhập khoảng trang PDF.' : 'Tệp chưa có bookmark. Hãy xem sách và nhập đúng khoảng trang bài học.');
+    message(activeDocument.toc.length ? 'Chọn bài trong mục lục hoặc nhập khoảng trang PDF.' : 'Tệp chưa có bookmark. Chọn Nhận diện bài / chương trên thiết bị hoặc nhập khoảng trang.');
   } else {
     const sourceId = 'doc-' + activeDocument.fingerprint.slice(0, 16);
     sources = [...sources.filter(source => source.id !== sourceId), {
@@ -458,6 +538,14 @@ $('#book-toc').onchange = event => {
   $('#page-last').value = Math.min(next ? next.page - 1 : activeDocument.pages, current.page + 49);
   if (!form.elements.lesson_title.value.trim()) form.elements.lesson_title.value = current.title.slice(0, 240);
 };
+$('#discover-lessons').onclick = () => run(async () => {
+  const lessons = await discoverPdfLessons((number, total) => message(`Đang nhận diện tiêu đề trên thiết bị… ${number}/${total} trang.`));
+  if (!lessons.length) { message('Chưa tìm thấy tiêu đề bài/chương rõ ràng trong lớp chữ. Hãy tìm từ khóa hoặc chọn trang bằng tay.'); return; }
+  activeDocument.toc = lessons;
+  $('#book-toc').replaceChildren(new Option('Chọn gợi ý rồi kiểm tra khoảng trang', ''));
+  lessons.forEach((item, index) => $('#book-toc').append(new Option(item.title + ' · trang PDF ' + item.page, String(index))));
+  message(`Đã tìm ${lessons.length} tiêu đề (tối đa 200). Đây là gợi ý từ lớp chữ; kiểm tra khoảng trang, nhất là khi nhiều bài bắt đầu cùng trang. Chưa gửi sách tới server.`);
+});
 $('#search-book').onclick = () => run(async () => {
   const query = $('#book-search-query').value.trim();
   const results = await searchPdf(query, (number, total) => message(`Đang tìm trong sách trên thiết bị… ${number}/${total} trang.`));
@@ -583,6 +671,7 @@ function nativeMotionAllowed() {
 }
 
 async function exportPowerPoint(nativeMotion) {
+  if (deck.source_analysis?.unresolved) throw new Error('Hãy rà soát nguồn trước khi tải bài.');
   requireContentReview();
   message('Đang tạo PowerPoint trên thiết bị…');
   await new Promise(resolve => setTimeout(resolve, 40));

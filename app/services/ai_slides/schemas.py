@@ -16,6 +16,36 @@ class Source(StrictModel):
     text: str = Field(min_length=1, max_length=40000)
 
 
+class SourceResolution(StrictModel):
+    conflict_id: str = Field(pattern=r"^[a-f0-9]{24}$")
+    evidence_id: str = Field(pattern=r"^[a-f0-9]{24}$")
+
+
+class SourceReview(StrictModel):
+    resolutions: list[SourceResolution] = Field(max_length=100)
+    discard_content: bool = False
+
+
+class RecognitionHints(StrictModel):
+    subject: str = Field(default="", max_length=80)
+    grade: str = Field(default="", max_length=40)
+    lesson_title: str = Field(default="", max_length=240)
+    duration_minutes: int | None = Field(default=None, ge=10, le=240)
+    locked_fields: list[str] = Field(default_factory=list, max_length=6)
+
+
+class RecognitionRequest(StrictModel):
+    sources: list[Source] = Field(min_length=1, max_length=100)
+    hints: RecognitionHints = Field(default_factory=RecognitionHints)
+    consent: bool = False
+
+    @model_validator(mode="after")
+    def bounded_sources(self):
+        if not self.consent or sum(len(source.text) for source in self.sources) > 40000 or len({source.id for source in self.sources}) != len(self.sources):
+            raise ValueError("Cần đồng ý, mã nguồn duy nhất và tối đa 40.000 ký tự đã chọn.")
+        return self
+
+
 class Profile(StrictModel):
     input_mode: Literal["manual", "document", "hybrid"] = "hybrid"
     subject: str = Field(min_length=1, max_length=80)
@@ -34,6 +64,7 @@ class Profile(StrictModel):
     sources: list[Source] = Field(default_factory=list, max_length=100)
     consent: bool = False
     training_consent: bool = False
+    source_resolutions: list[SourceResolution] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")
     def validate_sources(self):

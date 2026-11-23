@@ -111,6 +111,109 @@ class StudioTests(unittest.TestCase):
             db.commit()
         return self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()
 
+    def test_source_recognition_requires_consent_and_returns_evidence_without_ai(self):
+        body = {"sources": [{"id": "book", "name": "SGK", "page": 35,
+                 "text": "Môn: Vật lí\nLớp 9\nBài 12: Định luật Ôm\nThời lượng: 45 phút\nI = U/R."}], "hints": {}}
+        with patch.object(self.routes.provider, "generate", new_callable=AsyncMock) as generate:
+            self.assertEqual(self.client.post("/api/ai-slides/analyze-sources", json=body).status_code, 422)
+            response = self.client.post("/api/ai-slides/analyze-sources", json={**body, "consent": True})
+            self.assertEqual(response.status_code, 200, response.text)
+            result = response.json()
+            self.assertEqual(result["metadata"]["subject"][0]["value"], "Vật lí")
+            self.assertEqual(result["metadata"]["grade"][0]["value"], "Lớp 9")
+            self.assertEqual(result["metadata"]["lesson_title"][0]["page"], 35)
+            self.assertIn("Bài 12", result["metadata"]["lesson_title"][0]["quote"])
+            generate.assert_not_called()
+
+    def test_source_conflict_blocks_ai_until_versioned_evidence_choice_and_undo(self):
+        from app.services.ai_slides.models import Quota
+        sources = [{"id": "a", "name": "Nguồn A", "text": "I = U/R."},
+                   {"id": "b", "name": "Nguồn B", "text": "I = U*R.", "role": "reference"}]
+        deck = self.create(sources=sources)
+        self.assertTrue(deck["source_analysis"]["unresolved"])
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock) as model:
+            blocked = self.call_step(deck, "plan")
+            self.assertEqual(blocked.status_code, 422, blocked.text)
+            self.assertEqual(blocked.json()["code"], "SOURCE_REVIEW_REQUIRED")
+            model.assert_not_called()
+        with self.session_factory() as db:
+            self.assertEqual(len(db.scalars(select(Quota)).all()), 0)
+        conflict = deck["source_analysis"]["conflicts"][0]
+        selected = next(item for item in conflict["evidence"] if item["source_id"] == "a")
+        body = {"resolutions": [{"conflict_id": conflict["id"], "evidence_id": selected["id"]}]}
+        url = f"/api/ai-slides/decks/{deck['id']}/source-review"
+        self.user.id = 2
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json=body).status_code, 404)
+        self.user.id = 1
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "99"}, json=body).status_code, 409)
+        bad = {"resolutions": [{"conflict_id": conflict["id"], "evidence_id": "made-up"}]}
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json=bad).status_code, 422)
+        response = self.client.patch(url, headers={"If-Match": "1"}, json=body)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(response.json()["source_analysis"]["unresolved"])
+        self.assertEqual(response.json()["profile"]["sources"], deck["profile"]["sources"])
+        restored = self.client.post(f"/api/ai-slides/decks/{deck['id']}/restore", headers={"If-Match": "2"}, json={"version": 1})
+        self.assertTrue(restored.json()["source_analysis"]["unresolved"])
+
+    def test_source_decisions_cannot_be_reused_after_text_change(self):
+        from app.services.ai_slides.analysis import analyze_sources
+        from app.services.ai_slides.schemas import Profile
+        profile = Profile.model_validate({**PROFILE, "sources": [
+            {"id": "a", "name": "A", "text": "I = U/R."}, {"id": "b", "name": "B", "text": "I = U*R."}]}).model_dump()
+        conflict = analyze_sources(profile)["conflicts"][0]
+        profile["source_resolutions"] = [{"conflict_id": conflict["id"], "evidence_id": conflict["evidence"][0]["id"]}]
+        self.assertFalse(analyze_sources(profile)["unresolved"])
+        profile["sources"][0]["text"] += " Tài liệu đã chỉnh."
+        self.assertTrue(analyze_sources(profile)["unresolved"])
+
+    def test_formula_detection_ignores_examples_and_equivalent_multiplication(self):
+        from app.services.ai_slides.analysis import analyze_sources
+        result = analyze_sources({"sources": [{"id": "a", "name": "A", "text": "I = 6/3. I = 9/3. U = I*R. U = R×I."}]})
+        self.assertEqual(result["conflicts"], [])
+
+    def test_source_metadata_keeps_teacher_fields_and_rejects_overriding_choice(self):
+        deck = self.create(sources=[{"id": "a", "name": "Sách", "text": "Bài 13: Điện trở\nLớp 10"}])
+        self.assertEqual(deck["profile"]["lesson_title"], PROFILE["lesson_title"])
+        conflict = next(item for item in deck["source_analysis"]["conflicts"] if item["field"] == "lesson_title")
+        other = next(item for item in conflict["evidence"] if item["source_id"])
+        response = self.client.patch(f"/api/ai-slides/decks/{deck['id']}/source-review", headers={"If-Match": "1"},
+                                    json={"resolutions": [{"conflict_id": conflict["id"], "evidence_id": other["id"]}]})
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()["version"], 1)
+
+    def test_resolved_source_choices_are_sent_to_provider(self):
+        deck = self.create(sources=[{"id": "a", "name": "A", "text": "I = U/R."}, {"id": "b", "name": "B", "text": "I = U*R."}])
+        conflict = deck["source_analysis"]["conflicts"][0]
+        body = {"resolutions": [{"conflict_id": conflict["id"], "evidence_id": conflict["evidence"][0]["id"]}]}
+        deck = self.client.patch(f"/api/ai-slides/decks/{deck['id']}/source-review", headers={"If-Match": "1"}, json=body).json()
+        from app.services.ai_slides.schemas import Blueprint
+        with patch.object(self.routes.provider, "eligible_model", new_callable=AsyncMock, return_value="test/free:free"), \
+             patch.object(self.routes.provider, "generate", new_callable=AsyncMock, return_value=(Blueprint.model_validate(fixture_blueprint()), {})) as generate:
+            response = self.call_step(deck, "plan")
+            self.assertEqual(response.status_code, 200, response.text)
+            decisions = generate.call_args.args[2]["source_decisions"]
+            self.assertEqual(decisions[0]["selected"]["source_id"], "a")
+            self.assertEqual(decisions[0]["alternatives"][0]["source_id"], "b")
+
+    def test_changing_source_choice_requires_explicit_reset_when_content_exists(self):
+        from app.services.ai_slides.models import Deck
+        deck = self.create(sources=[{"id": "a", "name": "A", "text": "I = U/R."}, {"id": "b", "name": "B", "text": "I = U*R."}])
+        with self.session_factory() as db:
+            row = db.get(Deck, deck["id"])
+            row.blueprint = fixture_blueprint()
+            row.manifest = fixture_manifest().model_dump()
+            row.status = "ready"
+            db.commit()
+        conflict = deck["source_analysis"]["conflicts"][0]
+        body = {"resolutions": [{"conflict_id": conflict["id"], "evidence_id": conflict["evidence"][0]["id"]}]}
+        url = f"/api/ai-slides/decks/{deck['id']}/source-review"
+        self.assertEqual(self.client.patch(url, headers={"If-Match": "1"}, json=body).status_code, 409)
+        response = self.client.patch(url, headers={"If-Match": "1"}, json={**body, "discard_content": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIsNone(response.json()["manifest"])
+        self.assertIsNone(response.json()["blueprint"])
+        self.assertEqual(response.json()["status"], "draft")
+
     def test_outline_edit_requires_explicit_reset_and_restores_previous_content(self):
         deck = self.seed_ready()
         url = f"/api/ai-slides/decks/{deck['id']}"

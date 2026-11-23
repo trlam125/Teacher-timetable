@@ -79,3 +79,9 @@
 #book-search-results button {display:block;width:100%;text-align:left;padding:12px;margin-bottom:8px;background:#fff;border:1px solid #c8d5e6;border-radius:6px;white-space:normal;overflow-wrap:anywhere;}
 #content-review-items p {margin:12px 0;}#content-review-items button {margin-right:8px;}
 @media(max-width:650px) {.studio-outline-row .studio-fields{grid-template-columns:1fr}.studio-edit-panel,.studio-presentation{padding:15px}.studio-outline-row header{align-items:flex-start;flex-wrap:wrap}}
+.studio-source-choice { display: flex; align-items: flex-start; gap: .75rem; padding: .75rem 0; }
+.studio-editor:has(#slide-list:empty) { display: none; }
+.studio-source-choice input { flex: 0 0 auto; margin-top: .3rem; }
+.studio-source-choice span { min-width: 0; overflow-wrap: anywhere; }
+#source-conflicts blockquote, #source-recognition blockquote { margin: .4rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+#source-conflicts fieldset { margin-block: 1rem; border: 1px solid var(--border, #d8e0eb); border-radius: 12px; padding: 1rem; }

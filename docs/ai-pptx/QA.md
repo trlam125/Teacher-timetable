@@ -84,3 +84,11 @@ Người dùng báo “Cả 3 tệp chạy đúng” cho ba bộ QA Ôm/khoa h�
 Artifact: `motion-headless-report.json`, `ui-native-motion.pptx`, `ui-basic-choice.pptx`, `ui-reduced-motion.pptx`, `ui-motion-fallback.pptx` trong `tmp/ai-studio-qa`.
 
 Sau deploy `a923455` và bật cờ riêng trên preview, đã kiểm tra bằng tài khoản giáo viên tạm cùng bài mẫu Ôm trước đó: capabilities trả native_motion=true; nút tải xuất bản native 19 slide với 14 timing trees/19 transitions. Nút bản cơ bản và chế độ reduced-motion đều xuất 19 slide với 0 timing/0 transition. Mọi XML parse được, browser không có lỗi JavaScript chưa xử lý, tài khoản/bài tạm đã dọn. Không gọi AI ở smoke export này. Artifact `preview-native-ui-report.json`, `preview-native-ui.pptx`, `preview-basic-ui.pptx`, `preview-reduced-ui.pptx`, `preview-native-enabled.png`.
+
+## Nhận diện và rà soát nguồn — 23/11/2026
+
+56 ca backend SQLite/PostgreSQL đạt, gồm consent/nhận diện có bằng chứng, mâu thuẫn chặn provider trước quota, owner/version, lựa chọn giả/cũ bị từ chối, metadata giáo viên được giữ, quyết định gửi vào payload AI, nguồn thay đổi cần rà soát lại, xác nhận soạn lại khi đã có nội dung và undo. Các bài cũ không có source_resolutions vẫn đọc được; không cần đổi schema DB.
+
+8 ca Node đạt; 7 nhóm mới `tests/studio_sources_headless.py` đạt với PDF tự tạo không có bookmark và dữ liệu văn bản tổng hợp. Kiểm tra không có request API trong lúc nhận diện tiêu đề PDF; trang in 93/108 trong mục lục không bị dùng làm trang PDF 3/6; chọn bài đặt phạm vi 3–5; tự điền metadata trống; không ghi đè tên khóa; chọn bằng chứng/persist/reload/plan; đổi nguồn xóa consent và quyết định cũ; mobile không tràn ngang/lỗi JavaScript. Bộ cũ 14 + 8 + 4 nhóm đạt. Đã xem ảnh nguồn trên mobile. Artifact mới: `source-review-headless-report.json`, `source-review-mobile.png`, `book-without-bookmarks.pdf` trong tmp/ai-studio-qa.
+
+Thuật toán chỉ nhận diện tiêu đề rõ ràng và biểu thức ký hiệu trong ngữ pháp giới hạn. Không kiểm chứng đúng/sai, không giải tương đương toán tổng quát hoặc hiểu mâu thuẫn bằng văn xuôi. Chọn nguồn là chỉ dẫn cho AI; giáo viên vẫn cần rà soát đầu ra. Không tính các ca này là benchmark sư phạm hay chứng minh tách bài tự động hoàn hảo.

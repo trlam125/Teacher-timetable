@@ -10,9 +10,10 @@ from sqlalchemy.orm import Session
 from app.services.authentication.sessions import current_user, db_session
 from app.services.web import templates
 from app.services.ai_slides import provider
+from app.services.ai_slides.analysis import analyze_sources, resolved_claims, validated_resolutions
 from app.services.ai_slides.config import settings
 from app.services.ai_slides.models import Deck, Revision, Step, Usage
-from app.services.ai_slides.schemas import Blueprint, EditRequest, Instruction, Manifest, OutlineUpdate, PresentationSettings, Profile, RestoreRequest, Slide, SlideBatch
+from app.services.ai_slides.schemas import Blueprint, EditRequest, Instruction, Manifest, OutlineUpdate, PresentationSettings, Profile, RecognitionRequest, RestoreRequest, Slide, SlideBatch, SourceReview
 from app.services.ai_slides.review import content_review
 from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise, snapshot, validate_content, version_guard
 
@@ -37,13 +38,15 @@ def expected_version(value):
 
 
 def serialize(deck):
+    analysis = analyze_sources(deck.profile)
     return {
         "id": deck.id, "title": deck.title, "version": deck.version,
-        "status": deck.status, "profile": deck.profile,
+        "status": "needs_source_review" if analysis["unresolved"] else deck.status, "profile": deck.profile,
         "blueprint": deck.blueprint, "manifest": deck.manifest,
         "busy": bool(deck.active_token and deck.lease_until > time.time()),
         "error_code": deck.error_code, "updated_at": deck.updated_at,
         "review": content_review(deck.manifest, deck.profile),
+        "source_analysis": analysis,
     }
 
 
@@ -86,13 +89,15 @@ def capabilities(user=Depends(studio_user)):
 @router.get("/api/ai-slides/decks")
 def list_decks(user=Depends(studio_user), db: Session = Depends(db_session)):
     rows = db.scalars(select(Deck).where(Deck.owner_id == user.id).order_by(Deck.updated_at.desc()).limit(100)).all()
-    return [{"id": row.id, "title": row.title, "status": row.status, "version": row.version, "updated_at": row.updated_at} for row in rows]
+    return [{"id": row.id, "title": row.title, "status": "needs_source_review" if analyze_sources(row.profile)["unresolved"] else row.status,
+             "version": row.version, "updated_at": row.updated_at} for row in rows]
 
 
 @router.post("/api/ai-slides/decks", status_code=201)
 def create_deck(payload: Profile, user=Depends(studio_user), db: Session = Depends(db_session)):
     if payload.sources and not payload.consent:
         raise HTTPException(422, "Cần đồng ý trước khi lưu đoạn tài liệu lên tài khoản.")
+    check_resolutions(payload.model_dump(), payload.model_dump()["source_resolutions"])
     count = db.scalar(select(func.count()).select_from(Deck).where(Deck.owner_id == user.id))
     if count >= 100:
         raise HTTPException(409, "Đã có 100 bài giảng. Hãy xóa bài không cần dùng trước khi tạo thêm.")
@@ -100,6 +105,39 @@ def create_deck(payload: Profile, user=Depends(studio_user), db: Session = Depen
     db.add(deck)
     db.flush()
     db.add(Revision(deck_id=deck.id, version=1, snapshot=snapshot(deck)))
+    db.commit()
+    return serialize(deck)
+
+
+def check_resolutions(profile, resolutions):
+    try:
+        return validated_resolutions(profile, resolutions)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from None
+
+
+@router.post("/api/ai-slides/analyze-sources")
+def recognize_sources(payload: RecognitionRequest, user=Depends(studio_user)):
+    return analyze_sources({**payload.hints.model_dump(), "sources": [source.model_dump() for source in payload.sources]})
+
+
+@router.patch("/api/ai-slides/decks/{deck_id}/source-review")
+def review_sources(deck_id: str, payload: SourceReview, if_match: str | None = Header(None),
+                   user=Depends(studio_user), db: Session = Depends(db_session)):
+    deck = edit_guard(db, deck_id, user.id, expected_version(if_match))
+    resolutions = [item.model_dump() for item in payload.resolutions]
+    check_resolutions(deck.profile, resolutions)
+    prior = {item["conflict_id"]: item["evidence_id"] for item in deck.profile.get("source_resolutions", [])}
+    changed = prior != {item["conflict_id"]: item["evidence_id"] for item in resolutions}
+    if changed and (deck.blueprint or deck.manifest):
+        if not payload.discard_content:
+            raise HTTPException(409, "Đổi thông tin ưu tiên cần xác nhận soạn lại. Bài cũ được giữ để hoàn tác.")
+        deck.blueprint = None
+        deck.manifest = None
+        deck.status = "draft"
+        deck.error_code = None
+    deck.profile = {**deck.profile, "source_resolutions": resolutions}
+    revise(db, deck)
     db.commit()
     return serialize(deck)
 
@@ -114,6 +152,7 @@ def update_profile(deck_id: str, payload: Profile, if_match: str | None = Header
                    user=Depends(studio_user), db: Session = Depends(db_session)):
     if payload.sources and not payload.consent:
         raise HTTPException(422, "Cần đồng ý trước khi lưu đoạn tài liệu lên tài khoản.")
+    check_resolutions(payload.model_dump(), payload.model_dump()["source_resolutions"])
     deck = edit_guard(db, deck_id, user.id, expected_version(if_match))
     deck.profile = payload.model_dump()
     deck.title = payload.lesson_title
@@ -230,6 +269,8 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
         return {"proposal": prior.proposal, "version": version} if prior.proposal else serialize(deck)
     if not deck.profile.get("consent"):
         raise provider.StudioError("CONSENT_REQUIRED", "Hãy đồng ý gửi thông tin bài học đã chọn tới AI.", 422)
+    if analyze_sources(deck.profile)["unresolved"]:
+        raise provider.StudioError("SOURCE_REVIEW_REQUIRED", "Các nguồn có thông tin khác nhau. Hãy chọn thông tin ưu tiên trong phần Rà soát nguồn trước khi gọi AI.", 422)
     if kind == "author" and (not deck.blueprint or deck.blueprint.get("warnings")):
         raise provider.StudioError("NEEDS_TEACHER_REVIEW", "Hãy xác nhận các lưu ý trong dàn ý trước khi soạn slide.", 422)
     if kind == "edit" and (deck.status != "ready" or not deck.manifest):
@@ -250,6 +291,7 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
     schema = {"plan": Blueprint, "author": SlideBatch, "edit": Slide}[kind]
     profile = deepcopy(deck.profile)
     payload = {"task": kind, "profile": profile, "prompt_version": provider.PROMPT_VERSION}
+    payload["source_decisions"] = resolved_claims(profile)
     if kind == "author":
         payload["blueprint"] = deepcopy(deck.blueprint)
         payload["blueprint"]["slides"] = deck.blueprint["slides"][cursor:cursor + 5]

@@ -1,7 +1,9 @@
 import JSZip from 'jszip';
+import { lessonHeadings } from './lesson-headings.js';
 
 let pdfLibrary;
 let pdfDocument;
+let pdfTask;
 let selectedFile;
 let fingerprint;
 let pageTextCache = new Map();
@@ -22,9 +24,11 @@ export async function openDocument(file) {
   const bytes = await file.arrayBuffer();
   fingerprint = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).map(byte => byte.toString(16).padStart(2, '0')).join('');
   if (file.name.toLowerCase().endsWith('.pdf')) {
-    if (pdfDocument) await pdfDocument.destroy();
+    if (pdfTask) await pdfTask.destroy();
+    pdfDocument = null;
     const library = await pdfjs();
-    pdfDocument = await library.getDocument({ data: bytes, isEvalSupported: false, enableXfa: false }).promise;
+    pdfTask = library.getDocument({ data: bytes, isEvalSupported: false, enableXfa: false });
+    pdfDocument = await pdfTask.promise;
     if (pdfDocument.numPages > 400) throw new Error('Bản thử nghiệm hỗ trợ tối đa 400 trang. Hãy tách phần cần dùng.');
     const toc = [];
     async function walk(items, depth = 0) {
@@ -42,7 +46,8 @@ export async function openDocument(file) {
     await walk(await pdfDocument.getOutline());
     return { type: 'pdf', pages: pdfDocument.numPages, toc, name: file.name, fingerprint };
   }
-  if (pdfDocument) await pdfDocument.destroy();
+  if (pdfTask) await pdfTask.destroy();
+  pdfTask = null;
   pdfDocument = null;
   let text;
   if (file.name.toLowerCase().endsWith('.docx')) {
@@ -85,6 +90,29 @@ export async function extractPages(first, last, onProgress) {
 
 const searchText = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLocaleLowerCase('vi').replace(/\s+/g, ' ').trim();
 
+async function cachedPageText(document, number) {
+  if (!pageTextCache.has(number)) {
+    const page = await document.getPage(number);
+    const content = await page.getTextContent();
+    const text = content.items.map(item => item.str + (item.hasEOL ? '\n' : ' ')).join('').trim();
+    pageTextCache.set(number, text.slice(0, 40000)); page.cleanup();
+  }
+  return pageTextCache.get(number);
+}
+
+export async function discoverPdfLessons(onProgress) {
+  if (!pdfDocument) throw new Error('Hãy chọn sách PDF trước.');
+  const document = pdfDocument;
+  const lessons = [];
+  for (let page = 1; page <= document.numPages; page += 1) {
+    const text = await cachedPageText(document, page);
+    for (const title of lessonHeadings(text)) lessons.push({ title, page, depth: 0 });
+    if (page % 10 === 0 || page === document.numPages) onProgress?.(page, document.numPages);
+    if (lessons.length >= 200) break;
+  }
+  return lessons.slice(0, 200);
+}
+
 export async function searchPdf(query, onProgress) {
   if (!pdfDocument) throw new Error('Hãy chọn sách PDF trước khi tìm.');
   const needle = searchText(query);
@@ -92,14 +120,7 @@ export async function searchPdf(query, onProgress) {
   const document = pdfDocument;
   const results = [];
   for (let number = 1; number <= document.numPages; number += 1) {
-    let text = pageTextCache.get(number);
-    if (text === undefined) {
-      const page = await document.getPage(number);
-      const content = await page.getTextContent();
-      text = content.items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
-      // Bound per-page cache, independently of the excerpt sent to AI.
-      text = text.slice(0, 40000); pageTextCache.set(number, text); page.cleanup();
-    }
+    const text = await cachedPageText(document, number);
     const index = searchText(text).indexOf(needle);
     if (index >= 0) results.push({ page: number, snippet: text.slice(Math.max(0, index - 45), index + needle.length + 100) });
     if (number % 10 === 0 || number === document.numPages) onProgress?.(number, document.numPages);
