@@ -38,7 +38,7 @@ Các phần còn cần hoàn thiện gồm nhận diện thông tin mơ hồ b�
 
 Chế độ **Bám nguồn bằng trích đoạn** cho AI chọn đoạn, máy chủ đối chiếu rồi lấy nguyên văn; quiz điền đúng nguyên văn, không tự thêm số liệu/học liệu/sơ đồ kiến thức. Dưới preview có nguồn/trang/trích dẫn. Sửa tay làm mất trạng thái đối chiếu và cần rà soát; undo khôi phục bản cũ. Chế độ **Cân bằng** vẫn dành cho diễn đạt linh hoạt. Đây là đối chiếu văn bản, không kiểm chứng tính đúng hoặc đủ ngữ cảnh của nguồn. Dàn ý strict cũ có nút lập lại để dùng hợp đồng mới, giữ lịch sử hoàn tác.
 
-Luồng một nút mới đã được build/kiểm thử local: **Tạo PowerPoint bằng AI** tự đi từ dàn ý sang các nhóm nội dung hợp lệ; **Tạo dàn ý bằng AI** vẫn dừng để chỉnh trước. Cảnh báo/nguồn mâu thuẫn sẽ dừng để rà soát. Lỗi giữ các nhóm đã lưu; bấm tiếp tục chỉ soạn phần còn lại, không tự retry hoặc tự gọi inference khi reload. Giáo viên xem lại rồi chủ động tải tệp. Xem PROGRESS.md để biết commit nào thực sự đã lên preview.
+Luồng một nút đã lên preview ở `f4a30c1`: **Tạo PowerPoint bằng AI** tự đi từ dàn ý sang các nhóm nội dung hợp lệ; **Tạo dàn ý bằng AI** vẫn dừng để chỉnh trước. Cảnh báo/nguồn mâu thuẫn sẽ dừng để rà soát. Lỗi giữ các nhóm đã lưu; bấm tiếp tục chỉ soạn phần còn lại, không tự retry hoặc tự gọi inference khi reload. Giáo viên xem lại rồi chủ động tải tệp. Kiểm thử luồng trên preview có fixture tại ranh giới inference; availability và chất lượng AI thật vẫn cần theo dõi, không coi là đã hết timeout. Xem PROGRESS.md cho bằng chứng/giới hạn.
 
 ## Kiểm thử
 
