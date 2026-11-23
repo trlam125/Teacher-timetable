@@ -18,6 +18,8 @@ Hoàn tác lấy dữ liệu từ lịch sử đã lưu trên tài khoản. Đ�
 
 Trong bài đã soạn, mở Giao diện và hiệu ứng của bài để đổi theme/mức hiệu ứng mà không gọi AI hoặc xóa nội dung. Quiz có trường câu hỏi, phương án, đáp án và giải thích; biểu đồ có dữ liệu số, kiểu cột/đường và nhãn số liệu minh họa. Các học liệu chỉ chọn từ danh mục cho phép.
 
+Trong **Học liệu liên kết → PhET**, có ba mô phỏng tiếng Việt: định luật Ôm, phân số và trạng thái vật chất. Chọn học liệu để xem mô tả/nguồn, mở xem trước rồi **Lưu slide**. PowerPoint giữ liên kết và ghi nguồn trong Notes; cần Internet để mở PhET. Thao tác chọn, lưu hoặc gỡ liên kết không gọi AI.
+
 Phần Rà soát trước khi dạy nêu các dấu hiệu cần kiểm tra, như tham chiếu sách/số trang chưa được xác minh hoặc ý quá dài. Khi có cảnh báo, cần đọc và xác nhận trước khi xuất PPTX/ghi chú. Đây là kiểm tra biên tập có giới hạn, không phải dịch vụ xác minh toàn bộ kiến thức.
 
 PDF không có bookmark vẫn có thể tìm theo từ khóa bằng Tìm bài trong nội dung PDF. Tìm kiếm chạy trên thiết bị, hiển thị tối đa 40 trang phù hợp; chỉ các trang được chọn và trích mới trở thành đoạn nguồn để gửi AI khi có consent.

@@ -1,11 +1,10 @@
 import pptxgen from 'pptxgenjs';
 import { checkScene, createScene } from './scene.js';
 import { mapSvg } from './visuals.js';
+import { resourceHref, resourceInfo } from '../resources.js';
 
 export function resourceUrl(id, origin) {
-  if (['ohm', 'pendulum', 'vietnam-map'].includes(id)) return `${origin}/ai-studio/simulations/${id}`;
-  if (id === 'water-cycle-video') return 'https://gpm.nasa.gov/education/videos/water-water-everywhere';
-  return null;
+  return resourceHref(id, origin);
 }
 
 function drawScene(pptx, slide, scene, quizTargets) {
@@ -69,8 +68,9 @@ export async function buildDeck(deck, { nativeMotion = false, origin = '' } = {}
       color: item.kind === 'cover' ? 'B9DAD9' : '5D737E', margin: 0, fit: 'shrink',
     });
     const url = resourceUrl(item.resource_id, origin);
+    const resource = resourceInfo(item.resource_id);
     if (url && /^https?:\/\//.test(url)) slide.addText(
-      item.resource_id === 'water-cycle-video' ? 'Mở video NASA' : 'Mở học liệu tương tác',
+      resource.group === 'PhET' ? `Mở ${resource.label} (Internet)` : item.resource_id === 'water-cycle-video' ? 'Mở video NASA' : 'Mở học liệu tương tác',
       { x: 0.9, y: 6.38, w: 8.4, h: 0.35, fontFace: 'Arial', fontSize: 16,
         color: scene.theme.accent, hyperlink: { url }, margin: 0 },
     );
@@ -79,6 +79,7 @@ export async function buildDeck(deck, { nativeMotion = false, origin = '' } = {}
       `Hoạt động học sinh\n${item.student_action || ''}`,
       `Thời lượng ${item.duration_seconds} giây`,
       `Nguồn\n${sourceText || 'Không có tài liệu tham chiếu'}`,
+      resource && url ? `Học liệu: ${resource.label}\nNguồn: ${resource.credit}\n${url}\n${resource.internet ? 'Cần Internet; không nhúng trong tệp.' : 'Cần truy cập được website Smart TKB.'}` : '',
       item.kind === 'map' ? 'Đường bao khái quát Natural Earth 1:110m, public domain. Phạm vi biển đảo chưa được thể hiện đầy đủ.' : '',
       item.chart_data?.data_origin === 'example' ? 'Biểu đồ dùng số liệu ví dụ minh họa.' : '',
     ].filter(Boolean).join('\n\n'));

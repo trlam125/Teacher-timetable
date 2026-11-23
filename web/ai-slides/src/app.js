@@ -1,6 +1,7 @@
 import { bookAction, discoverPdfLessons, extractPages, openDocument, searchPdf } from './documents.js';
 import { renderScene } from './pptx/preview.js';
 import { driveGeneration } from './generation.js';
+import { resourceInfo, resourceHref } from './resources.js';
 
 const $ = selector => document.querySelector(selector);
 const owner = document.body.dataset.owner;
@@ -480,6 +481,7 @@ function renderSlide(slide) {
     $('#slide-bullets').value = slide.bullets.join('\n');
     $('#slide-notes').value = slide.speaker_notes;
     $('#slide-resource').value = slide.resource_id || '';
+    renderResourceDetails();
     $('#quiz-editor').hidden = slide.kind !== 'quiz';
     $('#chart-editor').hidden = slide.kind !== 'chart';
     $('#quiz-question').value = slide.question || '';
@@ -500,6 +502,19 @@ function fillQuizAnswers(selected = $('#quiz-correct').value) {
   $('#quiz-correct').replaceChildren(...options.map((value, index) => new Option(`${String.fromCharCode(65 + index)}. ${value}`, String(index))));
   $('#quiz-correct').value = String(selected ?? 0);
 }
+
+function renderResourceDetails() {
+  const box = $('#resource-details'); box.replaceChildren();
+  const resource = resourceInfo($('#slide-resource').value);
+  box.hidden = !resource;
+  if (!resource) return;
+  box.append(element('strong', resource.label), element('p', resource.description), element('p', 'Nguồn: ' + resource.credit));
+  box.append(element('p', resource.internet ? 'Cần Internet; mở trên website nguồn, không nhúng trong PowerPoint.' : 'Mở cùng website Smart TKB. Khi tải PowerPoint về máy vẫn cần truy cập được website.'));
+  const link = element('a', 'Mở học liệu để xem trước', 'studio-text-button');
+  link.href = resourceHref(resource.id, location.origin); link.target = '_blank'; link.rel = 'noopener noreferrer';
+  box.append(link, element('p', resource.limitations));
+}
+$('#slide-resource').onchange = renderResourceDetails;
 $('#quiz-options').oninput = () => fillQuizAnswers();
 
 function startLesson(mode) {

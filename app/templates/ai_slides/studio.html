@@ -168,7 +168,8 @@
               <div class="studio-fields"><label>Kiểu biểu đồ<select id="chart-type"><option value="bar">Cột</option><option value="line">Đường</option></select></label><label>Loại số liệu<select id="chart-origin"><option value="example">Ví dụ minh họa</option><option value="source">Theo nguồn đã dẫn</option></select></label></div>
               <label>Mỗi dòng: nhãn | giá trị<textarea id="chart-values" rows="5" placeholder="2 V | 1&#10;4 V | 2"></textarea></label>
             </fieldset>
-            <label>Học liệu liên kết<select id="slide-resource"><option value="">Không gắn học liệu</option><option value="ohm">Mô phỏng định luật Ôm</option><option value="pendulum">Mô phỏng con lắc đơn</option><option value="vietnam-map">Bản đồ Việt Nam khái quát</option><option value="water-cycle-video">Video NASA: vòng tuần hoàn nước</option></select></label>
+            <label>Học liệu liên kết<select id="slide-resource"><option value="">Không gắn học liệu</option>{% for group in studio_resources|groupby('group') %}<optgroup label="{{ group.grouper }}">{% for resource in group.list %}<option value="{{ resource.id }}">{{ resource.label }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+            <div id="resource-details" class="studio-notice" hidden aria-live="polite"></div>
             <button class="btn" type="submit">Lưu slide</button>
           </form>
           <form id="ai-edit-form" hidden>

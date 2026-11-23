@@ -17,6 +17,7 @@ from app.services.ai_slides.config import settings
 from app.services.ai_slides.models import Deck, Revision, Step, Usage
 from app.services.ai_slides.schemas import Blueprint, EditRequest, GroundedBatch, GroundedChoice, GroundedPlan, Instruction, Manifest, OutlineUpdate, PresentationSettings, Profile, RecognitionRequest, RestoreRequest, Slide, SlideBatch, SourceReview
 from app.services.ai_slides.review import content_review
+from app.services.ai_slides.resources import RESOURCE_CATALOG
 from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise, snapshot, validate_content, version_guard
 
 
@@ -67,7 +68,12 @@ def edit_guard(db, deck_id, user_id, expected):
 
 @router.get("/ai-studio")
 def studio_page(request: Request, user=Depends(studio_user)):
-    return templates.TemplateResponse("ai_slides/studio.html", {"request": request, "user": user})
+    return templates.TemplateResponse("ai_slides/studio.html", {"request": request, "user": user, "studio_resources": RESOURCE_CATALOG})
+
+
+@router.get('/api/ai-slides/resources')
+def resources_catalog(user=Depends(studio_user)):
+    return RESOURCE_CATALOG
 
 
 @router.get("/ai-studio/simulations/{slug}")

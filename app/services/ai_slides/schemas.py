@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
+from .resources import ResourceId, RESOURCE_BY_ID
 
 
 class StrictModel(BaseModel):
@@ -165,7 +166,7 @@ class Slide(OutlineSlide):
     options: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=4)
     correct_option: int | None = Field(default=None, ge=0, le=3)
     explanation: str = Field(default="", max_length=600)
-    resource_id: Literal["ohm", "pendulum", "water-cycle-video", "vietnam-map"] | None = None
+    resource_id: ResourceId | None = None
     chart_data: ChartData | None = None
     source_proof: SourceProof | None = None
 
@@ -180,7 +181,7 @@ class Slide(OutlineSlide):
             raise ValueError("Câu hỏi cần phương án và đáp án hợp lệ.")
         if self.kind == "chart" and self.chart_data is None:
             raise ValueError("Slide biểu đồ cần dữ liệu số và nhãn.")
-        if self.kind == "video" and self.resource_id != "water-cycle-video":
+        if self.kind == "video" and RESOURCE_BY_ID.get(self.resource_id, {}).get('kind') != 'video':
             raise ValueError("Slide video cần video đã xác minh trong kho; mô phỏng không phải video.")
         if self.chart_data and self.chart_data.data_origin == "source" and not self.source_ids:
             raise ValueError("Biểu đồ dùng số liệu nguồn cần tham chiếu đoạn nguồn.")

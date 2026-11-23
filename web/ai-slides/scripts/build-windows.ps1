@@ -8,6 +8,10 @@ docker exec codex-skill-env mkdir -p /workspace/teacher-timetable/web/ai-slides
 if ($LASTEXITCODE -ne 0) { throw 'Start the existing codex-skill-env container first.' }
 docker cp "$sourcePath/." codex-skill-env:/workspace/teacher-timetable/web/ai-slides
 if ($LASTEXITCODE -ne 0) { throw 'Could not copy Studio source.' }
+docker exec codex-skill-env mkdir -p /workspace/teacher-timetable/app/static/ai-slides
+if ($LASTEXITCODE -ne 0) { throw 'Could not prepare resource directory.' }
+docker cp (Join-Path $projectRoot 'app/static/ai-slides/resources.json') codex-skill-env:/workspace/teacher-timetable/app/static/ai-slides/resources.json
+if ($LASTEXITCODE -ne 0) { throw 'Could not copy Studio resource catalog.' }
 docker exec -w /workspace/teacher-timetable/web/ai-slides codex-skill-env npm ci --ignore-scripts
 if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
 if ($Test) {

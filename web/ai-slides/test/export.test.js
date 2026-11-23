@@ -75,6 +75,18 @@ test('resource IDs cannot generate arbitrary outgoing links', () => {
   assert.equal(resourceUrl('unknown', 'https://example.test'), null);
 });
 
+test('PhET attachments export approved Vietnamese URLs and credit in notes', async () => {
+  const deck = fixture('none');
+  deck.manifest.slides[0].resource_id = 'phet-ohms-law';
+  assert.equal(resourceUrl('phet-ohms-law', 'https://example.test'), 'https://phet.colorado.edu/sims/html/ohms-law/latest/ohms-law_vi.html');
+  const zip = await JSZip.loadAsync(await buildDeck(deck));
+  const relations = await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string');
+  assert.ok(relations.includes('https://phet.colorado.edu/sims/html/ohms-law/latest/ohms-law_vi.html'));
+  const notes = await zip.file('ppt/notesSlides/notesSlide1.xml').async('string');
+  assert.ok(notes.includes('University of Colorado Boulder'));
+  assert.ok(notes.includes('PhET'));
+});
+
 test('only quiz slides add feedback pages and source slides use supplied references', async () => {
   const deck = fixture();
   deck.profile.sources = [];

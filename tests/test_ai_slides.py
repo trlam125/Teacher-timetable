@@ -98,6 +98,26 @@ class StudioTests(unittest.TestCase):
         loaded = self.client.get(f"/api/ai-slides/decks/{automatic['id']}")
         self.assertEqual(loaded.json()["profile"]["generation_mode"], "automatic")
 
+    def test_resources_catalog_and_manual_phet_link_preserve_content_without_ai(self):
+        response = self.client.get('/api/ai-slides/resources')
+        self.assertEqual(response.status_code, 200, response.text)
+        ids = {item['id'] for item in response.json()}
+        self.assertIn('phet-ohms-law', ids)
+        self.assertIn('phet-fractions-intro', ids)
+        deck = self.seed_ready()
+        slide = deepcopy(deck['manifest']['slides'][0])
+        slide['resource_id'] = 'phet-ohms-law'
+        with patch.object(self.routes.provider, 'generate', new_callable=AsyncMock) as generate:
+            updated = self.client.patch(f"/api/ai-slides/decks/{deck['id']}/slides/{slide['id']}", headers={'If-Match': str(deck['version'])}, json={'slide': slide})
+            self.assertEqual(updated.status_code, 200, updated.text)
+            self.assertEqual(updated.json()['manifest']['slides'][0]['resource_id'], 'phet-ohms-law')
+            self.assertEqual(updated.json()['manifest']['slides'][0]['bullets'], slide['bullets'])
+            generate.assert_not_called()
+        slide['resource_id'] = 'https://evil.test/simulation'
+        self.assertEqual(self.client.patch(f"/api/ai-slides/decks/{deck['id']}/slides/{slide['id']}", headers={'If-Match': str(updated.json()['version'])}, json={'slide': slide}).status_code, 422)
+        slide.update(kind='video', resource_id='phet-ohms-law')
+        self.assertEqual(self.client.patch(f"/api/ai-slides/decks/{deck['id']}/slides/{slide['id']}", headers={'If-Match': str(updated.json()['version'])}, json={'slide': slide}).status_code, 422)
+
     def call_step(self, deck, kind, key="test-request-key-001"):
         return self.client.post(f"/api/ai-slides/decks/{deck['id']}/{kind}", headers={
             "If-Match": str(deck["version"]), "Idempotency-Key": key,
