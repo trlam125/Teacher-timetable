@@ -30,3 +30,17 @@ PowerPoint Desktop Slide Show has not been exercised. The user requested testing
 The public capabilities response therefore returns native_motion=false. The UI labels current downloads as basic interaction. Office Kit's motion adapter is available for fixtures and subsequent compatibility qualification.
 
 Morph, complex timing, imported PPTX content and arbitrary effect presets remain outside the active capability set.
+
+## Three Desktop QA packs — 2026-11-23
+
+Generated in headless Chromium from the current browser exporter, native motion explicitly enabled for QA only. The public UI capability remains false.
+
+| File under tmp/ai-studio-qa/native-desktop | Slides, including quiz feedback | Timing trees | Fade transitions | Shape targets |
+|---|---:|---:|---:|---:|
+| 01-vat-li-om.pptx | 19 | 14 | 19 | 64 |
+| 02-khoa-hoc-nuoc.pptx | 10 | 5 | 10 | 21 |
+| 03-dia-li-viet-nam.pptx | 10 | 5 | 10 | 16 |
+
+All XML parts parsed and every animation target refers to an existing shape ID. The Ohm sample was previously reviewed; the water/geography samples are synthetic structural fixtures, not provider benchmark results. Geographic fixture explicitly describes the coarse land outline and incomplete island/administrative coverage.
+
+README.txt in that directory gives the manual steps: open each file with PowerPoint Desktop without repair warnings; use Slide Show and clicks to verify incremental objects within a slide and Fade between slides; test quiz return links and Notes; report PowerPoint version and any faults. The user has been asked for the outcome. No Desktop playback outcome has been received yet.

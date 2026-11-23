@@ -68,3 +68,9 @@ Kiểm tra biên tập nêu tham chiếu sách/số trang chưa xác minh trong 
 PDF mẫu 150 trang được tìm theo nội dung tại thiết bị, chọn được trang 35 mà không gửi toàn sách lên server. Search giới hạn cache mỗi trang 40.000 ký tự và kết quả tối đa 40 trang. Chưa có OCR hay tự suy luận tên bài/chương khi PDF không có lớp chữ.
 
 Artifact mới: `editor-headless-report.json`, `outline-editor-desktop.png`, `rich-editor-desktop.png`, `reviewed-editor-export.pptx` trong thư mục local `tmp/ai-studio-qa`. Đã xem ảnh dàn ý. Native motion vẫn chưa đạt gate PowerPoint Desktop.
+
+Đã deploy commit ứng dụng `5ac5b23` lên preview riêng và smoke bằng provider thật: tạo dàn ý 11,05 giây, lưu chỉnh dàn ý bằng API rồi soạn 5 slide có chart/quiz trong 39,46 giây. Browser thật chạy headless trên preview đã đổi theme, sửa quiz/biểu đồ, lưu, soạn lại dàn ý và hoàn tác, xem nhật ký và tải PPTX có chart. Tài khoản và bài smoke tạm đã được dọn. Báo cáo `phase2-smoke-report.json`, `phase2-smoke-export.pptx`, `phase2-studio.png` ở artifact local.
+
+Nội dung mẫu provider vẫn có diễn đạt khái quát quá mức về dây kim loại và điều kiện nhiệt độ; có hướng dẫn xem video tùy chọn dù phạm vi yêu cầu không dùng video. Đây là hạn chế chất lượng AI, không được tính là nội dung đã nghiệm thu. Tệp smoke phục vụ kiểm tra phần mềm và bài trên tài khoản tạm đã bị xóa. Các cảnh báo heuristic hiện chưa phát hiện mọi sai kiến thức hoặc sai phạm vi bằng ngôn ngữ tự nhiên.
+
+Lượt chạy smoke trước đó dừng ở chờ người kiểm thử rà soát dàn ý, trước khi gọi author; đây là lỗi điều phối script QA, không phải lỗi ứng dụng. Lượt sau đã được rà soát và hoàn thành. Không tính lượt dừng này là một ca đầu ra thành công.
