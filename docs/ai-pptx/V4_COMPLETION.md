@@ -2,6 +2,16 @@
 
 Theo IMPLEMENTATION_PLAN_V4.md, đối chiếu mã và PROGRESS.md. Nhánh codex/ai-slides-render-free; chỉ triển khai preview riêng. Không điều khiển Desktop. Chỉ AI miễn phí đã kiểm tra giá tại runtime; không dùng chatbot cũ.
 
+## Lượt rà soát thay người dùng — 24/11
+
+Theo yêu cầu làm tiếp thay vì chờ chấm 20 bộ, Codex đã đọc và sửa đủ 20 bộ/100 slide, đối chiếu nguồn bổ sung, gồm mục tiêu, Notes, hoạt động, quiz và giới hạn học liệu. Đã sửa cả các lỗi còn sót sau lượt biên tập đầu: đo thực nghiệm giả, gán điều khiển mô phỏng không có, chữ Trung/Hàn, quy tắc ngôn ngữ tuyệt đối và tham chiếu SGK không có nguồn. Bốn bài strict ngắn được viết lại hoạt động/câu hỏi và bỏ proof kế thừa; nguồn gốc/profile được giữ nguyên, phần thêm có nhãn tham khảo trong Notes.
+
+Đã có bảng rubric cho 20 AI gốc và 20 bản sửa, với điểm từng tiêu chí/lý do và SHA-256; xem [V4_EDITORIAL_AUDIT.md](V4_EDITORIAL_AUDIT.md). Đây là chấm chủ quan của AI, không phải tỷ lệ chính xác hoặc giáo viên phê duyệt. Đầu ra gốc khớp hash của bộ trước. Bản sửa xuất lại qua UI: 100 slide nội dung, 112 trang PPTX/112 Notes gồm phản hồi quiz, 100 ảnh HTML, không tràn chữ hoặc lỗi XML được phát hiện. Kiểm tra hash chặn đóng gói PPTX cũ sau khi nội dung đổi. 9 ca tooling đạt, gồm 5 ca mới bảo vệ việc tách AI/human/raw và binding export.
+
+Gói mới: `tmp/ai-studio-qa/V4-20-bai-mau-da-ra-soat.zip`. Lượt rà soát AI này không còn chờ người dùng chấm 20 bộ. Đã bổ sung các tài liệu bắt buộc còn thiếu tên: [00-audit](00-audit.md), [API](API.md), [AI_MODELS_BENCHMARK](AI_MODELS_BENCHMARK.md), [CHANGELOG](CHANGELOG.md). Không thay mã ứng dụng/DB/env hoặc deploy lại một ứng dụng không đổi.
+
+Phân biệt trạng thái: chức năng đã triển khai trên preview; bộ mẫu đã được Codex sửa/kiểm tra. Nghiệm thu toàn V4 theo các gate gốc vẫn chưa đóng: chất lượng model raw chưa đạt, chưa có duyệt chuyên môn độc lập/video hoặc ảnh Office theo yêu cầu bằng chứng, DB preview có hạn. Giữ cờ chất lượng false. Không tự nhận V4 production hoàn tất 100%.
+
 ## Đợt chốt bổ sung ngày 24/11
 
 Đã deploy mã ứng dụng 3ee49e904a878a897ffee6ea087b0908e91a2cb3 (dep-dc2pvlek1f9s738p157g) sau CI thành công: 116 backend/tooling, 20 Node và 80 nhóm headless. Smoke preview thật đạt cảnh báo phép tính/đáp án tương đương, persist/reload, sửa đúng hết cảnh báo và tải PPTX native; 0 inference, 0 JS error, dọn dữ liệu QA. Main giữ commit/deploy cũ theo Render API. Không thêm bảng/cột hoặc thay model/key. Fixture/PG QA local đã dừng; các thư mục thử rỗng đã dọn.

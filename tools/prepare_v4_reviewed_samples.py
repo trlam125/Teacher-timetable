@@ -2,6 +2,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
+from ai_slides_review.editorial_v4 import amend
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'tmp/ai-studio-qa/v4-benchmark'
@@ -111,5 +112,6 @@ for number in range(1, 21):
     elif number == 20:
         replace(data, '知识点', 'kiến thức')
         data['editorial_review']['changes'].append({'slide': 5, 'reason': 'Remove unrelated Chinese wording.'})
+    amend(data, number)
     (TARGET / f'case-{number:02d}-deck.json').write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
 print(json.dumps({'reviewed_samples': 20, 'directory': str(TARGET), 'raw_model_results_changed': False, 'teacher_approved': False}))

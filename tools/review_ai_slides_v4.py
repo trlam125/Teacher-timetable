@@ -83,6 +83,11 @@ def build_packet(raw, edited, output):
     (output / 'index.html').write_text(template.replace('REVIEW_PACKET_JSON', safe_json), encoding='utf-8')
     for name in ('review.js', 'review.css'):
         shutil.copyfile(ROOT / 'tools/ai_slides_review' / name, output / name)
+    # Preserve relative documentation links in the offline packet as well.
+    for name in ('HUMAN_REVIEW.md', 'V4_BENCHMARK_REVIEW.md', 'V4_EDITORIAL_AUDIT.md'):
+        source = ROOT / 'docs/ai-pptx' / name
+        if source.is_file():
+            shutil.copyfile(source, output / name)
     return manifest
 
 

@@ -2,6 +2,8 @@
 
 Bản triển khai đầu cho giáo viên, Admin và Super Admin. Bật tính năng sau khi tạo bảng bằng lệnh riêng và cấu hình OpenRouter.
 
+Trạng thái hiện hành: [V4_COMPLETION](V4_COMPLETION.md). Bộ 20 mẫu đã được Codex rà soát nguồn và sửa lại: [kết quả](V4_EDITORIAL_AUDIT.md). Tài liệu kỹ thuật: [API](API.md), [audit triển khai](00-audit.md), [quyết định model](AI_MODELS_BENCHMARK.md), [changelog](CHANGELOG.md). Preview có nhãn thử nghiệm; chưa phê duyệt chất lượng model raw hoặc mở production.
+
 ## Sử dụng
 
 Vào AI Studio từ menu tài khoản. Cổng giáo viên có thêm nút Tạo bài giảng AI.

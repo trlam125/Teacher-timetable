@@ -2,6 +2,14 @@
 
 Ngày 22/11/2026. Nhánh codex/ai-slides-render-free từ a5207d6.
 
+## Bổ sung 24/11 — mẫu đã rà soát nguồn
+
+Đã sửa 20 bộ mẫu/100 slide nội dung, sau đó xuất lại đúng bản cuối bằng UI loopback/Chromium ẩn: 112 trang PPTX và 112 Notes, 100 PNG HTML, không phát hiện chữ tràn hoặc XML sai. Ba quiz khái niệm có trang phản hồi. Mỗi mục export gắn hash JSON đầu vào/PPTX; audit/đóng gói từ chối tệp cũ hoặc thay đổi sau rà soát. 20 raw khớp hash packet trước; không nâng điểm model từ bản sửa.
+
+9 ca `tests.test_ai_slides_editorial_audit` + `tests.test_ai_slides_review` đạt, gồm 5 ca mới cho dữ liệu gốc, nhãn AI/human/Office, proof kế thừa, export cũ và đóng gói sau chỉnh sửa. Lượt đầu sandbox chặn process Chromium và thư mục TemporaryDirectory, đã chạy lại với quyền phù hợp rồi đạt; không ghi các lần bị chặn là lỗi sản phẩm. Không sửa JS/backend trong lượt này nên không chạy lại Node build hoặc migrate DB.
+
+[Báo cáo rubric/nguồn](V4_EDITORIAL_AUDIT.md) là đánh giá Codex AI; không đo độ chính xác, không nhận kiểm tra PowerPoint Desktop mới. Gói giao `V4-20-bai-mau-da-ra-soat.zip` khoảng 1,2 MB chứa PPTX/JSON/cover/README/danh sách và báo cáo. Nguồn tổng hợp ngắn nên không coi mỗi bộ 5 slide là giáo án đầy đủ cho thời lượng 25 phút.
+
 ## Phương pháp
 
 Kiểm thử API qua FastAPI TestClient, PostgreSQL tạm trên loopback, Node.js trong codex-skill-env và Chromium headless từ .venv của dự án. Từ khi người dùng yêu cầu ngừng điều khiển máy, mọi kiểm tra tiếp theo dùng dòng lệnh và tệp đầu ra.

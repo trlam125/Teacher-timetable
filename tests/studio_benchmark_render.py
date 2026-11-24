@@ -1,6 +1,7 @@
 """Render/export saved real AI benchmark decks via loopback UI, without inference."""
 import json
 import argparse
+from hashlib import sha256
 import re
 import zipfile
 import xml.etree.ElementTree as ET
@@ -38,7 +39,7 @@ with sync_playwright() as p:
         page.evaluate("id => localStorage.setItem('studio-current-1', id)", identity)
         page.reload()
         expect(page.locator('#deck-title')).to_have_text(saved['profile']['lesson_title'])
-        item = {'case': target.stem, 'slides': len(saved['manifest']['slides']), 'render_theme': saved['profile']['theme'], 'preview_overflow': [], 'status': 'passed'}
+        item = {'case': target.stem, 'source_sha256': sha256(target.read_bytes()).hexdigest(), 'slides': len(saved['manifest']['slides']), 'render_theme': saved['profile']['theme'], 'preview_overflow': [], 'status': 'passed'}
         page.locator('#slide-preview').screenshot(path=str(OUT / (target.stem + '-cover.png')))
         for index in range(item['slides']):
             page.locator('#slide-list button').nth(index).click()
@@ -54,6 +55,7 @@ with sync_playwright() as p:
                 page.locator('#export-pptx').click()
             pptx = OUT / (target.stem + '.pptx')
             pending.value.save_as(pptx)
+            item['pptx_sha256'] = sha256(pptx.read_bytes()).hexdigest()
             with zipfile.ZipFile(pptx) as archive:
                 slides = [name for name in archive.namelist() if re.fullmatch(r'ppt/slides/slide\d+\.xml', name)]
                 for name in archive.namelist():

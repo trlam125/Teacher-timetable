@@ -1,5 +1,7 @@
 # Duyệt nội dung và ghi bằng chứng V4
 
+Người dùng đã giao Codex tự rà soát thay vì tiếp tục chờ chấm 20 bộ. Lượt đó đã xong, xem [báo cáo AI/nguồn](V4_EDITORIAL_AUDIT.md) và gói `V4-20-bai-mau-da-ra-soat.zip`. Phiếu người duyệt dưới đây được giữ cho việc ghi nhận chuyên môn/Office khi có, không phải việc người dùng bắt buộc phải làm để hoàn thành lượt rà soát AI. Không điền tên giáo viên hoặc tự đánh dấu qualified_reviewer thay người dùng.
+
 Mở `tmp/ai-studio-qa/v4-review-desk/index.html` trên Chrome/Edge. Trang chạy từ tệp, không gửi nội dung hoặc kết quả ra mạng. Có 20 bài, mỗi bài hai phiên bản riêng: AI gốc và bản Codex đã biên tập. Chọn bài ở thanh bên; xem đủ ảnh HTML, nội dung, nguồn và Notes trên một trang. Nút đầu bài trỏ đúng tệp PowerPoint trong gói.
 
 ## Chấm nội dung

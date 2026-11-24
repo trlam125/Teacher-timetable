@@ -1,5 +1,7 @@
 # Rà soát benchmark V4 — 24/11/2026
 
+Lượt mới nhất đã có [bảng rubric Codex AI và nguồn đối chiếu cho đủ 20 bài](V4_EDITORIAL_AUDIT.md). Đã sửa tiếp mục tiêu/Notes/hoạt động/quiz, xuất bản cuối 112 trang PPTX/Notes, 100 ảnh HTML, 0 inference. Không còn chờ người dùng chấm 20 bộ để hoàn tất lượt biên tập AI. Điểm này không phải giáo viên độc lập và không nâng kết luận chất lượng model raw. Các số 107 trang và trạng thái chưa chấm trong các mục dưới đây là lịch sử của bản trước.
+
 ## Kết quả quan sát
 
 Đợt tiếp theo: read-only catalog/key xác nhận free-tier; probe một lần baidu/ernie-5.5-flash-preview:free có giá 0 trả HTTP429. Dừng, không đổi model hoặc dùng paid fallback. Bổ sung kiểm tra số học/đáp án và bộ rubric offline, nhưng không lấy chúng thay nghiệm thu kiến thức. Người dùng xác nhận chưa kiểm tra 20 bộ. Bản raw vẫn chưa được chấp nhận, cờ chất lượng vẫn false. Bộ duyệt phân biệt 20 raw và 20 bản sửa, 200 ảnh HTML và hash từng tệp; báo cáo thật ban đầu có 0 phiếu được duyệt.

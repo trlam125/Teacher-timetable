@@ -2,6 +2,12 @@
 
 Nhánh: `codex/ai-slides-render-free`. Website chính giữ `main`; chỉ deploy service preview riêng. Không dùng desktop automation. Node chạy trong `codex-skill-env`, Python trong `.venv`.
 
+## 24/11 — đã làm lượt rà soát 20 bộ theo yêu cầu mới
+
+Không tiếp tục chờ người dùng chấm mẫu: Codex đã đọc/sửa 20 bộ và đối chiếu nguồn, lập rubric AI có nhãn, xuất lại 112 trang PPTX/Notes và 100 ảnh HTML. 20 raw được bảo toàn theo hash. 9 ca tooling đạt; thêm binding JSON/PPTX để không phát hành tệp export cũ. Bổ sung hồ sơ API/audit/model/changelog. Chi tiết hiện hành: [V4_COMPLETION](V4_COMPLETION.md), [V4_EDITORIAL_AUDIT](V4_EDITORIAL_AUDIT.md).
+
+Không có thay đổi ứng dụng hoặc deploy mới; preview vẫn dùng mã đã kiểm chứng 3ee49e9. Lượt rà soát AI hoàn tất, nhưng không biến thành giáo viên phê duyệt, Office renderer, model chất lượng đạt hoặc lưu trữ production bền vững. Các phần lịch sử bên dưới mô tả trạng thái tại thời điểm của từng đợt.
+
 Đợt tiếp theo theo F16/F26/F29/F32 và phần QA của plan V4:
 
 1. Sửa dàn ý: tiêu đề, mục tiêu, thứ tự, loại slide, thời lượng và nguồn. Giữ ràng buộc tổng bài, version/owner; khi đã có nội dung phải xác nhận soạn lại. Có thể hoàn tác.
