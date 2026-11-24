@@ -45,3 +45,5 @@ Hai mươi bản biên tập cũng đã được xuất qua UI (107 trang PPTX/1
 - AI_SLIDES_CONTENT_QA_APPROVED mặc định false. UI ghi rõ đang thử nghiệm chất lượng; không tự bật cờ này vì test phần mềm đạt.
 
 Các chặn trên chỉ xử lý những dạng lỗi cụ thể, không phải hệ thống kiểm chứng tri thức. Còn cần benchmark model miễn phí khác khi có endpoint/quota và nghiệm thu độc lập về kiến thức, sư phạm, phù hợp lớp. Dữ liệu QA tổng hợp không phải bản quét SGK hay xác nhận chương trình học hiện hành.
+
+Smoke inspect trên preview sau đó bị AI_SOURCE_ERROR (18,84 giây), giữ draft/version. Đã đổi riêng inspect sang schema quote enum từ các cửa sổ nguyên văn; probe metadata v13 đúng một request đạt 14,70 giây/5 gợi ý có chứng cứ khớp. Không sửa guard để nhận quote sai. Kết quả này chưa chứng minh phân tích ngữ nghĩa luôn đúng và không thay đổi đánh giá 20 bài thô. Tính tới probe v13: 43 requests plan/author + 3 inspect/probe + 2 probe model thay thế = 48 requests thật trong đợt này.

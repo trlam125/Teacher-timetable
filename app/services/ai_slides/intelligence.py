@@ -3,6 +3,24 @@ from .analysis import source_signature
 from .provider import StudioError
 
 
+def inspection_evidence(profile):
+    """Bounded, literal word-boundary windows, independent of prior decisions."""
+    evidence = []
+    for source in profile.get('sources', []):
+        rest = source['text'].strip()
+        while rest:
+            end = min(480, len(rest))
+            if end < len(rest):
+                boundary = rest.rfind(' ', 0, end)
+                if boundary > 0:
+                    end = boundary
+            quote = rest[:end].strip()
+            rest = rest[end:].strip()
+            if len(quote) >= 8:
+                evidence.append({'source_id': source['id'], 'quote': quote})
+    return evidence
+
+
 def checked_intelligence(result, profile):
     sources = {source['id']: source for source in profile.get('sources', [])}
     quotes = [*result.metadata, *(quote for conflict in result.conflicts for quote in conflict.evidence)]

@@ -135,6 +135,10 @@ CI commit `fa49796` đạt và deploy preview `dep-dc24f3etlv9c73dl247g` live. S
 
 ## Hoàn thiện chức năng V4 — 24/11/2026
 
+Smoke f589441 trên preview thật đã đạt: CSP/quality flag false, hướng dẫn/ảnh/worker/WASM/vie, teacher không đọc admin summary, URL giáo viên save/reload, native PPTX và ZIP offline, OCR tiếng Việt tự phục vụ không inference/không JS error. Lượt inspect thật 18,84 giây bị chặn AI_SOURCE_ERROR vì quote không khớp; version/draft giữ nguyên và dữ liệu QA được dọn. Đây là lỗi trích dẫn của model, không phải provider mất kết nối. Lần đầu script chọn www.nasa.gov ngoài allowlist nên bị chặn trước AI; sửa dữ liệu test sang URL NASA GPM trong catalog, không nới allowlist.
+
+Sau phát hiện đó, prompt v13 cung cấp các cửa sổ trích đoạn nguyên văn tối đa 480 ký tự, quote enum dùng chung trong schema và source ID cho phép; không gửi lặp nguyên text nguồn trong profile. Guard khớp nguồn vẫn giữ nguyên. Ca unit mới kiểm tra request/schema, đoạn dài và câu bị viết lại vẫn bị từ chối. Probe metadata tổng hợp đúng một request đạt 14,70 giây, trả 5 gợi ý có quote khớp, không dùng DB ứng dụng. SQLite 51 ca đạt sau sửa; CI/PostgreSQL và deploy bản sửa được ghi tiếp sau khi quan sát.
+
 Lượt cuối thêm CSP riêng trên Studio/guide/simulations: chỉ script cùng origin, WASM cho OCR và hai hash handler mở/đóng cài đặt của menu chung; chặn object, base và framing. Không nới script bằng unsafe-inline/unsafe-eval. Test browser thực xác nhận script/handler chèn mới bị chặn, menu cài đặt vẫn hoạt động, PDF/Word/export/mô phỏng và OCR vẫn đạt. Sau thay đổi này, cả 104 backend và đủ 74 nhóm headless được chạy lại đạt; JavaScript không đổi.
 
 104 ca unittest SQLite/PostgreSQL tạm đạt, gồm auth/CSRF/owner, consent khi sửa nguồn, quote AI giả, phiên bản/idempotency/lease/quota, sửa video có URL giáo viên và thống kê admin. PostgreSQL chỉ dùng cụm QA loopback cổng 18765, không DB cá nhân hoặc Neon chính. 20 test Node và compatibility spike 5 slide/15 đối tượng đạt; native engine không đổi. Build Vite bằng codex-skill-env; Python compileall đạt.

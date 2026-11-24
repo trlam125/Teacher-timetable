@@ -170,6 +170,34 @@ class StudioTests(unittest.TestCase):
         request = client.post.call_args.kwargs['json']
         self.assertEqual(request['response_format']['json_schema']['schema']['$defs']['Slide']['properties']['chart_data'], {'type': 'null'})
 
+    def test_inspection_request_offers_literal_evidence_choices_without_resending_source_text(self):
+        from app.services.ai_slides import provider
+        from app.services.ai_slides.schemas import Profile, IntelligenceResult
+        from app.services.ai_slides.intelligence import inspection_evidence, checked_intelligence
+        text = 'Môn: Khoa học. Lớp: 6. Bài: Sự chuyển thể của nước. Thời lượng: 45 phút.'
+        profile = Profile.model_validate({**PROFILE, 'sources': [{'id': 'a', 'name': 'QA', 'text': text}]}).model_dump()
+        choices = inspection_evidence(profile)
+        self.assertEqual(choices, [{'source_id': 'a', 'quote': text}])
+        long = {**profile, 'sources': [{'id': 'a', 'text': ('Nước bốc hơi và ngưng tụ.\n' * 200)}]}
+        self.assertTrue(all(8 <= len(item['quote']) <= 480 and item['quote'] in long['sources'][0]['text'] for item in inspection_evidence(long)))
+        valid = IntelligenceResult(metadata=[{'field': 'grade', 'value': 'Lớp 6', 'source_id': 'a', 'quote': text}])
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.post.return_value = SimpleNamespace(status_code=200, json=lambda: {'choices': [{'message': {'content': valid.model_dump_json()}, 'finish_reason': 'stop'}]})
+        with patch.object(provider.httpx, 'AsyncClient', return_value=client), patch.dict(provider.model_capabilities, {'test:free': {'supported_parameters': ['structured_outputs']}}):
+            result, _ = asyncio.run(provider.generate('test:free', IntelligenceResult, {'task': 'inspect', 'profile': profile}))
+        request = client.post.call_args.kwargs['json']
+        definitions = request['response_format']['json_schema']['schema']['$defs']
+        self.assertEqual(definitions['InspectionQuote']['enum'], [text])
+        self.assertEqual(definitions['MetadataSuggestion']['properties']['quote'], {'$ref': '#/$defs/InspectionQuote'})
+        payload = __import__('json').loads(request['messages'][1]['content'])
+        self.assertEqual(payload['inspection_evidence'], choices)
+        self.assertNotIn('text', payload['profile']['sources'][0])
+        self.assertEqual(checked_intelligence(result, profile)['metadata'][0]['quote'], text)
+        result.metadata[0].quote = 'Môn Khoa học lớp sáu, câu bị AI viết lại.'
+        with self.assertRaises(provider.StudioError):
+            checked_intelligence(result, profile)
+
     def test_ai_only_quality_guard_blocks_invented_book_pages_and_invalid_simulation_controls(self):
         from app.services.ai_slides.schemas import Profile
         from app.services.ai_slides.state import validate_content
