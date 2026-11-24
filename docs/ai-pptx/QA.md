@@ -135,6 +135,8 @@ CI commit `fa49796` đạt và deploy preview `dep-dc24f3etlv9c73dl247g` live. S
 
 ## Hoàn thiện chức năng V4 — 24/11/2026
 
+Đã quan sát CI 3ee49e9 thành công, deploy preview live. Smoke số học/quiz trên server đạt: sửa tay 6/3=3 và hai phương án 0.5 A/1/2 A hiện đúng cảnh báo và giữ sau reload; API trả đúng hai code review. Sửa về 6/3=2 và đáp án khác nhau thì hết cảnh báo. Tải PPTX có timing native và chữ đã sửa, 0 inference/JS error. Tài khoản, deck/revision/device QA được dọn; report preview-numeric-checks-report.json. Main deploy/commit giữ nguyên qua API guard. Đây là smoke phần mềm với nội dung tổng hợp, không nghiệm thu sư phạm hay thêm bằng chứng Desktop.
+
 Đợt bổ sung: 116 backend/tooling và 80 nhóm headless đạt. Bốn ca kiểm tra phép tính/quiz, bốn ca hồ sơ duyệt, một API case chạy SQLite/PostgreSQL, thêm luồng UI sửa lỗi toán/đáp án rồi hết cảnh báo. Không đổi phiên bản exporter/motion. Các trường hợp đại số bị cắt đuôi, biểu thức bên phải chưa đầy đủ, chuỗi phần trăm và tiền tố mV/MV đã có regression; tránh coi chúng là lỗi số học. AI sai bị chặn trước lưu, bản dàn ý/version/lease còn đúng; sửa tay vẫn được lưu có cảnh báo.
 
 Bộ duyệt offline có 40 phiên bản và 200 ảnh HTML từ browser, kiểm tra cấu trúc kỹ thuật theo từng tệp. Report rỗng giữ 0 phiếu đạt; điểm bản biên tập không sang bản raw; boolean/điểm ngoài thang, packet sai, tệp bị đổi đều bị từ chối. Headless 5 nhóm kiểm tra xuất/khôi phục/persist/mobile, không HTTP, không JS error; reviewer trong fixture là giả lập và thư mục tạm bị dọn. Bộ thật được mở riêng và kiểm tra tất cả ảnh của bài đầu tải được, 20 mục mỗi phiên bản, toàn bộ SHA hợp lệ; chưa có người thật chấm điểm. Không dùng kết quả này làm bằng chứng Office.

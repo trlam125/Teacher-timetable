@@ -4,11 +4,13 @@ Theo IMPLEMENTATION_PLAN_V4.md, đối chiếu mã và PROGRESS.md. Nhánh codex
 
 ## Đợt chốt bổ sung ngày 24/11
 
+Đã deploy mã ứng dụng 3ee49e904a878a897ffee6ea087b0908e91a2cb3 (dep-dc2pvlek1f9s738p157g) sau CI thành công: 116 backend/tooling, 20 Node và 80 nhóm headless. Smoke preview thật đạt cảnh báo phép tính/đáp án tương đương, persist/reload, sửa đúng hết cảnh báo và tải PPTX native; 0 inference, 0 JS error, dọn dữ liệu QA. Main giữ commit/deploy cũ theo Render API. Không thêm bảng/cột hoặc thay model/key. Fixture/PG QA local đã dừng; các thư mục thử rỗng đã dọn.
+
 Người dùng xác nhận chưa kiểm tra 20 bộ. Đã hoàn thiện bộ duyệt offline tại tmp/ai-studio-qa/v4-review-desk/index.html: 20 bài × hai phiên bản AI gốc/bản biên tập, 200 ảnh HTML, nguồn/Notes, rubric 100 điểm và ba hard fail; ghi kết quả Desktop riêng, lưu/khôi phục JSON có SHA-256 của từng tệp. Không tự chấm điểm kiến thức, không lấy kết quả bản sửa nâng điểm model và không tự bật cờ phê duyệt. Xem HUMAN_REVIEW.md. ZIP V4-ban-duyet-20-bai-offline.zip khoảng 7,7 MB, chỉ nằm local.
 
 Đã bổ sung kiểm tra hẹp về phép tính số/phần trăm và đáp án quiz trùng hoặc tương đương cùng đơn vị. AI trả lỗi rõ ràng bị chặn và giữ dàn ý; sửa tay được giữ kèm cảnh báo. Có mã AI_ARITHMETIC_ERROR/AI_QUIZ_ERROR và ID slide trong log. Không coi bộ kiểm tra này là chứng minh đại số, đổi đơn vị hoặc kiểm chứng kiến thức. Đã phát hiện và sửa false positive do cắt đuôi biểu thức; quét lại 200 slide thô/biên tập không còn false positive đã biết, không nâng trạng thái sư phạm của chúng.
 
-Local đạt 116 ca backend/tooling và 80 nhóm headless. Bộ duyệt thực có 40 bản/200 ảnh, cấu trúc JSON/PPTX/Notes đọc được, không request HTTP hoặc JS error, số phiếu thật đã duyệt vẫn bằng 0. Ảnh là HTML, không phải Office renderer. CI/deploy kiểm tra phép tính mới ghi tiếp sau quan sát.
+Local đạt 116 ca backend/tooling và 80 nhóm headless. Bộ duyệt thực có 40 bản/200 ảnh, cấu trúc JSON/PPTX/Notes đọc được, không request HTTP hoặc JS error, số phiếu thật đã duyệt vẫn bằng 0. Ảnh là HTML, không phải Office renderer. CI/deploy/smoke của đợt này đã đạt theo ghi nhận ở đầu mục.
 
 Đã đọc lại catalog/key: key free-tier, không gọi paid. Probe bổ sung đúng một request vào baidu/ernie-5.5-flash-preview:free trả 429; dừng, không đổi model/key. Không có đủ bằng chứng để chọn model miễn phí thay thế đạt chất lượng. usage_daily=0 trong metadata key là số tiền sử dụng, không phải bộ đếm lượt còn lại.
 
@@ -41,7 +43,7 @@ AI_SLIDES_CONTENT_QA_APPROVED mặc định false; không tự bật vì test co
 
 ## Kiểm thử và bộ mẫu giao được
 
-Bản ứng dụng đang chạy: 7bf769a386032a318d79d249aa4cc88f609802f1, preview deploy dep-dc2p987lk1mc73al5ud0 (live). CI đúng commit đạt 106 backend SQLite/PostgreSQL, 20 Node, build tái lập và 74 nhóm headless. Website chính vẫn deploy/commit a5207d63e4eeda633e6d3bc156c2301f9a673c06 theo Render API; không kiểm tra HTTP main hoặc đổi env/DB chính.
+Bản kiểm thử ở đợt trước: 7bf769a386032a318d79d249aa4cc88f609802f1, preview deploy dep-dc2p987lk1mc73al5ud0 (live tại thời điểm đó). CI đúng commit đạt 106 backend SQLite/PostgreSQL, 20 Node, build tái lập và 74 nhóm headless. Website chính vẫn deploy/commit a5207d63e4eeda633e6d3bc156c2301f9a673c06 theo Render API; không kiểm tra HTTP main hoặc đổi env/DB chính.
 
 Smoke trên preview thật đạt hướng dẫn/ảnh/OCR assets, quyền teacher/admin, URL save/reload, native PPTX có nguồn và ZIP offline, OCR dưới CSP và inspect v14. Cùng profile/nguồn từng bị chặn nay trả HTTP200 trong 13,13 giây: 5 metadata gợi ý, 0 conflict, quote khớp, tăng version. Chỉ một AI request trong smoke cuối, tổng đợt 50 requests thật (gồm hai probe thay thế 429). Không tự retry hoặc gọi paid. Dọn toàn bộ user/deck/step/revision/usage/device QA; site quota vẫn tính lượt thật.
 

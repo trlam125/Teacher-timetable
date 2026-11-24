@@ -2,6 +2,8 @@
 
 ## Kết quả quan sát
 
+Đợt tiếp theo: read-only catalog/key xác nhận free-tier; probe một lần baidu/ernie-5.5-flash-preview:free có giá 0 trả HTTP429. Dừng, không đổi model hoặc dùng paid fallback. Bổ sung kiểm tra số học/đáp án và bộ rubric offline, nhưng không lấy chúng thay nghiệm thu kiến thức. Người dùng xác nhận chưa kiểm tra 20 bộ. Bản raw vẫn chưa được chấp nhận, cờ chất lượng vẫn false. Bộ duyệt phân biệt 20 raw và 20 bản sửa, 200 ảnh HTML và hash từng tệp; báo cáo thật ban đầu có 0 phiếu được duyệt.
+
 Đóng lượt thử giới hạn tại 50 requests thật: smoke v14 trên preview với cùng profile/nguồn từng bị chặn đã đạt HTTP200 trong 13,13 giây, trả 5 metadata và 0 conflict, quote khớp và version tăng. Hai lỗi inspect trước vẫn được giữ trong report. Một ca inspect thành công không chứng minh chất lượng 20 bài thô đã đạt hoặc mọi xung đột được phát hiện đúng. Cờ chất lượng vẫn false.
 
 Inspect v13 trên preview cùng ca có 1 nguồn trả AI_SOURCE_ERROR do lặp chứng cứ (15,20 giây), draft giữ nguyên. V14 siết số lượng chứng cứ khác nhau trong schema; không bỏ kiểm tra exact quote hoặc tự nhận conflict trùng là hợp lệ. Tính tới ca này có 49 requests thật; lượt kiểm tra v14 tiếp theo giới hạn thêm một request.
