@@ -50,6 +50,18 @@ with sync_playwright() as p:
     page.on('request', lambda request: calls.append(request.url) if request.method == 'POST' and request.url.rsplit('/', 1)[-1] in {'plan', 'author', 'inspect-sources', 'propose'} else None)
     page.goto('http://127.0.0.1:8766/ai-studio')
     page.wait_for_load_state('networkidle')
+    page.locator('#userAvatarBtn').click()
+    page.locator('#userAvatarDropdown').get_by_role('menuitem', name='Cài đặt', exact=True).click()
+    expect(page.locator('#systemSettingsModal')).to_be_visible()
+    page.locator('#systemSettingsModal .system-settings-close').click()
+    expect(page.locator('#systemSettingsModal')).not_to_be_visible()
+    assert page.evaluate("""() => {
+      window.untrustedStudioCode = false;
+      const script = document.createElement('script'); script.textContent = 'window.untrustedStudioCode = true'; document.head.append(script);
+      const button = document.createElement('button'); button.setAttribute('onclick', 'window.untrustedStudioCode = true'); document.body.append(button); button.click(); button.remove(); script.remove();
+      return !window.untrustedStudioCode;
+    }""")
+    checks.append('Studio CSP blocks untrusted inline scripts and handlers while shared account settings work')
     page.locator('#new-deck').click()
     page.locator('#cloud-consent').check()
     page.get_by_role('button', name='Tạo PowerPoint bằng AI', exact=True).click()

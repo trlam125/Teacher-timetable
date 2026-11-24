@@ -31,7 +31,9 @@ AI_SLIDES_CONTENT_QA_APPROVED mặc định false; không tự bật vì test co
 
 ## Kiểm thử và bộ mẫu giao được
 
-104 ca backend SQLite/PostgreSQL tạm, 20 test Node, compatibility spike và đủ 73 nhóm headless đạt. OCR dùng engine thực; giọng nói dùng adapter microphone giả. Hai mươi bộ thô và hai mươi bản biên tập đều xuất từ browser: mỗi bộ có 5 slide nội dung, tổng 107 trang PPTX/107 Notes, XML hợp lệ và không tràn theo kiểm tra HTML. Đây không phải render PowerPoint.
+CSP riêng cho các trang Studio đã được kiểm thử thực: chặn script/handler tùy ý, giữ hai handler cài đặt có hash và cho phép worker/WASM nội bộ. Không đổi CSP các trang Smart TKB cũ.
+
+104 ca backend SQLite/PostgreSQL tạm, 20 test Node, compatibility spike và đủ 74 nhóm headless đạt. OCR dùng engine thực; giọng nói dùng adapter microphone giả. Hai mươi bộ thô và hai mươi bản biên tập đều xuất từ browser: mỗi bộ có 5 slide nội dung, tổng 107 trang PPTX/107 Notes, XML hợp lệ và không tràn theo kiểm tra HTML. Đây không phải render PowerPoint.
 
 Gói cục bộ: tmp/ai-studio-qa/V4-20-bai-mau-can-giao-vien-duyet.zip (20 PPTX, JSON thay đổi biên tập, ảnh cover, danh sách và giới hạn). Chưa có giáo viên duyệt; dữ liệu thô vẫn giữ riêng. Các mẫu đã sửa không nâng kết quả benchmark AI thô.
 

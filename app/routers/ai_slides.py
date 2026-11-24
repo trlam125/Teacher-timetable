@@ -27,6 +27,26 @@ from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise
 router = APIRouter()
 logger = logging.getLogger("smart_tkb.ai_slides")
 
+# Applied only to Studio pages. Browser parsing/OCR needs local workers/WASM;
+# source text and model output never receive permission to execute scripts.
+# Two hashes keep the existing shared menu's open/close settings handlers.
+STUDIO_CSP = (
+    "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-hashes' "
+    "'sha256-zwPg0yrFDxdq+r2gUOWD0fZq8ICBq2oeenRK9AdJ+5Q=' "
+    "'sha256-O5ISbwKThaYUciCVjbgV6LtSoaBSjoOOfiYvjIumFQI='; "
+    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; "
+    "font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; "
+    "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+)
+
+
+def studio_template(name, context):
+    return templates.TemplateResponse(name, context, headers={
+        'Content-Security-Policy': STUDIO_CSP,
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'X-Content-Type-Options': 'nosniff',
+    })
+
 
 def studio_user(user=Depends(current_user)):
     if not settings().enabled:
@@ -71,7 +91,7 @@ def edit_guard(db, deck_id, user_id, expected):
 
 @router.get("/ai-studio")
 def studio_page(request: Request, user=Depends(studio_user)):
-    return templates.TemplateResponse("ai_slides/studio.html", {"request": request, "user": user, "studio_resources": RESOURCE_CATALOG})
+    return studio_template("ai_slides/studio.html", {"request": request, "user": user, "studio_resources": RESOURCE_CATALOG})
 
 
 @router.get('/api/ai-slides/resources')
@@ -81,14 +101,14 @@ def resources_catalog(user=Depends(studio_user)):
 
 @router.get('/ai-studio/guide')
 def teacher_guide(request: Request, user=Depends(studio_user)):
-    return templates.TemplateResponse('ai_slides/guide.html', {'request': request, 'user': user})
+    return studio_template('ai_slides/guide.html', {'request': request, 'user': user})
 
 
 @router.get("/ai-studio/simulations/{slug}")
 def simulation_page(slug: str, request: Request):
     if slug not in {"ohm", "pendulum", "vietnam-map"} or not settings().enabled:
         raise HTTPException(404)
-    return templates.TemplateResponse("ai_slides/simulation.html", {"request": request, "slug": slug})
+    return studio_template("ai_slides/simulation.html", {"request": request, "slug": slug})
 
 
 @router.get("/api/ai-slides/capabilities")

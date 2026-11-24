@@ -720,6 +720,13 @@ class StudioTests(unittest.TestCase):
                                     for row in content_review(candidate, {**PROFILE, "sources": []})))
 
     def test_auth_roles_flag_and_csrf_are_enforced(self):
+        for path in ('/ai-studio', '/ai-studio/guide', '/ai-studio/simulations/ohm'):
+            response = self.client.get(path)
+            policy = response.headers['content-security-policy']
+            self.assertIn("script-src 'self' 'wasm-unsafe-eval'", policy)
+            self.assertIn("object-src 'none'", policy)
+            self.assertNotIn("'unsafe-eval'", policy)
+            self.assertEqual(response.headers['x-content-type-options'], 'nosniff')
         self.client.headers.pop("X-CSRF-Token")
         self.assertEqual(self.client.post("/api/ai-slides/decks", json=PROFILE).status_code, 403)
         self.user.role = "guest"
