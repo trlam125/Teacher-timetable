@@ -17,7 +17,7 @@ export async function driveGeneration(initial, {
     if (next === 'author') {
       if (current.status === 'ready' && current.manifest?.slides?.length === total) return stop('ready');
       if (!current.blueprint || current.blueprint.warnings?.length || current.status === 'needs_review') return stop('needs_review');
-      if (current.profile.grounding === 'strict' && current.blueprint.grounding_version !== 'extractive-v1') return stop('needs_replan');
+      if (['strict', 'verified_expansion'].includes(current.profile.grounding) && current.blueprint.grounding_version !== 'extractive-v1') return stop('needs_replan');
     }
     onProgress(next, current);
     const updated = await request(next, current);

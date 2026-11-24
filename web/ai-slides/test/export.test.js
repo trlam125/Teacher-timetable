@@ -4,6 +4,18 @@ import JSZip from 'jszip';
 import { buildDeck, resourceUrl } from '../src/pptx/export.js';
 import { getSlides, getSlideAnimations, loadPresentation, validatePresentation } from '@office-kit/pptx';
 import { createScene, checkScene } from '../src/pptx/scene.js';
+import { manualResource } from '../src/resources.js';
+
+test('teacher video links are canonical, credited as unverified and exported without fetching', async () => {
+  const own = manualResource('Video đã chọn', 'https://youtu.be/abcdefgh_12?t=30');
+  assert.equal(own.url, 'https://www.youtube.com/watch?v=abcdefgh_12');
+  for (const url of ['https://localhost/x', 'http://youtu.be/abcdefgh_12', 'https://phet.colorado.edu.evil.test/x', 'https://u:p@phet.colorado.edu/x']) assert.throws(() => manualResource('Test', url));
+  const deck = fixture();
+  deck.manifest.slides[0].manual_resource = own;
+  const zip = await JSZip.loadAsync(await buildDeck(deck, { origin: 'https://example.test' }));
+  assert.ok((await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string')).includes('https://www.youtube.com/watch?v=abcdefgh_12'));
+  assert.ok((await zip.file('ppt/notesSlides/notesSlide1.xml').async('string')).includes('chưa xác minh'));
+});
 
 function fixture(motion = 'gentle') {
   return {

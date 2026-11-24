@@ -139,6 +139,18 @@ def analyze_sources(profile):
     for name, entries in formulas.items():
         if len({expression for expression, _ in entries}) > 1:
             conflict("formula", name, [item for _, item in entries])
+    intelligence = profile.get('source_intelligence') or {}
+    if intelligence.get('signature') == signature:
+        by_id = {source['id']: source for source in sources}
+        for suggestion in intelligence.get('conflicts', []):
+            items = [evidence(by_id[item['source_id']], item['quote'], item['quote'], 'semantic:' + suggestion['topic'])
+                     for item in suggestion['evidence'] if item['source_id'] in by_id and item['quote'] in by_id[item['source_id']]['text']]
+            if len(items) < 2:
+                continue
+            keep = {'source_id': None, 'name': 'Giáo viên: giữ cả hai đoạn', 'page': None, 'quote': 'Tôi đã xem: các đoạn khác ngữ cảnh hoặc không mâu thuẫn; giữ cả hai.', 'value': '__keep_both__', 'teacher_field': None}
+            items.append({'id': digest(['semantic-keep', suggestion['topic'], signature]), **keep})
+            conflict('semantic', suggestion['topic'], items)
+            conflicts[-1]['label'] = 'AI gợi ý kiểm tra: ' + suggestion['topic']
     decisions = {item["conflict_id"]: item["evidence_id"] for item in profile.get("source_resolutions", [])}
     for item in conflicts:
         for entry in item["evidence"]:
@@ -151,7 +163,7 @@ def analyze_sources(profile):
     return {"version": "explicit-1", "signature": signature, "metadata": metadata, "conflicts": conflicts,
             "overflow": overflow,
             "unresolved": overflow or any(not item["selected_evidence_id"] for item in conflicts),
-            "limits": "Chỉ nhận diện tiêu đề rõ ràng và một số công thức khác nhau. Không kiểm chứng tính đúng của kiến thức."}
+            "limits": "Tiêu đề/công thức được kiểm tra theo quy tắc; phân tích ngữ nghĩa AI là gợi ý cần giáo viên xem lại. Trích dẫn khớp văn bản không chứng minh kiến thức đúng."}
 
 
 def validated_resolutions(profile, resolutions):

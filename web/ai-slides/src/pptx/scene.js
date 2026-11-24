@@ -70,7 +70,7 @@ export function createScene(item, deck, index) {
     text('T ≈ 2π√(L/g)', x - 1.9, y + 2.75, 4, 0.6, { fontSize: 27, bold: true, align: 'center' });
   }
   const bullets = item.bullets || [];
-  const automaticCircuit = deck.profile.grounding !== 'strict' && /ôm|điện/i.test(deck.title);
+  const automaticCircuit = !['strict', 'verified_expansion'].includes(deck.profile.grounding) && /ôm|điện/i.test(deck.title);
   if (item.kind === 'cover') {
     scene.background = theme.ink;
     box(8.6, 0, 4.75, 7.5, theme.accent);

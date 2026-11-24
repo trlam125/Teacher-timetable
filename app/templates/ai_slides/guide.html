@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hướng dẫn giáo viên · AI Studio</title>
+  <link rel="stylesheet" href="/static/design-tokens.css?v=1"><link rel="stylesheet" href="/static/style.css?v=11">
+  <link rel="stylesheet" href="/static/ai-slides/studio.css?v=2">
+</head><body class="studio-page">
+<header class="appbar"><a class="appbar-brand" href="/ai-studio"><img src="/static/brand-logo.svg" alt=""><span>Smart TKB · AI Studio</span></a><div class="spacer"></div><a class="btn" href="/ai-studio">Mở AI Studio</a></header>
+<main class="studio-guide">
+  <header><h1>Từ nội dung bài học đến PowerPoint</h1><p>Chuẩn bị nguồn, xem lại bài và tải tệp để dạy. Bạn có thể sửa nội dung và hoàn tác bất cứ lúc nào sau khi bài được lưu.</p></header>
+  <nav aria-label="Trong hướng dẫn"><a href="#start">Bắt đầu</a> · <a href="#book">Sách PDF</a> · <a href="#review">Rà soát nguồn</a> · <a href="#edit">Chỉnh bài và tải tệp</a> · <a href="#limits">Giới hạn hiện tại</a></nav>
+  <section id="start"><h2>Chọn cách bắt đầu</h2>
+    <p><strong>Nhập thủ công:</strong> điền môn, lớp, tên bài, thời lượng và số slide. Không cần tải tài liệu.</p>
+    <p><strong>Từ tài liệu:</strong> chọn PDF, DOCX hoặc TXT, đọc phần trích rồi nhận diện thông tin. Tiêu đề rõ ràng có thể điền ô trống; thông tin chưa rõ cần bạn xác nhận.</p>
+    <p><strong>Kết hợp:</strong> thêm tài liệu chính và tham khảo, nhập mục tiêu riêng rồi khóa các trường bạn muốn giữ.</p>
+    <figure><img src="/static/ai-slides/guide/input.png" alt="Biểu mẫu thật với ba cách nhập và thông tin bài học" loading="lazy"><figcaption>Ảnh giao diện từ kiểm thử bằng dữ liệu mẫu, không dùng tài liệu cá nhân.</figcaption></figure>
+    <p><strong>Tạo PowerPoint bằng AI</strong> đi từ dàn ý đến các nhóm nội dung. Nếu có cảnh báo, hệ thống dừng để bạn xem. Chọn <strong>Tạo dàn ý bằng AI</strong> nếu muốn chỉnh cấu trúc trước khi soạn.</p>
+  </section>
+  <section id="book"><h2>Chọn một bài từ cả cuốn PDF</h2>
+    <ol><li>Chọn sách có lớp chữ. Chọn bookmark hoặc dùng Nhận diện bài / chương trên thiết bị.</li><li>Chọn tiêu đề và kiểm tra khoảng trang. Tiêu đề được nhận diện có thể cắt phần bài chung trang; hãy xem lại điểm đầu/cuối trong đoạn trích.</li><li>Sửa văn bản hoặc bỏ phần ngoài bài. Chỉ các đoạn đã chọn và đồng ý mới được gửi AI.</li><li>Chọn lưu sách nếu muốn mở lại trên thiết bị này. Chỉ mục và phạm vi đã chọn được giữ; dùng Liên kết lại tệp để chọn đúng bản PDF khi cần.</li></ol>
+    <p>Đổi thiết bị hoặc xóa dữ liệu trình duyệt có thể làm mất sách lưu cục bộ. Với PDF scan, mở Đọc chữ từ ảnh hoặc một trang PDF scan, chọn trang rồi OCR trên thiết bị. Xem ảnh gốc, sửa chữ/công thức và xác nhận trước khi thêm nguồn. Công thức có thể nhận sai nhiều; OCR không thay việc đối chiếu tài liệu.</p>
+    <p><strong>Tạo theo lô:</strong> chọn tối đa 20 bài, xem/sửa nguồn từng bài rồi xác nhận. Các bản nháp được lưu trước, AI chạy tuần tự theo hạn mức. Cảnh báo hoặc hết lượt sẽ dừng; tải lại trang không tự gọi AI. Chọn Tiếp tục lô bài để làm phần còn lại, kể cả hôm sau. Hàng đợi trên thiết bị chỉ lưu mã bài, tên và tiến độ.</p>
+  </section>
+  <section id="review"><h2>Rà soát nguồn trước khi soạn</h2>
+    <p>Khi thấy thông tin khác nhau, xem trích dẫn rồi chọn nguồn ưu tiên. Lựa chọn này quyết định phạm vi soạn, không xác nhận nguồn đúng.</p>
+    <p><strong>Phân tích nguồn bằng AI</strong> là bước tùy chọn dùng một lượt. AI gợi ý metadata và các đoạn có thể mâu thuẫn; trích dẫn phải khớp văn bản, còn ý nghĩa vẫn cần bạn xem lại. Các trường đã nhập/khóa được giữ.</p>
+    <p><strong>Cân bằng</strong> cho AI diễn đạt linh hoạt. <strong>Bám nguồn bằng trích đoạn</strong> lấy nguyên văn và có bằng chứng dưới slide. <strong>Mở rộng từ nguồn tham khảo đã chọn</strong> dùng thêm các đoạn trong tài liệu tham khảo bạn cung cấp, ghi rõ nguồn bổ sung; không tự tìm web.</p>
+    <figure><img src="/static/ai-slides/guide/source-review.png" alt="Các trích dẫn và lựa chọn ưu tiên trong màn hình rà soát nguồn" loading="lazy"></figure>
+  </section>
+  <section id="edit"><h2>Chỉnh bài, gắn học liệu và tải PowerPoint</h2>
+    <p>Chỉnh dàn ý trước khi soạn; khi đã có nội dung, đổi dàn ý cần xác nhận soạn lại và có thể hoàn tác. Đổi theme hoặc mức hiệu ứng giữ nội dung.</p>
+    <p>Chọn slide để sửa chữ, Notes, quiz và dữ liệu biểu đồ. Với yêu cầu bằng tiếng Việt, AI đưa đề xuất để bạn xem thay đổi trước khi áp dụng; không tạo lại toàn bài.</p>
+    <figure><img src="/static/ai-slides/guide/editor.png" alt="Slide thật với vùng chỉnh nội dung và chọn học liệu" loading="lazy"></figure>
+    <p>Học liệu có sẵn gồm mô phỏng Ôm, con lắc, bản đồ khái quát, video NASA và PhET. Bạn cũng có thể thêm liên kết từ các tên miền được hỗ trợ. Link riêng luôn ghi chưa xác minh; mở xem và kiểm tra quyền sử dụng trước khi dạy.</p>
+    <p>PowerPoint chứa nút mở học liệu trên trình duyệt, cần Internet hoặc truy cập được website. File có chữ/đối tượng chỉnh sửa được, nguồn và ghi chú. Quiz dùng nút chọn phương án và trang phản hồi.</p>
+    <p><strong>Gói dạy offline:</strong> giải nén ZIP rồi mở index.html. Gói có PowerPoint, ghi chú, JSON sao lưu, hai mô phỏng Vật lí và bản đồ khái quát chạy từ tệp. Các nút trong PowerPoint vẫn mở website; PhET/video/web ngoài cần Internet. Gói chứa các đoạn nguồn đã lưu: chỉ chia sẻ khi có quyền.</p>
+    <p><strong>PPTX cũ:</strong> chọn Nhập chữ để soạn lại hoặc Chỉ tham khảo bảng màu theme trước khi chọn tệp. Nhập chữ giữ thứ tự trình chiếu, không giữ ảnh, chart, OLE, SmartArt, Notes hoặc hiệu ứng cũ. Tham khảo màu chỉ gợi ý một theme có sẵn; bạn chủ động áp dụng, không sao chép toàn bộ template. Tệp có macro/ActiveX bị từ chối.</p>
+    <p><strong>Giọng nói:</strong> chỉ khả dụng trên trình duyệt hỗ trợ Web Speech. Đồng ý dùng dịch vụ nhận dạng, bấm Bắt đầu nói, kiểm tra bản chép lời rồi thêm vào yêu cầu. Có ô nhập văn bản dự phòng; không tự gửi bản chép lời tới AI.</p>
+    <p>Đọc phần Rà soát trước khi dạy rồi bấm tải. Nếu hiệu ứng gặp lỗi, dùng bản cơ bản. Thiết bị bật giảm chuyển động sẽ xuất không hiệu ứng. Bản xem trước trên web có thể khác cách PowerPoint hiển thị.</p>
+  </section>
+  <section id="limits"><h2>Khi AI chậm hoặc hết lượt</h2>
+    <p>Các nhóm đã soạn được lưu. Mở lại bài và chọn tiếp tục để làm phần còn thiếu; tải lại trang không tự gọi AI. Lượt lỗi vẫn có thể tính hạn mức. Nhật ký xử lý cho biết bước, model và mã lỗi; không cần gửi API key khi báo lỗi.</p>
+    <p>AI miễn phí có thể quá tải hoặc timeout. Giáo viên cần rà soát kiến thức và tính phù hợp lớp học. Đối chiếu nguyên văn không chứng minh tài liệu nguồn đúng. Chưa có nghiệm thu chất lượng đủ 20 bộ bài hoàn chỉnh.</p>
+    <p><strong>Giới hạn:</strong> không bảo toàn template/hiệu ứng PPTX cũ; OCR chưa nhận dạng chính xác công thức hoặc sơ đồ phức tạp; giọng nói phụ thuộc trình duyệt và dịch vụ nhận dạng. Mỗi lô tối đa 20 bài, mỗi bài tối đa 50 trang/40.000 ký tự đã chọn và thư viện tối đa 100 bài. Chia sách lớn thành các lô nhỏ theo hạn mức.</p>
+    <p>Nội dung đầu vào được gửi tới nhà cung cấp AI khi bạn đồng ý. Chỉ bật quyền dùng dữ liệu để huấn luyện khi bạn chấp nhận chính sách tương ứng; hãy bỏ dữ liệu cá nhân khỏi phần trích trước khi gửi.</p>
+  </section>
+  <p><a class="btn primary" href="/ai-studio">Bắt đầu tạo bài giảng</a></p>
+</main></body></html>

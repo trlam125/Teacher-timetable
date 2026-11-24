@@ -25,13 +25,16 @@
     <h2>Bài giảng của tôi</h2>
     <div id="deck-list"><p>Đang tải thư viện…</p></div>
     <button type="button" id="show-books" class="studio-text-button">Sách trên thiết bị này</button>
+    <a class="studio-text-button" href="/ai-studio/guide">Hướng dẫn sử dụng AI Studio</a>
     <div id="book-list" hidden></div>
+    <section id="batch-queue" hidden><h2>Lô bài đã lưu</h2><p id="batch-progress"></p><button id="resume-batch" type="button" class="btn ghost">Tiếp tục lô bài</button><button id="clear-batch" type="button" class="studio-text-button">Bỏ hàng đợi</button></section>
     {% if user.role in ['admin', 'super_admin'] %}
     <button type="button" id="show-usage" class="studio-text-button">Hạn mức và lịch sử AI</button>
     {% endif %}
   </aside>
   <section class="studio-workspace">
     <div id="studio-message" role="status" aria-live="polite" hidden></div>
+    <p id="content-quality-notice" class="studio-notice" hidden>AI Studio đang thử nghiệm chất lượng nội dung. Cân bằng có thể thêm ý sai hoặc ngoài nguồn; hãy rà soát trước khi dạy. Bám nguồn/Mở rộng từ nguồn chỉ đối chiếu trích đoạn, không xác nhận nguồn đúng. Chưa có nghiệm thu sư phạm đầy đủ.</p>
     <div id="create-pane">
       <header class="studio-heading"><h1>Chuẩn bị bài giảng tiếp theo</h1><p>Chọn nội dung bài học, xem dàn ý và tạo PowerPoint có thể chỉnh sửa.</p></header>
       <p id="configuration-notice" class="studio-notice" hidden></p>
@@ -43,7 +46,9 @@
         </fieldset>
         <section class="studio-form-section" id="source-section">
           <h2>Nguồn bài học</h2>
-          <label class="studio-upload" for="document-file"><strong>Chọn PDF, Word hoặc văn bản</strong><span>Sách PDF được đọc trên thiết bị. Chọn trang trước khi gửi AI.</span><input id="document-file" type="file" accept=".pdf,.docx,.txt"></label>
+          <label class="studio-upload" for="document-file"><strong>Chọn PDF, Word, văn bản hoặc PPTX</strong><span>Tài liệu được đọc trên thiết bị. PPTX chỉ nhập chữ để soạn lại; không giữ hiệu ứng/template gốc.</span><input id="document-file" type="file" accept=".pdf,.docx,.txt,.pptx"></label>
+          <label>Khi chọn PPTX<select id="pptx-import-mode"><option value="content">Nhập chữ để soạn lại</option><option value="style">Chỉ tham khảo bảng màu theme</option></select></label>
+          <div id="style-reference" class="studio-notice" hidden></div>
           <div id="pdf-picker" hidden>
             <p id="document-name"></p><label>Mục lục có sẵn<select id="book-toc"><option value="">Chọn khoảng trang bên dưới</option></select></label>
             <label>Tìm bài trong nội dung PDF<input id="book-search-query" maxlength="120" placeholder="Ví dụ: định luật Ôm, bài 12…"></label>
@@ -55,12 +60,42 @@
             <div class="studio-actions"><button id="extract-pages" type="button" class="btn">Đọc trang đã chọn</button><button id="save-book" type="button" class="btn ghost">Lưu sách trên thiết bị</button></div>
           </div>
           <details><summary>Dán thêm nội dung</summary><label for="pasted-source">Văn bản làm nguồn tham khảo</label><textarea id="pasted-source" rows="4" maxlength="40000"></textarea><button id="add-paste" type="button" class="btn ghost">Thêm văn bản</button></details>
+          <details><summary>Mô tả yêu cầu bằng giọng nói</summary>
+            <p>Tùy trình duyệt, âm thanh có thể được gửi tới dịch vụ nhận dạng của nhà cung cấp trình duyệt. Smart TKB không lưu âm thanh. Hãy kiểm tra bản chép lời trước khi dùng.</p>
+            <label class="studio-consent"><input id="voice-consent" type="checkbox"><span>Tôi đồng ý dùng dịch vụ nhận dạng của trình duyệt và cấp quyền micro khi được hỏi.</span></label>
+            <button id="voice-start" type="button" class="btn ghost">Bắt đầu nói</button>
+            <p id="voice-status" role="status">Bạn có thể nhập văn bản nếu không muốn dùng micro.</p>
+            <label>Bản chép lời có thể sửa<textarea id="voice-transcript" rows="3" maxlength="2000"></textarea></label>
+            <button id="voice-apply" type="button" class="btn ghost">Thêm vào yêu cầu bài giảng</button>
+          </details>
           <div id="source-list"></div>
+          <details id="ocr-panel"><summary>Đọc chữ từ ảnh hoặc một trang PDF scan trên thiết bị</summary>
+            <p>OCR tiếng Việt chạy trên thiết bị, không gửi ảnh lên server/AI. Lần đầu tải khoảng 5 MB bộ nhận dạng từ website. Kết quả có thể sai dấu, công thức hoặc thứ tự dòng; xem ảnh và sửa trước khi thêm nguồn.</p>
+            <label>Ảnh cần đọc<input id="ocr-image" type="file" accept=".png,.jpg,.jpeg,.webp"></label>
+            <button id="ocr-image-start" type="button" class="btn ghost">Đọc chữ từ ảnh</button>
+            <button id="ocr-pdf-start" type="button" class="btn ghost">OCR trang PDF đầu đang chọn</button>
+            <button id="ocr-cancel" type="button" class="studio-text-button">Dừng OCR</button>
+            <p id="ocr-status" role="status">Mỗi lượt đọc một ảnh hoặc một trang PDF.</p>
+            <img id="ocr-original" alt="Ảnh gốc để đối chiếu kết quả OCR" hidden style="max-width:100%;max-height:400px;object-fit:contain">
+            <label>Văn bản OCR có thể sửa<textarea id="ocr-text" rows="6" maxlength="40000"></textarea></label>
+            <label class="studio-consent"><input id="ocr-reviewed" type="checkbox"><span>Tôi đã đối chiếu với ảnh gốc và sửa văn bản, đặc biệt công thức và đơn vị.</span></label>
+            <button id="ocr-add" type="button" class="btn ghost">Thêm văn bản đã kiểm tra vào nguồn</button>
+          </details>
+          <details id="batch-panel"><summary>Chuẩn bị nhiều bài từ sách theo lô</summary>
+            <p>Chọn tối đa 20 bài mỗi lô, xem và sửa từng đoạn trước khi lưu. Các bài được soạn tuần tự; hết lượt hoặc có cảnh báo sẽ dừng. Bài đã lưu có thể tiếp tục hôm sau. Mỗi bài chỉ dùng đoạn sách đã chọn bên dưới.</p>
+            <p>Tên bài lấy từ từng tiêu đề đã chọn; bỏ khóa tên bài tổng nếu đã nhập. Các trường khác giữ theo biểu mẫu. Chế độ mở rộng cần thêm nguồn tham khảo riêng sau khi lưu.</p>
+            <label>Các bài trong sách<select id="batch-lessons" multiple size="5"></select></label>
+            <button id="prepare-batch" type="button" class="btn ghost">Xem nguồn của các bài đã chọn</button>
+            <div id="batch-preview"></div>
+            <label class="studio-consent"><input id="batch-reviewed" type="checkbox"><span>Tôi đã xem phạm vi, nội dung từng bài và đồng ý lưu các đoạn này, gửi lần lượt tới AI theo hạn mức.</span></label>
+            <button id="start-batch" type="button" class="btn ghost">Lưu và bắt đầu lô bài</button>
+          </details>
           <p id="source-count" class="muted">Chưa chọn tài liệu. Bạn có thể bắt đầu bằng tên bài.</p>
         </section>
         <section class="studio-form-section">
           <h2>Thông tin bài học</h2>
           <button id="recognize-source" type="button" class="btn ghost">Nhận diện thông tin từ nguồn đã chọn</button>
+          <button id="recognize-source-ai" type="button" class="btn ghost">Nhờ AI phân tích nguồn · 1 lượt</button>
           <div id="source-recognition" class="studio-notice" hidden aria-live="polite"></div>
           <div class="studio-fields">
             <label>Môn học<input name="subject" required maxlength="80" placeholder="Ví dụ Vật lí"></label>
@@ -71,9 +106,9 @@
             <label>Thời lượng (phút)<input name="duration_minutes" type="number" min="10" max="240" value="45" required></label>
             <label>Số slide<input name="slide_count" type="number" min="5" max="30" value="15" required></label>
             <label>Trình độ<select name="level"><option value="foundation">Cần củng cố</option><option value="standard" selected>Phổ thông</option><option value="advanced">Khá giỏi</option></select></label>
-            <label>Bám sát nguồn<select name="grounding"><option value="balanced">Cân bằng, giáo viên rà soát</option><option value="strict">Bám nguồn bằng trích đoạn</option></select></label>
+            <label>Bám sát nguồn<select name="grounding"><option value="balanced">Cân bằng, giáo viên rà soát</option><option value="strict">Bám nguồn bằng trích đoạn</option><option value="verified_expansion">Mở rộng từ nguồn tham khảo đã chọn</option></select></label>
           </div>
-          <p id="grounding-help" class="muted" hidden>AI chọn trích đoạn; máy chủ đối chiếu và lấy nguyên văn từ nguồn. Câu hỏi là điền đúng nguyên văn. Không tự thêm số liệu, video hoặc mô phỏng. Chọn Cân bằng nếu muốn AI diễn đạt hoặc mở rộng; kiến thức vẫn cần giáo viên kiểm tra.</p>
+          <p id="grounding-help" class="muted" hidden>AI chọn trích đoạn; máy chủ đối chiếu và lấy nguyên văn. Câu hỏi là điền đúng nguyên văn. Mở rộng từ nguồn tham khảo cần cả tài liệu chính và tài liệu tham khảo do bạn chọn; nguồn bổ sung được ghi riêng, không tự tìm web hay thêm kiến thức. Nội dung nguồn vẫn cần giáo viên kiểm tra.</p>
           <details><summary>Mục tiêu và yêu cầu riêng</summary>
             <label>Mục tiêu học tập<textarea name="objectives" rows="3" maxlength="3000"></textarea></label>
             <label>Nội dung bắt buộc<textarea name="must_include" rows="3" maxlength="3000"></textarea></label>
@@ -104,13 +139,16 @@
         <button id="export-pptx" type="button" class="btn primary" hidden>Tải PowerPoint</button>
         <button id="export-basic" type="button" class="btn ghost" hidden>Tải PowerPoint không hiệu ứng</button>
         <button id="export-notes" type="button" class="btn ghost" hidden>Tải ghi chú</button>
+        <button id="export-offline" type="button" class="btn ghost" hidden>Tải gói dạy offline</button>
         <button id="export-json" type="button" class="btn ghost">Sao lưu bài giảng</button>
         <button id="undo-deck" type="button" class="btn ghost">Hoàn tác</button>
         <button id="show-deck-log" type="button" class="btn ghost">Nhật ký xử lý</button>
+        <button id="inspect-sources" type="button" class="btn ghost" hidden>Phân tích nguồn bằng AI · 1 lượt</button>
         <button id="delete-deck" type="button" class="studio-text-button">Xóa bài</button>
       </div>
       <p id="motion-notice" class="studio-notice" hidden></p>
       <div id="deck-log" class="studio-notice" hidden aria-live="polite"></div>
+      <section id="source-intelligence" class="studio-notice" hidden aria-live="polite"></section>
       <section id="source-review" class="studio-notice" hidden aria-labelledby="source-review-heading">
         <h2 id="source-review-heading">Rà soát nguồn có thông tin khác nhau</h2>
         <p>Chọn thông tin ưu tiên để soạn. Lựa chọn này không xác nhận nguồn đúng. Muốn đổi môn, lớp, tên bài hoặc thời lượng, chọn Sửa thông tin bài. Thay đổi nguồn sẽ yêu cầu rà soát lại.</p>
@@ -170,6 +208,12 @@
             </fieldset>
             <label>Học liệu liên kết<select id="slide-resource"><option value="">Không gắn học liệu</option>{% for group in studio_resources|groupby('group') %}<optgroup label="{{ group.grouper }}">{% for resource in group.list %}<option value="{{ resource.id }}">{{ resource.label }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
             <div id="resource-details" class="studio-notice" hidden aria-live="polite"></div>
+            <details id="manual-resource-editor"><summary>Thêm liên kết học liệu của bạn</summary>
+              <p>Nhận YouTube, Vimeo, PhET, NASA, Wikipedia tiếng Việt, Khan Academy và Bộ GDĐT. Cần Internet; bạn cần xem nội dung trước khi dạy. Liên kết riêng thay học liệu đang chọn ở trên.</p>
+              <label>Tên học liệu<input id="resource-link-title" maxlength="120" placeholder="Ví dụ: Video thí nghiệm đã xem"></label>
+              <label>Liên kết HTTPS<input id="resource-link-url" type="url" maxlength="1000" placeholder="https://…"></label>
+              <p>Chưa xác minh tự động nội dung, quyền sử dụng hoặc khả năng truy cập. Xóa liên kết rồi lưu để gỡ.</p>
+            </details>
             <button class="btn" type="submit">Lưu slide</button>
           </form>
           <form id="ai-edit-form" hidden>
@@ -180,7 +224,7 @@
         </div>
       </div>
     </div>
-    <div id="usage-pane" hidden><h1>Hạn mức và lịch sử AI</h1><p id="quota-description"></p><div id="usage-list"></div></div>
+    <div id="usage-pane" hidden><h1>Hạn mức và lịch sử AI</h1><p id="quota-description"></p><dl id="usage-summary"></dl><p>Muốn tạm đóng Studio, quản trị triển khai đặt AI_SLIDES_ENABLED=false rồi khởi động lại service. Dữ liệu bài đã lưu được giữ; xem tài liệu vận hành của dự án.</p><div id="usage-list"></div></div>
   </section>
 </main>
 <script type="module" src="/static/ai-slides/dist/studio.js"></script>

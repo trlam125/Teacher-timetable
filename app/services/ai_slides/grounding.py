@@ -45,6 +45,10 @@ def source_units(profile):
         excluded_spans = [match.span() for match in FORMULA.finditer(source["text"])
                           if symbolic(match[2]) in rejected.get(match[1], set())]
         for claim in claims:
+            if claim['kind'] == 'semantic' and claim['selected']['value'] != '__keep_both__':
+                for alternative in claim['alternatives']:
+                    if alternative['source_id'] == source['id']:
+                        excluded_spans.extend(match.span() for match in re.finditer(re.escape(alternative['quote']), source['text']))
             if claim["kind"] != "metadata":
                 continue
             for alternative in claim["alternatives"]:
@@ -115,7 +119,7 @@ def assemble_plan(result, profile, catalog=None):
 
 
 def content_digest(slide):
-    data = {key: value for key, value in slide.items() if key != "source_proof"}
+    data = {key: value for key, value in slide.items() if key != "source_proof" and not (key == 'manual_resource' and value is None)}
     return hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
@@ -130,7 +134,7 @@ def assemble_slide(choice, profile, outline, catalog):
     notes = select_units(choice.notes_unit_ids, catalog, outline["source_ids"])
     teacher, student = ACTIVITIES[choice.activity]
     data = {key: deepcopy(outline[key]) for key in ("id", "title", "kind", "duration_seconds", "source_ids")}
-    for key in ("resource_id", "chart_data"):
+    for key in ("resource_id", "chart_data", "manual_resource"):
         if key in outline:
             data[key] = deepcopy(outline[key])
     data.update(source_unit_ids=list(dict.fromkeys(choice.bullet_unit_ids + choice.notes_unit_ids)),
@@ -141,9 +145,23 @@ def assemble_slide(choice, profile, outline, catalog):
                  for field, items in (("bullets", bullets), ("speaker_notes", notes)) for index, unit in enumerate(items)]
     if outline["kind"] == "quiz":
         quote, gap = bullets[0]["quote"], choice.quiz_gap
-        if not gap or quote.count(gap) != 1 or len(choice.quiz_distractors) < 1:
+        distractors = choice.quiz_distractors
+        if gap is None and not distractors:
+            # A deterministic cloze is still literal source assembly, not a
+            # repair of an invented answer. Explicit invalid choices still fail.
+            words = list(dict.fromkeys(re.findall(r'[^\W\d_][\wÀ-ỹ]{2,}', quote)))
+            allowed = [unit for unit in catalog if unit['source_id'] in outline['source_ids']]
+            pool = list(dict.fromkeys(word for unit in allowed for word in re.findall(r'[^\W\d_][\wÀ-ỹ]{2,}', unit['quote'])))
+            gap = next((word for word in words if quote.count(word) == 1 and any(other.casefold() != word.casefold() for other in pool)), None)
+            distractors = []
+            for word in pool:
+                if gap and word.casefold() != gap.casefold() and word.casefold() not in {item.casefold() for item in distractors}:
+                    distractors.append(word)
+                if len(distractors) == 3:
+                    break
+        if not gap or quote.count(gap) != 1 or len(distractors) < 1:
             raise failure("Câu điền trích đoạn cần một từ/cụm từ duy nhất trong nguồn và phương án khác nhau.")
-        options = [gap, *choice.quiz_distractors]
+        options = [gap, *distractors]
         allowed_units = [unit for unit in catalog if unit["source_id"] in outline["source_ids"]]
         if len({item.casefold() for item in options}) != len(options) or any(not any(item in unit["quote"] for unit in allowed_units) for item in options):
             raise failure("Các phương án cần khác nhau và lấy từ văn bản nguồn.")
@@ -184,7 +202,7 @@ def proof_valid(slide, profile):
     if proof.get("source_signature") != source_signature(profile):
         return False
     if (slide.get("kind") not in STAGES or slide.get("title") != grounded_title(profile, slide["kind"], slide["id"])
-            or slide.get("resource_id") or slide.get("chart_data")):
+            or slide.get("resource_id") or slide.get("chart_data") or slide.get('manual_resource')):
         return False
     source_map = {source["id"]: source for source in profile.get("sources", [])}
     return bool(proof.get("citations")) and all(item["source_id"] in source_map and item["quote"] in source_map[item["source_id"]]["text"] for item in proof["citations"])

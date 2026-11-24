@@ -1,7 +1,8 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationInfo, field_validator, model_validator
 from .resources import ResourceId, RESOURCE_BY_ID
+from .links import normalize_link
 
 
 class StrictModel(BaseModel):
@@ -47,6 +48,35 @@ class RecognitionRequest(StrictModel):
         return self
 
 
+class SourceQuote(StrictModel):
+    source_id: str = Field(min_length=1, max_length=64)
+    quote: str = Field(min_length=8, max_length=600)
+
+
+class MetadataSuggestion(SourceQuote):
+    field: Literal['subject', 'grade', 'lesson_title', 'duration_minutes', 'objectives']
+    value: str = Field(min_length=1, max_length=300)
+
+
+class SemanticConflict(StrictModel):
+    topic: str = Field(min_length=1, max_length=120)
+    evidence: list[SourceQuote] = Field(min_length=2, max_length=4)
+
+
+class IntelligenceResult(StrictModel):
+    metadata: list[MetadataSuggestion] = Field(default_factory=list, max_length=12)
+    conflicts: list[SemanticConflict] = Field(default_factory=list, max_length=10)
+    warnings: list[Annotated[str, Field(max_length=240)]] = Field(default_factory=list, max_length=6)
+
+
+class SourceIntelligence(IntelligenceResult):
+    signature: str = Field(pattern=r'^[a-f0-9]{24}$')
+
+
+class SourceInspection(StrictModel):
+    discard_content: bool = False
+
+
 class Profile(StrictModel):
     input_mode: Literal["manual", "document", "hybrid"] = "hybrid"
     generation_mode: Literal["outline", "automatic"] = "outline"
@@ -59,7 +89,7 @@ class Profile(StrictModel):
     must_include: str = Field(default="", max_length=3000)
     avoid: str = Field(default="", max_length=1500)
     level: Literal["foundation", "standard", "advanced"] = "standard"
-    grounding: Literal["strict", "balanced"] = "balanced"
+    grounding: Literal["strict", "balanced", "verified_expansion"] = "balanced"
     theme: Literal["science", "primary", "geography", "history"] = "science"
     motion: Literal["gentle", "minimal", "none"] = "gentle"
     locked_fields: list[Literal["lesson_title", "subject", "grade", "duration_minutes", "objectives", "slide_count"]] = Field(default_factory=list, max_length=6)
@@ -67,6 +97,7 @@ class Profile(StrictModel):
     consent: bool = False
     training_consent: bool = False
     source_resolutions: list[SourceResolution] = Field(default_factory=list, max_length=100)
+    source_intelligence: SourceIntelligence | None = None
 
     @model_validator(mode="after")
     def validate_sources(self):
@@ -76,8 +107,10 @@ class Profile(StrictModel):
             raise ValueError("Tổng văn bản được chọn vượt 40.000 ký tự.")
         if len({source.id for source in self.sources}) != len(self.sources):
             raise ValueError("Mã đoạn nguồn bị trùng.")
-        if (self.input_mode == "document" or self.grounding == "strict") and not self.sources:
+        if (self.input_mode == "document" or self.grounding != 'balanced') and not self.sources:
             raise ValueError("Hãy chọn tài liệu hoặc dán nội dung cho chế độ này.")
+        if self.grounding == 'verified_expansion' and {source.role for source in self.sources} != {'primary', 'reference'}:
+            raise ValueError('Mở rộng từ nguồn cần ít nhất một tài liệu chính và một tài liệu tham khảo đã chọn.')
         return self
 
 
@@ -156,6 +189,21 @@ class ChartData(StrictModel):
         return self
 
 
+class ManualResource(StrictModel):
+    title: str = Field(min_length=1, max_length=120)
+    url: str = Field(min_length=1, max_length=1000)
+    kind: Literal['video', 'web'] = 'web'
+    verification: Literal['user_provided'] = 'user_provided'
+
+    @model_validator(mode='after')
+    def safe_link(self):
+        self.title = self.title.strip()
+        if not self.title:
+            raise ValueError('Tên học liệu cần có nội dung.')
+        self.url, self.kind = normalize_link(self.url)
+        return self
+
+
 class Slide(OutlineSlide):
     source_unit_ids: list[str] = Field(default_factory=list, max_length=10)
     bullets: list[Annotated[str, Field(max_length=350)]] = Field(default_factory=list, max_length=5)
@@ -167,6 +215,7 @@ class Slide(OutlineSlide):
     correct_option: int | None = Field(default=None, ge=0, le=3)
     explanation: str = Field(default="", max_length=600)
     resource_id: ResourceId | None = None
+    manual_resource: ManualResource | None = None
     chart_data: ChartData | None = None
     source_proof: SourceProof | None = None
 
@@ -176,12 +225,18 @@ class Slide(OutlineSlide):
         return "" if value is None else value
 
     @model_validator(mode="after")
-    def validate_quiz(self):
+    def validate_quiz(self, info: ValidationInfo):
         if self.kind == "quiz" and (len(self.options) < 2 or self.correct_option is None or self.correct_option >= len(self.options)):
             raise ValueError("Câu hỏi cần phương án và đáp án hợp lệ.")
         if self.kind == "chart" and self.chart_data is None:
             raise ValueError("Slide biểu đồ cần dữ liệu số và nhãn.")
-        if self.kind == "video" and RESOURCE_BY_ID.get(self.resource_id, {}).get('kind') != 'video':
+        if self.manual_resource and self.resource_id:
+            raise ValueError('Chỉ gắn một học liệu trên mỗi slide.')
+        original = (info.context or {}).get('original_slide') or {}
+        retained_video = (original.get('id') == self.id and original.get('kind') == self.kind == 'video'
+                          and original.get('resource_id') == self.resource_id is None
+                          and (original.get('manual_resource') or {}).get('kind') == 'video')
+        if self.kind == "video" and RESOURCE_BY_ID.get(self.resource_id, {}).get('kind') != 'video' and not (self.manual_resource and self.manual_resource.kind == 'video') and not retained_video:
             raise ValueError("Slide video cần video đã xác minh trong kho; mô phỏng không phải video.")
         if self.chart_data and self.chart_data.data_origin == "source" and not self.source_ids:
             raise ValueError("Biểu đồ dùng số liệu nguồn cần tham chiếu đoạn nguồn.")

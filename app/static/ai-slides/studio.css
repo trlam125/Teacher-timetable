@@ -86,3 +86,5 @@
 #source-conflicts blockquote, #source-recognition blockquote { margin: .4rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 #source-conflicts fieldset { margin-block: 1rem; border: 1px solid var(--border, #d8e0eb); border-radius: 12px; padding: 1rem; }
 #slide-evidence blockquote { margin: .4rem 0 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.studio-guide{max-width:1060px;margin:32px auto;padding:0 24px 48px;line-height:1.7}.studio-guide section{margin:36px 0;padding-bottom:20px;border-bottom:1px solid #d9e2ef}.studio-guide p,.studio-guide li{max-width:78ch}.studio-guide img{display:block;width:100%;height:auto;border:1px solid #d9e2ef;border-radius:12px}.studio-guide figure{margin:24px 0}.studio-guide figcaption{font-size:14px;color:#50617c}.studio-guide nav{line-height:2}.studio-guide a:focus-visible{outline:3px solid #245dd5;outline-offset:4px}@media(max-width:600px){.studio-guide{padding:0 16px 28px;margin-top:20px}}
+#usage-summary{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px 20px;max-width:660px}#usage-summary dd{margin:0;font-weight:700}#usage-summary dt{overflow-wrap:anywhere}

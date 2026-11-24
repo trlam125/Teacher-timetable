@@ -1,4 +1,5 @@
 import time
+import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -92,9 +93,28 @@ def finish_guard(db, deck_id, token, expected):
     return db.get(Deck, deck_id)
 
 
-def validate_content(result, profile, blueprint=None, *, partial=False):
+def validate_generated_references(texts, profile):
+    supplied = '\n'.join(source['text'] for source in profile.get('sources', []))
+    for text in texts:
+        if any(fragment not in supplied for fragment in re.findall(r'[\u3400-\u9fff\uac00-\ud7af]+', text)):
+            raise StudioError('AI_LANGUAGE_ERROR', 'AI chèn chữ Hán/Hàn không có trong nguồn tiếng Việt. Kết quả bị chặn; bản nháp được giữ để thử lại hoặc sửa phạm vi.', 422)
+        for match in re.finditer(r'(?:SGK|sách(?: giáo khoa)?).{0,60}?(?:trang|tr\.)\s*\d+', text, re.I):
+            if match[0] not in supplied:
+                raise StudioError('AI_UNVERIFIED_REFERENCE', 'AI nêu trang sách chưa có trong đoạn nguồn; kết quả bị chặn. Bổ sung nguồn hoặc thu hẹp yêu cầu rồi thử lại.', 422)
+        if 'phet-ohms-law' in text and re.search(r'(?:đặt|điều chỉnh).{0,100}R[1₁].{0,60}R[2₂]', text, re.I):
+            raise StudioError('AI_RESOURCE_MISMATCH', 'AI mô tả điều khiển R1/R2 không có trong học liệu PhET định luật Ôm. Kết quả bị chặn để tránh hướng dẫn sai.', 422)
+
+
+def validate_content(result, profile, blueprint=None, *, partial=False, generated=False):
     sources = {source["id"] for source in profile["sources"]}
     slides = result.slides
+    if generated:
+        texts = [*getattr(result, 'warnings', [])]
+        for slide in slides:
+            texts.extend([slide.title, *getattr(slide, 'bullets', []), getattr(slide, 'speaker_notes', ''),
+                          getattr(slide, 'teacher_action', ''), getattr(slide, 'student_action', ''),
+                          getattr(slide, 'question', ''), *getattr(slide, 'options', []), getattr(slide, 'explanation', '')])
+        validate_generated_references(texts, profile)
     if len(slides) != profile["slide_count"] or len({slide.id for slide in slides}) != len(slides):
         raise StudioError("AI_CONSTRAINT_ERROR", "AI trả sai số slide hoặc mã slide trùng. Hãy thử lại.")
     distinct_titles = {slide.title.casefold().strip() for slide in slides}
@@ -108,7 +128,7 @@ def validate_content(result, profile, blueprint=None, *, partial=False):
             raise StudioError("NEEDS_TEACHER_REVIEW", "AI đề nghị sửa mục tiêu đã khóa. Hãy kiểm tra dàn ý và thử lại.", 422)
     if any(set(slide.source_ids) - sources for slide in slides):
         raise StudioError("AI_SOURCE_ERROR", "AI tham chiếu đoạn nguồn chưa được cung cấp. Hãy thử lại.")
-    if profile["grounding"] == "strict" and any(
+    if profile["grounding"] != 'balanced' and any(
         not slide.source_ids for slide in slides if slide.kind not in {"cover", "section", "sources"}
     ):
         raise StudioError("AI_SOURCE_ERROR", "Một số slide chưa dẫn nguồn trong chế độ bám sát tài liệu.")

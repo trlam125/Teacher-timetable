@@ -50,6 +50,15 @@ async def model():
 
 async def generate(model_id, schema, payload):
     profile = payload["profile"]
+    if payload['task'] == 'inspect':
+        selected = profile['sources'][:2]
+        metadata = []
+        if selected:
+            for field, value, missing in [('subject', 'Khoa học', 'Chưa xác định'), ('grade', 'Lớp 6', 'Chưa xác định'), ('lesson_title', 'Bài học từ nguồn đã chọn', 'Bản phân tích nguồn')]:
+                if profile[field] == missing:
+                    metadata.append({'field': field, 'value': value, 'source_id': selected[0]['id'], 'quote': selected[0]['text'][:200]})
+        return schema.model_validate({'metadata': metadata, 'conflicts': [{'topic': 'Điểm cần đối chiếu trong nguồn mẫu',
+            'evidence': [{'source_id': source['id'], 'quote': source['text'][:200]} for source in selected]}] if len(selected) > 1 else [], 'warnings': ['Gợi ý từ fixture kiểm thử; giáo viên xem lại ý nghĩa.']}), {}
     if payload.get("grounding_contract"):
         import re
         units = payload["grounding_contract"]["units"]
@@ -119,6 +128,24 @@ async def generate(model_id, schema, payload):
 app.dependency_overrides[ai_slides.db_session] = session
 ai_slides.provider.eligible_model = model
 ai_slides.provider.generate = generate
+
+
+@app.post('/fixtures/deck')
+def seed_benchmark_deck(payload: dict):
+    # This endpoint exists only in this loopback, in-memory test harness.
+    from app.services.ai_slides.schemas import Profile, Blueprint, Manifest
+    from app.services.ai_slides.models import Deck, Revision
+    from app.services.ai_slides.state import snapshot
+    profile = Profile.model_validate(payload['profile']).model_dump()
+    blueprint = Blueprint.model_validate(payload['blueprint']).model_dump()
+    manifest = Manifest.model_validate(payload['manifest']).model_dump()
+    with factory() as db:
+        row = Deck(owner_id=1, title=profile['lesson_title'], profile=profile, blueprint=blueprint, manifest=manifest, status='ready')
+        db.add(row)
+        db.flush()
+        db.add(Revision(deck_id=row.id, version=1, snapshot=snapshot(row)))
+        db.commit()
+        return {'id': row.id}
 
 if __name__ == "__main__":
     import uvicorn

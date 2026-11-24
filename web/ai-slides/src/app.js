@@ -1,13 +1,32 @@
-import { bookAction, discoverPdfLessons, extractPages, openDocument, searchPdf } from './documents.js';
-import { renderScene } from './pptx/preview.js';
+import { bookAction, discoverPdfLessons, extractPages, openDocument, searchPdf, pdfPageCanvas } from './documents.js';
+import { renderScene, preflightDeck } from './pptx/preview.js';
 import { driveGeneration } from './generation.js';
-import { resourceInfo, resourceHref } from './resources.js';
+import { resourceInfo, resourceHref, manualResource } from './resources.js';
+import { setupVoice } from './voice.js';
 
 const $ = selector => document.querySelector(selector);
 const owner = document.body.dataset.owner;
 const form = $('#lesson-form');
 let deck = null;
 let sources = [];
+let batchDrafts = [];
+const batchKey = 'studio-batch-' + owner;
+
+function readBatchQueue() {
+  try {
+    const value = JSON.parse(localStorage.getItem(batchKey));
+    return value?.owner === String(owner) && Array.isArray(value.items) ? value : null;
+  } catch { return null; }
+}
+function renderBatchQueue() {
+  const queue = readBatchQueue();
+  $('#batch-queue').hidden = !queue?.items.length;
+  if (queue) $('#batch-progress').textContent = `${queue.items.filter(item => item.completed).length}/${queue.items.length} bài hoàn tất${queue.requested > queue.items.length ? ' · mới lưu ' + queue.items.length + '/' + queue.requested + ' bản nháp của lô' : ''}${queue.paused ? ' · đã dừng để bạn kiểm tra hoặc tiếp tục' : ''}`;
+}
+function populateBatchLessons() {
+  batchDrafts = []; $('#batch-preview').replaceChildren(); $('#batch-reviewed').checked = false;
+  $('#batch-lessons').replaceChildren(...(activeDocument?.toc || []).map((item, index) => new Option(item.title + ' · trang PDF ' + item.page, String(index))));
+}
 let selectedSlide = 0;
 let capabilities = {};
 let working = false;
@@ -61,12 +80,23 @@ async function api(path, options = {}) {
 async function run(action) {
   if (working) return;
   working = true;
-  document.querySelectorAll('button').forEach(button => { button.disabled = true; });
+  const lock = locked => {
+    document.querySelectorAll('input,select,textarea').forEach(input => {
+      input.inert = locked;
+      if (locked) input.setAttribute('aria-disabled', 'true'); else input.removeAttribute('aria-disabled');
+    });
+    if (locked) document.querySelectorAll('button').forEach(button => { button.disabled = button.id !== 'ocr-cancel'; });
+  };
+  lock(true);
+  const observer = new MutationObserver(() => { if (working) lock(true); });
+  observer.observe($('.studio-workspace'), { childList: true, subtree: true });
   try { await action(); }
   catch (error) { message(error.message || 'Thao tác chưa hoàn tất. Hãy thử lại.', true); }
   finally {
+    observer.disconnect();
     working = false;
-    document.querySelectorAll('button').forEach(button => { button.disabled = false; });
+    lock(false);
+    document.querySelectorAll('button').forEach(button => { button.disabled = button.dataset.unavailable === 'true'; });
   }
 }
 
@@ -180,6 +210,19 @@ async function recognizeSources() {
 function renderSourceReview() {
   const analysis = deck.source_analysis;
   const box = $('#source-conflicts'); box.replaceChildren();
+  $('#inspect-sources').hidden = !deck.profile.sources.length || deck.busy;
+  const insights = $('#source-intelligence'); insights.replaceChildren();
+  const intelligence = deck.profile.source_intelligence;
+  insights.hidden = !intelligence || intelligence.signature !== analysis?.signature;
+  if (!insights.hidden) {
+    insights.append(element('strong', 'Gợi ý phân tích nguồn bằng AI'), element('p', 'Trích dẫn đã đối chiếu văn bản. Gợi ý về ý nghĩa có thể sai; thông tin bài và các trường khóa được giữ nguyên. Muốn dùng metadata, chọn Sửa thông tin bài.'));
+    for (const item of intelligence.metadata) {
+      const source = deck.profile.sources.find(source => source.id === item.source_id);
+      insights.append(element('p', `${metadataLabels[item.field] || 'Mục tiêu'}: ${item.value} · ${source?.name || ''}${source?.page ? ' · trang PDF ' + source.page : ''}`), element('blockquote', item.quote));
+    }
+    for (const warning of intelligence.warnings) insights.append(element('p', warning));
+    if (!intelligence.conflicts.length) insights.append(element('p', 'AI chưa chỉ ra mâu thuẫn. Điều này không xác nhận nguồn đầy đủ hoặc đúng kiến thức.'));
+  }
   $('#source-review').hidden = !analysis?.conflicts.length && !analysis?.overflow;
   $('#source-discard-label').hidden = !deck.blueprint && !deck.manifest;
   $('#source-discard').checked = false;
@@ -221,7 +264,12 @@ function headers() { return { 'If-Match': String(deck.version) }; }
 
 async function saveProfile() {
   if (sources.length && form.elements.input_mode.value !== 'manual' && ['subject', 'grade', 'lesson_title'].some(key => !form.elements[key].value.trim())) await recognizeSources();
-  if (!form.reportValidity()) return false;
+  if (!form.checkValidity()) {
+    // Inert prevents edits during async work but must not prevent the browser
+    // from focusing a missing required field before any request is made.
+    form.querySelectorAll('input,select,textarea').forEach(input => { input.inert = false; input.removeAttribute('aria-disabled'); });
+    form.reportValidity(); return false;
+  }
   if (sources.length && !$('#cloud-consent').checked) throw new Error('Hãy xem nguồn đã chọn và đồng ý trước khi lưu các đoạn này lên tài khoản.');
   const payload = profile();
   if (editingInput && deck) deck = await api(`/decks/${deck.id}/input-profile`, { method: 'PATCH', headers: headers(), body: JSON.stringify(payload) });
@@ -272,16 +320,17 @@ function showDeck() {
   $('#presentation-theme').value = deck.profile.theme;
   $('#presentation-motion').value = deck.profile.motion;
   $('#deck-status').textContent = `${statusLabels[deck.status] || deck.status} · Phiên bản ${deck.version}`;
-  $('#edit-instruction').placeholder = deck.profile.grounding === 'strict' ? 'Ví dụ chọn trích đoạn về công thức, đổi hoạt động đọc' : 'Ví dụ thêm một ví dụ gần gũi với học sinh';
-  $('#ai-edit-form button').textContent = deck.profile.grounding === 'strict' ? 'Chọn lại trích đoạn bằng AI (1 lượt)' : 'Đề xuất thay đổi bằng AI (1 lượt)';
+  $('#edit-instruction').placeholder = ['strict', 'verified_expansion'].includes(deck.profile.grounding) ? 'Ví dụ chọn trích đoạn về công thức, đổi hoạt động đọc' : 'Ví dụ thêm một ví dụ gần gũi với học sinh';
+  $('#ai-edit-form button').textContent = ['strict', 'verified_expansion'].includes(deck.profile.grounding) ? 'Chọn lại trích đoạn bằng AI (1 lượt)' : 'Đề xuất thay đổi bằng AI (1 lượt)';
   renderSourceReview();
   const ready = deck.status === 'ready' && Boolean(deck.manifest);
-  const legacyStrict = deck.profile.grounding === 'strict' && deck.blueprint && deck.blueprint.grounding_version !== 'extractive-v1';
+  const legacyStrict = ['strict', 'verified_expansion'].includes(deck.profile.grounding) && deck.blueprint && deck.blueprint.grounding_version !== 'extractive-v1';
   $('#replan-grounded').hidden = !legacyStrict || deck.source_analysis?.unresolved;
   $('#export-pptx').hidden = !ready;
   $('#export-pptx').textContent = nativeMotionAllowed() ? 'Tải PowerPoint có hiệu ứng' : 'Tải PowerPoint';
   $('#export-basic').hidden = !ready || !nativeMotionAllowed();
   $('#export-notes').hidden = !ready;
+  $('#export-offline').hidden = !ready;
   $('#continue-deck').hidden = ready || deck.status === 'needs_review' || deck.source_analysis?.unresolved || legacyStrict;
   $('#continue-deck').textContent = deck.status === 'authoring' ? `Tiếp tục soạn (${deck.manifest.slides.length}/${deck.profile.slide_count})` : deck.blueprint ? 'Soạn slide từ dàn ý' : 'Tiếp tục tạo dàn ý';
   const review = $('#outline-review');
@@ -377,7 +426,7 @@ function renderOutlineRows() {
     const fields = element('div', '', 'studio-fields');
     const kindLabel = element('label', 'Mục đích slide'); const kind = element('select'); kind.name = 'outline_kind';
     for (const [value, label] of Object.entries(kindLabels)) {
-      if (deck.profile.grounding !== 'strict' || strictKinds.has(value)) kind.append(new Option(label, value));
+      if (deck.profile.grounding === 'balanced' || strictKinds.has(value)) kind.append(new Option(label, value));
     }
     kind.value = slide.kind; kindLabel.append(kind);
     const durationLabel = element('label', 'Thời lượng (giây)'); const duration = element('input');
@@ -460,7 +509,7 @@ function renderSlide(slide) {
   const preview = $('#slide-preview');
   preview.replaceChildren();
   const evidence = $('#slide-evidence'); evidence.replaceChildren();
-  evidence.hidden = !slide || deck.profile.grounding !== 'strict' || !deck.manifest;
+  evidence.hidden = !slide || !['strict', 'verified_expansion'].includes(deck.profile.grounding) || !deck.manifest;
   if (!evidence.hidden) {
     const report = deck.grounding_report?.find(item => item.slide_id === slide.id);
     evidence.append(element('strong', report?.verified ? 'Đã đối chiếu trích đoạn với nguồn' : 'Nội dung cần đối chiếu lại với nguồn'));
@@ -471,6 +520,7 @@ function renderSlide(slide) {
       if (seen.has(key)) continue;
       seen.add(key);
       const source = deck.profile.sources.find(item => item.id === citation.source_id);
+      if (deck.profile.grounding === 'verified_expansion' && source?.role === 'reference') evidence.append(element('strong', 'Nguồn bổ sung do giáo viên chọn'));
       evidence.append(element('p', `${source?.name || citation.source_id}${citation.page ? ' · trang PDF ' + citation.page : ''}`), element('blockquote', citation.quote));
     }
   }
@@ -481,6 +531,9 @@ function renderSlide(slide) {
     $('#slide-bullets').value = slide.bullets.join('\n');
     $('#slide-notes').value = slide.speaker_notes;
     $('#slide-resource').value = slide.resource_id || '';
+    $('#resource-link-title').value = slide.manual_resource?.title || '';
+    $('#resource-link-url').value = slide.manual_resource?.url || '';
+    $('#manual-resource-editor').open = Boolean(slide.manual_resource);
     renderResourceDetails();
     $('#quiz-editor').hidden = slide.kind !== 'quiz';
     $('#chart-editor').hidden = slide.kind !== 'chart';
@@ -505,16 +558,48 @@ function fillQuizAnswers(selected = $('#quiz-correct').value) {
 
 function renderResourceDetails() {
   const box = $('#resource-details'); box.replaceChildren();
-  const resource = resourceInfo($('#slide-resource').value);
+  let own;
+  try { own = manualResource($('#resource-link-title').value, $('#resource-link-url').value.trim()); }
+  catch (error) { box.hidden = false; box.append(element('p', error.message)); return; }
+  const resource = own ? { label: own.title, description: 'Liên kết do giáo viên cung cấp.', credit: 'Giáo viên', internet: true, limitations: 'Chưa xác minh nội dung, quyền sử dụng hoặc khả năng truy cập.' } : resourceInfo($('#slide-resource').value);
   box.hidden = !resource;
   if (!resource) return;
   box.append(element('strong', resource.label), element('p', resource.description), element('p', 'Nguồn: ' + resource.credit));
   box.append(element('p', resource.internet ? 'Cần Internet; mở trên website nguồn, không nhúng trong PowerPoint.' : 'Mở cùng website Smart TKB. Khi tải PowerPoint về máy vẫn cần truy cập được website.'));
   const link = element('a', 'Mở học liệu để xem trước', 'studio-text-button');
-  link.href = resourceHref(resource.id, location.origin); link.target = '_blank'; link.rel = 'noopener noreferrer';
+  link.href = own?.url || resourceHref(resource.id, location.origin); link.target = '_blank'; link.rel = 'noopener noreferrer';
   box.append(link, element('p', resource.limitations));
 }
 $('#slide-resource').onchange = renderResourceDetails;
+$('#resource-link-url').oninput = renderResourceDetails;
+$('#resource-link-title').oninput = renderResourceDetails;
+setupVoice({ start: $('#voice-start'), consent: $('#voice-consent'), transcript: $('#voice-transcript'), status: $('#voice-status'), apply: $('#voice-apply'), target: form.elements.must_include });
+let ocrSource = null;
+let ocrRun = 0;
+async function doOCR(fromPDF) {
+  const identity = ++ocrRun;
+  const { recognizeImage, imageCanvas } = await import('./ocr.js');
+  if (identity !== ocrRun) throw new Error('Đã dừng OCR.');
+  $('#ocr-reviewed').checked = false; $('#ocr-text').value = ''; ocrSource = null;
+  const pageNumber = Number($('#page-first').value);
+  const file = $('#ocr-image').files[0];
+  const canvas = fromPDF ? await pdfPageCanvas(pageNumber) : await imageCanvas(file);
+  if (identity !== ocrRun) throw new Error('Đã dừng OCR.');
+  $('#ocr-original').src = canvas.toDataURL('image/png'); $('#ocr-original').hidden = false;
+  const result = await recognizeImage(canvas, (stage, percent) => { $('#ocr-status').textContent = `Đang nhận dạng trên thiết bị… ${percent}%`; });
+  $('#ocr-text').value = result.text;
+  ocrSource = { name: `${fromPDF ? activeDocument.name + ' · trang PDF ' + pageNumber : file.name} (OCR, giáo viên cần đối chiếu)`, page: fromPDF ? pageNumber : null };
+  $('#ocr-status').textContent = `Đã có bản OCR${result.confidence === null ? '' : ' · chỉ số nhận dạng ' + Math.round(result.confidence) + '/100 (không phải xác suất đúng)'}. Hãy đối chiếu ảnh và sửa công thức/dấu trước khi thêm nguồn.`;
+}
+$('#ocr-image-start').onclick = () => run(() => doOCR(false));
+$('#ocr-pdf-start').onclick = () => run(() => doOCR(true));
+$('#ocr-cancel').onclick = async () => { ocrRun += 1; const { cancelOCR } = await import('./ocr.js'); cancelOCR(); };
+$('#ocr-text').oninput = () => { $('#ocr-reviewed').checked = false; };
+$('#ocr-add').onclick = () => run(async () => {
+  if (!ocrSource || !$('#ocr-text').value.trim() || !$('#ocr-reviewed').checked) throw new Error('Hãy đọc ảnh, sửa và xác nhận đối chiếu kết quả OCR trước khi thêm.');
+  sources.push({ id: 'ocr-' + crypto.randomUUID().slice(0, 12), fingerprint: '', role: 'reference', ...ocrSource, text: $('#ocr-text').value.trim() });
+  $('#cloud-consent').checked = false; renderSources(); message('Đã thêm văn bản OCR đã xác nhận. Chỉ gửi phần chữ này tới AI khi bạn đồng ý.');
+});
 $('#quiz-options').oninput = () => fillQuizAnswers();
 
 function startLesson(mode) {
@@ -534,6 +619,44 @@ form.onsubmit = event => {
 $('#create-outline').onclick = () => startLesson('outline');
 $('#save-draft').onclick = () => run(async () => { if (await saveProfile()) { showDeck(); message('Đã lưu bản nháp.'); } });
 $('#recognize-source').onclick = () => run(recognizeSources);
+$('#recognize-source-ai').onclick = () => run(async () => {
+  if (!sources.length || !$('#cloud-consent').checked) throw new Error('Hãy thêm, xem và đồng ý gửi các đoạn đã chọn trước khi gọi AI.');
+  if (editingInput && deck && (deck.blueprint || deck.manifest) && !confirm('Phân tích nguồn tạo bản nháp từ thông tin hiện tại; bài trước được giữ trong Hoàn tác. Tiếp tục?')) return;
+  const sourceSnapshot = JSON.stringify(sources);
+  const data = profile();
+  const draft = { ...data, subject: data.subject || 'Chưa xác định', grade: data.grade || 'Chưa xác định', lesson_title: data.lesson_title || 'Bản phân tích nguồn',
+    locked_fields: data.locked_fields.filter(key => String(data[key] || '').trim()) };
+  deck = editingInput && deck ? await api(`/decks/${deck.id}/input-profile`, { method: 'PATCH', headers: headers(), body: JSON.stringify(draft) }) : await api('/decks', { method: 'POST', body: JSON.stringify(draft) });
+  editingInput = true;
+  localStorage.setItem('studio-current-' + owner, deck.id);
+  message('Đã giữ bản nháp; AI đang phân tích nguồn đã chọn…');
+  deck = await api(`/decks/${deck.id}/inspect-sources`, { method: 'POST', headers: { ...headers(), 'Idempotency-Key': crypto.randomUUID() }, body: '{}' });
+  if (JSON.stringify(sources) !== sourceSnapshot) throw new Error('Nguồn đã đổi trong khi AI phân tích. Kết quả cũ được giữ trong bài nháp; kiểm tra và phân tích lại nguồn hiện tại trước khi dùng.');
+  const box = $('#source-recognition'); box.replaceChildren(); box.hidden = false;
+  box.append(element('strong', 'Gợi ý từ AI — kiểm tra trước khi dùng'), element('p', 'Trích dẫn đã đối chiếu văn bản; ý nghĩa có thể sai. Chỉ tự điền ô trống; thông tin đã nhập hoặc khóa được giữ.'));
+  for (const item of deck.profile.source_intelligence?.metadata || []) {
+    const input = form.elements[item.field];
+    if (!input) continue;
+    if (!input.value.trim()) input.value = item.value;
+    const row = element('article', '', 'studio-source');
+    row.append(element('strong', `${metadataLabels[item.field] || 'Mục tiêu'}: ${item.value}`), element('blockquote', item.quote));
+    const apply = element('button', 'Dùng gợi ý này', 'btn ghost'); apply.type = 'button';
+    apply.onclick = () => {
+      if ([...$('#field-locks input:checked')].some(lock => lock.value === item.field) && input.value.trim()) { message('Trường đang khóa. Bỏ khóa hoặc sửa trực tiếp nếu muốn đổi.', true); return; }
+      input.value = item.value;
+    };
+    row.append(apply); box.append(row);
+  }
+  if (!deck.profile.source_intelligence?.metadata.length) box.append(element('p', 'AI chưa có gợi ý đủ căn cứ. Nhập các trường còn thiếu hoặc chọn nguồn rõ hơn.'));
+  await refreshLibrary(); message('Đã lưu phân tích nguồn. Kiểm tra metadata, lưu bài rồi rà soát những điểm khác nhau.');
+});
+$('#inspect-sources').onclick = () => run(async () => {
+  const hasContent = Boolean(deck.blueprint || deck.manifest);
+  if (hasContent && !confirm('Phân tích lại dùng 1 lượt AI và đưa bài về bản nháp để rà soát nguồn. Bản hiện tại có thể Hoàn tác. Tiếp tục?')) return;
+  message('AI đang phân tích các đoạn nguồn đã chọn…');
+  deck = await api(`/decks/${deck.id}/inspect-sources`, { method: 'POST', headers: { ...headers(), 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({ discard_content: hasContent }) });
+  showDeck(); await refreshLibrary(); message('Đã lưu gợi ý phân tích nguồn. Hãy kiểm tra các trích dẫn và lựa chọn ưu tiên.');
+});
 $('#source-review-form').onsubmit = event => {
   event.preventDefault();
   run(async () => {
@@ -554,7 +677,7 @@ $('#replan-grounded').onclick = () => {
   if (!confirm('Lập lại dàn ý theo chế độ trích đoạn? Dàn ý và nội dung cũ được giữ trong lịch sử để hoàn tác.')) return;
   run(async () => { await generate('plan'); });
 };
-form.elements.grounding.onchange = () => { $('#grounding-help').hidden = form.elements.grounding.value !== 'strict'; };
+form.elements.grounding.onchange = () => { $('#grounding-help').hidden = form.elements.grounding.value === 'balanced'; };
 $('#new-deck').onclick = () => {
   deck = null; sources = []; editingInput = false; selectedSlide = 0; form.reset();
   generationMode = 'automatic';
@@ -578,16 +701,34 @@ $('#edit-input').onclick = () => {
   message('Lưu thay đổi thông tin nguồn sẽ tạo bản nháp mới. Có thể hoàn tác về bài cũ.');
 };
 
-async function readFile(file) {
+async function readFile(file, restored = null) {
   message('Đang đọc tài liệu trên thiết bị…');
-  activeDocument = await openDocument(file);
+  activeDocument = null;
+  $('#pdf-picker').hidden = true;
+  $('#cloud-consent').checked = false;
+  activeDocument = await openDocument(file, { styleOnly: $('#pptx-import-mode').value === 'style' });
+  populateBatchLessons();
+  if (restored && restored.fingerprint !== activeDocument.fingerprint) throw new Error('Tệp khác fingerprint của sách đã lưu. Hãy chọn đúng bản PDF; chỉ mục cũ không được áp dụng.');
   $('#cloud-consent').checked = false;
   $('#pdf-picker').hidden = activeDocument.type !== 'pdf';
-  if (activeDocument.type === 'pdf') {
+  $('#style-reference').hidden = activeDocument.type !== 'style';
+  if (activeDocument.type === 'style') {
+    const box = $('#style-reference'); box.replaceChildren();
+    box.append(element('strong', 'Bảng màu theme: ' + activeDocument.name), element('p', 'Chỉ tham khảo màu trong tệp; không nhập nội dung, template, ảnh hoặc hiệu ứng. Bạn chọn có áp dụng theme gợi ý hay không.'));
+    const palette = element('p');
+    for (const color of activeDocument.colors) { const swatch = element('span', '#' + color); swatch.style.cssText = `display:inline-block;border-left:18px solid #${color};padding:4px 8px`; palette.append(swatch); }
+    const apply = element('button', 'Dùng theme gần màu nhất', 'btn ghost'); apply.type = 'button';
+    apply.onclick = () => { form.elements.theme.value = activeDocument.recommended; message('Đã chọn theme gợi ý trong biểu mẫu. Các nội dung khác được giữ.'); };
+    box.append(palette, apply); message('Đã đọc bảng màu PPTX trên thiết bị; chưa gửi nội dung hoặc gọi AI.');
+  } else if (activeDocument.type === 'pdf') {
+    if (restored?.toc?.length) activeDocument.toc = restored.toc;
+    populateBatchLessons();
+    activeDocument.scope = restored?.scope || null;
     $('#book-search-results').hidden = true; $('#book-search-results').replaceChildren();
     $('#document-name').textContent = `${activeDocument.name} · ${activeDocument.pages} trang PDF`;
-    $('#page-first').value = 1;
-    $('#page-last').value = Math.min(8, activeDocument.pages);
+    $('#page-first').value = restored?.first || 1;
+    $('#page-last').value = restored?.last || Math.min(8, activeDocument.pages);
+    activeDocument.first = Number($('#page-first').value); activeDocument.last = Number($('#page-last').value);
     $('#page-first').max = activeDocument.pages;
     $('#page-last').max = activeDocument.pages;
     $('#book-toc').replaceChildren(new Option('Chọn khoảng trang bên dưới', ''));
@@ -599,25 +740,37 @@ async function readFile(file) {
       id: sourceId, name: activeDocument.name, fingerprint: activeDocument.fingerprint,
       role: 'primary', page: null, text: activeDocument.text,
     }];
-    renderSources(); message('Đã trích văn bản. Mở nguồn bên dưới để kiểm tra.');
+    renderSources(); message(activeDocument.warning || 'Đã trích văn bản. Mở nguồn bên dưới để kiểm tra.');
   }
 }
 $('#document-file').onchange = event => { if (event.target.files[0]) run(() => readFile(event.target.files[0])); };
+$('#pptx-import-mode').onchange = () => { const file = $('#document-file').files[0]; if (file?.name.toLowerCase().endsWith('.pptx')) run(() => readFile(file)); };
+for (const name of ['#page-first', '#page-last']) $(name).oninput = () => { if (activeDocument) activeDocument.scope = null; $('#book-toc').value = ''; };
+async function rememberBookScope() {
+  if (!activeDocument) return;
+  activeDocument.first = Number($('#page-first').value); activeDocument.last = Number($('#page-last').value);
+  await bookAction(owner, 'update', activeDocument);
+}
 $('#book-toc').onchange = event => {
   if (!event.target.value) return;
   const index = Number(event.target.value);
   const current = activeDocument.toc[index];
+  activeDocument.scope = Number.isInteger(current.startOffset) ? current : null;
   $('#page-first').value = current.page;
   const next = activeDocument.toc.slice(index + 1).find(item => item.page > current.page);
-  $('#page-last').value = Math.min(next ? next.page - 1 : activeDocument.pages, current.page + 49);
+  const endPage = current.endPage ? current.endPage - (current.endOffset === 0 && current.endPage > current.page ? 1 : 0) : next ? next.page - 1 : activeDocument.pages;
+  $('#page-last').value = Math.min(endPage, current.page + 49);
   if (!form.elements.lesson_title.value.trim()) form.elements.lesson_title.value = current.title.slice(0, 240);
+  run(async () => { await rememberBookScope(); message(activeDocument.scope ? 'Đã chọn phần bài theo tiêu đề, kể cả khi chung trang. Xem văn bản trích để kiểm tra ranh giới.' : 'Đã chọn khoảng trang từ bookmark. Kiểm tra phần trích trước khi gửi.'); });
 };
 $('#discover-lessons').onclick = () => run(async () => {
   const lessons = await discoverPdfLessons((number, total) => message(`Đang nhận diện tiêu đề trên thiết bị… ${number}/${total} trang.`));
   if (!lessons.length) { message('Chưa tìm thấy tiêu đề bài/chương rõ ràng trong lớp chữ. Hãy tìm từ khóa hoặc chọn trang bằng tay.'); return; }
   activeDocument.toc = lessons;
+  populateBatchLessons();
   $('#book-toc').replaceChildren(new Option('Chọn gợi ý rồi kiểm tra khoảng trang', ''));
   lessons.forEach((item, index) => $('#book-toc').append(new Option(item.title + ' · trang PDF ' + item.page, String(index))));
+  await rememberBookScope();
   message(`Đã tìm ${lessons.length} tiêu đề (tối đa 200). Đây là gợi ý từ lớp chữ; kiểm tra khoảng trang, nhất là khi nhiều bài bắt đầu cùng trang. Chưa gửi sách tới server.`);
 });
 $('#search-book').onclick = () => run(async () => {
@@ -627,16 +780,74 @@ $('#search-book').onclick = () => run(async () => {
   if (!results.length) box.append(element('p', 'Không tìm thấy trong lớp chữ PDF. Thử từ khóa khác hoặc chọn trang bằng tay.'));
   for (const result of results) {
     const button = element('button', `Chọn trang PDF ${result.page} · ${result.snippet}`); button.type = 'button';
-    button.onclick = () => { $('#page-first').value = result.page; $('#page-last').value = result.page; message('Đã chọn trang tìm thấy. Kiểm tra phạm vi rồi trích nội dung cần dùng.'); };
+    button.onclick = () => { activeDocument.scope = null; $('#page-first').value = result.page; $('#page-last').value = result.page; message('Đã chọn trang tìm thấy. Kiểm tra phạm vi rồi trích nội dung cần dùng.'); };
     box.append(button);
   }
   message(`Đã tìm trên thiết bị: ${results.length} trang phù hợp (hiển thị tối đa 40). Chưa gửi các trang này tới server.`);
 });
+$('#prepare-batch').onclick = () => run(async () => {
+  if (activeDocument?.type !== 'pdf') throw new Error('Mở sách PDF và nhận diện mục lục trước.');
+  const indices = [...$('#batch-lessons').selectedOptions].map(option => Number(option.value));
+  if (!indices.length || indices.length > 20) throw new Error('Chọn 1–20 bài cho mỗi lô. Có thể chuẩn bị lô tiếp theo sau.');
+  if (form.elements.lesson_title.value.trim() && $('#field-locks input[value=lesson_title]').checked) throw new Error('Bỏ khóa Tên bài để dùng tên riêng của từng bài trong lô.');
+  batchDrafts = []; const box = $('#batch-preview'); box.replaceChildren(); $('#batch-reviewed').checked = false;
+  for (const index of indices) {
+    const item = activeDocument.toc[index];
+    const next = activeDocument.toc.slice(index + 1).find(other => other.page > item.page);
+    const last = item.endPage ? item.endPage - (item.endOffset === 0 && item.endPage > item.page ? 1 : 0) : next ? next.page - 1 : activeDocument.pages;
+    if (last - item.page > 49) throw new Error('Một bài vượt 50 trang. Chọn phạm vi nhỏ hơn để soạn riêng.');
+    const extracted = await extractPages(item.page, last, null, Number.isInteger(item.startOffset) ? item : null);
+    const section = element('details'); section.open = true; section.append(element('summary', item.title));
+    const fields = extracted.map(source => {
+      const label = element('label', `${source.name} · trang PDF ${source.page}`);
+      const input = document.createElement('textarea'); input.rows = 4; input.maxLength = 40000; input.value = source.text;
+      input.oninput = () => { $('#batch-reviewed').checked = false; }; label.append(input); section.append(label);
+      return { source, input };
+    });
+    batchDrafts.push({ title: item.title, fields }); box.append(section);
+  }
+  message('Đã trích riêng từng bài trên thiết bị. Kiểm tra/sửa văn bản và xác nhận trước khi lưu lô.');
+});
+async function resumeBatch() {
+  const queue = readBatchQueue();
+  if (!queue?.items.length) throw new Error('Chưa có lô bài đã lưu.');
+  const { driveBatch } = await import('./batch.js');
+  const result = await driveBatch(queue, {
+    load: id => api('/decks/' + id),
+    request: (step, current) => api(`/decks/${current.id}/${step}`, { method: 'POST', headers: { 'If-Match': String(current.version), 'Idempotency-Key': crypto.randomUUID() } }),
+    persist: value => { localStorage.setItem(batchKey, JSON.stringify(value)); renderBatchQueue(); },
+    onDeck: current => { deck = current; showDeck(); message(`Đang xử lý lô bài: ${current.title}`); },
+  });
+  await refreshLibrary(); renderBatchQueue();
+  message(result.state === 'ready' ? 'Đã soạn xong lô bài. Mở từng bài để rà soát và tải tệp.' : 'Lô bài đã dừng để rà soát. Xem bài hiện tại, giải quyết cảnh báo rồi chủ động Tiếp tục lô bài.');
+}
+$('#start-batch').onclick = () => run(async () => {
+  if (!batchDrafts.length || !$('#batch-reviewed').checked || !$('#cloud-consent').checked) throw new Error('Xem nguồn từng bài và bật cả xác nhận lô, đồng ý gửi AI trước khi bắt đầu.');
+  const previous = readBatchQueue();
+  if (previous?.items.some(item => !item.completed)) throw new Error('Còn lô chưa hoàn tất. Tiếp tục lô cũ hoặc Bỏ hàng đợi trước khi tạo lô mới.');
+  const base = profile();
+  if (!base.subject.trim() || !base.grade.trim()) throw new Error('Nhập môn và lớp dùng chung cho lô.');
+  if (base.grounding === 'verified_expansion') throw new Error('Lô sách hiện dùng một nguồn chính mỗi bài. Chọn Cân bằng/Bám nguồn, hoặc soạn từng bài để thêm nguồn tham khảo.');
+  const queue = { owner: String(owner), created_at: new Date().toISOString(), requested: batchDrafts.length, paused: null, items: [] };
+  for (const item of batchDrafts) {
+    const saved = await api('/decks', { method: 'POST', body: JSON.stringify({ ...base, lesson_title: item.title, sources: item.fields.map(({ source, input }) => ({ ...source, text: input.value.trim() })), generation_mode: 'automatic' }) });
+    queue.items.push({ id: saved.id, title: saved.title, completed: false });
+    localStorage.setItem(batchKey, JSON.stringify(queue)); renderBatchQueue();
+  }
+  await resumeBatch();
+});
+$('#resume-batch').onclick = () => run(resumeBatch);
+$('#clear-batch').onclick = () => {
+  if (!confirm('Bỏ danh sách hàng đợi trên thiết bị? Các bài đã lưu vẫn còn trong thư viện.')) return;
+  localStorage.removeItem(batchKey); renderBatchQueue();
+};
+renderBatchQueue();
 $('#extract-pages').onclick = () => run(async () => {
   const extracted = await extractPages(Number($('#page-first').value), Number($('#page-last').value),
-    (page, last) => message(`Đang đọc trang ${page} / ${last} trên thiết bị…`));
+    (page, last) => message(`Đang đọc trang ${page} / ${last} trên thiết bị…`), activeDocument?.scope);
   const ids = new Set(extracted.map(source => source.id));
   sources = [...sources.filter(source => !ids.has(source.id)), ...extracted];
+  await rememberBookScope();
   $('#cloud-consent').checked = false;
   renderSources(); message('Đã đọc phần được chọn. Kiểm tra văn bản và công thức trước khi gửi AI.');
 });
@@ -649,6 +860,7 @@ $('#add-paste').onclick = () => {
   renderSources();
 };
 $('#save-book').onclick = () => run(async () => {
+  activeDocument.first = Number($('#page-first').value); activeDocument.last = Number($('#page-last').value);
   await bookAction(owner, 'save', activeDocument);
   navigator.storage?.persist?.().catch(() => {});
   message('Đã lưu sách trên thiết bị này. Đổi máy hoặc xóa dữ liệu trình duyệt sẽ cần chọn lại tệp.');
@@ -663,10 +875,14 @@ $('#show-books').onclick = () => run(async () => {
     const row = element('div');
     const open = element('button', book.name, 'studio-deck-link');
     open.type = 'button';
-    open.onclick = () => run(async () => { showPane('create'); await readFile(book.file); });
+    open.onclick = () => run(async () => { showPane('create'); if (!book.file) throw new Error('Chọn Liên kết lại tệp để dùng sách này.'); await readFile(book.file, book); });
+    const relink = element('button', 'Liên kết lại tệp', 'studio-text-button'); relink.type = 'button';
+    const input = document.createElement('input'); input.type = 'file'; input.accept = '.pdf'; input.hidden = true;
+    relink.onclick = () => input.click();
+    input.onchange = () => run(async () => { if (!input.files[0]) return; showPane('create'); await readFile(input.files[0], book); await bookAction(owner, 'save', activeDocument); message('Đã liên kết lại đúng tệp và khôi phục chỉ mục/phạm vi đã lưu.'); });
     const remove = element('button', 'Quên sách', 'studio-text-button');
     remove.onclick = () => run(async () => { await bookAction(owner, 'delete', book); row.remove(); });
-    row.append(open, remove); list.append(row);
+    row.append(open, relink, input, remove); list.append(row);
   }
 });
 $('#slide-form').onsubmit = event => {
@@ -675,6 +891,8 @@ $('#slide-form').onsubmit = event => {
     const slide = { ...deck.manifest.slides[selectedSlide], title: $('#slide-title').value.trim(),
       bullets: $('#slide-bullets').value.split('\n').map(line => line.trim()).filter(Boolean),
       speaker_notes: $('#slide-notes').value, resource_id: $('#slide-resource').value || null };
+    slide.manual_resource = manualResource($('#resource-link-title').value, $('#resource-link-url').value.trim());
+    if (slide.manual_resource) slide.resource_id = null;
     if (slide.kind === 'quiz') {
       slide.question = $('#quiz-question').value.trim();
       slide.options = $('#quiz-options').value.split('\n').map(value => value.trim()).filter(Boolean);
@@ -749,6 +967,8 @@ function nativeMotionAllowed() {
 async function exportPowerPoint(nativeMotion) {
   if (deck.source_analysis?.unresolved) throw new Error('Hãy rà soát nguồn trước khi tải bài.');
   requireContentReview();
+  const layoutIssues = await preflightDeck(deck);
+  if (layoutIssues.length) throw new Error(`Chưa tải được: ${layoutIssues.map(item => 'slide ' + item.slide + ' ' + item.reason).join('; ')}. Rút gọn chữ hoặc đổi bố cục trước khi tải.`);
   message('Đang tạo PowerPoint trên thiết bị…');
   await new Promise(resolve => setTimeout(resolve, 40));
   const { buildDeck, download } = await import('./pptx/export.js');
@@ -767,6 +987,18 @@ async function exportPowerPoint(nativeMotion) {
 }
 $('#export-pptx').onclick = () => run(() => exportPowerPoint(nativeMotionAllowed()));
 $('#export-basic').onclick = () => run(() => exportPowerPoint(false));
+$('#export-offline').onclick = () => run(async () => {
+  if (deck.source_analysis?.unresolved) throw new Error('Rà soát nguồn trước khi đóng gói.');
+  requireContentReview();
+  const issues = await preflightDeck(deck);
+  if (issues.length) throw new Error('Một số slide có chữ vượt khung. Rút gọn trước khi đóng gói offline.');
+  message('Đang đóng gói PowerPoint, ghi chú và mô phỏng offline…');
+  const { buildOfflinePackage } = await import('./offline.js');
+  const { download } = await import('./pptx/export.js');
+  const bytes = await buildOfflinePackage(deck, { nativeMotion: nativeMotionAllowed(), origin: location.origin });
+  download(bytes, deck.title + '-offline.zip', 'application/zip');
+  message('Đã tạo gói offline. Giải nén rồi mở index.html; PhET/video/web ngoài vẫn cần Internet.');
+});
 $('#export-json').onclick = () => run(async () => {
   const { download } = await import('./pptx/export.js');
   download(JSON.stringify(deck, null, 2), deck.title + '.json', 'application/json');
@@ -774,18 +1006,26 @@ $('#export-json').onclick = () => run(async () => {
 $('#export-notes').onclick = () => run(async () => {
   requireContentReview();
   const { download } = await import('./pptx/export.js');
-  download(deck.manifest.slides.map((slide, index) => `${index + 1}. ${slide.title}\n${slide.speaker_notes}\n\nGiáo viên — ${slide.teacher_action}\nHọc sinh — ${slide.student_action}`).join('\n\n'), deck.title + '-ghi-chu.txt', 'text/plain;charset=utf-8');
+  download(deck.manifest.slides.map((slide, index) => {
+    const references = slide.source_ids.map(id => deck.profile.sources.find(source => source.id === id)).filter(Boolean).map(source => `${source.role === 'reference' ? '[Nguồn bổ sung] ' : ''}${source.name}${source.page ? ' · trang PDF ' + source.page : ''}`).join('\n');
+    const resource = slide.manual_resource ? `${slide.manual_resource.title}\n${slide.manual_resource.url}\nDo giáo viên cung cấp; chưa xác minh nội dung/quyền sử dụng.` : slide.resource_id ? `${resourceInfo(slide.resource_id).label}\n${resourceInfo(slide.resource_id).credit}\n${resourceHref(slide.resource_id, location.origin)}` : '';
+    return `${index + 1}. ${slide.title}\n${slide.speaker_notes}\n\nGiáo viên — ${slide.teacher_action}\nHọc sinh — ${slide.student_action}\n\nNguồn\n${references || 'Không có tài liệu tham chiếu'}${resource ? '\n\nHọc liệu (cần truy cập website)\n' + resource : ''}`;
+  }).join('\n\n'), deck.title + '-ghi-chu.txt', 'text/plain;charset=utf-8');
 });
 if ($('#show-usage')) $('#show-usage').onclick = () => run(async () => {
-  const items = await api('/admin/usage');
+  const [items, summary] = await Promise.all([api('/admin/usage'), api('/admin/summary')]);
   showPane('usage');
   $('#quota-description').textContent = `Tối đa ${capabilities.requests_per_user_day} lượt/người/ngày và ${capabilities.requests_per_site_day} lượt/toàn hệ thống/ngày. Lượt lỗi vẫn được tính. Ngày hạn mức theo UTC.`;
   $('#usage-list').replaceChildren();
+  const totals = $('#usage-summary'); totals.replaceChildren();
+  for (const [label, value] of [['Bài giảng đã lưu', summary.decks], ['Lượt xử lý đã ghi', summary.steps], ['Lượt xử lý lỗi', summary.failed_steps], ['Lượt hôm nay (' + summary.day_utc + ' UTC)', summary.requests_today + '/' + summary.site_limit]]) totals.append(element('dt', label), element('dd', String(value)));
+  for (const model of summary.models) $('#usage-list').append(element('p', `${model.model} · ${model.status}: ${model.requests} lượt · ${model.input_tokens} token vào / ${model.output_tokens} token ra`));
   for (const item of items) $('#usage-list').append(element('p', `${item.created_at} · ${item.model} · ${item.status} · Mã tra cứu ${item.step_id}`));
 });
 
 run(async () => {
   capabilities = await api('/capabilities');
+  $('#content-quality-notice').hidden = Boolean(capabilities.content_qa_approved);
   if (!capabilities.ai_configured) {
     $('#configuration-notice').hidden = false;
     $('#configuration-notice').textContent = 'AI chưa được cấu hình. Bạn có thể đọc tài liệu và lưu bản nháp. Quản trị viên cần thêm key và mô hình OpenRouter miễn phí trước khi tạo nội dung.';

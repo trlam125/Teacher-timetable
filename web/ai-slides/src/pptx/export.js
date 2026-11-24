@@ -1,7 +1,7 @@
 import pptxgen from 'pptxgenjs';
 import { checkScene, createScene } from './scene.js';
 import { mapSvg } from './visuals.js';
-import { resourceHref, resourceInfo } from '../resources.js';
+import { resourceHref, resourceInfo, manualResource } from '../resources.js';
 
 export function resourceUrl(id, origin) {
   return resourceHref(id, origin);
@@ -62,17 +62,18 @@ export async function buildDeck(deck, { nativeMotion = false, origin = '' } = {}
     drawScene(pptx, slide, scene, quizTargets);
     targets.push(scene.objects.filter(object => object.animate).map(object => object.id));
     const references = (item.source_ids || []).map(id => deck.profile.sources.find(source => source.id === id)).filter(Boolean);
-    const sourceText = references.map(source => source.name + (source.page ? ` (trang PDF ${source.page})` : '')).join(' · ');
-    slide.addText(sourceText || 'Giáo viên rà soát nội dung trước khi dạy', {
+    const sourceText = references.map(source => (deck.profile.grounding === 'verified_expansion' && source.role === 'reference' ? '[Nguồn bổ sung] ' : '') + source.name + (source.page ? ` (trang PDF ${source.page})` : '')).join(' · ');
+    slide.addText((sourceText.length > 180 ? sourceText.slice(0, 140) + '… (đầy đủ trong Notes)' : sourceText) || 'Giáo viên rà soát nội dung trước khi dạy', {
       x: 0.75, y: 7.12, w: 10.9, h: 0.21, fontFace: 'Arial', fontSize: 9,
       color: item.kind === 'cover' ? 'B9DAD9' : '5D737E', margin: 0, fit: 'shrink',
     });
-    const url = resourceUrl(item.resource_id, origin);
-    const resource = resourceInfo(item.resource_id);
+    const own = item.manual_resource ? manualResource(item.manual_resource.title, item.manual_resource.url) : null;
+    const url = own?.url || resourceUrl(item.resource_id, origin);
+    const resource = own ? { label: own.title, group: 'Giáo viên', credit: 'Liên kết do giáo viên cung cấp; chưa xác minh nội dung hoặc quyền sử dụng', internet: true } : resourceInfo(item.resource_id);
     if (url && /^https?:\/\//.test(url)) slide.addText(
-      resource.group === 'PhET' ? `Mở ${resource.label} (Internet)` : item.resource_id === 'water-cycle-video' ? 'Mở video NASA' : 'Mở học liệu tương tác',
+      own ? `Mở học liệu: ${own.title.length > 65 ? own.title.slice(0, 62) + '…' : own.title}` : resource.group === 'PhET' ? `Mở ${resource.label} (Internet)` : item.resource_id === 'water-cycle-video' ? 'Mở video NASA' : 'Mở học liệu tương tác',
       { x: 0.9, y: 6.38, w: 8.4, h: 0.35, fontFace: 'Arial', fontSize: 16,
-        color: scene.theme.accent, hyperlink: { url }, margin: 0 },
+        color: scene.theme.accent, hyperlink: { url }, margin: 0, fit: 'shrink' },
     );
     slide.addNotes([
       item.speaker_notes, `Hoạt động giáo viên\n${item.teacher_action || ''}`,

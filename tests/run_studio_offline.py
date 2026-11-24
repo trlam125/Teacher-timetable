@@ -8,7 +8,7 @@ from playwright.sync_api import Browser
 
 ROOT = Path(__file__).resolve().parent
 SCRIPTS = ('studio_headless.py', 'studio_editor_headless.py', 'studio_motion_headless.py',
-           'studio_sources_headless.py', 'studio_grounding_headless.py', 'studio_workflow_headless.py', 'studio_resources_headless.py')
+           'studio_sources_headless.py', 'studio_grounding_headless.py', 'studio_workflow_headless.py', 'studio_resources_headless.py', 'studio_v4_headless.py', 'studio_ocr_headless.py')
 new_context, new_page = Browser.new_context, Browser.new_page
 
 

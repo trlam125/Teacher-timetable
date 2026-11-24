@@ -118,6 +118,124 @@ class StudioTests(unittest.TestCase):
         slide.update(kind='video', resource_id='phet-ohms-law')
         self.assertEqual(self.client.patch(f"/api/ai-slides/decks/{deck['id']}/slides/{slide['id']}", headers={'If-Match': str(updated.json()['version'])}, json={'slide': slide}).status_code, 422)
 
+    def test_manual_video_link_roundtrip_review_and_ai_scope(self):
+        deck = self.seed_ready()
+        slide = deepcopy(deck['manifest']['slides'][0])
+        slide['manual_resource'] = {'title': 'Video của giáo viên', 'url': 'https://youtu.be/abcdefgh_12?t=2'}
+        response = self.client.patch(f"/api/ai-slides/decks/{deck['id']}/slides/{slide['id']}", headers={'If-Match': str(deck['version'])}, json={'slide': slide})
+        self.assertEqual(response.status_code, 200, response.text)
+        updated = response.json()
+        self.assertEqual(updated['manifest']['slides'][0]['manual_resource']['kind'], 'video')
+        self.assertIn('USER_LINK_UNVERIFIED', [item['code'] for item in updated['review']])
+        self.assertEqual(self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()['manifest']['slides'][0]['manual_resource']['url'], 'https://www.youtube.com/watch?v=abcdefgh_12')
+        from app.services.ai_slides.schemas import Slide
+        from pydantic import ValidationError
+        original = {**updated['manifest']['slides'][0], 'kind': 'video'}
+        proposal = {**original, 'manual_resource': None}
+        with self.assertRaises(ValidationError):
+            Slide.model_validate(proposal)
+        self.assertIsNone(Slide.model_validate(proposal, context={'original_slide': original}).manual_resource)
+
+    def test_source_expansion_requires_primary_and_reference_and_does_not_accept_forged_inspection(self):
+        from app.services.ai_slides.analysis import source_signature
+        profile = {**PROFILE, 'grounding': 'verified_expansion', 'sources': [{'id': 'a', 'name': 'Chính', 'text': 'Kiến thức trong nguồn chính.'}]}
+        self.assertEqual(self.client.post('/api/ai-slides/decks', json=profile).status_code, 422)
+        profile['sources'].append({'id': 'b', 'name': 'Bổ sung', 'role': 'reference', 'text': 'Kiến thức từ tài liệu tham khảo đã chọn.'})
+        response = self.client.post('/api/ai-slides/decks', json=profile)
+        self.assertEqual(response.status_code, 201, response.text)
+        profile['source_intelligence'] = {'signature': source_signature(profile), 'metadata': [], 'conflicts': [], 'warnings': []}
+        self.assertEqual(self.client.post('/api/ai-slides/decks', json=profile).status_code, 422)
+
+    def test_automatic_source_cloze_uses_only_selected_slide_sources(self):
+        from app.services.ai_slides.schemas import GroundedChoice, Profile
+        from app.services.ai_slides.grounding import source_units, assemble_slide, grounded_title, proof_valid
+        profile = Profile.model_validate({**PROFILE, 'grounding': 'strict', 'sources': [
+            {'id': 'a', 'name': 'Đã chọn', 'text': 'Nước bốc hơi và ngưng tụ trong chu trình.'},
+            {'id': 'b', 'name': 'Ngoài slide', 'text': 'Quang hợp chuyển hóa năng lượng ánh sáng.'}]}).model_dump()
+        units = source_units(profile)
+        unit = next(unit for unit in units if unit['source_id'] == 'a')
+        outline = {'id': 's004', 'kind': 'quiz', 'title': grounded_title(profile, 'quiz', 's004'), 'duration_seconds': 300, 'source_ids': ['a']}
+        slide = assemble_slide(GroundedChoice(id='s004', bullet_unit_ids=[unit['id']], quiz_gap=None, quiz_distractors=[]), profile, outline, units).model_dump()
+        self.assertTrue(proof_valid(slide, profile))
+        self.assertTrue(all(option in profile['sources'][0]['text'] for option in slide['options']))
+
+    def test_author_request_cannot_add_chart_data_to_non_chart_outline(self):
+        from app.services.ai_slides import provider
+        from app.services.ai_slides.schemas import Profile, SlideBatch
+        client = AsyncMock()
+        client.__aenter__.return_value = client
+        client.post.return_value = SimpleNamespace(status_code=200, json=lambda: {'choices': [{'message': {'content': fixture_manifest().model_dump_json()}, 'finish_reason': 'stop'}]})
+        with patch.object(provider.httpx, 'AsyncClient', return_value=client), patch.dict(provider.model_capabilities, {'test:free': {'supported_parameters': ['structured_outputs']}}):
+            asyncio.run(provider.generate('test:free', SlideBatch, {'task': 'author', 'profile': Profile.model_validate(PROFILE).model_dump(), 'blueprint': fixture_blueprint(), 'author_scope': {'slides_in_response': 5, 'response_total_seconds': 2700}}))
+        request = client.post.call_args.kwargs['json']
+        self.assertEqual(request['response_format']['json_schema']['schema']['$defs']['Slide']['properties']['chart_data'], {'type': 'null'})
+
+    def test_ai_only_quality_guard_blocks_invented_book_pages_and_invalid_simulation_controls(self):
+        from app.services.ai_slides.schemas import Profile
+        from app.services.ai_slides.state import validate_content
+        profile = Profile.model_validate(PROFILE).model_dump()
+        result = fixture_manifest()
+        result.slides[0].bullets = ['Làm bài SGK trang 45 bài 1.']
+        with self.assertRaises(self.routes.provider.StudioError) as error:
+            validate_content(result, profile, generated=True)
+        self.assertEqual(error.exception.code, 'AI_UNVERIFIED_REFERENCE')
+        validate_content(result, profile)  # Teacher editing remains possible with visible warnings.
+        result.slides[0].bullets = ['Mở phet-ohms-law và đặt R1=2, R2=3.']
+        with self.assertRaises(self.routes.provider.StudioError) as error:
+            validate_content(result, profile, generated=True)
+        self.assertEqual(error.exception.code, 'AI_RESOURCE_MISMATCH')
+        result.slides[0].bullets = ['Giáo viên 토론 nhóm.']
+        with self.assertRaises(self.routes.provider.StudioError) as error:
+            validate_content(result, profile, generated=True)
+        self.assertEqual(error.exception.code, 'AI_LANGUAGE_ERROR')
+
+    def test_admin_summary_is_aggregate_and_teacher_cannot_read_it(self):
+        self.create()
+        self.assertEqual(self.client.get('/api/ai-slides/admin/summary').status_code, 403)
+        self.user.role = 'admin'
+        summary = self.client.get('/api/ai-slides/admin/summary').json()
+        self.assertEqual(summary['decks'], 1)
+        self.assertEqual(summary['steps'], 0)
+        self.assertEqual(summary['requests_today'], 0)
+        self.assertNotIn('profile', str(summary))
+
+    def test_ai_source_inspection_checks_quotes_resumes_and_does_not_overwrite_locks(self):
+        from app.services.ai_slides.schemas import IntelligenceResult
+        from app.services.ai_slides.models import Quota
+        sources = [{'id': 'a', 'name': 'Nguồn chính', 'text': 'Nhiệt độ nước tăng trong suốt quá trình sôi.'},
+                   {'id': 'b', 'name': 'Tham khảo', 'role': 'reference', 'text': 'Ở áp suất không đổi, nhiệt độ nước không đổi khi sôi.'}]
+        deck = self.create(sources=sources)
+        body = IntelligenceResult.model_validate({'metadata': [{'field': 'subject', 'value': 'Khoa học', 'source_id': 'a', 'quote': sources[0]['text']}],
+            'conflicts': [{'topic': 'Nhiệt độ khi sôi', 'evidence': [{'source_id': item['id'], 'quote': item['text']} for item in sources]}]})
+        headers = {'If-Match': str(deck['version']), 'Idempotency-Key': 'inspect-request-0001'}
+        with patch.object(self.routes.provider, 'eligible_model', AsyncMock(return_value='fixture:free')), patch.object(self.routes.provider, 'generate', AsyncMock(return_value=(body, {}))) as generate:
+            response = self.client.post(f"/api/ai-slides/decks/{deck['id']}/inspect-sources", headers=headers, json={})
+            self.assertEqual(response.status_code, 200, response.text)
+            updated = response.json()
+            self.assertEqual(updated['profile']['subject'], deck['profile']['subject'])
+            self.assertTrue(updated['source_analysis']['unresolved'])
+            self.assertEqual(updated['source_analysis']['conflicts'][0]['kind'], 'semantic')
+            replay = self.client.post(f"/api/ai-slides/decks/{deck['id']}/inspect-sources", headers=headers, json={})
+            self.assertEqual(replay.status_code, 200)
+            self.assertEqual(generate.await_count, 1)
+        conflict = updated['source_analysis']['conflicts'][0]
+        selected = conflict['evidence'][1]
+        response = self.client.patch(f"/api/ai-slides/decks/{deck['id']}/source-review", headers={'If-Match': str(updated['version'])}, json={'resolutions': [{'conflict_id': conflict['id'], 'evidence_id': selected['id']}]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(response.json()['source_analysis']['unresolved'])
+        with self.session_factory() as db:
+            self.assertEqual(sum(db.scalars(select(Quota.requests))), 2)
+        bad = body.model_copy(deep=True)
+        bad.conflicts[0].evidence[0].quote = 'Trích dẫn không có trong tài liệu.'
+        updated = response.json()
+        with patch.object(self.routes.provider, 'eligible_model', AsyncMock(return_value='fixture:free')), patch.object(self.routes.provider, 'generate', AsyncMock(return_value=(bad, {}))):
+            response = self.client.post(f"/api/ai-slides/decks/{deck['id']}/inspect-sources", headers={'If-Match': str(updated['version']), 'Idempotency-Key': 'inspect-request-0002'}, json={})
+            self.assertEqual(response.status_code, 422, response.text)
+            self.assertEqual(response.json()['code'], 'AI_SOURCE_ERROR')
+        loaded = self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()
+        self.assertEqual(loaded['version'], updated['version'])
+        self.assertEqual(loaded['profile']['source_intelligence'], updated['profile']['source_intelligence'])
+
     def call_step(self, deck, kind, key="test-request-key-001"):
         return self.client.post(f"/api/ai-slides/decks/{deck['id']}/{kind}", headers={
             "If-Match": str(deck["version"]), "Idempotency-Key": key,
@@ -632,6 +750,8 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(self.client.post("/api/ai-slides/decks", json={
             **PROFILE, "sources": [source], "consent": False,
         }).status_code, 422)
+        self.assertEqual(self.client.patch(f"/api/ai-slides/decks/{deck['id']}/input-profile", headers={'If-Match': str(deck['version'])}, json={**PROFILE, 'sources': [source], 'consent': False}).status_code, 422)
+        self.assertEqual(self.client.get(f"/api/ai-slides/decks/{deck['id']}").json()['profile']['sources'], [])
 
     def test_two_steps_persist_and_idempotency_does_not_repeat_provider(self):
         from app.services.ai_slides.schemas import Blueprint

@@ -6,3 +6,15 @@ export function lessonHeadings(text) {
     && line.length <= 240 && !/\.{3,}|…|\s\d+\s*$/u.test(line));
   return headings.length > 6 ? [] : [...new Set(headings)];
 }
+
+export function lessonRanges(text) {
+  const allowed = new Set(lessonHeadings(text));
+  const found = [];
+  let offset = 0;
+  for (const line of text.split(/\n/)) {
+    const title = line.trim();
+    if (allowed.has(title)) found.push({ title, startOffset: offset + line.indexOf(title) });
+    offset += line.length + 1;
+  }
+  return found.map((item, index) => ({ ...item, endOffset: found[index + 1]?.startOffset ?? text.length }));
+}

@@ -96,16 +96,23 @@
         draw.fillStyle = index === selected ? '#bd5518' : '#245dd5'; draw.fill();
         draw.fillStyle = '#172d4a'; draw.font = '18px Arial'; draw.fillText(title, x + 15, y + 6);
       });
+      if (byId('map-route-toggle').checked) {
+        draw.save(); draw.strokeStyle = '#a83b16'; draw.lineWidth = 3; draw.setLineDash([10, 7]); draw.beginPath();
+        regions.forEach(([, , lon, lat], index) => { const [x, y] = point(lon, lat); if (index === 0) draw.moveTo(x, y); else draw.lineTo(x, y); });
+        draw.stroke(); draw.restore();
+      }
     }
     function choose(index) {
       selected = index;
       byId('region-description').textContent = regions[index][1];
       paint();
     }
-    fetch('/static/ai-slides/vietnam.geojson').then(response => {
+    const embedded = byId('offline-map-data');
+    const geometryData = embedded ? Promise.resolve(JSON.parse(embedded.textContent)) : fetch('/static/ai-slides/vietnam.geojson').then(response => {
       if (!response.ok) throw new Error('map unavailable');
       return response.json();
-    }).then(data => { geometry = data.geometry; paint(); }).catch(() => {
+    });
+    geometryData.then(data => { geometry = data.geometry; paint(); }).catch(() => {
       byId('region-description').textContent = 'Chưa tải được dữ liệu bản đồ. Hãy thử tải lại trang.';
     });
     map.onclick = event => {
@@ -120,6 +127,7 @@
     };
     byId('map-zoom-in').onclick = () => { zoom = Math.min(2, zoom + 0.2); paint(); };
     byId('map-zoom-out').onclick = () => { zoom = Math.max(0.6, zoom - 0.2); paint(); };
+    byId('map-route-toggle').onchange = () => { byId('region-description').textContent = byId('map-route-toggle').checked ? 'Tuyến minh họa nối năm điểm vùng. Chọn từng vùng để so sánh địa hình; không dùng tuyến này để chỉ đường.' : 'Đã ẩn tuyến minh họa. Chọn một vùng để xem đặc điểm.'; paint(); };
     regions.forEach(([title], index) => {
       const button = document.createElement('button');
       button.textContent = title;

@@ -1,4 +1,4 @@
-import { createScene, SLIDE_HEIGHT, SLIDE_WIDTH } from './scene.js';
+import { createScene, checkScene, SLIDE_HEIGHT, SLIDE_WIDTH } from './scene.js';
 import { mapSvg } from './visuals.js';
 
 export function renderScene(container, item, deck, index) {
@@ -97,6 +97,36 @@ export function renderScene(container, item, deck, index) {
     }
     container.append(node);
   }
+  fitPreviewText(container);
+}
+
+function fitPreviewText(container) {
+  const scale = container.getBoundingClientRect().width / (SLIDE_WIDTH * 72);
+  if (!scale) return;
+  for (const node of container.querySelectorAll('.scene-text')) {
+    const minimum = Math.min(parseFloat(getComputedStyle(node).fontSize), 14 * scale);
+    let size = parseFloat(getComputedStyle(node).fontSize);
+    for (let attempt = 0; attempt < 30 && (node.scrollHeight > node.clientHeight + 1 || node.scrollWidth > node.clientWidth + 1) && size > minimum; attempt += 1) {
+      size = Math.max(minimum, size * 0.94); node.style.fontSize = size + 'px';
+    }
+  }
+}
+
+export async function preflightDeck(deck) {
+  await document.fonts?.ready;
+  const canvas = document.createElement('div');
+  canvas.style.cssText = 'position:fixed;left:-15000px;top:0;width:1280px;height:720px;container-type:inline-size;pointer-events:none;font-family:Arial,sans-serif';
+  canvas.setAttribute('aria-hidden', 'true');
+  document.body.append(canvas);
+  try {
+    const issues = [];
+    for (const [index, item] of deck.manifest.slides.entries()) {
+      if (checkScene(createScene(item, deck, index)).length) issues.push({ slide: index + 1, reason: 'đối tượng vượt khung' });
+      renderScene(canvas, item, deck, index);
+      if ([...canvas.querySelectorAll('.scene-text')].some(node => node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2)) issues.push({ slide: index + 1, reason: 'chữ quá dài ở cỡ tối thiểu' });
+    }
+    return issues;
+  } finally { canvas.remove(); }
 }
 
 function position(node, object) {
