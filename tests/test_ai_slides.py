@@ -189,6 +189,8 @@ class StudioTests(unittest.TestCase):
         request = client.post.call_args.kwargs['json']
         definitions = request['response_format']['json_schema']['schema']['$defs']
         self.assertEqual(definitions['InspectionQuote']['enum'], [text])
+        self.assertEqual(request['response_format']['json_schema']['schema']['properties']['conflicts']['maxItems'], 0)
+        self.assertTrue(definitions['SemanticConflict']['properties']['evidence']['uniqueItems'])
         self.assertEqual(definitions['MetadataSuggestion']['properties']['quote'], {'$ref': '#/$defs/InspectionQuote'})
         payload = __import__('json').loads(request['messages'][1]['content'])
         self.assertEqual(payload['inspection_evidence'], choices)
@@ -197,6 +199,9 @@ class StudioTests(unittest.TestCase):
         result.metadata[0].quote = 'Môn Khoa học lớp sáu, câu bị AI viết lại.'
         with self.assertRaises(provider.StudioError):
             checked_intelligence(result, profile)
+        duplicated = IntelligenceResult(conflicts=[{'topic': 'Không có hai chứng cứ khác nhau', 'evidence': choices * 2}])
+        with self.assertRaises(provider.StudioError):
+            checked_intelligence(duplicated, profile)
 
     def test_ai_only_quality_guard_blocks_invented_book_pages_and_invalid_simulation_controls(self):
         from app.services.ai_slides.schemas import Profile
