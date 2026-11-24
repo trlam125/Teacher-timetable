@@ -44,6 +44,7 @@ Thiết lập các biến này trong môi trường triển khai.
 ```dotenv
 AI_SLIDES_ENABLED=false
 AI_SLIDES_NATIVE_MOTION_ENABLED=false
+AI_SLIDES_CONTENT_QA_APPROVED=false
 AI_SLIDES_OPENROUTER_API_KEY=
 AI_SLIDES_PRIMARY_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
 AI_SLIDES_FALLBACK_MODELS=
@@ -63,6 +64,8 @@ Hạn mức tính theo ngày UTC và tính mọi lượt đã giữ chỗ, gồm
 Bật AI_SLIDES_ENABLED=true sau migration, cấu hình key/model, thử bằng tài khoản kiểm thử và xác nhận tải được tệp. Việc bật production cần quyền triển khai và kiểm tra hạ tầng thực.
 
 ## Rollback
+
+Giữ AI_SLIDES_CONTENT_QA_APPROVED=false trong pilot V4: CI/smoke đạt không thay thế nghiệm thu sư phạm. Bản ứng dụng preview đã kiểm thử ngày 24/11 là 7bf769a; xem V4_COMPLETION.md cho bằng chứng và các gate còn mở. Không bật production bằng DB preview Free hết hạn 22/12/2026.
 
 Đặt AI_SLIDES_ENABLED=false và restart/redeploy service. Cờ này ẩn menu và chặn API Studio. Dữ liệu bài giảng được giữ. Có thể phục hồi bundle từ release trước. Việc xóa bảng cần kế hoạch và backup riêng.
 

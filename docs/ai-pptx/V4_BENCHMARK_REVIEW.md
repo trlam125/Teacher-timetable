@@ -2,6 +2,8 @@
 
 ## Kết quả quan sát
 
+Đóng lượt thử giới hạn tại 50 requests thật: smoke v14 trên preview với cùng profile/nguồn từng bị chặn đã đạt HTTP200 trong 13,13 giây, trả 5 metadata và 0 conflict, quote khớp và version tăng. Hai lỗi inspect trước vẫn được giữ trong report. Một ca inspect thành công không chứng minh chất lượng 20 bài thô đã đạt hoặc mọi xung đột được phát hiện đúng. Cờ chất lượng vẫn false.
+
 Inspect v13 trên preview cùng ca có 1 nguồn trả AI_SOURCE_ERROR do lặp chứng cứ (15,20 giây), draft giữ nguyên. V14 siết số lượng chứng cứ khác nhau trong schema; không bỏ kiểm tra exact quote hoặc tự nhận conflict trùng là hợp lệ. Tính tới ca này có 49 requests thật; lượt kiểm tra v14 tiếp theo giới hạn thêm một request.
 
 Model hiện hành: nvidia/nemotron-3-ultra-550b-a55b:free. 20 dàn ý hợp cấu trúc; lần soạn đầu 18/20 đạt cấu trúc. Ca 2 lỗi JSON, ca 12 chọn từ điền không hợp lệ. Kiểm tra lại hai ca: ca 2 lỗi labels/values biểu đồ không khớp, ca 12 đạt sau khi máy chủ hỗ trợ tự dựng câu điền nguyên văn. Sau khi siết chart_data=null cho nhóm không có chart, kiểm tra lại riêng ca 2 đạt. Tổng 43 requests plan/author cho 20 bộ hoàn chỉnh; có thêm một probe inspect đạt và hai probe model thay thế (Ling/Gemma) trả 429. Không đổi model đang chạy, không gọi paid model.

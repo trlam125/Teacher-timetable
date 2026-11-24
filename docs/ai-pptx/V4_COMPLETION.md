@@ -25,15 +25,21 @@ Theo IMPLEMENTATION_PLAN_V4.md, đối chiếu mã và PROGRESS.md. Nhánh codex
 
 - [ ] Model/chất lượng nội dung: bộ 20 bài thô có lỗi kiến thức, ngôn ngữ, scope và SGK bịa. Đã ghi rõ trong V4_BENCHMARK_REVIEW.md; bản biên tập giữ riêng, không nâng điểm model thô. Ling/Gemma thử thay thế trả 429. Chưa chọn fallback hoặc nhận model đã đạt chuẩn sư phạm.
 - [ ] Nghiệm thu độc lập/giáo viên và visual QA rộng bằng PowerPoint Desktop. Ba file motion đã được người dùng xác nhận từ đợt trước; không điều khiển Office trong đợt này.
-- [ ] CI, deploy/smoke preview và số liệu vận hành của bản cuối — ghi sau khi quan sát.
+- [x] CI đúng commit, deploy/smoke preview và mẫu số liệu vận hành; chi tiết bản cuối bên dưới.
 
 AI_SLIDES_CONTENT_QA_APPROVED mặc định false; không tự bật vì test code đạt. Website chính không được cập nhật trong đợt này. Không thay schema DB cho các trường JSON mới.
 
 ## Kiểm thử và bộ mẫu giao được
 
+Bản ứng dụng đang chạy: 7bf769a386032a318d79d249aa4cc88f609802f1, preview deploy dep-dc2p987lk1mc73al5ud0 (live). CI đúng commit đạt 106 backend SQLite/PostgreSQL, 20 Node, build tái lập và 74 nhóm headless. Website chính vẫn deploy/commit a5207d63e4eeda633e6d3bc156c2301f9a673c06 theo Render API; không kiểm tra HTTP main hoặc đổi env/DB chính.
+
+Smoke trên preview thật đạt hướng dẫn/ảnh/OCR assets, quyền teacher/admin, URL save/reload, native PPTX có nguồn và ZIP offline, OCR dưới CSP và inspect v14. Cùng profile/nguồn từng bị chặn nay trả HTTP200 trong 13,13 giây: 5 metadata gợi ý, 0 conflict, quote khớp, tăng version. Chỉ một AI request trong smoke cuối, tổng đợt 50 requests thật (gồm hai probe thay thế 429). Không tự retry hoặc gọi paid. Dọn toàn bộ user/deck/step/revision/usage/device QA; site quota vẫn tính lượt thật.
+
+Metrics API chỉ của preview, khoảng 67 giây đầu sau deploy: mẫu RAM lớn nhất 172.355.580 byte (~164,4 MiB), giới hạn ~512 MiB. Studio capability/guide 113/81 ms, WASM/vie 507/346 ms trong smoke. Đây là mẫu warm/smoke rất ngắn, không phải kiểm thử tải hay cam kết không OOM. Không có lỗi JS hoặc service lỗi trong lượt quan sát. Fixture và cụm PostgreSQL QA local đã dừng.
+
 CSP riêng cho các trang Studio đã được kiểm thử thực: chặn script/handler tùy ý, giữ hai handler cài đặt có hash và cho phép worker/WASM nội bộ. Không đổi CSP các trang Smart TKB cũ.
 
-104 ca backend SQLite/PostgreSQL tạm, 20 test Node, compatibility spike và đủ 74 nhóm headless đạt. OCR dùng engine thực; giọng nói dùng adapter microphone giả. Hai mươi bộ thô và hai mươi bản biên tập đều xuất từ browser: mỗi bộ có 5 slide nội dung, tổng 107 trang PPTX/107 Notes, XML hợp lệ và không tràn theo kiểm tra HTML. Đây không phải render PowerPoint.
+106 ca backend SQLite/PostgreSQL tạm, 20 test Node, compatibility spike và đủ 74 nhóm headless đạt. OCR dùng engine thực; giọng nói dùng adapter microphone giả. Hai mươi bộ thô và hai mươi bản biên tập đều xuất từ browser: mỗi bộ có 5 slide nội dung, tổng 107 trang PPTX/107 Notes, XML hợp lệ và không tràn theo kiểm tra HTML. Đây không phải render PowerPoint.
 
 Gói cục bộ: tmp/ai-studio-qa/V4-20-bai-mau-can-giao-vien-duyet.zip (20 PPTX, JSON thay đổi biên tập, ảnh cover, danh sách và giới hạn). Chưa có giáo viên duyệt; dữ liệu thô vẫn giữ riêng. Các mẫu đã sửa không nâng kết quả benchmark AI thô.
 
