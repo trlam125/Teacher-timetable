@@ -135,6 +135,12 @@ CI commit `fa49796` đạt và deploy preview `dep-dc24f3etlv9c73dl247g` live. S
 
 ## Hoàn thiện chức năng V4 — 24/11/2026
 
+Đợt bổ sung: 116 backend/tooling và 80 nhóm headless đạt. Bốn ca kiểm tra phép tính/quiz, bốn ca hồ sơ duyệt, một API case chạy SQLite/PostgreSQL, thêm luồng UI sửa lỗi toán/đáp án rồi hết cảnh báo. Không đổi phiên bản exporter/motion. Các trường hợp đại số bị cắt đuôi, biểu thức bên phải chưa đầy đủ, chuỗi phần trăm và tiền tố mV/MV đã có regression; tránh coi chúng là lỗi số học. AI sai bị chặn trước lưu, bản dàn ý/version/lease còn đúng; sửa tay vẫn được lưu có cảnh báo.
+
+Bộ duyệt offline có 40 phiên bản và 200 ảnh HTML từ browser, kiểm tra cấu trúc kỹ thuật theo từng tệp. Report rỗng giữ 0 phiếu đạt; điểm bản biên tập không sang bản raw; boolean/điểm ngoài thang, packet sai, tệp bị đổi đều bị từ chối. Headless 5 nhóm kiểm tra xuất/khôi phục/persist/mobile, không HTTP, không JS error; reviewer trong fixture là giả lập và thư mục tạm bị dọn. Bộ thật được mở riêng và kiểm tra tất cả ảnh của bài đầu tải được, 20 mục mỗi phiên bản, toàn bộ SHA hợp lệ; chưa có người thật chấm điểm. Không dùng kết quả này làm bằng chứng Office.
+
+Một candidate probe ERNIE free mới trả 429, dừng; model đang chạy không đổi. Người dùng đã trả lời chưa kiểm tra 20 bộ, nên không đóng nghiệm thu sư phạm. Những cảnh báo toán hẹp không sửa hoặc xác minh được mọi lỗi kiến thức đã thấy trong benchmark thô.
+
 Chốt: CI 7bf769a đạt 106 backend (SQLite/PostgreSQL), 20 Node/spike/build tái lập và 74 nhóm headless. Preview deploy dep-dc2p987lk1mc73al5ud0 live. Smoke thật cùng profile/nguồn cũ đạt inspect v14 HTTP200/13,13 giây/5 metadata/0 conflict, quote kiểm tra được và version tăng. OCR thực dưới CSP, URL save/reload, native PPTX credit và ZIP offline đều đạt, 0 lỗi JS. Dọn dữ liệu QA, giữ quota site đã dùng. Báo cáo preview-v4-report.json; các lần bị chặn giữ riêng preview-v4-v12-rejected-report.json và preview-v4-v13-rejected-report.json. Lượt v12 chỉ lưu code, nên không đủ bằng chứng phân biệt quote không khớp với chứng cứ trùng; v13 có message chứng cứ trùng.
 
 Render API xác nhận main giữ nguyên deploy/commit a5207d6. Metrics khoảng 67 giây sau deploy cuối cho RAM tối đa quan sát 164,4 MiB/512 MiB, service live; không suy ra tải cao hoặc độ ổn định dài hạn. API capability/guide 113/81 ms; WASM/vie 507/346 ms. Các ca OCR/export chạy tại browser; không dựng PPTX/OCR trên Render. Fixture và PostgreSQL QA local đã dừng.

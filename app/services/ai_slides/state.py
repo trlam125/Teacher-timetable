@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from .config import settings
 from .models import Deck, Quota, Revision, Step, now
 from .provider import StudioError
+from .checks import slide_findings
 
 
 def owned_deck(db, deck_id, user_id):
@@ -105,6 +106,22 @@ def validate_generated_references(texts, profile):
             raise StudioError('AI_RESOURCE_MISMATCH', 'AI mô tả điều khiển R1/R2 không có trong học liệu PhET định luật Ôm. Kết quả bị chặn để tránh hướng dẫn sai.', 422)
 
 
+def validate_generated_checks(slide, original=None):
+    candidate = dict(slide)
+    if original:
+        for field in ('bullets', 'speaker_notes', 'explanation'):
+            if candidate.get(field) == original.get(field):
+                candidate[field] = [] if field == 'bullets' else ''
+        if candidate.get('options') == original.get('options'):
+            candidate['options'] = []
+    codes = {finding['code'] for finding in slide_findings(candidate)}
+    slide_label = slide.get('id', 'đang sửa')
+    if 'ARITHMETIC_MISMATCH' in codes:
+        raise StudioError('AI_ARITHMETIC_ERROR', f'AI trả phép tính số không khớp kết quả ở slide {slide_label}. Kết quả bị chặn; bản nháp được giữ để sửa phạm vi hoặc thử lại sau.', 422)
+    if 'QUIZ_EQUIVALENT_OPTIONS' in codes:
+        raise StudioError('AI_QUIZ_ERROR', f'AI tạo các phương án quiz tương đương nhau ở slide {slide_label}. Kết quả bị chặn; hãy chỉnh dàn ý hoặc thử lại sau.', 422)
+
+
 def validate_content(result, profile, blueprint=None, *, partial=False, generated=False):
     sources = {source["id"] for source in profile["sources"]}
     slides = result.slides
@@ -115,6 +132,8 @@ def validate_content(result, profile, blueprint=None, *, partial=False, generate
                           getattr(slide, 'teacher_action', ''), getattr(slide, 'student_action', ''),
                           getattr(slide, 'question', ''), *getattr(slide, 'options', []), getattr(slide, 'explanation', '')])
         validate_generated_references(texts, profile)
+        for slide in slides:
+            validate_generated_checks(slide.model_dump())
     if len(slides) != profile["slide_count"] or len({slide.id for slide in slides}) != len(slides):
         raise StudioError("AI_CONSTRAINT_ERROR", "AI trả sai số slide hoặc mã slide trùng. Hãy thử lại.")
     distinct_titles = {slide.title.casefold().strip() for slide in slides}

@@ -815,6 +815,36 @@ class StudioTests(unittest.TestCase):
             self.assertEqual(len(saved["manifest"]["slides"]), 5)
             self.assertEqual(saved["version"], 3)
 
+    def test_generated_arithmetic_and_duplicate_answers_fail_without_losing_outline(self):
+        from app.services.ai_slides.models import Deck
+        for expected in ('AI_ARITHMETIC_ERROR', 'AI_QUIZ_ERROR'):
+            with self.subTest(code=expected):
+                deck = self.create()
+                with self.session_factory() as db:
+                    row = db.get(Deck, deck['id'])
+                    row.blueprint, row.status = fixture_blueprint(), 'planned'
+                    db.commit()
+                bad = fixture_manifest()
+                if expected == 'AI_ARITHMETIC_ERROR':
+                    bad.slides[2].bullets = ['6/3=3 A.']
+                else:
+                    bad.slides[3].options = ['0.5 A', '1/2 A']
+                with patch.object(self.routes.provider, 'eligible_model', AsyncMock(return_value='fixture:free')), patch.object(self.routes.provider, 'generate', AsyncMock(return_value=(bad, {}))):
+                    response = self.call_step(deck, 'author')
+                self.assertEqual(response.status_code, 422, response.text)
+                self.assertEqual(response.json()['code'], expected)
+                saved = self.client.get('/api/ai-slides/decks/' + deck['id']).json()
+                self.assertEqual(saved['version'], deck['version'])
+                self.assertEqual(saved['blueprint'], fixture_blueprint())
+                self.assertIsNone(saved['manifest'])
+                self.assertFalse(saved['busy'])
+        deck = self.seed_ready()
+        slide = deepcopy(deck['manifest']['slides'][2])
+        slide['bullets'] = ['6/3=3 A.']
+        response = self.client.patch(f"/api/ai-slides/decks/{deck['id']}/slides/{slide['id']}", headers={'If-Match': str(deck['version'])}, json={'slide': slide})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn('ARITHMETIC_MISMATCH', [item['code'] for item in response.json()['review']])
+
     def test_failure_preserves_blueprint_and_consumes_quota(self):
         from app.services.ai_slides.models import Deck, Quota, Step
         deck = self.create()

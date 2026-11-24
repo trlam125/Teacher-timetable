@@ -46,6 +46,8 @@ Luồng một nút đã lên preview ở `f4a30c1`: **Tạo PowerPoint bằng AI
 
 ## Kiểm thử
 
+Bộ duyệt offline: chạy tools/review_ai_slides_v4.py khi đã có 20 bộ raw/biên tập và ảnh slide. Mở tmp/ai-studio-qa/v4-review-desk/index.html để xem nguồn, Notes, hai phiên bản và ghi rubric; xem [hướng dẫn duyệt](HUMAN_REVIEW.md). Báo cáo rỗng hoặc chỉ duyệt bản sửa không đủ để nhận model raw đạt. Công cụ không tự bật cờ phê duyệt.
+
 Python dùng .venv hiện có. Bộ unittest dùng SQLite trong bộ nhớ. Khi có AUTH_TEST_DATABASE_URL trỏ DB kiểm thử riêng, cùng bộ API chạy thêm trên PostgreSQL, gồm kiểm thử tranh chấp khóa giữa hai yêu cầu.
 
 Windows build và test JavaScript bằng container codex-skill-env hiện có.

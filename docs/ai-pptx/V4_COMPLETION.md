@@ -2,6 +2,16 @@
 
 Theo IMPLEMENTATION_PLAN_V4.md, đối chiếu mã và PROGRESS.md. Nhánh codex/ai-slides-render-free; chỉ triển khai preview riêng. Không điều khiển Desktop. Chỉ AI miễn phí đã kiểm tra giá tại runtime; không dùng chatbot cũ.
 
+## Đợt chốt bổ sung ngày 24/11
+
+Người dùng xác nhận chưa kiểm tra 20 bộ. Đã hoàn thiện bộ duyệt offline tại tmp/ai-studio-qa/v4-review-desk/index.html: 20 bài × hai phiên bản AI gốc/bản biên tập, 200 ảnh HTML, nguồn/Notes, rubric 100 điểm và ba hard fail; ghi kết quả Desktop riêng, lưu/khôi phục JSON có SHA-256 của từng tệp. Không tự chấm điểm kiến thức, không lấy kết quả bản sửa nâng điểm model và không tự bật cờ phê duyệt. Xem HUMAN_REVIEW.md. ZIP V4-ban-duyet-20-bai-offline.zip khoảng 7,7 MB, chỉ nằm local.
+
+Đã bổ sung kiểm tra hẹp về phép tính số/phần trăm và đáp án quiz trùng hoặc tương đương cùng đơn vị. AI trả lỗi rõ ràng bị chặn và giữ dàn ý; sửa tay được giữ kèm cảnh báo. Có mã AI_ARITHMETIC_ERROR/AI_QUIZ_ERROR và ID slide trong log. Không coi bộ kiểm tra này là chứng minh đại số, đổi đơn vị hoặc kiểm chứng kiến thức. Đã phát hiện và sửa false positive do cắt đuôi biểu thức; quét lại 200 slide thô/biên tập không còn false positive đã biết, không nâng trạng thái sư phạm của chúng.
+
+Local đạt 116 ca backend/tooling và 80 nhóm headless. Bộ duyệt thực có 40 bản/200 ảnh, cấu trúc JSON/PPTX/Notes đọc được, không request HTTP hoặc JS error, số phiếu thật đã duyệt vẫn bằng 0. Ảnh là HTML, không phải Office renderer. CI/deploy kiểm tra phép tính mới ghi tiếp sau quan sát.
+
+Đã đọc lại catalog/key: key free-tier, không gọi paid. Probe bổ sung đúng một request vào baidu/ernie-5.5-flash-preview:free trả 429; dừng, không đổi model/key. Không có đủ bằng chứng để chọn model miễn phí thay thế đạt chất lượng. usage_daily=0 trong metadata key là số tiền sử dụng, không phải bộ đếm lượt còn lại.
+
 ## Mã chức năng đã bổ sung trong đợt này
 
 - [x] F36: liên kết HTTPS từ tên miền cho phép, chuẩn hóa video ID, không fetch URL tùy ý; luôn ghi chưa xác minh nội dung/quyền sử dụng. PPTX/Notes giữ link và nguồn.

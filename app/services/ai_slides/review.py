@@ -1,6 +1,7 @@
 """Conservative editorial warnings, not a factual verification service."""
 import re
 from .grounding import proof_valid
+from .checks import slide_findings
 
 PAGE_REFERENCE = re.compile(r"(?:sgk|sách|tài liệu).{0,90}\btrang\s*\d+|(?:bài tập|đọc|xem|tham khảo).{0,35}(?:sgk|sách giáo khoa)", re.IGNORECASE)
 
@@ -21,6 +22,7 @@ def content_review(manifest, profile):
                           *slide.get("options", []), slide.get("explanation", ""),
                           slide.get("teacher_action", ""), slide.get("student_action", "")])
         base = {"slide_id": slide["id"]}
+        issues.extend({**base, **finding} for finding in slide_findings(slide))
         if slide.get('manual_resource'):
             issues.append({**base, 'code': 'USER_LINK_UNVERIFIED', 'severity': 'warning',
                            'message': 'Liên kết do giáo viên cung cấp; chưa xác minh nội dung, quyền sử dụng hoặc khả năng truy cập. Hãy mở xem trước khi dạy.'})

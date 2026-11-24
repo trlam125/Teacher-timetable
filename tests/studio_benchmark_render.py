@@ -11,6 +11,7 @@ from playwright.sync_api import expect, sync_playwright
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--directory', choices=['v4-benchmark', 'v4-reviewed'], default='v4-benchmark')
+parser.add_argument('--all-slide-images', action='store_true', help='Save every HTML slide preview for offline teacher review; this is not Office rendering.')
 args = parser.parse_args()
 OUT = ROOT / 'tmp/ai-studio-qa' / args.directory
 report = {'inference_calls': 0, 'render_engine': 'HTML preview, not Office renderer', 'decks': []}
@@ -41,6 +42,8 @@ with sync_playwright() as p:
         page.locator('#slide-preview').screenshot(path=str(OUT / (target.stem + '-cover.png')))
         for index in range(item['slides']):
             page.locator('#slide-list button').nth(index).click()
+            if args.all_slide_images:
+                page.locator('#slide-preview').screenshot(path=str(OUT / f'{target.stem}-slide-{index + 1:02d}.png'))
             overflow = page.locator('#slide-preview .scene-text').evaluate_all('(nodes) => nodes.filter(n => n.scrollHeight > n.clientHeight + 2 || n.scrollWidth > n.clientWidth + 2).map(n => n.dataset.objectId)')
             if overflow:
                 item['preview_overflow'].append({'slide': index + 1, 'objects': overflow})

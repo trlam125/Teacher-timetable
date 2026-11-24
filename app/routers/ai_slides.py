@@ -21,7 +21,7 @@ from app.services.ai_slides.review import content_review
 from app.services.ai_slides.resources import RESOURCE_CATALOG
 from app.services.ai_slides.intelligence import checked_intelligence
 from app.services.ai_slides.schemas import IntelligenceResult, SourceInspection
-from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise, snapshot, validate_content, validate_generated_references, version_guard
+from app.services.ai_slides.state import claim, finish_guard, owned_deck, revise, snapshot, validate_content, validate_generated_references, validate_generated_checks, version_guard
 
 
 router = APIRouter()
@@ -479,6 +479,7 @@ async def ai_step(deck_id, kind, key, version, user, db, *, slide_id=None, instr
                     if isinstance(value, str): changed_text.append(value)
                     elif isinstance(value, list): changed_text.extend(item for item in value if isinstance(item, str))
             validate_generated_references(changed_text, profile)
+            validate_generated_checks(result.model_dump(), payload['slide'])
             for field in ("id", "kind", "duration_seconds", "source_ids", "resource_id", "manual_resource"):
                 if proposed.get(field) != original.get(field):
                     raise provider.StudioError("AI_SCOPE_ERROR", "AI đề nghị sửa ngoài phạm vi slide cho phép.", 422)
