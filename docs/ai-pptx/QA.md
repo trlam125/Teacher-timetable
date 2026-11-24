@@ -8,6 +8,8 @@ Ngày 22/11/2026. Nhánh codex/ai-slides-render-free từ a5207d6.
 
 9 ca `tests.test_ai_slides_editorial_audit` + `tests.test_ai_slides_review` đạt, gồm 5 ca mới cho dữ liệu gốc, nhãn AI/human/Office, proof kế thừa, export cũ và đóng gói sau chỉnh sửa. Lượt đầu sandbox chặn process Chromium và thư mục TemporaryDirectory, đã chạy lại với quyền phù hợp rồi đạt; không ghi các lần bị chặn là lỗi sản phẩm. Không sửa JS/backend trong lượt này nên không chạy lại Node build hoặc migrate DB.
 
+CI commit 9af43c4 phát hiện test mới giả định thư mục tmp đã tồn tại. Đã tái hiện FileNotFoundError bằng checkout giả lập không có tmp và sửa setUp tạo thư mục trước; các test không dựa vào dữ liệu QA local có sẵn. Chỉ tính CI sau sửa là xác nhận bản cuối.
+
 [Báo cáo rubric/nguồn](V4_EDITORIAL_AUDIT.md) là đánh giá Codex AI; không đo độ chính xác, không nhận kiểm tra PowerPoint Desktop mới. Gói giao `V4-20-bai-mau-da-ra-soat.zip` khoảng 1,2 MB chứa PPTX/JSON/cover/README/danh sách và báo cáo. Nguồn tổng hợp ngắn nên không coi mỗi bộ 5 slide là giáo án đầy đủ cho thời lượng 25 phút.
 
 ## Phương pháp

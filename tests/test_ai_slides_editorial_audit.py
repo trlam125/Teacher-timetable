@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class EditorialAuditTests(unittest.TestCase):
     def setUp(self):
+        (ROOT / 'tmp').mkdir(exist_ok=True)
         self.temp = tempfile.TemporaryDirectory(prefix='editorial-test-', dir=ROOT / 'tmp')
         self.addCleanup(self.temp.cleanup)
         self.folder = Path(self.temp.name).resolve()
