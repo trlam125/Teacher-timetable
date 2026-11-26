@@ -6,7 +6,7 @@ import platform
 
 from .scoring import _solver_timeout_seconds
 
-SCHEDULER_REVISION = "2026-11-15-single-or-adjacent-pair-1"
+SCHEDULER_REVISION = "2026-11-26-feasibility-search-2"
 
 
 def scheduler_runtime_diagnostics() -> dict:
@@ -25,6 +25,7 @@ def scheduler_runtime_diagnostics() -> dict:
         "python_version": platform.python_version(),
         "cpu_count": os.cpu_count(),
         "search_budget_seconds": _solver_timeout_seconds(),
+        "rebuild_budget_seconds": min(3600.0, _solver_timeout_seconds() * 2),
         "ortools_version": ortools_version,
         "cp_sat_available": load_error is None,
         "cp_sat_load_error": load_error,

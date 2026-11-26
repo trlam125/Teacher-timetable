@@ -355,6 +355,7 @@ def schedule_integrity_report(
         input_issue_count -= (
             len(input_report["class_capacity_issues"])
             + len(input_report["assignment_availability_issues"])
+            + len(input_report["teacher_capacity_issues"])
             + sum(row["issue_type"] == "missing" for row in input_report["grade_requirement_issues"])
         )
     issue_count = input_issue_count + schedule_issue_count
@@ -399,6 +400,8 @@ def schedule_integrity_report(
             parts.append(
                 f"{len(input_report['class_capacity_issues'])} lớp vượt số ô khả dụng"
             )
+        if input_report["teacher_capacity_issues"]:
+            parts.append(f"{len(input_report['teacher_capacity_issues'])} giáo viên vượt số ô khả dụng")
         if input_report["fixed_definition_issues"]:
             parts.append(
                 f"{len(input_report['fixed_definition_issues'])} dữ liệu tiết cố định không hợp lệ"

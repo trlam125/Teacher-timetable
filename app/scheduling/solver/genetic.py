@@ -257,6 +257,8 @@ class GeneticSearch:
         """Improve the incumbent with bounded population search."""
         task_rows = self.problem.task_rows
         deadline_hit = budget.expired
+        if best_candidate["unscheduled"] == 0 or deadline_hit(0.05):
+            return best_candidate
         evaluate = self.evaluate
         random_gene = self.random_gene
         mutate = self.mutate
@@ -286,6 +288,8 @@ class GeneticSearch:
                 # chromosome inherited by the next generation instead of throwing
                 # that information away and keeping the pre-repair genotype.
                 result.append((candidate, genes_from_candidate(candidate)))
+                if candidate["unscheduled"] == 0:
+                    break
             if not result:
                 result.append((best_candidate, genes_from_candidate(best_candidate)))
             result.sort(key=lambda item: candidate_key(item[0]))
@@ -300,6 +304,8 @@ class GeneticSearch:
         evaluated = evaluate_population(population)
         if candidate_key(evaluated[0][0]) < candidate_key(best_candidate):
             best_candidate = evaluated[0][0]
+        if best_candidate["unscheduled"] == 0:
+            return best_candidate
 
         stagnant_generations = 0
         for generation in range(generations):
@@ -347,13 +353,7 @@ class GeneticSearch:
             else:
                 stagnant_generations += 1
 
-            # Once a complete solution exists, a few additional generations can
-            # improve soft quality; no need to spend the whole fallback budget.
-            if (
-                best_candidate["unscheduled"] == 0
-                and generation >= 8
-                and stagnant_generations >= 6
-            ):
+            if best_candidate["unscheduled"] == 0:
                 break
 
         return best_candidate

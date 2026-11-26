@@ -116,7 +116,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     modal.showModal();
     setProgress(
       "running",
-      "Đang ưu tiên xếp đủ tiết, sau đó tối ưu cách phân bố lịch. Lịch có nhiều lớp và giáo viên có thể cần thêm thời gian...",
+      "Đang tìm lịch hợp lệ và ưu tiên xếp đủ số tiết. Lịch có nhiều lớp và giáo viên có thể cần thêm thời gian...",
     );
   }
 
@@ -290,6 +290,8 @@ function renderScheduleAttemptDetails(payload) {
     add(issue, "Một lớp–môn đang có nhiều phân công. Hãy giữ lại một giáo viên phụ trách.");
   for (const issue of input.class_capacity_issues || [])
     add(issue, `Lớp cần ${issue.assigned} tiết nhưng chỉ còn ${issue.capacity} ô khả dụng.`);
+  for (const issue of input.teacher_capacity_issues || [])
+    add(issue, `Giáo viên được phân công ${issue.assigned} tiết nhưng chỉ có ${issue.capacity} ô dạy hợp lệ; thiếu ${issue.excess} ô. Hãy điều chỉnh thời gian hoặc phân công.`);
   for (const issue of payload.integrity?.count_errors || [])
     add(issue, `Lịch hiện có ${issue.actual}/${issue.expected} tiết.`);
   for (const assignmentId of payload.integrity?.required_double_errors || [])

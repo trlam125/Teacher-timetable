@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import math
 import os
 
 from app.models import Assignment, Project
@@ -58,10 +59,12 @@ def _schedule_soft_score(
 
 def _solver_timeout_seconds() -> float:
     try:
-        value = float(os.getenv("SCHEDULE_SOLVER_TIMEOUT_SECONDS", "30"))
+        value = float(os.getenv("SCHEDULE_SOLVER_TIMEOUT_SECONDS", "300"))
     except (TypeError, ValueError):
-        value = 30.0
-    return max(3.0, min(60.0, value))
+        value = 300.0
+    if not math.isfinite(value):
+        value = 300.0
+    return max(3.0, min(3600.0, value))
 
 
 __all__ = [

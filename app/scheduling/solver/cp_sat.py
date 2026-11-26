@@ -7,7 +7,6 @@ import logging
 import os
 import time
 
-from .cp_sat_objective import add_soft_objective
 from .cp_sat_compact import compact_task_groups, solve_compact_cp_sat
 from .cp_sat_constraints import add_subject_session_constraints
 from .context import SearchBudget, genes_from_candidate as _candidate_genes
@@ -20,6 +19,7 @@ logger = logging.getLogger("smart_tkb")
 def solve_cp_sat(
     problem: SchedulingProblem, budget: SearchBudget, allow_partial: bool = False,
     incumbent=None, *, neighborhood=None, phase_deadline=None, search_phases=None,
+    random_seed=42,
 ):
     """Solve using the same candidates and hard constraints as the fallbacks."""
     deadline = budget.deadline
@@ -52,19 +52,16 @@ def solve_cp_sat(
     if neighborhood is None and compact_task_groups(problem) is not None:
         return solve_compact_cp_sat(
             problem, budget, allow_partial=allow_partial, incumbent=incumbent,
-            phase_deadline=phase_deadline, search_phases=search_phases,
+            phase_deadline=phase_deadline, search_phases=search_phases, random_seed=random_seed,
         )
 
     model = cp_model.CpModel()
     slot_var_by_teacher = defaultdict(list)
     slot_var_by_class = defaultdict(list)
     day_var_by_teacher = defaultdict(list)
-    day_var_by_class_subject = defaultdict(list)
-    assignment_slot_vars = defaultdict(list)
     task_options = []
     optional_unscheduled_by_task = []
     task_start_vars = []
-    all_option_vars = []
     unscheduled_sentinel = max(slots, default=-1) + 1
     incumbent_genes = genes_from_candidate(incumbent) if incumbent is not None else None
 
@@ -89,17 +86,12 @@ def solve_cp_sat(
             var = model.NewBoolVar(f"task_{index}_start_{slot}")
             row = (slot, new_slots, group_slots, day, session, period, var)
             rows.append(row)
-            all_option_vars.append(var)
             for candidate in new_slots:
                 slot_var_by_teacher[(assignment.teacher_id, candidate)].append(var)
                 slot_var_by_class[(assignment.class_id, candidate)].append(var)
-                assignment_slot_vars[(assignment.id, candidate)].append(var)
             day_var_by_teacher[(assignment.teacher_id, day)].append(
                 (var, missing_size)
             )
-            day_var_by_class_subject[
-                (assignment.class_id, assignment.subject_id, day)
-            ].append((var, missing_size))
 
         option_sum = sum(row[6] for row in rows)
         # Pins remain mandatory. Only whole movable tasks may be omitted,
@@ -206,7 +198,7 @@ def solve_cp_sat(
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = max(0.05, time_limit)
         solver.parameters.num_search_workers = max(1, min(8, os.cpu_count() or 1))
-        solver.parameters.random_seed = 42
+        solver.parameters.random_seed = random_seed
         return solver
 
     def solve_model(solver, phase):
@@ -217,6 +209,7 @@ def solve_cp_sat(
             "status": solver.StatusName(status),
             "elapsed_seconds": round(time.monotonic() - started, 3),
             "movable_tasks": len(neighborhood) if neighborhood is not None else len(task_rows),
+            "random_seed": random_seed,
         })
         return status
 
@@ -276,123 +269,38 @@ def solve_cp_sat(
         return None
 
     if allow_partial:
-        # First maximize placed periods. A feasible partial incumbent must
-        # not stop the remaining repair search unless its count is proven.
         omitted_periods = sum(
             var * (task_rows[index][2] - len(task_rows[index][5]))
             for index, var in enumerate(optional_unscheduled_by_task)
             if var is not None
         )
         if neighborhood is not None:
-            # Require a real gain. A locally optimal partial timetable is
-            # never a proof of the maximum for the whole project.
             model.Add(omitted_periods < incumbent["unscheduled"])
+        elif incumbent is not None and all(
+            task[4] is None or incumbent_genes[index] is not None
+            for index, task in enumerate(task_rows)
+        ):
+            model.Add(omitted_periods <= incumbent["unscheduled"])
         model.Minimize(omitted_periods)
-        solver = make_solver(total_budget * (1.0 if neighborhood is not None else 0.65))
-        partial_phase = "cp_sat_neighborhood" if neighborhood is not None else "cp_sat_partial"
-        status = solve_model(solver, partial_phase)
-        if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            result = extract_result(solver, status, partial_phase)
-            result["maximum_placed"] = (
-                (neighborhood is None and status == cp_model.OPTIMAL)
-                or result["unscheduled"] == 0
-            )
-            result["optimal"] = False
-            result["search_limited"] = not result["maximum_placed"]
-            if (
-                neighborhood is not None
-                or not result["maximum_placed"]
-                or cp_time_left() <= 0.10
-            ):
-                return result
 
-            # Count is now fixed at its best value. Improve preferences
-            # without ever exchanging a placed period for a prettier grid.
-            model.Add(omitted_periods == result["unscheduled"])
-            model.ClearHints()
-            for var in all_option_vars:
-                model.AddHint(var, solver.Value(var))
-            for var in optional_unscheduled_by_task:
-                if var is not None:
-                    model.AddHint(var, solver.Value(var))
-            objective_terms = add_soft_objective(
-                model, problem, assignment_slot_vars,
-                slot_var_by_teacher, day_var_by_class_subject,
-            )
-            if objective_terms and cp_time_left() > 0.10:
-                model.Minimize(sum(objective_terms))
-                optimize_solver = make_solver(cp_time_left())
-                optimize_status = solve_model(optimize_solver, "cp_sat_partial_optimize")
-                if optimize_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-                    optimized = extract_result(
-                        optimize_solver, optimize_status, "cp_sat_partial_optimize"
-                    )
-                    if optimized["score"] <= result["score"]:
-                        optimized["maximum_placed"] = True
-                        optimized["search_limited"] = optimize_status != cp_model.OPTIMAL
-                        return optimized
-            return result
-        return None
-
-    # Phase 1: pure hard-feasibility search, no soft objective.  Reserve part
-    # of the request-wide deadline for GA/backtracking only when CP-SAT fails
-    # to find a complete schedule in time.
-    hard_time = min(total_budget, max(0.2, total_budget * 0.75))
-    solver = make_solver(hard_time)
-    status = solve_model(solver, "cp_sat_feasibility")
+    phase = "cp_sat_feasibility"
+    if allow_partial:
+        phase = "cp_sat_neighborhood" if neighborhood is not None else "cp_sat_partial"
+    solver = make_solver(cp_time_left())
+    status = solve_model(solver, phase)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        if status == cp_model.INFEASIBLE:
-            missing = sum(max(1, task[2] - len(task[5])) for task in task_rows)
-            return {
-                "lessons": [],
-                "unscheduled": missing,
-                "score": missing * 10000,
-                "solver": "cp_sat_feasibility",
-                "proven_infeasible": True,
-                "wall_time": round(solver.WallTime(), 3),
-            }
-        logger.info(
-            "CP-SAT feasibility phase reached its time limit (status=%s); "
-            "using bounded fallback",
-            status,
-        )
+        # A failed neighborhood only rules out that local repair.
+        if status == cp_model.INFEASIBLE and neighborhood is None:
+            missing = sum(task[2] - len(task[5]) for task in task_rows)
+            return {"lessons": [], "unscheduled": missing, "score": missing * 10000,
+                    "solver": phase, "proven_infeasible": True, "maximum_placed": False}
         return None
 
-    hard_result = extract_result(solver, status, "cp_sat_feasibility")
-    # A satisfaction solve can report OPTIMAL because there is no objective;
-    # that must not be exposed as soft-score optimality.
-    hard_result["optimal"] = False
-
-    # Phase 2: reuse the complete timetable as a hint and spend only the
-    # remaining global budget improving the canonical soft score.
-    if cp_time_left() <= 0.10:
-        return hard_result
-    model.ClearHints()
-    for var in all_option_vars:
-        model.AddHint(var, solver.Value(var))
-    objective_terms = add_soft_objective(
-        model, problem, assignment_slot_vars,
-        slot_var_by_teacher, day_var_by_class_subject,
+    result = extract_result(solver, status, phase)
+    result["maximum_placed"] = result["unscheduled"] == 0 or (
+        allow_partial and neighborhood is None and status == cp_model.OPTIMAL
     )
-    if not objective_terms or cp_time_left() <= 0.10:
-        return hard_result
-    model.Minimize(sum(objective_terms))
-
-    optimize_solver = make_solver(cp_time_left())
-    optimize_status = solve_model(optimize_solver, "cp_sat_optimize")
-    if optimize_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        optimized = extract_result(
-            optimize_solver, optimize_status, "cp_sat_optimize"
-        )
-        optimized["wall_time"] = round(
-            hard_result.get("wall_time", 0) + optimize_solver.WallTime(), 3
-        )
-        if optimized["score"] <= hard_result["score"]:
-            return optimized
-        return hard_result
-
-    hard_result["search_limited"] = True
-    hard_result["wall_time"] = round(
-        hard_result.get("wall_time", 0) + optimize_solver.WallTime(), 3
-    )
-    return hard_result
+    result["proven_infeasible"] = result["maximum_placed"] and result["unscheduled"] > 0
+    result["optimal"] = False
+    result["search_limited"] = not result["maximum_placed"]
+    return result

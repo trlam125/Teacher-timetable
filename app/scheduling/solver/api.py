@@ -31,7 +31,7 @@ def solve_missing(
 def solve_rebuild(db: Session, p: Project, tries=220, deadline: float | None = None):
     """Final retry: retain pins and give the remaining search a larger budget."""
     if deadline is None:
-        deadline = time.monotonic() + min(60.0, _solver_timeout_seconds() * 2)
+        deadline = time.monotonic() + min(3600.0, _solver_timeout_seconds() * 2)
     return ga_schedule(db, p, mode="rebuild", tries=tries, deadline=deadline)
 
 

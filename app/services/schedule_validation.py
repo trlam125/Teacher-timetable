@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -18,7 +18,31 @@ from app.models import (
 )
 from app.scheduling.rules import (
     assignment_groups, assignment_session_periods_valid, ensure_assignment_hard_feasible,
+    class_blocked_slots, parse_slots,
 )
+
+
+def teacher_capacity_issues(db: Session, project: Project, assignments, classes):
+    teachers = {row.id: row for row in db.scalars(
+        select(Teacher).where(Teacher.project_id == project.id))}
+    classes_by_id = {row.id: row for row in classes}
+    slots = set(range(project.days * project.sessions * project.periods_per_session))
+    slots -= parse_slots(project.blocked_slots_json)
+    demand = Counter()
+    available = defaultdict(set)
+    for assignment in assignments:
+        teacher = teachers.get(assignment.teacher_id)
+        school_class = classes_by_id.get(assignment.class_id)
+        if teacher is None or school_class is None:
+            continue
+        demand[teacher.id] += int(assignment.periods_per_week or 0)
+        available[teacher.id].update(slots - parse_slots(teacher.unavailable_json)
+                                     - class_blocked_slots(school_class))
+    return [{"teacher_id": teacher_id, "teacher_name": teachers[teacher_id].name,
+             "assigned": count, "capacity": len(available[teacher_id]),
+             "excess": count - len(available[teacher_id])}
+            for teacher_id, count in sorted(demand.items())
+            if count > len(available[teacher_id])]
 
 
 def assignment_availability_issues(
@@ -254,6 +278,7 @@ def schedule_input_validation_report(
     )
     fixed_definition_issues = fixed_lesson_definition_issues(db, project, assignments)
     availability_issues = assignment_availability_issues(db, project, assignments)
+    teacher_capacity = teacher_capacity_issues(db, project, assignments, classes)
 
     issue_count = sum(
         len(items)
@@ -265,6 +290,7 @@ def schedule_input_validation_report(
             class_capacity_issues,
             fixed_definition_issues,
             availability_issues,
+            teacher_capacity,
         )
     )
     valid = issue_count == 0
@@ -280,4 +306,5 @@ def schedule_input_validation_report(
         "class_capacity_issues": class_capacity_issues,
         "fixed_definition_issues": fixed_definition_issues,
         "assignment_availability_issues": availability_issues,
+        "teacher_capacity_issues": teacher_capacity,
     }

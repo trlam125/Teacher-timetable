@@ -7,7 +7,7 @@ import time
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.logging_config import logger
@@ -22,6 +22,7 @@ from app.scheduling.rules import (
 )
 from app.scheduling.solver.api import solve, solve_missing, solve_rebuild
 from app.scheduling.solver.diagnostics import SCHEDULER_REVISION
+from app.scheduling.solver.scoring import _solver_timeout_seconds
 from app.services.entities.schemas import GenerateScheduleIn
 from app.services.schedule_diagnostics import unscheduled_assignment_details
 from app.services.schedule_operations.blocks import add_generated_lessons
@@ -31,6 +32,21 @@ from app.services.schedule_operations.validation import (
 )
 from app.services.schedule_validation import schedule_input_validation_report
 from app.services.system_incidents import record_scheduler_incident
+
+
+def _protect_solver_transaction(db: Session) -> None:
+    """Keep PostgreSQL's idle timeout longer than CPU-only solver work."""
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    current_ms = int(db.scalar(text(
+        "SELECT setting FROM pg_settings WHERE name = 'idle_in_transaction_session_timeout'"
+    )))
+    required_ms = int((min(3600.0, _solver_timeout_seconds() * 2) + 60) * 1000)
+    # Zero already means unlimited. SET LOCAL expires at commit or rollback.
+    if 0 < current_ms < required_ms:
+        db.execute(text(
+            "SELECT set_config('idle_in_transaction_session_timeout', :timeout, true)"
+        ), {"timeout": f"{required_ms}ms"})
 
 
 def generate_schedule(db: Session, p: Project, pid: int, payload: Optional[GenerateScheduleIn], *, actor=None):
@@ -454,6 +470,7 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
 
     def run_solver(solver, mode, tries):
         nonlocal search_diagnostics
+        _protect_solver_transaction(db)
         started = time.monotonic()
         search_diagnostics = {
             "scheduler_revision": SCHEDULER_REVISION,
@@ -476,6 +493,8 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
             "maximum_placed": result.get("maximum_placed", result["unscheduled"] == 0),
             "reused_periods": result.get("reused_periods"),
             "proven_infeasible": result.get("proven_infeasible", False),
+            "proof_scope": result.get("proof_scope"),
+            "time_limit_reached": result.get("time_limit_reached", False),
             "search_phases": result.get("search_phases", []),
         })
         logger.info("Schedule generation diagnostic: %s", search_diagnostics)
@@ -527,7 +546,10 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
             grade_requirement_issues=missing_curriculum,
             class_capacity_issues=input_validation["class_capacity_issues"],
             assignment_availability_issues=input_validation["assignment_availability_issues"],
+            teacher_capacity_issues=input_validation["teacher_capacity_issues"],
         )
+        if search_diagnostics:
+            response_payload["search"] = search_diagnostics
         if response_payload["partial"]:
             response_payload["message"] = (
                 f"Đã lưu {len(current_lessons)} tiết lên thời khóa biểu; "
@@ -538,8 +560,35 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
                     f" Còn {len(missing_curriculum)} mục lớp–môn chưa được phân công giáo viên."
                 )
             movable_ids = sorted(row.id for row in current_lessons if not row.locked)
+            source_shortfall = max(
+                sum(row["excess"] for row in input_validation["teacher_capacity_issues"]),
+                sum(row["excess"] for row in input_validation["class_capacity_issues"]),
+            )
+            maximum_reached = bool(
+                source_shortfall >= missing_periods > 0
+                or (search_diagnostics
+                    and search_diagnostics["mode"] in ("full", "rebuild")
+                    and search_diagnostics["maximum_placed"])
+            )
+            if maximum_reached and missing_periods:
+                response_payload["message"] += (
+                    " Bộ xếp đã xác nhận đây là số tiết tối đa theo các ràng buộc hiện tại."
+                    " Cần điều chỉnh thời gian khả dụng hoặc phân công để xếp đủ."
+                )
+            elif missing_periods and search_diagnostics:
+                if (search_diagnostics["mode"] == "missing"
+                        and search_diagnostics["maximum_placed"]):
+                    response_payload["message"] += (
+                        " Không thể bổ sung thêm khi giữ nguyên các vị trí đang xếp."
+                        " Hãy dùng xếp lại phần không cố định để tìm cách bố trí khác."
+                    )
+                elif search_diagnostics["search_limited"]:
+                    response_payload["message"] += (
+                        " Chưa tìm thấy lịch đủ tiết trong lượt tìm kiếm này."
+                        " Chưa có kết luận rằng dữ liệu không thể xếp đủ."
+                    )
             response_payload.update(
-                can_rebuild=bool(missing_periods and movable_ids),
+                can_rebuild=bool(missing_periods and movable_ids and not maximum_reached),
                 affected_lesson_ids=movable_ids,
                 moved_count=len(movable_ids),
             )

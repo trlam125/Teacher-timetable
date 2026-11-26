@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from .backtracking import exact_search
 from .context import SearchBudget, candidate_key, genes_from_candidate as _candidate_genes
 from .cp_sat import solve_cp_sat
-from .cp_sat_compact import compact_task_groups
 from .genetic import GeneticSearch
 from .problem import build_problem
 from .rebuild import conflict_neighborhood, saved_placement_genes
@@ -36,6 +35,7 @@ def ga_schedule(
     evaluate = genetic.evaluate
     genes_from_candidate = partial(_candidate_genes, task_count=len(problem.task_rows))
     search_phases = []
+    proven_infeasible = False
     cp_sat_primary = partial(solve_cp_sat, problem, budget, search_phases=search_phases)
     exact_fallback = partial(exact_search, problem, budget)
     task_rows = problem.task_rows
@@ -59,6 +59,13 @@ def ga_schedule(
     )
 
     def finish(result):
+        complete = result["unscheduled"] == 0
+        result["proven_infeasible"] = not complete and bool(
+            result.get("proven_infeasible") or proven_infeasible)
+        result["maximum_placed"] = complete or result.get("maximum_placed", False)
+        result["search_limited"] = not result["maximum_placed"]
+        result["time_limit_reached"] = result["search_limited"] and deadline_hit()
+        result["proof_scope"] = "retained_lessons" if mode == "missing" else "pinned_lessons"
         result["search_phases"] = search_phases
         if mode == "rebuild":
             result["reused_periods"] = reused_periods
@@ -85,15 +92,27 @@ def ga_schedule(
         if candidate_key(repaired) < candidate_key(best_candidate):
             best_candidate = repaired
 
-    if (
-        mode == "rebuild" and best_candidate["unscheduled"] > 0
-        and compact_task_groups(problem) is None and not deadline_hit(0.25)
-    ):
-        # Repair around the saved timetable before spending the rest of the
-        # request on a global rebuild. Freeze unrelated tasks, then progressively
-        # expand through teacher/class conflicts. Local failures prove nothing
-        # about the feasibility of the entire project.
-        local_deadline = time.monotonic() + min(20.0, time_left() * 0.4)
+    if best_candidate["unscheduled"] == 0:
+        return finish(best_candidate)
+
+    # Use the main search to maximize coverage. Keep a small reserve for
+    # relocation and fallback search when CP-SAT reaches its deadline.
+    cp_result = cp_sat_primary(
+        allow_partial=True, incumbent=best_candidate,
+        phase_deadline=time.monotonic() + time_left() * 0.65,
+    )
+    proven_infeasible = bool(cp_result and cp_result.get("proven_infeasible"))
+    if cp_result is not None and "genes" in cp_result:
+        if candidate_key(cp_result) <= candidate_key(best_candidate):
+            best_candidate = cp_result
+        if cp_result.get("maximum_placed") and cp_result["unscheduled"] == best_candidate["unscheduled"]:
+            best_candidate["maximum_placed"] = True
+            return finish(best_candidate)
+
+    # Local repairs retain unrelated movable lessons. They can recover a
+    # handful of omissions without rebuilding the entire problem again.
+    if mode in ("full", "rebuild") and not deadline_hit(0.25):
+        local_deadline = time.monotonic() + time_left() * 0.5
         previous_neighborhood = None
         limits = (32, 96, 192)
         for attempt, limit in enumerate(limits):
@@ -111,64 +130,34 @@ def ga_schedule(
                 allow_partial=True, incumbent=best_candidate, neighborhood=active,
                 phase_deadline=time.monotonic() + phase_budget,
             )
-            if (
-                local_result is not None
-                and candidate_key(local_result) < candidate_key(best_candidate)
-            ):
-                best_candidate = local_result
+            if local_result is not None and "genes" in local_result:
+                if candidate_key(local_result) < candidate_key(best_candidate):
+                    best_candidate = local_result
                 if best_candidate["unscheduled"] == 0:
                     return finish(best_candidate)
 
-    cp_result = cp_sat_primary(incumbent=best_candidate)
-    if cp_result is not None:
-        # An infeasibility report is not a timetable candidate. It has no
-        # placement genes and must never replace the valid incumbent used by
-        # the partial search, even when both have the same missing count.
-        if (
-            not cp_result.get("proven_infeasible")
-            and candidate_key(cp_result) <= candidate_key(best_candidate)
-        ):
-            best_candidate = cp_result
-        if cp_result["unscheduled"] == 0:
-            return finish(best_candidate)
-    if best_candidate["unscheduled"] > 0:
-        partial_result = cp_sat_primary(allow_partial=True, incumbent=best_candidate)
-        if partial_result is not None:
-            if (
-                not partial_result.get("proven_infeasible")
-                and candidate_key(partial_result) <= candidate_key(best_candidate)
-            ):
-                best_candidate = partial_result
-            partial_result["proven_infeasible"] = bool(
-                partial_result.get("proven_infeasible")
-                or (cp_result and cp_result.get("proven_infeasible"))
-            )
-            if partial_result["unscheduled"] == 0 or partial_result.get("maximum_placed", False):
-                if partial_result["unscheduled"] == best_candidate["unscheduled"]:
-                    best_candidate["maximum_placed"] = True
-                return finish(best_candidate)
-            cp_result = partial_result
+    missing_periods = sum(task[2] - len(task[5]) for task in task_rows)
+    if (not proven_infeasible and len(task_rows) <= 24
+            and missing_periods <= 36 and not deadline_hit(0.25)):
+        node_limit = min(100000, max(20000, tries * 400))
+        exact_result, exhausted, nodes = exact_fallback(node_limit)
+        if exact_result is not None:
+            return finish(exact_result)
+        proven_infeasible = exhausted
+        best_candidate["exact_nodes"] = nodes
 
-    best_candidate = genetic.evolve(best_candidate, tries=tries, budget=budget, alternate=cp_result)
-
-    if best_candidate["unscheduled"] > 0:
-        missing_periods = sum(task[2] - len(task[5]) for task in task_rows)
-        # Python backtracking is useful only for genuinely small residual
-        # problems.  Larger cases stay with CP-SAT/GA and respect the same
-        # request-wide deadline instead of exploring hundreds of thousands of
-        # nodes after the solver budget has already expired.
-        exact_allowed = (
-            len(task_rows) <= 24 and missing_periods <= 36 and not deadline_hit(0.25)
-        )
-        if exact_allowed:
-            node_limit = min(100000, max(20000, tries * 400))
-            exact_result, exhausted, nodes = exact_fallback(node_limit)
-            if exact_result is not None:
-                return finish(exact_result)
-            best_candidate["proven_infeasible"] = exhausted
-            best_candidate["search_limited"] = not exhausted
-            best_candidate["exact_nodes"] = nodes
-        else:
-            best_candidate["proven_infeasible"] = False
-            best_candidate["search_limited"] = True
+    # Reserve time for a fresh global CP search. A different seed and the best
+    # placement found so far let it explore beyond the first search trajectory.
+    fallback_budget = SearchBudget(time.monotonic() + time_left() * 0.4)
+    best_candidate = genetic.evolve(best_candidate, tries=tries, budget=fallback_budget, alternate=cp_result)
+    if best_candidate["unscheduled"] == 0:
+        return finish(best_candidate)
+    if not deadline_hit(0.25):
+        retry = cp_sat_primary(allow_partial=True, incumbent=best_candidate, random_seed=43)
+        if retry is not None:
+            proven_infeasible = proven_infeasible or retry.get("proven_infeasible", False)
+            if "genes" in retry and candidate_key(retry) <= candidate_key(best_candidate):
+                best_candidate = retry
+            if retry.get("maximum_placed") and retry["unscheduled"] == best_candidate["unscheduled"]:
+                best_candidate["maximum_placed"] = True
     return finish(best_candidate)
