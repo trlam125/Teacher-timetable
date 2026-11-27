@@ -153,9 +153,7 @@
     return `<img class="operation-toast-img" src="${path}?v=${STATUS_GIF_VERSION}&play=${replayToken}" width="${size}" height="${size}" alt="${alt}" loading="eager">`;
   }
 
-  // Preload độc lập với nút Hiệu ứng. Trước đây việc preload nằm trong
-  // effects-toggle.js, nên khi bỏ nút khỏi các trang khác thì popup không nên
-  // phụ thuộc vào file đó nữa.
+  // Tải trước ảnh dùng trong thông báo thao tác.
   try {
     new Set(Object.values(STATUS_GIFS)).forEach((src) => {
       const image = new Image();

@@ -20,11 +20,15 @@
         </div>
     </div>
 </dialog>
-<dialog id="projectChangeHistoryDialog" class="change-impact-dialog" aria-labelledby="projectChangeHistoryTitle">
-    <div class="change-impact-content">
-        <h2 id="projectChangeHistoryTitle">Lịch sử &amp; sao lưu</h2>
-        <p>Chỉ có thể hoàn tác thay đổi gần nhất khi chưa có chỉnh sửa mới.</p>
-        <div id="projectChangeHistoryBody" aria-live="polite"></div>
-        <div class="row end"><button class="btn ghost" type="button" onclick="this.closest('dialog').close()">Đóng</button></div>
+<dialog id="projectChangeHistoryDialog" class="change-impact-dialog project-change-history-dialog" aria-labelledby="projectChangeHistoryTitle">
+    <div class="change-impact-content project-change-history-content">
+        <header class="project-change-history-header">
+            <h2 id="projectChangeHistoryTitle">Lịch sử &amp; sao lưu</h2>
+            <button class="btn ghost" type="button" autofocus onclick="this.closest('dialog').close()">Đóng</button>
+        </header>
+        <div class="project-change-history-scroll" tabindex="0" role="region" aria-label="Danh sách lịch sử chỉnh sửa">
+            <p>Chỉ có thể hoàn tác thay đổi gần nhất khi chưa có chỉnh sửa mới.</p>
+            <div id="projectChangeHistoryBody" aria-live="polite"></div>
+        </div>
     </div>
 </dialog>

@@ -488,6 +488,12 @@ function renderSchedule(preserveScroll = false) {
     ve = $("#viewEntity");
   if (!box || !vt || !ve) return;
 
+  const legendItems =
+    '<b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Tiết đôi / cặp ưu tiên</span><span><i class="schedule-color-swatch conflict"></i>Ô vi phạm ràng buộc</span>';
+  const legendContainer = document.getElementById("scheduleLegendItems");
+  if (legendContainer && !legendContainer.firstElementChild) legendContainer.innerHTML = legendItems;
+  const legend = legendContainer ? "" : `<div class="schedule-color-legend">${legendItems}</div>`;
+
   if (vt.value !== "overview" && !ve.value) {
     box.innerHTML =
       '<div class="empty-state">Không tìm thấy đối tượng phù hợp với bộ lọc hiện tại.</div>';
@@ -499,9 +505,6 @@ function renderSchedule(preserveScroll = false) {
     sessions = data.project.sessions;
   const clustered = clusteredLessonIds();
   const conflicts = computeScheduleConflicts();
-  const legend =
-    '<div class="schedule-color-legend"><b>Chú thích màu</b><span><i class="schedule-color-swatch"></i>Tiết đơn</span><span><i class="schedule-color-swatch cluster"></i>Tiết đôi / cặp ưu tiên</span><span><i class="schedule-color-swatch conflict"></i>Ô vi phạm ràng buộc</span></div>';
-
   // Lập chỉ mục một lần cho mỗi lần render để tránh quét toàn bộ assignments/lessons
   // ở từng ô thời khóa biểu.
   const assignmentById = new Map(
@@ -538,31 +541,20 @@ function renderSchedule(preserveScroll = false) {
   }
   for (const lessons of lessonsBySlot.values()) lessons.sort(sortLessons);
 
-  const renderLessonsForSlot = (slot) => {
-    const lessons = lessonsBySlot.get(slot) || [];
-    const visibleConflictReasons = [
-      ...new Set(
-        lessons.flatMap((lesson) =>
-          conflicts.conflictsByLessonId.get(lesson.id) || [],
-        ),
-      ),
-    ];
-    const slotConflictText = visibleConflictReasons.join("; ");
-    const lessonMarkup = lessons
-      .map((lesson) =>
-        lessonHtml(
-          lesson,
-          vt.value,
-          clustered.has(lesson.id),
-          conflicts.conflictsByLessonId.get(lesson.id) || [],
-          assignmentById.get(lesson.assignment_id),
-        ),
-      )
-      .join("");
+  const renderCell = (lessons, view) => {
+    const reasons = new Set();
+    const html = lessons.map((lesson) => {
+      const lessonConflicts = conflicts.conflictsByLessonId.get(lesson.id) || [];
+      for (const reason of lessonConflicts) reasons.add(reason);
+      return lessonHtml(
+        lesson, view, clustered.has(lesson.id), lessonConflicts,
+        assignmentById.get(lesson.assignment_id),
+      );
+    }).join("");
     return {
-      hasConflict: visibleConflictReasons.length > 0,
-      slotConflictText,
-      lessonMarkup,
+      hasConflict: reasons.size > 0,
+      conflictTitle: [...reasons].join("; "),
+      html,
     };
   };
 
@@ -589,20 +581,8 @@ function renderSchedule(preserveScroll = false) {
         lessonsByClassSlot.get(key).push(lesson);
       }
     }
-    const matrixCellContent = (slot, classId) => {
-      const cellLessons = lessonsByClassSlot.get(`${classId}:${slot}`) || [];
-      const reasons = [...new Set(cellLessons.flatMap((lesson) =>
-        conflicts.conflictsByLessonId.get(lesson.id) || []))];
-      return {
-        conflictTitle: reasons.join("; "),
-        hasConflict: reasons.length > 0,
-        html: cellLessons.map((lesson) => lessonHtml(
-          lesson, "matrix", clustered.has(lesson.id),
-          conflicts.conflictsByLessonId.get(lesson.id) || [],
-          assignmentById.get(lesson.assignment_id),
-        )).join(""),
-      };
-    };
+    const matrixCellContent = (slot, classId) =>
+      renderCell(lessonsByClassSlot.get(`${classId}:${slot}`) || [], "matrix");
     const oldMatrix = box.querySelector(".class-matrix-timetable");
     if (oldMatrix && oldMatrix.dataset.matrixKey === matrixKey &&
       oldMatrix.querySelectorAll(".matrix-class-slot").length === days * sessions * pps * classes.length) {
@@ -619,7 +599,7 @@ function renderSchedule(preserveScroll = false) {
 
     const scrollState = preserveScroll ? captureRefreshScrollState() : null;
     const columns = `64px 46px 46px repeat(${classes.length}, minmax(144px, 1fr))`;
-    let html = `<div class="timetable class-matrix-timetable" data-matrix-key="${matrixKey}" style="grid-template-columns:${columns}; --matrix-class-count:${classes.length}">`;
+    let html = `<div class="timetable class-matrix-timetable" data-matrix-key="${matrixKey}" style="grid-template-columns:${columns}">`;
     for (const [label, column] of [["Thứ", 1], ["Buổi", 2], ["Tiết", 3]]) {
       html += `<div class="cell head matrix-corner matrix-corner-${column}" style="grid-column:${column};grid-row:1">${label}</div>`;
     }
@@ -652,12 +632,12 @@ function renderSchedule(preserveScroll = false) {
     return;
   }
 
-  const currentTable = box.querySelector(".timetable");
+  const currentTable = box.querySelector(".timetable:not(.class-matrix-timetable)");
   const totalSlots = days * sessions * pps;
-  const isOverview = ["overview", "grade", "subject"].includes(vt.value);
+  const showCompactLessons = vt.value === "subject";
   const canUpdateInPlace =
     currentTable &&
-    currentTable.classList.contains("overview-timetable") === isOverview &&
+    currentTable.classList.contains("overview-timetable") === showCompactLessons &&
     currentTable.querySelectorAll(".cell.available[data-slot]").length ===
     totalSlots;
 
@@ -667,13 +647,12 @@ function renderSchedule(preserveScroll = false) {
         `.cell.available[data-slot="${slot}"]`,
       );
       if (!cell) continue;
-      const { hasConflict, slotConflictText, lessonMarkup } =
-        renderLessonsForSlot(slot);
+      const content = renderCell(lessonsBySlot.get(slot) || [], vt.value);
 
-      cell.classList.toggle("has-conflict", hasConflict);
-      cell.dataset.conflictTitle = slotConflictText;
-      if (cell.title !== slotConflictText) cell.title = slotConflictText;
-      if (cell.innerHTML !== lessonMarkup) cell.innerHTML = lessonMarkup;
+      cell.classList.toggle("has-conflict", content.hasConflict);
+      cell.dataset.conflictTitle = content.conflictTitle;
+      if (cell.title !== content.conflictTitle) cell.title = content.conflictTitle;
+      if (cell.innerHTML !== content.html) cell.innerHTML = content.html;
     }
     applyScheduleHighlight();
     return;
@@ -681,7 +660,7 @@ function renderSchedule(preserveScroll = false) {
 
   const scrollState = preserveScroll ? captureRefreshScrollState() : null;
 
-  let html = `<div class="timetable ${isOverview ? "overview-timetable" : ""}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;
+  let html = `<div class="timetable ${showCompactLessons ? "overview-timetable" : ""}" style="grid-template-columns:90px repeat(${days},minmax(135px,1fr))"><div class="cell head">Tiết</div>`;
   for (let d = 0; d < days; d++)
     html += `<div class="cell head">${["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"][d]}</div>`;
   for (let s = 0; s < sessions; s++) {
@@ -689,9 +668,8 @@ function renderSchedule(preserveScroll = false) {
       html += `<div class="cell period">${sessions > 1 ? (s === 0 ? "S" : "C") + " " : ""}${p + 1}</div>`;
       for (let d = 0; d < days; d++) {
         const slot = d * (sessions * pps) + s * pps + p;
-        const { hasConflict, slotConflictText, lessonMarkup } =
-          renderLessonsForSlot(slot);
-        html += `<div class="cell available ${hasConflict ? "has-conflict" : ""}" data-slot="${slot}" data-conflict-title="${esc(slotConflictText)}" title="${esc(slotConflictText)}">${lessonMarkup}</div>`;
+        const content = renderCell(lessonsBySlot.get(slot) || [], vt.value);
+        html += `<div class="cell available ${content.hasConflict ? "has-conflict" : ""}" data-slot="${slot}" data-conflict-title="${esc(content.conflictTitle)}" title="${esc(content.conflictTitle)}">${content.html}</div>`;
       }
     }
   }

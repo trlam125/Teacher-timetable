@@ -39,6 +39,35 @@ body.workspace-viewport .workspace-tabs-stage {flex:1;min-height:0;height:auto;}
 .change-impact-block span {min-width:0;}
 .change-impact-actions {position:sticky;bottom:-24px;flex-wrap:wrap;padding:14px 0;background:var(--card-bg);border-top:1px solid var(--line);margin-top:18px;}
 #changeImpactStatus {color:var(--muted);}
+.project-change-history-dialog {
+  max-height:88dvh;
+  overflow:hidden;
+}
+.project-change-history-content {
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.project-change-history-header {
+  display:flex;
+  flex:none;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px 14px;
+  padding-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+.project-change-history-header h2 {margin:0;}
+.project-change-history-header .btn {min-height:44px;margin-inline-start:auto;}
+.project-change-history-scroll {
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.project-change-history-scroll:focus-visible {
+  outline:2px solid var(--primary-hover);
+  outline-offset:-2px;
+}
 .project-change-entry {padding:14px 0;border-bottom:1px solid var(--line);}
 .project-change-entry time {color:var(--muted);font-size:12px;}
 @media(max-width:600px) {.change-impact-content {padding:16px;}.change-impact-resolution {grid-template-columns:1fr;gap:5px;}.change-impact-actions {bottom:-16px;}.change-impact-actions .btn {flex:1 1 160px;white-space:normal;}}
