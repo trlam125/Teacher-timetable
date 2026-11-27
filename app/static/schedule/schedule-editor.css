@@ -693,20 +693,34 @@
   flex: 0 0 auto;
 }
 
-.schedule-actions-menu > summary {
-  display: flex;
+.schedule-actions-trigger {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 36%, var(--line));
+  border-radius: var(--radius-full);
+  background: var(--primary-subtle);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
   list-style: none;
   cursor: pointer;
 }
 
-.schedule-actions-menu > summary::-webkit-details-marker {
+.schedule-actions-trigger::-webkit-details-marker {
   display: none;
 }
 
-.schedule-actions-menu[open] > summary svg {
+.schedule-actions-trigger:hover,
+.schedule-actions-menu[open] > .schedule-actions-trigger {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 18%, var(--card-bg));
+}
+
+.schedule-actions-menu[open] .schedule-actions-chevron {
   transform: rotate(180deg);
 }
 

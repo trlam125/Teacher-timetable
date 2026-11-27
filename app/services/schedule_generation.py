@@ -586,7 +586,7 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
                         and search_diagnostics["maximum_placed"]):
                     response_payload["message"] += (
                         " Không thể bổ sung thêm khi giữ nguyên các vị trí đang xếp."
-                        " Chọn Thao tác → Xếp lại lịch để thử cách bố trí khác."
+                        " Chọn Quản lý lịch → Xếp lại lịch để thử cách bố trí khác."
                     )
                 elif search_diagnostics["time_limit_reached"]:
                     response_payload["message"] += (
