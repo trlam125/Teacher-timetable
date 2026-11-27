@@ -22,7 +22,7 @@ class GeneticSearch:
             {row[0]: row for row in options} for options in problem.task_candidates
         ]
 
-    def evaluate(self, genes: list[int | None]):
+    def evaluate(self, genes: list[int | None], budget: SearchBudget | None = None):
         """Honor inherited positions, then repair only unresolved placements."""
         task_rows = self.problem.task_rows
         existing = self.problem.existing
@@ -32,6 +32,7 @@ class GeneticSearch:
         assignments = self.problem.assignments
         task_candidates = self.problem.task_candidates
         candidate_by_start = self.candidate_by_start
+        budget = budget or SearchBudget(float("inf"))
 
         teacher_busy = defaultdict(set)
         class_busy = defaultdict(set)
@@ -68,17 +69,18 @@ class GeneticSearch:
             ) = task_rows[index]
             slot, _group_slots, new_slots, day, session, period = row
             missing_size = size - len(anchor_slots)
-            if any(
-                candidate in teacher_busy[assignment.teacher_id]
-                or candidate in class_busy[assignment.class_id]
-                for candidate in new_slots
-            ):
+            if (not teacher_busy[assignment.teacher_id].isdisjoint(new_slots)
+                    or not class_busy[assignment.class_id].isdisjoint(new_slots)):
                 return False
             if (
                 teacher_day[(assignment.teacher_id, day)] + missing_size
                 > ppd
             ):
                 return False
+            if assignment.block_mode != "max_two_consecutive":
+                # Static candidates already fit a session. Only the capped mode
+                # has a stricter limit on the occupied periods in that session.
+                return True
             existing_periods = [
                 candidate % p.periods_per_session
                 for candidate in class_sub_slots[
@@ -130,9 +132,10 @@ class GeneticSearch:
                 teacher_busy[assignment.teacher_id].add(candidate)
                 class_busy[assignment.class_id].add(candidate)
                 assignment_busy[assignment.id].add(candidate)
-                class_sub_slots[(assignment.class_id, assignment.subject_id, day)].add(
-                    candidate % ppd
-                )
+                if assignment.block_mode == "max_two_consecutive":
+                    class_sub_slots[(assignment.class_id, assignment.subject_id, day)].add(
+                        candidate % ppd
+                    )
                 placed.append(
                     (assignment.id, candidate, forced is not None, f"task:{index}")
                 )
@@ -144,6 +147,9 @@ class GeneticSearch:
         pending = []
         for index, task in enumerate(task_rows):
             forced = task[4]
+            # Pins are sorted first and must be attempted even at the deadline.
+            if forced is None and budget.expired():
+                break
             gene = forced if forced is not None else genes[index]
             row = candidate_by_start[index].get(gene) if gene is not None else None
             if row is not None and feasible(index, row):
@@ -153,34 +159,30 @@ class GeneticSearch:
 
         # Repair only the genes that could not be honored. Dynamic MRV reduces
         # the chance that a flexible repair steals the last slot from a hard one.
-        unresolved = []
-        pending = set(pending)
-        options_by_task = {
-            index: [row for row in task_candidates[index] if feasible(index, row)]
-            for index in pending
-        }
+        options_by_task = {}
         pending_by_teacher = defaultdict(set)
         pending_by_class = defaultdict(set)
         for index in pending:
+            if budget.expired():
+                break
+            options = [row for row in task_candidates[index] if feasible(index, row)]
+            if not options:
+                continue
+            options_by_task[index] = options
             owner = task_rows[index][0]
             pending_by_teacher[owner.teacher_id].add(index)
             pending_by_class[owner.class_id].add(index)
-        while pending:
+        pending = set(options_by_task)
+        while pending and not budget.expired():
             selected_index = None
             selected_options = None
             for index in tuple(pending):
                 options = options_by_task[index]
-                if not options:
-                    unresolved.append(index)
-                    pending.remove(index)
-                    continue
                 if selected_options is None or len(options) < len(selected_options):
                     selected_index = index
                     selected_options = options
                     if len(options) == 1:
                         break
-            if selected_index is None:
-                continue
             pending.remove(selected_index)
             forced = task_rows[selected_index][4]
             gene = forced if forced is not None else genes[selected_index]
@@ -195,11 +197,19 @@ class GeneticSearch:
             owner = task_rows[selected_index][0]
             affected = pending_by_teacher[owner.teacher_id] | pending_by_class[owner.class_id]
             for index in affected & pending:
-                options_by_task[index] = [row for row in options_by_task[index] if feasible(index, row)]
+                if budget.expired():
+                    break
+                options = [row for row in options_by_task[index] if feasible(index, row)]
+                if options:
+                    options_by_task[index] = options
+                else:
+                    pending.remove(index)
 
         unscheduled = sum(
-            max(1, task_rows[index][2] - len(task_rows[index][5]))
-            for index in unresolved
+            task[2] - len(task[5]) for task, start in zip(task_rows, chosen_starts) if start is None
+        )
+        missing_fixed = sum(
+            task[4] is not None and start is None for task, start in zip(task_rows, chosen_starts)
         )
         final_slots = defaultdict(set)
         for lesson in existing:
@@ -212,6 +222,7 @@ class GeneticSearch:
         return {
             "lessons": placed,
             "unscheduled": unscheduled,
+            "missing_fixed": missing_fixed,
             "score": round(score, 2),
             "genes": chosen_starts,
             "solver": "ga_fallback",
@@ -273,7 +284,7 @@ class GeneticSearch:
             cp_genes = genes_from_candidate(alternate)
             if cp_genes != population[0]:
                 population.append(cp_genes)
-        while len(population) < population_size:
+        while len(population) < population_size and not deadline_hit(0.05):
             population.append(
                 [random_gene(index, task) for index, task in enumerate(task_rows)]
             )
@@ -281,9 +292,9 @@ class GeneticSearch:
         def evaluate_population(items):
             result = []
             for genes in items:
-                if result and deadline_hit(0.05):
+                if deadline_hit(0.05):
                     break
-                candidate = evaluate(genes)
+                candidate = evaluate(genes, budget)
                 # Lamarckian repair: successful repaired placements become the
                 # chromosome inherited by the next generation instead of throwing
                 # that information away and keeping the pre-repair genotype.

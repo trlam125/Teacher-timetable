@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import defaultdict
 from functools import partial
 from typing import Optional
+import math
 import time
 
 from sqlalchemy.orm import Session
@@ -11,11 +12,12 @@ from sqlalchemy.orm import Session
 from .backtracking import exact_search
 from .context import SearchBudget, candidate_key, genes_from_candidate as _candidate_genes
 from .cp_sat import solve_cp_sat
+from .cp_sat_quality import quality_neighborhood
 from .genetic import GeneticSearch
 from .problem import build_problem
 from .rebuild import conflict_neighborhood, saved_placement_genes
 from .repair import repair_placements
-from .scoring import _schedule_soft_score, _solver_timeout_seconds
+from .scoring import _quality_timeout_seconds, _schedule_soft_score, _solver_timeout_seconds, soft_score
 from app.models import Project
 
 
@@ -26,7 +28,7 @@ def ga_schedule(
     if deadline is None:
         deadline = time.monotonic() + _solver_timeout_seconds()
     budget = SearchBudget(deadline)
-    problem = build_problem(db, p, mode, target_assignment_ids)
+    problem = build_problem(db, p, mode, target_assignment_ids, budget=budget)
     if isinstance(problem, dict):
         return problem
     time_left = budget.time_left
@@ -36,6 +38,7 @@ def ga_schedule(
     genes_from_candidate = partial(_candidate_genes, task_count=len(problem.task_rows))
     search_phases = []
     proven_infeasible = False
+    mandatory_infeasible = False
     cp_sat_primary = partial(solve_cp_sat, problem, budget, search_phases=search_phases)
     exact_fallback = partial(exact_search, problem, budget)
     task_rows = problem.task_rows
@@ -49,26 +52,89 @@ def ga_schedule(
         saved_placement_genes(p, task_rows, task_candidates, all_existing, existing)
         if mode == "rebuild" else [None] * len(task_rows)
     )
-    seed_candidate = evaluate(seed_genes)
-    seed_candidate["optimal"] = False
-    best_candidate = seed_candidate
+    best_candidate = evaluate(seed_genes, budget)
     saved_pairs = {(lesson.assignment_id, lesson.slot) for lesson in all_existing}
-    reused_periods = len(existing) + sum(
-        (assignment_id, slot) in saved_pairs
-        for assignment_id, slot, *_ in seed_candidate["lessons"]
-    )
 
     def finish(result):
-        complete = result["unscheduled"] == 0
-        result["proven_infeasible"] = not complete and bool(
-            result.get("proven_infeasible") or proven_infeasible)
-        result["maximum_placed"] = complete or result.get("maximum_placed", False)
-        result["search_limited"] = not result["maximum_placed"]
-        result["time_limit_reached"] = result["search_limited"] and deadline_hit()
+        missing = result["unscheduled"]
+        minimum_unscheduled = max((
+            math.floor(phase["objective_bound"])
+            for phase in search_phases
+            if phase["phase"] in ("cp_sat_partial", "cp_sat_compact_partial")
+            and math.isfinite(phase.get("objective_bound", -math.inf))
+        ), default=0)
+        valid = not result.get("missing_fixed")
+        if valid and missing and proven_infeasible:
+            minimum_unscheduled = max(1, minimum_unscheduled)
+        maximum_placed = valid and (
+            missing == 0 or result.get("maximum_placed", False)
+            or minimum_unscheduled == missing
+        )
+        time_limit_reached = not maximum_placed and deadline_hit()
+        infeasible = missing > 0 and bool(
+            maximum_placed or minimum_unscheduled > 0
+            or result.get("proven_infeasible") or proven_infeasible
+        )
+
+        initial_soft_score = soft_score(result)
+        quality_optimal = maximum_placed and initial_soft_score == 0
+        quality_status = "optimal" if quality_optimal else "not_started"
+        quality_deadline = min(deadline, time.monotonic() + _quality_timeout_seconds())
+        quality_budget = SearchBudget(quality_deadline)
+        large_problem = len(task_rows) >= 200
+        # A large model needs time to be built and presolved before it can improve a schedule.
+        minimum_quality_budget = 2.0 if large_problem else 0.05
+        if maximum_placed and not quality_optimal and not quality_budget.expired(minimum_quality_budget):
+            quality = None
+            if large_problem:
+                # On a large timetable, try a smaller model first so that a
+                # global presolve timeout can still leave an improvement.
+                local_deadline = time.monotonic() + min(5.0, quality_budget.time_left() / 3)
+                active = quality_neighborhood(problem, result, 64, SearchBudget(local_deadline))
+                if active:
+                    quality = cp_sat_primary(
+                        allow_partial=True, incumbent=result, optimize_quality=True,
+                        neighborhood=active, phase_deadline=local_deadline,
+                    )
+                    if (quality is not None and quality["unscheduled"] == missing
+                            and candidate_key(quality) < candidate_key(result)):
+                        result = quality
+            if soft_score(result) and not quality_budget.expired(minimum_quality_budget):
+                global_quality = cp_sat_primary(
+                    allow_partial=True, incumbent=result, optimize_quality=True,
+                    phase_deadline=quality_deadline,
+                )
+                if global_quality is not None and global_quality["unscheduled"] == missing:
+                    quality = global_quality
+                    if candidate_key(quality) < candidate_key(result):
+                        result = quality
+            quality_optimal = soft_score(result) == 0 or bool(quality and quality["quality_optimal"])
+            if quality_optimal:
+                quality_status = "optimal"
+            elif quality_budget.expired(0.05):
+                quality_status = "time_limited"
+            else:
+                quality_status = "feasible" if quality is not None else "no_result"
+
+        result.update(
+            proven_infeasible=infeasible,
+            mandatory_infeasible=mandatory_infeasible and not valid,
+            maximum_placed=maximum_placed,
+            minimum_unscheduled=missing if maximum_placed else minimum_unscheduled,
+            search_limited=not maximum_placed,
+            time_limit_reached=time_limit_reached,
+            optimal=quality_optimal,
+            initial_soft_score=initial_soft_score,
+            soft_score=soft_score(result),
+            quality_status=quality_status,
+        )
         result["proof_scope"] = "retained_lessons" if mode == "missing" else "pinned_lessons"
         result["search_phases"] = search_phases
         if mode == "rebuild":
-            result["reused_periods"] = reused_periods
+            result["reused_periods"] = len(existing) + sum(
+                (assignment_id, slot) in saved_pairs
+                for assignment_id, slot, *_ in result["lessons"]
+            )
         return result
 
     # Secure a valid incumbent before CP-SAT consumes the remaining budget.
@@ -88,7 +154,6 @@ def ga_schedule(
         repaired["score"] = repaired["unscheduled"] * 10000 + _schedule_soft_score(
             p, assignments, assignment_by_id, final_slots
         )
-        repaired["optimal"] = False
         if candidate_key(repaired) < candidate_key(best_candidate):
             best_candidate = repaired
 
@@ -102,8 +167,11 @@ def ga_schedule(
         phase_deadline=time.monotonic() + time_left() * 0.65,
     )
     proven_infeasible = bool(cp_result and cp_result.get("proven_infeasible"))
+    mandatory_infeasible = bool(cp_result and cp_result.get("mandatory_infeasible"))
+    if mandatory_infeasible:
+        return finish(best_candidate)
     if cp_result is not None and "genes" in cp_result:
-        if candidate_key(cp_result) <= candidate_key(best_candidate):
+        if candidate_key(cp_result) < candidate_key(best_candidate):
             best_candidate = cp_result
         if cp_result.get("maximum_placed") and cp_result["unscheduled"] == best_candidate["unscheduled"]:
             best_candidate["maximum_placed"] = True
@@ -111,7 +179,7 @@ def ga_schedule(
 
     # Local repairs retain unrelated movable lessons. They can recover a
     # handful of omissions without rebuilding the entire problem again.
-    if mode in ("full", "rebuild") and not deadline_hit(0.25):
+    if mode in ("full", "rebuild") and not best_candidate.get("missing_fixed") and not deadline_hit(0.25):
         local_deadline = time.monotonic() + time_left() * 0.5
         previous_neighborhood = None
         limits = (32, 96, 192)
@@ -156,7 +224,8 @@ def ga_schedule(
         retry = cp_sat_primary(allow_partial=True, incumbent=best_candidate, random_seed=43)
         if retry is not None:
             proven_infeasible = proven_infeasible or retry.get("proven_infeasible", False)
-            if "genes" in retry and candidate_key(retry) <= candidate_key(best_candidate):
+            mandatory_infeasible = bool(retry.get("mandatory_infeasible"))
+            if "genes" in retry and candidate_key(retry) < candidate_key(best_candidate):
                 best_candidate = retry
             if retry.get("maximum_placed") and retry["unscheduled"] == best_candidate["unscheduled"]:
                 best_candidate["maximum_placed"] = True

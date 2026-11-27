@@ -13,7 +13,6 @@ def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, p
     Saved lessons and forced tasks stay protected throughout this transaction-like
     search. A failed branch rolls back every displacement before trying another.
     """
-    by_start = [{row[0]: row for row in rows} for rows in candidates]
     placed = [None] * len(tasks)
     teacher_busy = {}
     class_busy = {}
@@ -61,7 +60,8 @@ def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, p
 
     for index, start in enumerate(genes):
         if start is not None:
-            write(index, by_start[index][start])
+            row = next(row for row in candidates[index] if row[0] == start)
+            write(index, row)
 
     trail = []
     nodes = 0
@@ -83,6 +83,8 @@ def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, p
         owner = tasks[index][0]
         options = []
         for row in candidates[index]:
+            if time.monotonic() >= deadline:
+                return False
             blockers = set()
             for slot in row[2]:
                 for occupant in (teacher_busy.get((owner.teacher_id, slot)), class_busy.get((owner.class_id, slot))):
@@ -109,22 +111,27 @@ def repair_placements(tasks, candidates, genes, existing, assignment_by_id, *, p
         return False
 
     for depth in (2, 4, 6, 8):
-        pending = sorted((i for i, row in enumerate(placed) if row is None), key=lambda i: (len(candidates[i]), i))
+        pending = sorted((i for i, row in enumerate(placed) if row is None),
+                         key=lambda i: (tasks[i][4] is None, len(candidates[i]), i))
         if not pending or nodes > node_limit or time.monotonic() >= deadline:
             break
         for index in pending:
+            if nodes > node_limit or time.monotonic() >= deadline:
+                break
             if insert(index, depth, frozenset()):
                 trail.clear()
 
     lessons = []
     unscheduled = 0
+    missing_fixed = 0
     repaired_genes = []
     for index, row in enumerate(placed):
         task = tasks[index]
         repaired_genes.append(None if row is None else row[0])
         if row is None:
             unscheduled += task[2] - len(task[5])
+            missing_fixed += task[4] is not None
         else:
             lessons.extend((task[0].id, slot, task[4] is not None, f"task:{index}") for slot in row[2])
     return {"lessons": lessons, "genes": repaired_genes, "unscheduled": unscheduled,
-            "solver": "relocation_repair", "repair_nodes": nodes}
+            "missing_fixed": missing_fixed, "solver": "relocation_repair", "repair_nodes": nodes}

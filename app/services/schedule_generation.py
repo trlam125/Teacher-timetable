@@ -22,7 +22,7 @@ from app.scheduling.rules import (
 )
 from app.scheduling.solver.api import solve, solve_missing, solve_rebuild
 from app.scheduling.solver.diagnostics import SCHEDULER_REVISION
-from app.scheduling.solver.scoring import _solver_timeout_seconds
+from app.scheduling.solver.scoring import _schedule_soft_score, _solver_timeout_seconds
 from app.services.entities.schemas import GenerateScheduleIn
 from app.services.schedule_diagnostics import unscheduled_assignment_details
 from app.services.schedule_operations.blocks import add_generated_lessons
@@ -488,8 +488,13 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
             "elapsed_seconds": round(time.monotonic() - started, 3),
             "result_periods": len(result["lessons"]),
             "unscheduled": result["unscheduled"],
+            "minimum_unscheduled": result.get("minimum_unscheduled"),
+            "missing_fixed": result.get("missing_fixed", 0),
             "optimal": result.get("optimal", False),
-            "search_limited": result.get("search_limited", not result.get("optimal", False)),
+            "initial_soft_score": result.get("initial_soft_score"),
+            "soft_score": result.get("soft_score"),
+            "quality_status": result.get("quality_status"),
+            "search_limited": result.get("search_limited", result["unscheduled"] > 0),
             "maximum_placed": result.get("maximum_placed", result["unscheduled"] == 0),
             "reused_periods": result.get("reused_periods"),
             "proven_infeasible": result.get("proven_infeasible", False),
@@ -568,6 +573,7 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
                 source_shortfall >= missing_periods > 0
                 or (search_diagnostics
                     and search_diagnostics["mode"] in ("full", "rebuild")
+                    and search_diagnostics["unscheduled"] == missing_periods
                     and search_diagnostics["maximum_placed"])
             )
             if maximum_reached and missing_periods:
@@ -580,18 +586,30 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
                         and search_diagnostics["maximum_placed"]):
                     response_payload["message"] += (
                         " Không thể bổ sung thêm khi giữ nguyên các vị trí đang xếp."
-                        " Hãy dùng xếp lại phần không cố định để tìm cách bố trí khác."
+                        " Chọn Thao tác → Xếp lại lịch để thử cách bố trí khác."
+                    )
+                elif search_diagnostics["time_limit_reached"]:
+                    response_payload["message"] += (
+                        " Đã hết thời gian tìm kiếm. Chưa xác định được số tiết tối đa có thể xếp."
                     )
                 elif search_diagnostics["search_limited"]:
                     response_payload["message"] += (
-                        " Chưa tìm thấy lịch đủ tiết trong lượt tìm kiếm này."
-                        " Chưa có kết luận rằng dữ liệu không thể xếp đủ."
+                        " Lượt này chưa xác định được số tiết tối đa có thể xếp."
+                    )
+                lower_bound = search_diagnostics["minimum_unscheduled"]
+                if search_diagnostics["search_limited"] and lower_bound:
+                    response_payload["message"] += (
+                        f" Ràng buộc trong phạm vi này buộc ít nhất {lower_bound} tiết chưa thể xếp."
                     )
             response_payload.update(
                 can_rebuild=bool(missing_periods and movable_ids and not maximum_reached),
                 affected_lesson_ids=movable_ids,
                 moved_count=len(movable_ids),
             )
+        if (search_diagnostics and not response_payload.get("preserved_current")
+                and search_diagnostics["quality_status"]
+                and search_diagnostics["soft_score"] < search_diagnostics["initial_soft_score"]):
+            response_payload["message"] += " Đã cải thiện cách bố trí các tiết được xếp."
         if response_payload["partial"]:
             outcome = {
                 "status": "partial",
@@ -613,93 +631,65 @@ def _generate_schedule(db: Session, p: Project, pid: int, payload, *, incident_c
     # Từ lần xếp thứ hai trở đi, giữ nguyên lịch khi chỉ bổ sung phần thiếu.
     # Nếu người dùng đã xác nhận rebuild, đi thẳng vào rebuild thay vì chạy lại
     # solve_missing rồi mới rebuild lần thứ hai.
-    if existing:
-        if missing == 0:
-            return finalize_generated_schedule(
-                {
-                    "ok": True,
-                    "score": 0,
-                    "unscheduled": 0,
-                    "message": "Thời khóa biểu đã đủ tiết và vượt qua kiểm tra toàn vẹn.",
-                },
-                invalid_status_code=409,
-            )
-
-        if payload and payload.allow_rebuild:
-            current_lessons = db.scalars(
-                select(Lesson).where(Lesson.project_id == pid)
-            ).all()
-            rebuild_lesson_ids = sorted(
-                lesson.id for lesson in current_lessons if not lesson.locked
-            )
-            confirmed_rebuild_ids = sorted(
-                set(payload.confirmed_rebuild_lesson_ids or [])
-            )
-            if confirmed_rebuild_ids != rebuild_lesson_ids:
-                return JSONResponse(
-                    {
-                        "ok": False,
-                        "requires_confirmation": True,
-                        "moved_count": len(rebuild_lesson_ids),
-                        "affected_lesson_ids": rebuild_lesson_ids,
-                        "message": (
-                            "Lịch đã thay đổi kể từ lần xác nhận trước. "
-                            "Hệ thống cần được phép thử xếp lại tối đa "
-                            f"{len(rebuild_lesson_ids)} tiết không cố định hiện tại; "
-                            "các tiết cố định vẫn được giữ nguyên."
-                        ),
-                    },
-                    409,
-                )
-
-            rebuild = run_solver(solve_rebuild, "rebuild", 260)
-            if rebuild["unscheduled"] > 0 and len(rebuild["lessons"]) < len(rebuild_lesson_ids):
-                return finalize_generated_schedule({
-                    "ok": True, "score": rebuild["score"], "preserved_current": True,
-                })
-
-            moved_count = len(rebuild_lesson_ids)
-            for lesson in current_lessons:
-                if not lesson.locked:
-                    db.delete(lesson)
-            db.flush()
-            add_generated_lessons(db, p, rebuild["lessons"])
-            return finalize_generated_schedule(
-                {
-                    "ok": True,
-                    "score": rebuild["score"],
-                    "unscheduled": 0,
-                    "message": (
-                        f"Đã giữ nguyên các tiết cố định và xếp lại {moved_count} tiết "
-                        "không cố định để hoàn thành thời khóa biểu."
-                    ),
-                }
-            )
-
-        result = run_solver(solve_missing, "missing", 160)
-        add_generated_lessons(db, p, result["lessons"])
+    if existing and missing == 0:
         return finalize_generated_schedule(
-            {
-                "ok": True,
-                "score": result["score"],
-                "unscheduled": 0,
-                "message": (
-                    f"Đã xếp bổ sung {len(result['lessons'])} tiết từ khay và giữ "
-                    "nguyên các vị trí còn hợp lệ."
-                ),
-            }
+            {"ok": True, "score": 0, "message": "Thời khóa biểu đã đủ tiết và vượt qua kiểm tra toàn vẹn."},
+            invalid_status_code=409,
         )
 
-    # Chỉ khi lịch hoàn toàn trống mới chạy bộ xếp toàn bộ.
-    result = run_solver(solve, "full", 120)
-    for l in existing:
-        db.delete(l)
+    rebuilding = bool(existing and payload and payload.allow_rebuild)
+    movable_lessons = []
+    if rebuilding:
+        movable_lessons = [lesson for lesson in existing if not lesson.locked]
+        rebuild_lesson_ids = sorted(lesson.id for lesson in movable_lessons)
+        if sorted(set(payload.confirmed_rebuild_lesson_ids or [])) != rebuild_lesson_ids:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "requires_confirmation": True,
+                    "moved_count": len(rebuild_lesson_ids),
+                    "affected_lesson_ids": rebuild_lesson_ids,
+                    "message": (
+                        "Lịch đã thay đổi kể từ lần xác nhận trước. "
+                        f"Bạn có muốn xếp lại tối đa {len(rebuild_lesson_ids)} tiết chưa ghim? "
+                        "Các tiết đã ghim giữ nguyên vị trí."
+                    ),
+                },
+                409,
+            )
+        result = run_solver(solve_rebuild, "rebuild", 260)
+        message = "Đã xếp lại lịch và giữ nguyên các tiết đã ghim."
+    elif existing:
+        result = run_solver(solve_missing, "missing", 160)
+        message = f"Đã xếp bổ sung {len(result['lessons'])} tiết và giữ nguyên các vị trí còn hợp lệ."
+    else:
+        result = run_solver(solve, "full", 120)
+        message = f"Đã xếp đầy đủ {len(result['lessons'])} tiết."
+
+    if result.get("missing_fixed"):
+        impossible = result.get("mandatory_infeasible", False)
+        return JSONResponse({
+            "ok": False,
+            "reason": "fixed_placement_infeasible" if impossible else "fixed_placement_unresolved",
+            "message": (
+                "Các tiết đã ghim không thể cùng được đặt trong phạm vi xếp hiện tại."
+                if impossible else "Lượt này chưa tìm được phương án đặt đủ các tiết ghim."
+            ) + " Lịch trước thao tác vẫn được giữ nguyên.",
+            "search": search_diagnostics,
+        }, 409 if impossible else 503)
+
+    if rebuilding:
+        if len(result["lessons"]) <= len(movable_lessons):
+            slots = defaultdict(set)
+            for lesson in existing:
+                slots[lesson.assignment_id].add(lesson.slot)
+            current_score = missing * 10000 + _schedule_soft_score(p, assignments, assignment_by_id, slots)
+            if (len(result["lessons"]) < len(movable_lessons)
+                    or (not assignments_with_unsatisfied_fixed and result["score"] >= current_score)):
+                return finalize_generated_schedule({"ok": True, "score": current_score, "preserved_current": True})
+        for lesson in movable_lessons:
+            db.delete(lesson)
+        db.flush()
+
     add_generated_lessons(db, p, result["lessons"])
-    return finalize_generated_schedule(
-        {
-            "ok": True,
-            "score": result["score"],
-            "unscheduled": 0,
-            "message": f"Đã xếp đầy đủ {len(result['lessons'])} tiết.",
-        }
-    )
+    return finalize_generated_schedule({"ok": True, "score": result["score"], "message": message})

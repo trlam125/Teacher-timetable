@@ -116,7 +116,7 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     modal.showModal();
     setProgress(
       "running",
-      "Đang tìm lịch hợp lệ và ưu tiên xếp đủ số tiết. Lịch có nhiều lớp và giáo viên có thể cần thêm thời gian...",
+      "Đang ưu tiên xếp đủ tiết, sau đó cải thiện lịch nếu còn thời gian...",
     );
   }
 
@@ -189,9 +189,9 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
       }
       if (
         await confirmAction(
-          `${apiErrorMessage(j, "Lịch hiện tại cần được xếp lại.")}\n\nBạn có đồng ý xếp lại phần không cố định không?`,
+          apiErrorMessage(j, "Bạn có muốn xếp lại các tiết chưa ghim?"),
           {
-            title: "Xếp lại thời khóa biểu",
+            title: "Xếp lại lịch",
             confirmText: "Xếp lại",
           },
         )
@@ -218,7 +218,6 @@ async function generateSchedule(confirmedRebuildLessonIds = null, confirmationAt
     setScheduleFeedback(message, "error", 5200);
   }
 }
-let partialScheduleRebuildIds = null;
 function scheduleRebuildLessonIds() {
   return [...new Set((data.lessons || [])
     .filter((lesson) => !lesson.locked)
@@ -240,26 +239,49 @@ function updateScheduleRebuildButton() {
   button.disabled = running || !movableCount || !hasMissing;
   button.setAttribute("aria-busy", running ? "true" : "false");
   button.title = running ? "Đang xếp thời khóa biểu."
-    : !movableCount ? "Chưa có tiết không cố định trên lịch để xếp lại."
+    : !movableCount ? "Cần có tiết chưa ghim để xếp lại."
     : !hasMissing ? "Lịch đã đủ tiết."
-    : `Dùng lịch hiện có để tìm chỗ cho phần còn thiếu; có thể dời tối đa ${movableCount} tiết không cố định.`;
+    : `Có thể dời tối đa ${movableCount} tiết chưa ghim để tìm chỗ cho phần còn thiếu.`;
 }
 async function confirmPartialScheduleRebuild() {
-  if (document.querySelector('[data-schedule-action][data-schedule-state="loading"]')) return;
+  if ($("#scheduleRebuildBtn")?.disabled) return;
   const ids = scheduleRebuildLessonIds();
-  if (!ids.length) {
-    setScheduleFeedback("Chưa có tiết không cố định trên lịch để xếp lại.", "info", 4200);
-    return;
-  }
   if (await confirmAction(
-    `Hệ thống sẽ dùng lịch hiện có làm điểm xuất phát để tìm chỗ cho phần còn thiếu, có thể dời tối đa ${ids.length} tiết không cố định. Các tiết cố định sẽ được giữ nguyên. Tiếp tục?`,
-    { title: "Xếp lại phần không cố định", confirmText: "Xếp lại" },
+    `Bộ xếp có thể dời tối đa ${ids.length} tiết chưa ghim để tìm chỗ cho phần còn thiếu. Các tiết đã ghim giữ nguyên vị trí.`,
+    { title: "Xếp lại lịch", confirmText: "Xếp lại" },
   )) await generateSchedule(ids);
 }
+function bindScheduleActions() {
+  const menu = $("#scheduleActions");
+  if (!menu) return;
+  const summary = menu.querySelector("summary");
+  const close = () => {
+    menu.open = false;
+    summary.focus();
+  };
+  $("#scheduleRebuildBtn").addEventListener("click", () => {
+    close();
+    confirmPartialScheduleRebuild();
+  });
+  $("#returnAllToTrayBtn").addEventListener("click", (event) => {
+    close();
+    returnAllToTray(event.currentTarget);
+  });
+  menu.addEventListener("keydown", (event) => {
+    if (!menu.open || event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  });
+  const closeOnLeave = (event) => {
+    if (menu.open && !menu.contains(event.target)) menu.open = false;
+  };
+  document.addEventListener("click", closeOnLeave);
+  document.addEventListener("focusin", closeOnLeave);
+}
+bindScheduleActions();
+
 function renderScheduleAttemptDetails(payload) {
-  partialScheduleRebuildIds = payload?.can_rebuild && Array.isArray(payload.affected_lesson_ids)
-    ? payload.affected_lesson_ids.map(Number).filter(id => Number.isInteger(id) && id > 0)
-    : null;
   const box = $("#scheduleAttemptDetails");
   if (!box) return;
   if (!payload) {
@@ -312,7 +334,7 @@ function renderScheduleAttemptDetails(payload) {
   }
   box.hidden = false;
   box.innerHTML = `<h2>Chi tiết phân công cần kiểm tra</h2><p>${esc(payload.message || "Chưa xếp được thời khóa biểu.")}</p>${rows.length
-    ? `<p>${rows.length} mục cần kiểm tra.${payload.unscheduled_assignments?.length ? (payload.saved ? " Các tiết xếp được đã có trên thời khóa biểu; phần còn thiếu nằm trong khay để xếp tiếp." : " Số tiết xếp được dưới đây thuộc lần thử vừa rồi; lịch đang lưu vẫn được giữ nguyên. Các phân công có thể ảnh hưởng lẫn nhau.") : ""}</p><div class="schedule-details-scroll" tabindex="0" aria-label="Chi tiết phân công chưa xếp được"><table class="data-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Chi tiết</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${esc(row.class_name || "—")}</td><td>${esc(row.subject_name || "—")}</td><td>${esc(row.teacher_name || row.assigned_teacher_name || "Chưa phân công")}</td><td>${esc(row.message || "Kiểm tra lại dữ liệu phân công.")}</td></tr>`).join("")}</tbody></table></div>` : ""}<button class="btn ghost" type="button" onclick="goToAssignments()">Đến mục Phân công</button>${partialScheduleRebuildIds?.length ? ' <button class="btn" type="button" onclick="confirmPartialScheduleRebuild()">Thử xếp lại phần không cố định</button>' : ""}`;
+    ? `<p>${rows.length} mục cần kiểm tra.${payload.unscheduled_assignments?.length ? (payload.saved ? " Các tiết xếp được đã có trên thời khóa biểu; phần còn thiếu nằm trong khay để xếp tiếp." : " Số tiết xếp được dưới đây thuộc lần thử vừa rồi; lịch đang lưu vẫn được giữ nguyên. Các phân công có thể ảnh hưởng lẫn nhau.") : ""}</p><div class="schedule-details-scroll" tabindex="0" aria-label="Chi tiết phân công chưa xếp được"><table class="data-table"><thead><tr><th>Lớp</th><th>Môn</th><th>Giáo viên</th><th>Chi tiết</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${esc(row.class_name || "—")}</td><td>${esc(row.subject_name || "—")}</td><td>${esc(row.teacher_name || row.assigned_teacher_name || "Chưa phân công")}</td><td>${esc(row.message || "Kiểm tra lại dữ liệu phân công.")}</td></tr>`).join("")}</tbody></table></div>` : ""}<button class="btn ghost" type="button" onclick="goToAssignments()">Đến mục Phân công</button>`;
 }
 function goToAssignments() {
   document.querySelector('.nav[data-tab="assignments"]')?.click();

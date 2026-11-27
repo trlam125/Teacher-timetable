@@ -41,6 +41,7 @@ def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: i
         )
 
     placed_by_task = {}
+    genes = [None] * len(task_rows)
     remaining = set(range(len(task_rows)))
     nodes = 0
     limit_hit = False
@@ -105,6 +106,7 @@ def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: i
 
     def apply(index: int, option):
         _score, slot, group_slots, new_slots, day = option
+        genes[index] = slot
         assignment = task_rows[index][0]
         forced = task_rows[index][4]
         for candidate in new_slots:
@@ -128,6 +130,7 @@ def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: i
         _score, slot, group_slots, new_slots, day = option
         assignment = task_rows[index][0]
         placed_by_task.pop(index, None)
+        genes[index] = None
         teacher_day[(assignment.teacher_id, day)] -= len(new_slots)
         class_sub_day[(assignment.class_id, assignment.subject_id, day)] -= len(
             new_slots
@@ -152,6 +155,9 @@ def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: i
         selected_options = None
         # Dynamic MRV on top of the static MRV ordering.
         for index in tuple(remaining):
+            if deadline_hit(0.02):
+                limit_hit = True
+                return False
             options = options_for(index)
             if not options:
                 return False
@@ -189,6 +195,7 @@ def exact_search(problem: SchedulingProblem, budget: SearchBudget, node_limit: i
     return (
         {
             "lessons": lessons,
+            "genes": genes,
             "unscheduled": 0,
             "score": round(soft_score, 2),
             "exact": True,

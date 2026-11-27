@@ -30,6 +30,8 @@ from app.scheduling.rules import (
     required_double_block_state,
 )
 
+from .context import SearchBudget
+
 Task = tuple[Assignment, int, int, bool, int | None, tuple[int, ...], tuple[int, ...] | None]
 Candidate = tuple[int, tuple[int, ...], tuple[int, ...], int, int, int]
 
@@ -59,6 +61,7 @@ class SchedulingProblem:
 
 def build_problem(
     db: Session, p: Project, mode: str, target_assignment_ids: Optional[set[int]] = None,
+    *, budget: SearchBudget | None = None,
 ) -> SchedulingProblem | dict:
     """Return cached tasks/candidates, or the existing structured input error."""
     assignments = db.scalars(
@@ -148,7 +151,7 @@ def build_problem(
             target_assignment_ids is None or assignment.id in target_assignment_ids
         ):
             invalid_fixed_assignment_ids.add(assignment.id)
-    global_blocked = parse_slots(p.blocked_slots_json)
+    global_blocked = frozenset(parse_slots(p.blocked_slots_json))
     slots = all_slots(p)
     ppd = p.sessions * p.periods_per_session
     if not assignments:
@@ -378,9 +381,8 @@ def build_problem(
         unavailable = (
             teacher_unavailable[assignment.teacher_id]
             | class_unavailable[assignment.class_id]
-            | frozenset(global_blocked)
+            | global_blocked
         )
-        subject = subjects[assignment.subject_id]
         static_subject_slots = existing_class_subject_slots[
             (assignment.class_id, assignment.subject_id)
         ]
@@ -440,9 +442,17 @@ def build_problem(
 
     # MRV: schedule the tasks with the fewest real candidates first.  Forced
     # tasks remain at the front.  This order is shared by all fallback solvers.
-    task_candidate_pairs = [
-        (task, static_candidates_for_task(task)) for task in task_rows
-    ]
+    domains = {}
+    task_candidate_pairs = []
+    for task in task_rows:
+        owner, _, size, _, forced, anchors, planned = task
+        key = (owner.id, size, forced, anchors, planned)
+        if key not in domains:
+            domains[key] = (
+                () if forced is None and budget is not None and budget.expired()
+                else static_candidates_for_task(task)
+            )
+        task_candidate_pairs.append((task, domains[key]))
     task_candidate_pairs.sort(
         key=lambda item: (
             0 if item[0][4] is not None else 1,

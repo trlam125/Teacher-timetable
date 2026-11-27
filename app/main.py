@@ -22,6 +22,7 @@ from app.routers.share_export import router as share_export_router
 from app.routers.social_auth import router as social_auth_router
 from app.routers.system import router as system_router
 from app.routers.teacher import router as teacher_router
+from app.scheduling.solver.cp_sat import load_cp_sat
 from app.services.bootstrap.runtime import initialize_database, run_database_bootstrap_step
 from app.services.schedule_live import register_schedule_live
 from app.services.schedule_notifications import register_schedule_notifications
@@ -37,6 +38,7 @@ async def application_lifespan(app: FastAPI):
     register_schedule_notifications()
     register_schedule_live()
     run_database_bootstrap_step(initialize_database)
+    load_cp_sat()
     mail_worker = asyncio.create_task(email_delivery_worker())
     try:
         yield

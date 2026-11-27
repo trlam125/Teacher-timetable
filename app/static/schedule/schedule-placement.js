@@ -490,7 +490,7 @@ async function returnAllToTray(button) {
   )
     return;
   setInlineActionState(button, "loading", {
-    idle: "Đưa tiết chưa cố định về khay",
+    idle: "Đưa tiết về khay",
     loading: "Đang đưa về khay...",
   });
   try {
@@ -507,7 +507,7 @@ async function returnAllToTray(button) {
       setInlineActionState(
         button,
         "success",
-        { idle: "Đưa tiết chưa cố định về khay", success: "Đã đưa về khay" },
+        { idle: "Đưa tiết về khay", success: "Đã đưa về khay" },
         1800,
       );
       showToast(
@@ -519,7 +519,7 @@ async function returnAllToTray(button) {
       setInlineActionState(
         button,
         "error",
-        { idle: "Đưa tiết chưa cố định về khay", error: "Chưa đưa được" },
+        { idle: "Đưa tiết về khay", error: "Chưa đưa được" },
         2200,
       );
       showToast(
@@ -532,7 +532,7 @@ async function returnAllToTray(button) {
     setInlineActionState(
       button,
       "error",
-      { idle: "Đưa tiết chưa cố định về khay", error: "Chưa hoàn tất" },
+      { idle: "Đưa tiết về khay", error: "Chưa hoàn tất" },
       2200,
     );
     showToast(requestFailureMessage(error), "error", 5000);

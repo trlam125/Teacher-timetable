@@ -648,8 +648,6 @@
 }
 #schedule:fullscreen .section-head,
 #schedule.schedule-faux-fullscreen .section-head { margin-bottom: 0; flex: 0 0 auto; }
-#schedule:fullscreen .schedule-bulk-actions,
-#schedule.schedule-faux-fullscreen .schedule-bulk-actions { margin: 0 !important; flex: 0 0 auto; }
 #schedule:fullscreen .manual-tray-panel,
 #schedule.schedule-faux-fullscreen .manual-tray-panel { flex: 0 0 auto; margin-bottom: 0; }
 #schedule:fullscreen #assignmentCoverage,
@@ -689,4 +687,56 @@
 @media print {
   #schedule .schedule-fullscreen-btn { display: none !important; }
   #schedule .class-matrix-timetable { max-height: none !important; overflow: visible !important; }
+}
+.schedule-actions-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.schedule-actions-menu > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.schedule-actions-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.schedule-actions-menu[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+.schedule-actions-panel {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-start: 0;
+  min-width: max-content;
+  padding: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+}
+
+.schedule-actions-panel .btn {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 44px;
+}
+
+.schedule-actions-menu :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media (min-width: 561px) {
+  .schedule-actions-panel {
+    inset-inline: auto 0;
+  }
 }

@@ -37,7 +37,7 @@ from app.services.schedule_live import schedule_revision
 from app.services.schedule_operations.blocks import fixed_coverage_slots
 from app.services.schedule_operations.validation import schedule_ui_validation_report
 from app.services.web import bounded_text
-from app.settings import nvidia_api_key, nvidia_primary_model
+from app.settings import nvidia_primary_model
 from app.subject_catalog import subject_sort_key
 
 
@@ -67,7 +67,7 @@ def chatbot_ui_context(project: Project | None) -> dict:
     return {
         "chatbot_project_id": project.id if project else None,
         "chatbot_project_name": project.name if project else "",
-        "chatbot_enabled": bool(nvidia_api_key()),
+        "chatbot_enabled": project is not None,
         "chatbot_primary_model": nvidia_primary_model(),
     }
 

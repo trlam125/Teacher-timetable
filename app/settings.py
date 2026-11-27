@@ -58,3 +58,7 @@ def nvidia_api_key() -> str:
 
 def nvidia_primary_model() -> str:
     return os.getenv("NVIDIA_MODEL", "").strip() or NVIDIA_DEFAULT_MODEL
+
+
+def chatbot_local_model() -> str:
+    return os.getenv("CHATBOT_LOCAL_MODEL", "").strip()

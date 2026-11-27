@@ -2,7 +2,7 @@
 from app.scheduling.rules import assignment_consecutive_limit
 
 
-def add_subject_session_constraints(model, problem, slot_variables):
+def add_subject_session_constraints(model, problem, slot_variables, budget):
     p = problem.project
     limits = {}
     capped_pairs = set()
@@ -13,6 +13,10 @@ def add_subject_session_constraints(model, problem, slot_variables):
         if assignment.block_mode == "max_two_consecutive":
             capped_pairs.add(key)
     for (class_id, subject_id), limit in limits.items():
+        if budget.expired():
+            return False
+        if (class_id, subject_id) not in capped_pairs and limit >= p.periods_per_session:
+            continue
         for day in range(p.days):
             for session in range(p.sessions):
                 base = day * problem.periods_per_day + session * p.periods_per_session
@@ -31,3 +35,4 @@ def add_subject_session_constraints(model, problem, slot_variables):
                 else:
                     for start in range(p.periods_per_session - limit):
                         model.Add(sum(occupancy[start:start + limit + 1]) <= limit)
+    return True

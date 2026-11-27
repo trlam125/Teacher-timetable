@@ -22,5 +22,5 @@ def genes_from_candidate(candidate: dict, task_count: int) -> list[int | None]:
 
 
 def candidate_key(candidate: dict) -> tuple:
-    """Missing periods take priority over every soft preference."""
-    return candidate["unscheduled"], candidate["score"]
+    """Mandatory pins come first, then coverage and soft preferences."""
+    return candidate.get("missing_fixed", 0), candidate["unscheduled"], candidate["score"]

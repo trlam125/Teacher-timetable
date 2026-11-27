@@ -7,6 +7,14 @@ import os
 from app.models import Assignment, Project
 from app.scheduling.rules import assignment_prefers_double, preferred_double_pair_count
 
+PREFERRED_DOUBLE_PENALTY = 14
+SAME_DAY_PENALTY = 8
+TEACHER_GAP_PENALTY = 2
+
+
+def soft_score(candidate: dict) -> int:
+    return int(candidate["score"] - 10000 * candidate["unscheduled"])
+
 def _teacher_idle_gaps(p: Project, busy_slots) -> int:
     """Count idle periods inside each day/session, never across sessions."""
     ppd = p.sessions * p.periods_per_session
@@ -43,28 +51,36 @@ def _schedule_soft_score(
         if assignment_prefers_double(assignment):
             formed_pairs = preferred_double_pair_count(p, slots_for_assignment)
             target_pairs = int(assignment.periods_per_week or 0) // 2
-            score += max(0, target_pairs - formed_pairs) * 14
+            score += max(0, target_pairs - formed_pairs) * PREFERRED_DOUBLE_PENALTY
 
         day_counts = Counter(slot // ppd for slot in slots_for_assignment)
-        score += sum(max(0, count - 1) * 8 for count in day_counts.values())
+        score += sum(max(0, count - 1) for count in day_counts.values()) * SAME_DAY_PENALTY
 
         owner = assignment_by_id.get(assignment.id)
         if owner:
             teacher_slots[owner.teacher_id].update(slots_for_assignment)
 
     for busy in teacher_slots.values():
-        score += _teacher_idle_gaps(p, busy) * 2
+        score += _teacher_idle_gaps(p, busy) * TEACHER_GAP_PENALTY
     return score
 
 
-def _solver_timeout_seconds() -> float:
+def _timeout_seconds(name: str, default: float, minimum: float, maximum: float) -> float:
     try:
-        value = float(os.getenv("SCHEDULE_SOLVER_TIMEOUT_SECONDS", "300"))
+        value = float(os.getenv(name, str(default)))
     except (TypeError, ValueError):
-        value = 300.0
+        value = default
     if not math.isfinite(value):
-        value = 300.0
-    return max(3.0, min(3600.0, value))
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def _solver_timeout_seconds() -> float:
+    return _timeout_seconds("SCHEDULE_SOLVER_TIMEOUT_SECONDS", 300.0, 3.0, 3600.0)
+
+
+def _quality_timeout_seconds() -> float:
+    return _timeout_seconds("SCHEDULE_QUALITY_TIMEOUT_SECONDS", 30.0, 0.0, 300.0)
 
 
 __all__ = [

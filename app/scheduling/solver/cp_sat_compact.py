@@ -5,8 +5,9 @@ from collections import defaultdict
 import os
 import time
 
-from .context import genes_from_candidate
+from .context import SearchBudget, genes_from_candidate
 from .cp_sat_constraints import add_subject_session_constraints
+from .cp_sat_quality import add_quality_objective
 from .scoring import _schedule_soft_score
 
 
@@ -26,7 +27,7 @@ def compact_task_groups(problem):
     return groups, domains
 
 
-def compact_capacity_shortfall(problem, groups, domains):
+def compact_capacity_shortfall(problem, groups, domains, budget):
     """Bound omissions by matching each resource's demand to its available slots."""
     from ortools.graph.python import max_flow
 
@@ -38,6 +39,8 @@ def compact_capacity_shortfall(problem, groups, domains):
             resource_groups[owner].append((assignment_id, len(indices)))
         deficit = 0
         for rows in resource_groups.values():
+            if budget.expired():
+                return None
             slots = sorted({slot for assignment_id, _count in rows for slot in domains[assignment_id]})
             if not slots:
                 deficit += sum(count for _assignment_id, count in rows)
@@ -59,7 +62,8 @@ def compact_capacity_shortfall(problem, groups, domains):
 
 
 def solve_compact_cp_sat(problem, budget, *, allow_partial=False, incumbent=None,
-                         phase_deadline=None, search_phases=None, random_seed=42):
+                         phase_deadline=None, search_phases=None, random_seed=42,
+                         optimize_quality=False):
     """Return ordinary task genes so repair and GA can reuse compact results."""
     grouped = compact_task_groups(problem)
     if grouped is None:
@@ -67,7 +71,10 @@ def solve_compact_cp_sat(problem, budget, *, allow_partial=False, incumbent=None
     from ortools.sat.python import cp_model
 
     groups, domains = grouped
-    shortfall = compact_capacity_shortfall(problem, groups, domains)
+    phase_budget = SearchBudget(min(budget.deadline, phase_deadline or budget.deadline))
+    shortfall = 0 if optimize_quality else compact_capacity_shortfall(problem, groups, domains, phase_budget)
+    if shortfall is None:
+        return None
     if shortfall and not allow_partial:
         missing = len(problem.task_rows)
         if search_phases is not None:
@@ -75,12 +82,7 @@ def solve_compact_cp_sat(problem, budget, *, allow_partial=False, incumbent=None
                                   "minimum_unscheduled": shortfall})
         return {"lessons": [], "unscheduled": missing, "score": missing * 10000,
                 "solver": "capacity_bound", "proven_infeasible": True, "optimal": False}
-    deadline = min(budget.deadline, phase_deadline or budget.deadline)
-
-    def time_left():
-        return max(0.0, deadline - time.monotonic())
-
-    if time_left() <= 0.05:
+    if phase_budget.expired(0.05):
         return None
     model = cp_model.CpModel()
     variables = {}
@@ -113,32 +115,39 @@ def solve_compact_cp_sat(problem, budget, *, allow_partial=False, incumbent=None
                 model.AddHint(missing, count - len(selected_hint))
         else:
             model.Add(sum(rows) == count)
-        if time_left() <= 0.05:
+        if phase_budget.expired(0.05):
             return None
 
     for key, rows in teacher_slot.items():
+        if phase_budget.expired():
+            return None
         model.Add(sum(rows) + problem.existing_teacher_slot[key] <= 1)
     for key, rows in class_slot.items():
         model.Add(sum(rows) + problem.existing_class_slot[key] <= 1)
-    add_subject_session_constraints(model, problem, subject_slot)
+    if not add_subject_session_constraints(model, problem, subject_slot, phase_budget):
+        return None
 
-    def run(phase, seconds):
-        if time_left() <= 0.05:
+    def run(phase):
+        remaining = phase_budget.time_left()
+        if remaining <= 0.05:
             return None, cp_model.UNKNOWN
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = max(0.01, min(seconds, time_left()))
+        solver.parameters.max_time_in_seconds = remaining - 0.05
         solver.parameters.num_search_workers = max(1, min(8, os.cpu_count() or 1))
         solver.parameters.random_seed = random_seed
         started = time.monotonic()
         status = solver.Solve(model)
         if search_phases is not None:
-            search_phases.append({
+            info = {
                 "phase": phase, "status": solver.StatusName(status),
                 "elapsed_seconds": round(time.monotonic() - started, 3),
                 "movable_tasks": len(problem.task_rows),
                 "placement_variables": len(variables),
                 "random_seed": random_seed,
-            })
+            }
+            if allow_partial and status in (cp_model.OPTIMAL, cp_model.FEASIBLE, cp_model.UNKNOWN):
+                info["objective_bound"] = max(0.0, solver.BestObjectiveBound())
+            search_phases.append(info)
         return solver, status
 
     def extract(solver, phase):
@@ -165,20 +174,32 @@ def solve_compact_cp_sat(problem, budget, *, allow_partial=False, incumbent=None
             "wall_time": round(solver.WallTime(), 3),
         }
 
-    if allow_partial:
+    phase = "cp_sat_compact_feasibility"
+    if optimize_quality:
+        phase = "cp_sat_compact_quality"
+        model.Add(sum(omitted) == incumbent["unscheduled"])
+        assignment_slot = {key: (var,) for key, var in variables.items()}
+        if not add_quality_objective(
+            model, problem, assignment_slot, teacher_slot, incumbent, phase_budget
+        ):
+            return None
+    elif allow_partial:
+        phase = "cp_sat_compact_partial"
         model.Add(sum(omitted) >= shortfall)
         if incumbent is not None:
             model.Add(sum(omitted) <= incumbent["unscheduled"])
         model.Minimize(sum(omitted))
-    phase = "cp_sat_compact_partial" if allow_partial else "cp_sat_compact_feasibility"
-    solver, status = run(phase, time_left())
+    solver, status = run(phase)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        if status == cp_model.INFEASIBLE:
+        if status == cp_model.INFEASIBLE and not optimize_quality:
             missing = len(problem.task_rows)
             return {"lessons": [], "unscheduled": missing, "score": missing * 10000,
                     "solver": phase, "proven_infeasible": True, "optimal": False}
         return None
     result = extract(solver, phase)
+    if optimize_quality:
+        result["quality_optimal"] = status == cp_model.OPTIMAL
+        return result
     if allow_partial:
         result["maximum_placed"] = status == cp_model.OPTIMAL or result["unscheduled"] == 0
         result["proven_infeasible"] = result["maximum_placed"] and result["unscheduled"] > 0

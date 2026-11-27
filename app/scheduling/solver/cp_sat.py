@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from functools import partial
+from functools import cache, partial
 import logging
 import os
 import time
 
 from .cp_sat_compact import compact_task_groups, solve_compact_cp_sat
 from .cp_sat_constraints import add_subject_session_constraints
+from .cp_sat_quality import add_quality_objective
 from .context import SearchBudget, genes_from_candidate as _candidate_genes
 from .problem import SchedulingProblem
 from .scoring import _schedule_soft_score
@@ -16,13 +17,24 @@ from .scoring import _schedule_soft_score
 logger = logging.getLogger("smart_tkb")
 
 
+@cache
+def load_cp_sat():
+    """Load the native solver before the first timed HTTP request."""
+    try:
+        from ortools.sat.python import cp_model
+    except (ImportError, OSError) as exc:
+        logger.warning("CP-SAT unavailable (%s); using the fallback scheduler", type(exc).__name__)
+        return None
+    return cp_model
+
+
 def solve_cp_sat(
     problem: SchedulingProblem, budget: SearchBudget, allow_partial: bool = False,
     incumbent=None, *, neighborhood=None, phase_deadline=None, search_phases=None,
-    random_seed=42,
+    random_seed=42, optimize_quality=False,
 ):
     """Solve using the same candidates and hard constraints as the fallbacks."""
-    deadline = budget.deadline
+    phase_budget = SearchBudget(min(budget.deadline, phase_deadline or budget.deadline))
     if search_phases is None:
         search_phases = []
     genes_from_candidate = partial(_candidate_genes, task_count=len(problem.task_rows))
@@ -38,26 +50,25 @@ def solve_cp_sat(
     existing = problem.existing
     assignment_by_id = problem.assignment_by_id
 
-    def cp_time_left():
-        return max(0.0, min(deadline, phase_deadline or deadline) - time.monotonic())
+    cp_time_left = phase_budget.time_left
 
     if cp_time_left() <= 0.05:
         return None
-    try:
-        from ortools.sat.python import cp_model
-    except (ImportError, OSError) as exc:
-        logger.warning("CP-SAT unavailable (%s); using the fallback scheduler", type(exc).__name__)
+    cp_model = load_cp_sat()
+    if cp_model is None:
         return None
 
     if neighborhood is None and compact_task_groups(problem) is not None:
         return solve_compact_cp_sat(
             problem, budget, allow_partial=allow_partial, incumbent=incumbent,
             phase_deadline=phase_deadline, search_phases=search_phases, random_seed=random_seed,
+            optimize_quality=optimize_quality,
         )
 
     model = cp_model.CpModel()
     slot_var_by_teacher = defaultdict(list)
     slot_var_by_class = defaultdict(list)
+    slot_var_by_assignment = defaultdict(list)
     day_var_by_teacher = defaultdict(list)
     task_options = []
     optional_unscheduled_by_task = []
@@ -89,6 +100,8 @@ def solve_cp_sat(
             for candidate in new_slots:
                 slot_var_by_teacher[(assignment.teacher_id, candidate)].append(var)
                 slot_var_by_class[(assignment.class_id, candidate)].append(var)
+                if optimize_quality:
+                    slot_var_by_assignment[(assignment.id, candidate)].append(var)
             day_var_by_teacher[(assignment.teacher_id, day)].append(
                 (var, missing_size)
             )
@@ -106,6 +119,7 @@ def solve_cp_sat(
                 "score": missing * 10000,
                 "solver": "cp_sat_feasibility",
                 "proven_infeasible": True,
+                "mandatory_infeasible": forced is not None,
                 "maximum_placed": False,
             }
         unscheduled = (
@@ -129,6 +143,8 @@ def solve_cp_sat(
 
     # Teacher/class collisions for every concrete timetable slot.
     for (teacher_id, slot), vars_for_slot in slot_var_by_teacher.items():
+        if phase_budget.expired():
+            return None
         model.Add(
             sum(vars_for_slot) + existing_teacher_slot[(teacher_id, slot)] <= 1
         )
@@ -152,7 +168,8 @@ def solve_cp_sat(
                 occupancy_by_class_subject_slot[
                     (assignment.class_id, assignment.subject_id, candidate)
                 ].append(var)
-    add_subject_session_constraints(model, problem, occupancy_by_class_subject_slot)
+    if not add_subject_session_constraints(model, problem, occupancy_by_class_subject_slot, phase_budget):
+        return None
 
     # Break permutation symmetry among otherwise-identical tasks belonging
     # to the same assignment.  Unscheduled tasks use a sentinel, so <= also
@@ -186,17 +203,17 @@ def solve_cp_sat(
             for index, start in zip(indices, starts):
                 hint_starts[index] = start
         for index, rows in enumerate(task_options):
+            if phase_budget.expired():
+                return None
             for start, *_rest, var in rows:
                 model.AddHint(var, int(start == hint_starts[index]))
             omitted = optional_unscheduled_by_task[index]
             if omitted is not None:
                 model.AddHint(omitted, int(hint_starts[index] is None))
 
-    total_budget = cp_time_left()
-
     def make_solver(time_limit: float):
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = max(0.05, time_limit)
+        solver.parameters.max_time_in_seconds = time_limit
         solver.parameters.num_search_workers = max(1, min(8, os.cpu_count() or 1))
         solver.parameters.random_seed = random_seed
         return solver
@@ -204,13 +221,16 @@ def solve_cp_sat(
     def solve_model(solver, phase):
         started = time.monotonic()
         status = solver.Solve(model)
-        search_phases.append({
+        info = {
             "phase": phase,
             "status": solver.StatusName(status),
             "elapsed_seconds": round(time.monotonic() - started, 3),
             "movable_tasks": len(neighborhood) if neighborhood is not None else len(task_rows),
             "random_seed": random_seed,
-        })
+        }
+        if allow_partial and status in (cp_model.OPTIMAL, cp_model.FEASIBLE, cp_model.UNKNOWN):
+            info["objective_bound"] = max(0.0, solver.BestObjectiveBound())
+        search_phases.append(info)
         return status
 
     def extract_result(solver, status, solver_name: str):
@@ -265,38 +285,52 @@ def solve_cp_sat(
             "wall_time": round(solver.WallTime(), 3),
         }
 
-    if total_budget <= 0.05:
-        return None
-
+    restrict_to_incumbent = incumbent is not None and all(
+        task[4] is None or incumbent_genes[index] is not None
+        for index, task in enumerate(task_rows)
+    )
     if allow_partial:
         omitted_periods = sum(
             var * (task_rows[index][2] - len(task_rows[index][5]))
             for index, var in enumerate(optional_unscheduled_by_task)
             if var is not None
         )
-        if neighborhood is not None:
+        if optimize_quality:
+            model.Add(omitted_periods == incumbent["unscheduled"])
+            if not add_quality_objective(
+                model, problem, slot_var_by_assignment, slot_var_by_teacher, incumbent, phase_budget
+            ):
+                return None
+        elif neighborhood is not None:
             model.Add(omitted_periods < incumbent["unscheduled"])
-        elif incumbent is not None and all(
-            task[4] is None or incumbent_genes[index] is not None
-            for index, task in enumerate(task_rows)
-        ):
+        elif restrict_to_incumbent:
             model.Add(omitted_periods <= incumbent["unscheduled"])
-        model.Minimize(omitted_periods)
+        if not optimize_quality:
+            model.Minimize(omitted_periods)
 
     phase = "cp_sat_feasibility"
-    if allow_partial:
+    if optimize_quality:
+        phase = "cp_sat_quality_neighborhood" if neighborhood is not None else "cp_sat_quality"
+    elif allow_partial:
         phase = "cp_sat_neighborhood" if neighborhood is not None else "cp_sat_partial"
-    solver = make_solver(cp_time_left())
+    remaining = cp_time_left()
+    if remaining <= 0.05:
+        return None
+    solver = make_solver(remaining - 0.05)
     status = solve_model(solver, phase)
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         # A failed neighborhood only rules out that local repair.
-        if status == cp_model.INFEASIBLE and neighborhood is None:
+        if status == cp_model.INFEASIBLE and neighborhood is None and not optimize_quality:
             missing = sum(task[2] - len(task[5]) for task in task_rows)
             return {"lessons": [], "unscheduled": missing, "score": missing * 10000,
-                    "solver": phase, "proven_infeasible": True, "maximum_placed": False}
+                    "solver": phase, "proven_infeasible": True, "maximum_placed": False,
+                    "mandatory_infeasible": allow_partial and not restrict_to_incumbent}
         return None
 
     result = extract_result(solver, status, phase)
+    if optimize_quality:
+        result["quality_optimal"] = neighborhood is None and status == cp_model.OPTIMAL
+        return result
     result["maximum_placed"] = result["unscheduled"] == 0 or (
         allow_partial and neighborhood is None and status == cp_model.OPTIMAL
     )
