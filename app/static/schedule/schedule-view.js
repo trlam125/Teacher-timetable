@@ -562,6 +562,8 @@ function renderSchedule(preserveScroll = false) {
   // ONE class at ONE slot (the former layout put all classes into one slot).
   // Keep every card as a selectable lesson with the existing pin/remove API.
   if (vt.value === "overview" || vt.value === "grade") {
+    const matrixClass = "schedule-overview-matrix";
+    const isOverview = vt.value === "overview";
     const classes = (data.classes || [])
       .filter((schoolClass) => !selectedGradeClassIds || selectedGradeClassIds.has(Number(schoolClass.id)))
       .sort((a, b) => scheduleCollator.compare(String(a.name || ""), String(b.name || "")));
@@ -586,6 +588,7 @@ function renderSchedule(preserveScroll = false) {
     const oldMatrix = box.querySelector(".class-matrix-timetable");
     if (oldMatrix && oldMatrix.dataset.matrixKey === matrixKey &&
       oldMatrix.querySelectorAll(".matrix-class-slot").length === days * sessions * pps * classes.length) {
+      oldMatrix.classList.toggle(matrixClass, isOverview);
       for (const cell of oldMatrix.querySelectorAll(".matrix-class-slot")) {
         const result = matrixCellContent(Number(cell.dataset.slot), Number(cell.dataset.classId));
         cell.classList.toggle("has-conflict", result.hasConflict);
@@ -599,7 +602,7 @@ function renderSchedule(preserveScroll = false) {
 
     const scrollState = preserveScroll ? captureRefreshScrollState() : null;
     const columns = `64px 46px 46px repeat(${classes.length}, minmax(144px, 1fr))`;
-    let html = `<div class="timetable class-matrix-timetable" data-matrix-key="${matrixKey}" style="grid-template-columns:${columns}">`;
+    let html = `<div class="timetable class-matrix-timetable${isOverview ? ` ${matrixClass}` : ""}" data-matrix-key="${matrixKey}" style="grid-template-columns:${columns}">`;
     for (const [label, column] of [["Thứ", 1], ["Buổi", 2], ["Tiết", 3]]) {
       html += `<div class="cell head matrix-corner matrix-corner-${column}" style="grid-column:${column};grid-row:1">${label}</div>`;
     }
